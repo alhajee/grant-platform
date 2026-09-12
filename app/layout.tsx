@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Uigeek | Sign in",
-  description: "Sign in to your Uigeek account.",
+  title: "UBE Grant Portal",
+  description: "Annual grant planning and submission for State Universal Basic Education Boards.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
@@ -17,7 +18,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        <Toaster richColors position="top-right" />
+      </body>
     </html>
   );
 }

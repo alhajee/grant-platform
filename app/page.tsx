@@ -20,7 +20,7 @@ export default function Home() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setNotice("Sign-in details submitted.");
+    window.location.href = "/beap/infrastructure";
   }
 
   return (
