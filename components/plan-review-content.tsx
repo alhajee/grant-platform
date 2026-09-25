@@ -9,6 +9,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectI
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import type { Snapshot } from '@/lib/plan-review';
+import { ActivityReviewContent } from '@/components/activity-review-content';
+import { InfrastructurePackageDetails, InfrastructureDocumentLinks } from '@/components/infrastructure-package-details';
 import { PlanSetupSummary } from '@/components/plan-setup-summary';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' });
@@ -26,7 +28,7 @@ function ReviewToolbar({ label, view, onChange, filters, filterLabel }: { label:
   </div>;
 }
 
-export function PlanReviewContent({ snapshot }: { snapshot: Snapshot }) {
+export function PlanReviewContent({ snapshot, sbmcEditHref, tlmEditHref, visiblePillars = ['infrastructure', 'sports', 'sbmc', 'tlm'] }: { snapshot: Snapshot; sbmcEditHref?: string; tlmEditHref?: string; visiblePillars?: readonly string[] }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [infrastructureView, setInfrastructureView] = useState(initialView);
   const [sportsView, setSportsView] = useState(initialView);
@@ -38,7 +40,8 @@ export function PlanReviewContent({ snapshot }: { snapshot: Snapshot }) {
   }
   return <div className="review-sections">
     {snapshot.setup && <PlanSetupSummary setup={snapshot.setup} />}
-    <Card id="review-infrastructure" className="review-table-card">
+    {!!snapshot.infrastructureDocuments?.length && <Card><CardHeader><CardTitle>Infrastructure technical dossier</CardTitle></CardHeader><div className="px-6"><InfrastructureDocumentLinks documents={snapshot.infrastructureDocuments}/></div></Card>}
+    {visiblePillars.includes('infrastructure') && <Card id="review-infrastructure" className="review-table-card">
       <CardHeader><CardTitle><Building2 aria-hidden="true" />Infrastructure <Badge variant="secondary">{snapshot.infrastructure.length}</Badge></CardTitle><CardDescription>Project lines</CardDescription></CardHeader>
       <ReviewToolbar label="projects" view={infrastructureView} onChange={setInfrastructureView} filters={[...new Set(snapshot.infrastructure.map(line => line.school.lga))].sort()} filterLabel="LGAs" />
       <Table className="review-data-table" aria-label="Infrastructure projects">
@@ -51,16 +54,16 @@ export function PlanReviewContent({ snapshot }: { snapshot: Snapshot }) {
               <TableRow id={id}><TableCell>{toggle(id, line.school.name)}</TableCell>
                 <TableCell className="review-school-cell"><strong>{line.school.name}</strong><span>{line.school.lga} · {line.school.level} · {line.school.location}</span></TableCell>
                 <TableCell className="review-project-cell"><div className="review-project-tags"><Badge variant="secondary" title={line.construction.name}>{line.construction.name.split(' · ')[0]}</Badge>{line.construction.name.split(' · ').length > 1 && <Badge variant="secondary" title={line.construction.name}>+{line.construction.name.split(' · ').length - 1}</Badge>}</div><span>{line.code}</span></TableCell>
-                <TableCell>{line.duration} weeks</TableCell><TableCell className="review-number">{line.quantity.toLocaleString()}</TableCell><TableCell className="review-number">{money.format(Number(line.unit_cost))}</TableCell><TableCell className="review-number font-semibold">{money.format(cost(line))}</TableCell>
+                <TableCell>{line.package ? 'See package' : `${line.duration} weeks`}</TableCell><TableCell className="review-number">{line.quantity.toLocaleString()}</TableCell><TableCell className="review-number">{money.format(Number(line.unit_cost))}</TableCell><TableCell className="review-number font-semibold">{money.format(cost(line))}</TableCell>
               </TableRow>
-              <TableRow id={`${id}-details`} hidden={!expanded[id]} className="review-detail-row"><TableCell colSpan={7}><div className="review-row-details"><h3>Project</h3><p className="review-comment">{line.construction.name}</p><dl className="review-facts"><div><dt>Implementation strategy</dt><dd>{line.strategy || '—'}</dd></div><div><dt>Latitude</dt><dd>{line.latitude || '—'}</dd></div><div><dt>Longitude</dt><dd>{line.longitude || '—'}</dd></div></dl><h3>Rationale</h3><p className="review-comment">{line.rationale || 'No rationale provided.'}</p></div></TableCell></TableRow>
+              <TableRow id={`${id}-details`} hidden={!expanded[id]} className="review-detail-row"><TableCell colSpan={7}><div className="review-row-details">{line.package ? <InfrastructurePackageDetails record={line.package}/> : <><h3>Project</h3><p className="review-comment">{line.construction.name}</p><dl className="review-facts"><div><dt>Implementation strategy</dt><dd>{line.strategy || '—'}</dd></div><div><dt>Latitude</dt><dd>{line.latitude || '—'}</dd></div><div><dt>Longitude</dt><dd>{line.longitude || '—'}</dd></div></dl><h3>Rationale</h3><p className="review-comment">{line.rationale || 'No rationale provided.'}</p></>}</div></TableCell></TableRow>
             </Fragment>;
           })}
         </TableBody>
         <TableFooter><TableRow><TableCell colSpan={6}>{infrastructure.length} of {snapshot.infrastructure.length} project lines <span className="review-total-label">{infrastructure.length === snapshot.infrastructure.length ? 'Total' : 'Filtered total'}</span></TableCell><TableCell className="review-number">{money.format(infrastructure.reduce((sum, line) => sum + cost(line), 0))}</TableCell></TableRow></TableFooter>
       </Table>
-    </Card>
-    <Card id="review-sports" className="review-table-card">
+    </Card>}
+    {visiblePillars.includes('sports') && <Card id="review-sports" className="review-table-card">
       <CardHeader><CardTitle><Trophy aria-hidden="true" />Sports activities <Badge variant="secondary">{snapshot.sports.length}</Badge></CardTitle><CardDescription>Budget items</CardDescription></CardHeader>
       <ReviewToolbar label="budget items" view={sportsView} onChange={setSportsView} filters={[...new Set(snapshot.sports.map(line => line.section))].sort()} filterLabel="sections" />
       <Table className="review-data-table" aria-label="Sports budget items">
@@ -83,6 +86,7 @@ export function PlanReviewContent({ snapshot }: { snapshot: Snapshot }) {
         </TableBody>
         <TableFooter><TableRow><TableCell colSpan={6}>{sports.length} of {snapshot.sports.length} budget items <span className="review-total-label">{sports.length === snapshot.sports.length ? 'Total' : 'Filtered total'}</span></TableCell><TableCell className="review-number">{money.format(sports.reduce((sum, line) => sum + cost(line), 0))}</TableCell></TableRow></TableFooter>
       </Table>
-    </Card>
+    </Card>}
+    <ActivityReviewContent snapshot={snapshot} sbmcEditHref={sbmcEditHref} tlmEditHref={tlmEditHref} />
   </div>;
 }

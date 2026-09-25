@@ -11,7 +11,7 @@ const palettes = {
 } as const;
 
 export function PillarIllustration({ pillar: id }: { pillar: PillarId }) {
-  const artwork: Record<PillarId, keyof typeof palettes> = { infrastructure:'infrastructure',quality:'quality',teachers:'quality',sbmc:'access',monitoring:'systems',curriculum:'quality',planning:'systems',sports:'sports',gscci:'gscci' };
+  const artwork: Record<PillarId, keyof typeof palettes> = { infrastructure:'infrastructure',tlm:'quality',quality:'quality',teachers:'quality',sbmc:'access',monitoring:'systems',curriculum:'quality',planning:'systems',sports:'sports',gscci:'gscci' };
   const pillar = artwork[id];
   const [background, soft, accent, ink] = palettes[pillar];
   return (

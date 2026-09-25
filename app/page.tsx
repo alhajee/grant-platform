@@ -24,7 +24,7 @@ export default function Home() {
         toast.error(payload.error ?? "Unable to sign in.");
         return;
       }
-      window.location.assign(payload.destination === '/ubec' ? '/ubec' : '/dashboard');
+      window.location.assign(payload.destination === '/admin' ? '/admin' : payload.destination === '/ubec' ? '/ubec' : '/dashboard');
     } catch {
       toast.error("Unable to reach the sign-in service. Please try again.");
     } finally {

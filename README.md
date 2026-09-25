@@ -2,6 +2,14 @@
 
 ## Current configuration
 
+### Super-admin demo switching
+
+Apply migration `013-super-admin.sql` after 012. A separately provisioned `Super Admin` signs in to `/admin`, searches users, and chooses **Act as user**. A persistent banner offers **Switch user** and **Return to admin**. Active non-admin accounts can be impersonated across SUBEB and UBEC; each retains its own state, department and workflow permissions. Inactive accounts and other super-admins cannot be impersonated. This is not a sandbox: writes affect the selected user's actual workspace.
+
+Impersonation expires after one hour. The original administrator has a revocable server-side session; impersonation is bound to that session and invalidated by account deactivation or session-version changes. Switching and returning end the previous impersonation. Start/end records identify both people, and write attempts are logged separately without request bodies. Workflow histories continue to record the effective user. Other open portal tabs reload when the identity changes. Super-admin privileges cannot be granted through state user management.
+
+For a local-only demo, run `node --env-file=.env scripts/create-local-super-admin.mjs`. It creates `admin@demo.local` with a random password in an ignored, owner-readable file under `outputs/local-super-admin/`; it never changes an existing account. Do not reuse demo identities in production. Set a private `AUTH_SECRET` of at least 32 characters. Run `node --env-file=.env scripts/test-impersonation.mjs` for isolated security checks. Production deployment should add MFA and operational access controls before granting this powerful role.
+
 Copy `.env.example` to `.env` and set private values before starting Docker. `POSTGRES_PASSWORD` must match the password in `DATABASE_URL`; for an existing database, use its current password. Changing the environment file does not rotate an existing database password. No accounts or password hashes are provisioned by the initial schema.
 
 The plan overview groups nine funding components under Quality, Access and System Optimisation. SUBEB component responsibilities follow the reference workflow; Infrastructure and Supervision belong to Physical Planning, and TLMs to Academic Services. Only Infrastructure and Sports editors are implemented.
@@ -212,6 +220,18 @@ Quarter reservations are unique per state/year/quarter, including concurrent req
 
 Run `node --env-file=.env scripts/test-plan-setup.mjs` and `node --env-file=.env scripts/test-plan-creation-permission.mjs` against the local preview. Both use isolated temporary state records and clean up after themselves. Older plan-creation tests using JSON year ranges target the superseded creation contract.
 
+## Infrastructure school packages (migration 015)
+
+Apply `db/postgres/015-infrastructure-packages.sql` after 014 on existing PostgreSQL installations. Fresh Docker databases apply it automatically. The migration is additive: earlier infrastructure lines remain at `/beap/infrastructure/legacy` and still contribute to budgets and review snapshots.
+
+Infrastructure now starts at `/beap/infrastructure` with New Construction, Whole School Approach and Furniture Procurement. School enrolment and coordinates can be completed in the identification step and saved to the state register. Model 1 covers 1–240 learners, Model 2 covers 241–320, and Model 3 covers 321+. Packages freeze the school facts used for their calculation.
+
+The calculation module `lib/infrastructure-model.ts` implements the supplied BEAPMS v17 reference. HOPE costs classroom rows as lump sums (not multiplied by block count), other requirements by quantity except lump-sum toilets, and adds 7.5% VAT to other costs and to classroom costs only for NCB. Non-HOPE uses a single total with strategy and duration. Whole School audits distinguish existing/functional stock, round primary classroom deficits to blocks of three, and generate separate civil renovation/construction packages. Other gaps use functional stock. Fence length is state-provided. PWD accessibility is embedded in designs, not a separate budget line. The reference's activity percentages do not override the configurable funding policy.
+
+Documents are stored as actual bytes in PostgreSQL, validated by size/type/signature, and downloaded through authorized routes. Drawings, BOQ and site survey are required before Infrastructure submission. Updating a Whole School package requires a newly uploaded BOQ. Package updates use version checks, department permissions and the existing plan transaction lock. Saved submissions retain their original package details and attachment references. Files are limited to 5 MB each and 100 per plan.
+
+Checks: `node --experimental-strip-types scripts/test-infrastructure-model.mjs` tests calculations; `node --experimental-strip-types --env-file=.env scripts/test-infrastructure-packages.mjs` exercises isolated local fixtures and removes them afterward. Deployment to another database requires applying migration 015 before serving the updated application.
+
 ## Local D1 migrations
 
 For a D1-backed local preview, generate SQL with `npm run db:generate`. Build once through the Sites skill's build entrypoint (or `npm run build` for standalone use) to generate `dist/server/wrangler.json`, rebuilding if bindings change. From the project root, apply each pending migration in order:
@@ -223,6 +243,8 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 Replace the filename with the pending migration and `DB` with your D1 binding name if different. Use `.wrangler/state`, not `.wrangler/state/v3`; Wrangler adds the versioned directories. Do not replay migrations already applied locally. This updates only the preview database; publishing applies production migrations separately.
 
 ## Diagnostic Commands
+
+SBMC and TLM editors use the PostgreSQL migration `db/postgres/014-activity-plans.sql` (apply once to existing installations). SBMC belongs to Social Mobilization; TLM belongs to Academic Services and remains inside the Infrastructure/TLM allocation. Both use the existing department review lifecycle. TLM additionally requires a distribution school before review submission. Run `node --env-file=.env scripts/test-activity-plans.mjs` against the local development server to verify isolated fixtures; the script removes its test records afterward.
 
 - `npm run install:ci`: perform the one locked dependency install
 - `npm run dev`: start the Vite/Vinext development server

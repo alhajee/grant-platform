@@ -1,3 +1,4 @@
+import { canViewComponent } from '@/lib/subeb-access';
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveActionPlan } from "@/lib/plan-workspace";
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
   try {
     const workspace = await getWorkspaceState(request);
     if (!workspace) return error("Sign in to view your infrastructure plan.", 401);
+    if (!canViewComponent(workspace, 'infrastructure')) return error("This component belongs to another department.", 403);
     const plan = await resolveActionPlan(request, workspace.stateCode);
     if (!plan) return error("Action plan not found.", 404);
     const db = getPostgres();

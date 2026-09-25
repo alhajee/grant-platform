@@ -15,25 +15,29 @@ export async function GET(request: NextRequest) {
     if (!workspace) return NextResponse.json({ error: "Sign in to view your action plans." }, { status: 401 });
     const db = getPostgres();
     const [result, targets] = await Promise.all([db.query(`SELECT p.id, p.start_year AS "startYear", p.end_year AS "endYear", p.created_at AS "createdAt", p.status, p.version, p.submission_number AS "submissionNumber", ${planSetupFields('p')},
-      COALESCE(i.budget, 0)::float8 AS "infrastructureBudget", COALESCE(s.budget, 0)::float8 AS "sportsBudget",
-      (COALESCE(i.budget, 0) + COALESCE(s.budget, 0))::float8 AS budget,
-      (COALESCE(i.lines, 0) + COALESCE(s.lines, 0))::int AS "lineCount",
-      (SELECT COUNT(DISTINCT school_id)::int FROM (SELECT school_id FROM infrastructure_lines WHERE plan_id = p.id
-        UNION SELECT a.school_id FROM sports_allocations a JOIN sports_budget_lines b ON b.id = a.line_id WHERE b.plan_id = p.id) beneficiaries) AS "schoolCount",
-      GREATEST(p.created_at, p.workflow_updated_at, i.updated, s.updated, (SELECT MAX(a.updated_at) FROM sports_allocations a JOIN sports_budget_lines b ON b.id = a.line_id WHERE b.plan_id = p.id)) AS "updatedAt"
+      COALESCE(i.budget, 0)::float8 AS "infrastructureBudget", COALESCE(s.budget, 0)::float8 AS "sportsBudget", COALESCE(a.sbmc,0)::float8 AS "sbmcBudget", COALESCE(a.tlm,0)::float8 AS "tlmBudget",
+      (COALESCE(i.budget, 0) + COALESCE(s.budget, 0) + COALESCE(a.budget, 0))::float8 AS budget,
+      (COALESCE(i.lines, 0) + COALESCE(s.lines, 0) + COALESCE(a.lines, 0))::int AS "lineCount",
+      (SELECT COUNT(DISTINCT school_id)::int FROM (SELECT school_id FROM infrastructure_lines WHERE plan_id = p.id UNION SELECT school_id FROM infrastructure_packages WHERE plan_id=p.id
+        UNION SELECT a.school_id FROM sports_allocations a JOIN sports_budget_lines b ON b.id = a.line_id WHERE b.plan_id = p.id UNION SELECT school_id FROM tlm_distribution WHERE plan_id=p.id) beneficiaries) AS "schoolCount",
+      GREATEST(p.created_at, p.workflow_updated_at, i.updated, s.updated, a.updated, (SELECT MAX(updated_at) FROM tlm_distribution WHERE plan_id=p.id), (SELECT MAX(a.updated_at) FROM sports_allocations a JOIN sports_budget_lines b ON b.id = a.line_id WHERE b.plan_id = p.id)) AS "updatedAt"
       FROM action_plans p
-      LEFT JOIN LATERAL (SELECT SUM(unit_cost * quantity) AS budget, COUNT(*) AS lines, MAX(updated_at) AS updated FROM infrastructure_lines WHERE plan_id = p.id) i ON TRUE
+      LEFT JOIN LATERAL (SELECT SUM(cost) AS budget, COUNT(*) AS lines, MAX(updated_at) AS updated FROM (SELECT unit_cost * quantity AS cost,updated_at FROM infrastructure_lines WHERE plan_id=p.id UNION ALL SELECT total_cost AS cost,updated_at FROM infrastructure_packages WHERE plan_id=p.id) infrastructure) i ON TRUE
       LEFT JOIN LATERAL (SELECT SUM(unit_cost * quantity) AS budget, COUNT(*) AS lines, MAX(updated_at) AS updated FROM sports_budget_lines WHERE plan_id = p.id) s ON TRUE
+      LEFT JOIN LATERAL (SELECT SUM(unit_cost*quantity) AS budget,SUM(unit_cost*quantity) FILTER(WHERE workstream='sbmc') AS sbmc,SUM(unit_cost*quantity) FILTER(WHERE workstream='tlm') AS tlm,COUNT(*) AS lines,MAX(updated_at) AS updated FROM activity_plan_lines WHERE plan_id=p.id) a ON TRUE
       WHERE p.state_code = $1 ORDER BY "updatedAt" DESC, p.id DESC`, [workspace.stateCode]),
       db.query<{ count: number }>(`SELECT COUNT(*)::int AS count FROM (
         SELECT l.school_id FROM infrastructure_lines l
           JOIN action_plans p ON p.id = l.plan_id JOIN schools s ON s.id = l.school_id
           WHERE p.state_code = $1 AND s.state_code = $1
         UNION
+        SELECT i.school_id FROM infrastructure_packages i JOIN action_plans p ON p.id=i.plan_id WHERE p.state_code=$1
+        UNION
         SELECT a.school_id FROM sports_allocations a
           JOIN sports_budget_lines b ON b.id = a.line_id JOIN action_plans p ON p.id = b.plan_id
           JOIN schools s ON s.id = a.school_id
           WHERE p.state_code = $1 AND b.state_code = $1 AND s.state_code = $1
+      UNION SELECT d.school_id FROM tlm_distribution d JOIN action_plans p ON p.id=d.plan_id JOIN schools s ON s.id=d.school_id WHERE p.state_code=$1 AND s.state_code=$1
       ) targeted_schools`, [workspace.stateCode]),
     ]);
     const reviews = (await db.query<{plan_id:number;pillar:ImplementedPillar;status:string}>('SELECT r.plan_id,r.pillar,r.status FROM plan_pillar_reviews r JOIN action_plans p ON p.id=r.plan_id WHERE p.state_code=$1', [workspace.stateCode])).rows;

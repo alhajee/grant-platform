@@ -1,7 +1,7 @@
 'use client';
 
-import { createColumnHelper, type Column } from '@tanstack/react-table';
-import { ArrowDownIcon, ArrowUpIcon, ArrowUpDownIcon, MoreHorizontalIcon, PencilIcon, KeyRoundIcon } from 'lucide-react';
+import { createColumnHelper } from '@tanstack/react-table';
+import { MoreHorizontalIcon, PencilIcon, KeyRoundIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,18 +10,12 @@ import { departments as ubecDepartments } from '@/lib/ubec';
 import { subebDepartments } from '@/lib/subeb-departments';
 const departments = [...subebDepartments,...ubecDepartments];
 import { canManageRole } from '@/lib/subeb-access';
-import type { DataTableFeatures } from './data-table-features';
+import { DataTableColumnHeader as SortHeader } from '@/components/data-table-column-header';
+import type { DataTableFeatures } from '@/components/data-table-features';
 
 export type User = { id: number; name: string; email: string; role: string; department: string | null; active: boolean; canCreatePlan: boolean; isBeapChair: boolean };
 const helper = createColumnHelper<DataTableFeatures, User>();
 export const departmentLabel = (user: User) => user.role === 'Executive Chairman' ? 'Whole state' : departments.find(d => d.id === user.department)?.name ?? '';
-
-function SortHeader<TValue>({ column, title }: { column: Column<DataTableFeatures, User, TValue>; title: string }) {
-  const Icon = column.getIsSorted() === 'asc' ? ArrowUpIcon : column.getIsSorted() === 'desc' ? ArrowDownIcon : ArrowUpDownIcon;
-  return <Button variant="ghost" size="sm" className="-ml-3" onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}>
-    {title}<Icon data-icon="inline-end" />
-  </Button>;
-}
 
 export function userColumns(actorId: number, actorRole: string, actorDepartment: string | null, onEdit: (user: User) => void, onReset: (user: User) => void) {
   return helper.columns([

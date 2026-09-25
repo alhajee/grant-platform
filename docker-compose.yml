@@ -23,6 +23,9 @@ services:
       - ./db/postgres/010-plan-setup.sql:/docker-entrypoint-initdb.d/010-plan-setup.sql:ro
       - ./db/postgres/011-beap-chair.sql:/docker-entrypoint-initdb.d/011-beap-chair.sql:ro
       - ./db/postgres/012-funding-policy.sql:/docker-entrypoint-initdb.d/012-funding-policy.sql:ro
+      - ./db/postgres/013-super-admin.sql:/docker-entrypoint-initdb.d/013-super-admin.sql:ro
+      - ./db/postgres/014-activity-plans.sql:/docker-entrypoint-initdb.d/014-activity-plans.sql:ro
+      - ./db/postgres/015-infrastructure-packages.sql:/docker-entrypoint-initdb.d/015-infrastructure-packages.sql:ro
 
 volumes:
   ubec_postgres_data:

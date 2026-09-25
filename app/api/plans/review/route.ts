@@ -1,3 +1,5 @@
+import { visibleComponents, visibleSnapshot } from '@/lib/plan-visibility';
+import { canViewWholeStatePlan } from '@/lib/subeb-access';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getPostgres } from '@/lib/postgres';
@@ -27,7 +29,11 @@ export async function GET(request: NextRequest) {
       const submissions = (await db.query('SELECT number, created_at AS "createdAt" FROM plan_submissions WHERE plan_id = $1 ORDER BY number DESC', [plan.id])).rows;
       const events = (await db.query(`SELECT id, action, actor_name AS "actorName", actor_role AS "actorRole", comment, scope, submission_number AS "submissionNumber", created_at AS "createdAt" FROM plan_review_events WHERE plan_id = $1 ORDER BY id DESC`, [plan.id])).rows;
       const pillarReviews = await readPillarReviews(db, plan.id);
-      return NextResponse.json({ pillarReviews, readyForUbec: readyForUbec(pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, snapshot, selectedSubmission, submissions, events }, { headers: { 'Cache-Control': 'no-store' } });
+      const visiblePillars = visibleComponents(workspace);
+      const visibleEvents = canViewWholeStatePlan(workspace) ? events : events.filter(event => visiblePillars.includes(event.scope));
+      const visibleSubmissions = canViewWholeStatePlan(workspace) ? submissions : submissions.filter(submission => visibleEvents.some(event => event.submissionNumber === submission.number));
+      if (requested && !visibleSubmissions.some(submission => submission.number === Number(requested))) return error('Submission not found.', 404);
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbec(pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }
@@ -58,7 +64,9 @@ export async function POST(request: NextRequest) {
       const recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role=$2 AND ($2='Executive Chairman' OR department=$3)", [workspace.stateCode,recipientRole,department])).rows;
       if (!recipients.length) return error(`No active ${recipientRole} is assigned to this department/state.`, 409);
       const snapshot = await readPlanSnapshot(db, plan.id);
-      if (input.action !== 'request_changes' && !snapshot[input.pillar].length) return error('Add saved entries to this pillar before sending it.');
+      if (input.action !== 'request_changes' && !snapshot[input.pillar]?.length) return error('Add saved entries to this pillar before sending it.');
+      if (input.action !== 'request_changes' && input.pillar==='infrastructure' && !['drawings','boq','survey'].every(kind=>snapshot.infrastructureDocuments?.some(d=>d.kind===kind))) return error('Attach drawings, a BOQ and a site / geophysical survey before sending Infrastructure.');
+      if (input.action !== 'request_changes' && input.pillar==='tlm' && !snapshot.tlmDistribution?.length) return error('Add at least one school to the TLM distribution list before sending it.');
       const status: PillarReviewStatus = input.action === 'submit' || (input.action === 'request_changes' && actor.role === 'Executive Chairman') ? 'director_review' : input.action === 'endorse' ? 'chairman_ready' : 'changes_requested';
       await db.query('INSERT INTO plan_pillar_reviews(plan_id,pillar,status) VALUES($1,$2,$3) ON CONFLICT(plan_id,pillar) DO UPDATE SET status=EXCLUDED.status,updated_at=NOW()', [plan.id,input.pillar,status]);
       const number = plan.submissionNumber + 1;

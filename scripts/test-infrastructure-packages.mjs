@@ -1,0 +1,49 @@
+import assert from 'node:assert/strict';
+import {Client} from 'pg';
+import {hashSync} from 'bcryptjs';
+import {packageSchema,calculateInfrastructure} from '../lib/infrastructure-model.ts';
+const base=process.env.TEST_BASE_URL||'http://localhost:5174';
+assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
+assert.ok(['localhost','127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
+const db=new Client({connectionString:process.env.DATABASE_URL});await db.connect();
+const marker='INF'+Date.now(),password=crypto.randomUUID(),cookies={},users=[];let plan,school;
+async function api(who,path,body){const r=await fetch(base+path,{method:body?'POST':'GET',headers:{Origin:base,Cookie:cookies[who]||'',...(body instanceof FormData?{}:{'Content-Type':'application/json'})},...(body?{body:body instanceof FormData?body:JSON.stringify(body)}:{})});const text=await r.text();let data;try{data=JSON.parse(text);}catch{data=text;}return {status:r.status,data,cookie:r.headers.get('set-cookie')?.split(';')[0]};}
+function ok(r,status=200){assert.equal(r.status,status,JSON.stringify(r.data));return r.data;}
+try{
+ for(const [who,role,department]of [['officer','Data Entry Staff','physical'],['director','Director','physical'],['social','Data Entry Staff','social'],['chair','Executive Chairman',null]]){
+  const email=`${who}.${marker.toLowerCase()}@test.local`;users.push((await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[who,email,role,department,marker,hashSync(password,4)])).rows[0].id);
+  const r=await api(who,'/api/auth/login',{email,password});ok(r);cookies[who]=r.cookie;
+ }
+ plan=(await db.query('INSERT INTO action_plans(state_code,start_year,end_year) VALUES($1,2028,2028) RETURNING id',[marker])).rows[0].id;
+ school=(await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,'Infrastructure QA','QA','Primary','Rural',100,100) RETURNING id",[marker])).rows[0].id;
+ const path=`/api/infrastructure/packages?plan=${plan}`,reviewPath=`/api/plans/review?plan=${plan}`;
+ ok(await api('anonymous',path),401);ok(await api('social',path),403);
+ const input=packageSchema.parse({kind:'new',schoolId:school,components:['Primary','ECCDE'],targeting:'nonhope',lumpSum:1000,duration:'6 months',land:{available:true,documented:true,unencumbered:true}});
+ ok(await api('social',path,{action:'save',input}),403);
+ ok(await api('officer',path,{action:'save',input:{...input,land:{available:false,documented:true,unencumbered:true}}}),400);
+ ok(await api('officer',path,{action:'save',input}));let current=ok(await api('officer',path));const project=current.packages[0];assert.equal(Number(project.total_cost),1000);
+ ok(await api('officer',path,{action:'save',id:project.id,version:999,input}),409);
+ ok(await api('officer',path,{action:'profile',schoolId:school,profile:{male:200,female:200,latitude:'12',longitude:'10'}}));
+ let review=ok(await api('officer',reviewPath));assert.equal(review.snapshot.infrastructure[0].package.result.enrolment,200,'Stored package retains original enrolment');
+ ok(await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version}),400);
+ const docs=[];
+ async function upload(kind){const f=new FormData();f.set('kind',kind);f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],kind+'.pdf',{type:'application/pdf'}));const d=ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f));docs.push(d.id);return d;}
+ for(const kind of ['drawings','boq','survey'])await upload(kind);
+ ok(await api('social','/api/infrastructure/documents?id='+docs[0]),404);ok(await api('chair','/api/infrastructure/documents?id='+docs[0]));
+ const whole=packageSchema.parse({kind:'whole',schoolId:school,components:['Primary'],documentIds:[docs[1]]});
+ for(const i of calculateInfrastructure(whole,400).items)whole.packageCosts[i.key]={cost:1,strategy:'NCB',duration:'8 weeks'};
+ ok(await api('officer',path,{action:'save',input:whole}));current=ok(await api('officer',path));const assessment=current.packages.find(p=>p.kind==='whole');
+ ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole}),400);
+ const updatedBoq=await upload('boq');whole.documentIds.push(updatedBoq.id);
+ ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole}));
+ const overview=ok(await api('officer','/api/beap?plan='+plan));assert.equal(overview.infrastructure.budget,1000+calculateInfrastructure(whole,400).total);
+ const dashboard=ok(await api('officer','/api/plans'));assert.equal(dashboard.plans[0].budget,overview.infrastructure.budget);assert.equal(dashboard.targetedSchools,1);
+ review=ok(await api('officer',reviewPath));ok(await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version}));
+ ok(await api('officer',path,{action:'save',input}),409);ok(await api('director',path,{action:'save',input}));
+ const scoped=ok(await api('social',reviewPath));assert.equal(scoped.snapshot.infrastructure.length,0);assert.equal(scoped.snapshot.infrastructureDocuments,undefined);
+ review=ok(await api('director',reviewPath));const historical=ok(await api('director',reviewPath+'&submission='+review.submissions[0].number));assert.equal(historical.snapshot.infrastructure.length,2);assert.equal(historical.snapshot.infrastructureDocuments.length,4);
+ console.log('PASS: package persistence, frozen school facts, totals, dossier gate, BOQ replacement, read isolation, download permissions, review locking and snapshots.');
+}finally{
+ if(plan){for(const table of ['plan_notifications','plan_review_events','plan_submissions','plan_pillar_reviews','infrastructure_documents','infrastructure_packages'])await db.query(`DELETE FROM ${table} WHERE plan_id=$1`,[plan]);await db.query('DELETE FROM action_plans WHERE id=$1',[plan]);}
+ if(school)await db.query('DELETE FROM schools WHERE id=$1',[school]);await db.query('DELETE FROM users WHERE id=ANY($1::int[])',[users]);await db.end();
+}

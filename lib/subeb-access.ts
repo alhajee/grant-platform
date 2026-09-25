@@ -9,3 +9,7 @@ export const canManageRole = (actor: string, target: string) =>
   target === 'Data Entry Staff' ? canManageStateUsers(actor) : target === 'Director' && actor === 'Executive Chairman';
 export const canEditPillar = (role: string, department: string | null | undefined, pillar: PillarId) =>
   (role === 'Data Entry Staff' || role === 'Director') && department === pillarDepartments[pillar];
+
+type Reader = { role: string; department?: string | null; isBeapChair?: boolean };
+export const canViewWholeStatePlan = (user: Reader) => user.role === 'Executive Chairman' || (user.role === 'Director' && user.isBeapChair === true);
+export const canViewComponent = (user: Reader, component: PillarId) => canViewWholeStatePlan(user) || canEditPillar(user.role, user.department, component);

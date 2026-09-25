@@ -4,7 +4,7 @@ import "./dashboard.css";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRightIcon, ArrowUpRightIcon, CalendarDaysIcon, CircleCheckIcon, FileTextIcon, PlusIcon, SearchIcon } from "lucide-react";
-import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
+import { BudgetArtwork, PlansArtwork, SchoolsArtwork, ReviewArtwork } from "@/components/metric-artwork";
 import { CreatePlanDialog } from "@/components/create-plan-dialog";
 import { SubebHeader } from "@/components/subeb-header";
 import { DashboardArtwork } from "@/components/dashboard-artwork";
@@ -58,6 +58,8 @@ export default function DashboardPage() {
   const totalBudget = plans.reduce((sum, p) => sum + p.budget, 0);
   const latest = plans[0];
   const infrastructure = plans.reduce((sum, p) => sum + p.infrastructureBudget, 0);
+  const sbmc = plans.reduce((sum,p)=>sum+(p.sbmcBudget??0),0);
+  const tlm = plans.reduce((sum,p)=>sum+(p.tlmBudget??0),0);
   const sports = plans.reduce((sum, p) => sum + p.sportsBudget, 0);
   const visiblePlans = plans.filter((p) => `${planPeriod(p)} action plan ${p.status}`.includes(query.toLowerCase().trim()) || (/^\d{4}$/.test(query.trim()) && Number(query) >= p.startYear && Number(query) <= p.endYear));
   const unavailable = loading || Boolean(error);
@@ -84,7 +86,6 @@ export default function DashboardPage() {
 
       {!unavailable && <PlanNotifications />}
       {isOfficer && !user?.department && <Alert className="mb-6"><AlertTitle>Department assignment needed</AlertTitle><AlertDescription>Your Director or Executive Chairman can assign your department in Users. Until then, you can view saved plans but cannot edit or submit them.</AlertDescription></Alert>}
-      {!unavailable && actionQueue.length > 0 && <Card className="review-queue"><CardHeader><CardTitle>Needs your attention ({actionQueue.length})</CardTitle></CardHeader><CardContent><div className="flex flex-col gap-3">{actionQueue.map(action => <div className="flex flex-wrap items-center justify-between gap-3" key={action.href}><div><p className="font-medium">{action.label}</p><p className="text-sm text-muted-foreground">{planPeriod(action.plan)} action plan</p></div><Button asChild variant="outline" size="sm"><Link href={action.href}>Open<ArrowUpRightIcon data-icon="inline-end" /></Link></Button></div>)}</div></CardContent></Card>}
       <div className="dashboard-body">
         <section className="dashboard-plans" id="action-plans" aria-labelledby="plans-title">
           <div className="dashboard-section-title"><div><h2 id="plans-title">Your action plans <span>{unavailable ? "—" : plans.length}</span></h2></div>{canCreatePlan && <Button variant="outline" size="sm" onClick={beginPlan} disabled={unavailable}><PlusIcon />New plan</Button>}</div>
@@ -99,9 +100,13 @@ export default function DashboardPage() {
           </div>}
         </section>
         <aside className="dashboard-aside">
+      {!unavailable && actionQueue.length > 0 && <Card className="review-queue">
+        <CardHeader><div className="review-queue-heading"><ReviewArtwork /><div><CardTitle>Needs your attention</CardTitle><CardDescription>{actionQueue.length} {actionQueue.length === 1 ? 'item' : 'items'} waiting for you</CardDescription></div></div></CardHeader>
+        <CardContent><div className="review-queue-list">{actionQueue.map(action => <div className="review-queue-row" key={action.href}><div><p className="font-medium">{action.label}</p><p className="text-sm text-muted-foreground">{planPeriod(action.plan)} action plan</p></div><Button asChild variant="outline" size="sm"><Link href={action.href}>Open<ArrowUpRightIcon data-icon="inline-end" /></Link></Button></div>)}</div></CardContent>
+      </Card>}
           <Card className="budget-allocation"><CardHeader><CardTitle><h2>Where your plans invest</h2></CardTitle><CardDescription>Proposed budget across all periods</CardDescription></CardHeader><CardContent>
-            <div className="allocation-donut" role="img" aria-label={unavailable ? "Budget breakdown unavailable" : `Infrastructure ${money.format(infrastructure)}; Sports development ${money.format(sports)}`} style={{ background: unavailable || !totalBudget ? "var(--muted)" : `conic-gradient(var(--primary) 0 ${infrastructure / totalBudget * 100}%, var(--dashboard-sage) ${infrastructure / totalBudget * 100}% 100%)` }}><div><span>{unavailable ? "—" : compactMoney.format(totalBudget)}</span><small>Total proposed</small></div></div>
-            <div className="allocation-legend"><div><span><i />Infrastructure</span><strong>{unavailable ? "—" : compactMoney.format(infrastructure)}</strong></div><div><span><i />Sports development</span><strong>{unavailable ? "—" : compactMoney.format(sports)}</strong></div></div>
+            <div className="allocation-donut" role="img" aria-label={unavailable ? "Budget breakdown unavailable" : `Infrastructure ${money.format(infrastructure)}; Sports development ${money.format(sports)}; SBMC ${money.format(sbmc)}; TLM ${money.format(tlm)}`} style={{ background: unavailable || !totalBudget ? "var(--muted)" : `conic-gradient(var(--primary) 0 ${infrastructure / totalBudget * 100}%, var(--dashboard-sage) ${infrastructure / totalBudget * 100}% ${(infrastructure+sports)/totalBudget*100}%, var(--lilac) ${(infrastructure+sports)/totalBudget*100}% ${(infrastructure+sports+sbmc)/totalBudget*100}%, var(--peach) ${(infrastructure+sports+sbmc)/totalBudget*100}% 100%)` }}><div><span>{unavailable ? "—" : compactMoney.format(totalBudget)}</span><small>Total proposed</small></div></div>
+            <div className="allocation-legend"><div><span><i />Infrastructure</span><strong>{unavailable ? "—" : compactMoney.format(infrastructure)}</strong></div><div><span><i />Sports development</span><strong>{unavailable ? "—" : compactMoney.format(sports)}</strong></div><div><span><i style={{background:"var(--lilac)"}}/>SBMC</span><strong>{unavailable?"—":compactMoney.format(sbmc)}</strong></div><div><span><i style={{background:"var(--peach)"}}/>TLM</span><strong>{unavailable?"—":compactMoney.format(tlm)}</strong></div></div>
           </CardContent></Card>
           <div className="dashboard-next"><span className="next-icon"><CircleCheckIcon /></span><h3>{latest ? "Progress saved" : "One workspace. Three pillars."}</h3><p>{latest ? `Your ${planPeriod(latest)} plan is saved. Return to your pillars whenever you're ready.` : "Bring your education priorities together, one pillar at a time."}</p>{latest && !unavailable && <Button asChild variant="link"><a href={planHref("/beap", latest.id)}>Back to your plan<ArrowRightIcon /></a></Button>}</div>
         </aside>

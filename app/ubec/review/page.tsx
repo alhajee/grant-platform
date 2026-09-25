@@ -23,7 +23,7 @@ import { toast } from 'sonner';
 type Action = 'submit'|'assign'|'feedback'|'return'|'approve';
 const titles:Record<Action,string>={submit:'Send to UBEC',assign:'Assign departments',feedback:'Submit departmental review',return:'Return to SUBEB',approve:'Approve action plan'};
 const date=new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'short'});
-const pillarName=(id:string)=>beapPillars.find(p=>p.id===id)?.name??id;
+const pillarName=(id:string)=>id==='tlm'?'Teaching & Learning Materials':beapPillars.find(p=>p.id===id)?.name??id;
 export default function Review(){
   const [data,setData]=useState<UbecDetail|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[selected,setSelected]=useState('current');
   const [action,setAction]=useState<Action|null>(null),[comment,setComment]=useState(''),[recommendation,setRecommendation]=useState('endorse'),[assignmentId,setAssignmentId]=useState<number|undefined>(),[choices,setChoices]=useState<string[]>([]),[saving,setSaving]=useState(false),[formError,setFormError]=useState('');

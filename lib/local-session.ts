@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 
-export type LocalUser = { name: string; role: string; email: string; department?: string | null; sessionVersion?: number };
+export type LocalUser = { name: string; role: string; email: string; department?: string | null; sessionVersion?: number; adminSessionId?:string; impersonation?: { id:string; adminName:string; expiresAt:string } };
 
 type SessionPayload = LocalUser & { expiresAt: number };
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
-const sessionSecret = process.env.AUTH_SECRET ?? "ubec-local-development-session-secret-2026";
+const sessionSecret = process.env.AUTH_SECRET;
 
 function encode(value: Uint8Array) {
   let binary = "";
@@ -20,6 +20,7 @@ function decode(value: string) {
 }
 
 async function signingKey() {
+  if (!sessionSecret || sessionSecret.length < 32) throw new Error('A private AUTH_SECRET of at least 32 characters is required.');
   return crypto.subtle.importKey("raw", encoder.encode(sessionSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 
@@ -39,7 +40,7 @@ export async function getLocalSessionUser(request: NextRequest): Promise<LocalUs
   if (!isValid) return null;
   try {
     const payload = JSON.parse(decoder.decode(decode(encodedPayload))) as SessionPayload;
-    return payload.expiresAt > Date.now() ? { name: payload.name, role: payload.role, email: payload.email, sessionVersion: payload.sessionVersion ?? 0 } : null;
+    return payload.expiresAt > Date.now() ? { name: payload.name, role: payload.role, email: payload.email, sessionVersion: payload.sessionVersion ?? 0, adminSessionId:payload.adminSessionId } : null;
   } catch {
     return null;
   }

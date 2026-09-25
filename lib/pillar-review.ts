@@ -20,7 +20,7 @@ export function mayEditPillar(role: string, department: string | null | undefine
     (role === 'Director' ? review === 'director_review' : ['draft','changes_requested'].includes(review));
 }
 export function readyForUbec(reviews: PillarReview[], snapshot: Snapshot) {
-  return implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready') && snapshot[p].length > 0);
+  return implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready') && (snapshot[p]?.length ?? 0) > 0) && (snapshot.tlmDistribution?.length ?? 0)>0 && ['drawings','boq','survey'].every(kind=>snapshot.infrastructureDocuments?.some(d=>d.kind===kind));
 }
 export function aggregateReviewStatus(reviews: PillarReview[]): PlanStatus {
   if (implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready'))) return 'awaiting_chairman';

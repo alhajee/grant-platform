@@ -47,6 +47,9 @@ export default function BeapPage() {
   const split = infrastructureSplit(allocation);
   const pillarSummaries: Partial<Record<PillarId, PillarSummary>> = summary ?? {};
 
+  const canSeeSection = (_id: PillarId, department: string) => !!summary && (summary.wholeState || (['Data Entry Staff','Director'].includes(summary.role) && summary.department === department));
+  const visiblePillars = strategicPillars.map(p => ({...p, components:p.components.filter(id=>componentSections[id].some(section=>canSeeSection(id,section.department)))})).filter(p=>p.components.length);
+
   return (
     <div className="beap-page">
       <SubebHeader user={user} plan />
@@ -71,14 +74,14 @@ export default function BeapPage() {
         <section aria-labelledby="pillars-title">
           <div className="beap-section-heading"><h2 id="pillars-title">Plan by pillar</h2></div>
           <div className="flex flex-col gap-5">
-            {strategicPillars.map((pillar,index)=><Card key={pillar.id}>
+            {visiblePillars.map((pillar,index)=><Card key={pillar.id}>
               <CardHeader><div className="flex items-center justify-between gap-4"><CardTitle><h3>{index+1}. {pillar.name}</h3></CardTitle><Badge variant="secondary">{percent(pillar.components.reduce((sum,id)=>sum+allocation.shares[id],0))}%</Badge></div></CardHeader>
               <CardContent className="flex flex-col gap-5">
-                {pillar.components.map(id=>{const component=beapComponents.find(c=>c.id===id)!;const stats=pillarSummaries[id];const editable=summary?.editablePillars.some(p=>p===id);return <section key={id} className="rounded-xl border p-4" aria-labelledby={'component-'+id}>
+                {pillar.components.map(id=>{const component=beapComponents.find(c=>c.id===id)!;const stats=pillarSummaries[id];return <section key={id} className="rounded-xl border p-4" aria-labelledby={'component-'+id}>
                   <div className="mb-3 flex items-center justify-between gap-4"><h4 id={'component-'+id} className="font-medium">{component.name}</h4><span className="tabular-nums text-muted-foreground">{percent(allocation.shares[id])}%</span></div>
-                  <div className="flex flex-col gap-3">{componentSections[id].map((section,sectionIndex)=><div key={section.name} className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-col gap-3">{componentSections[id].map((section,sectionIndex)=>canSeeSection(id,section.department)&&<div key={section.name} className="flex flex-wrap items-center justify-between gap-3">
                     <div><p className="text-sm">{section.name}{id==='infrastructure'&&<span className="ml-2 text-muted-foreground">{percent(sectionIndex===0?split.infrastructure:split.tlm)}% of total</span>}</p><p className="text-xs text-muted-foreground">{subebDepartmentName(section.department)}</p></div>
-                    {section.href ? <div className="flex flex-wrap items-center gap-3"><span className="text-sm tabular-nums text-muted-foreground">{loading?'Loading…':error||!stats?'—':money.format(stats.budget)+' proposed'}</span>{summary&&!error&&<Button asChild variant="outline" size="sm"><Link href={planHref(editable?section.href:'/beap/review',summary.plan.id)+(editable?'':'#review-'+id)}>{editable?'Open component':'View component'}<ArrowRightIcon data-icon="inline-end"/></Link></Button>}</div>:<Badge variant="outline">Not available yet</Badge>}
+                    {section.href ? <div className="flex flex-wrap items-center gap-3"><span className="text-sm tabular-nums text-muted-foreground">{loading?'Loading…':error||!stats?'—':money.format((id==='infrastructure'&&sectionIndex===1?summary?.tlm?.budget:stats.budget)??0)+' proposed'}</span>{summary&&!error&&<Button asChild variant="outline" size="sm"><Link href={planHref(section.href,summary.plan.id)}>{summary.editablePillars.some(p=>p===(id==='infrastructure'&&sectionIndex===1?'tlm':id))?'Open component':'View component'}<ArrowRightIcon data-icon="inline-end"/></Link></Button>}</div>:<Badge variant="outline">Not available yet</Badge>}
                   </div>)}</div>
                 </section>;})}
               </CardContent>

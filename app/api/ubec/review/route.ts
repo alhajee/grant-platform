@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { canViewWholeStatePlan } from '@/lib/subeb-access';
 import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
@@ -8,12 +9,13 @@ import type { Snapshot } from '@/lib/plan-review';
 import { readPillarReviews, readyForUbec } from '@/lib/pillar-review';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
-const command = z.object({ action: z.enum(['submit','assign','feedback','return','approve']), version: z.number().int().nonnegative(), roundId: z.number().int().positive().optional(), comment: z.string().trim().max(5000).default(''), assignments: z.array(z.object({ pillar: z.enum(['infrastructure','sports']), department: z.string() }).strict()).max(28).optional(), assignmentId: z.number().int().positive().optional(), recommendation: z.enum(['endorse','changes']).optional() }).strict();
+const command = z.object({ action: z.enum(['submit','assign','feedback','return','approve']), version: z.number().int().nonnegative(), roundId: z.number().int().positive().optional(), comment: z.string().trim().max(5000).default(''), assignments: z.array(z.object({ pillar: z.enum(['infrastructure','sports','sbmc','tlm']), department: z.string() }).strict()).max(44).optional(), assignmentId: z.number().int().positive().optional(), recommendation: z.enum(['endorse','changes']).optional() }).strict();
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getWorkspaceState(request);
     if (!user) return error('Sign in to view this plan.', 401);
+    if (!isUbec(user.role) && !canViewWholeStatePlan(user)) return error('Your account can view only its department components.', 403);
     const id = request.nextUrl.searchParams.get('plan');
     if (!id || !/^[1-9]\d*$/.test(id)) return error('Choose a valid plan.');
     return await getPostgres().transaction(async db => {
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
       let assignments: UbecAssignment[] = [];
       if (round) assignments = (await db.query<UbecAssignment>(`SELECT * FROM ubec_assignments WHERE round_id=$1 ${reviewer ? 'AND department=$2' : ''} ORDER BY pillar,department`, reviewer ? [round.id, user.department] : [round.id])).rows;
       if (!national && round && !['returned','approved'].includes(round.status)) assignments = [];
-      const snapshot = round ? reviewer ? { setup: round.snapshot.setup, infrastructure: assignments.some(a => a.pillar === 'infrastructure') ? round.snapshot.infrastructure : [], sports: assignments.some(a => a.pillar === 'sports') ? round.snapshot.sports : [] } : round.snapshot : null;
+      const snapshot = round ? reviewer ? { setup: round.snapshot.setup, infrastructureDocuments: assignments.some(a=>a.pillar==='infrastructure') ? round.snapshot.infrastructureDocuments : undefined, infrastructure: assignments.some(a => a.pillar === 'infrastructure') ? round.snapshot.infrastructure : [], sports: assignments.some(a => a.pillar === 'sports') ? round.snapshot.sports : [], sbmc: assignments.some(a=>a.pillar==='sbmc') ? round.snapshot.sbmc ?? [] : [], tlm: assignments.some(a=>a.pillar==='tlm') ? round.snapshot.tlm ?? [] : [], tlmDistribution: assignments.some(a=>a.pillar==='tlm') ? round.snapshot.tlmDistribution ?? [] : [] } : round.snapshot : null;
       const events = round ? (await db.query(`SELECT id,action,actor,comment,created_at FROM ubec_events WHERE round_id=$1 ${reviewer ? 'AND (actor_id=$2 OR action=\'assign\')' : !national ? "AND action IN ('submit','return','approve')" : ''} ORDER BY id DESC`, reviewer ? [round.id, user.userId] : [round.id])).rows : [];
       return NextResponse.json({ plan: { ...plan, stateName: stateDisplayName(plan.state_code) }, user: { name: user.name, role: user.role }, role: user.role, department: user.department, rounds: rounds.map(r => ({ id: r.id, plan_id: r.plan_id, number: r.number, state_submission: r.state_submission, status: r.status, submitted_at: r.submitted_at, decision: r.decision, decided_at: r.decided_at })), round: round ? { ...round, snapshot } : null, assignments, events }, { headers: { 'Cache-Control': 'no-store' } });
     });

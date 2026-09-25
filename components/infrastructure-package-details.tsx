@@ -1,0 +1,14 @@
+import { Table,TableBody,TableCell,TableHead,TableHeader,TableRow,TableFooter } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { auditGaps,kindNames,type InfrastructurePackage,type InfraDocument } from '@/lib/infrastructure-model';
+const money=new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN'});
+export function InfrastructurePackageDetails({record}:{record:InfrastructurePackage}){
+ const {input,result}=record;
+ return <div className="flex flex-col gap-5">
+  <div className="flex flex-wrap items-center gap-3"><Badge variant="secondary">{kindNames[input.kind]}</Badge><span>{result.modelLabel} · {result.enrolment} learners</span>{input.kind==='new'&&<Badge variant="outline">{input.targeting==='hope'?'HOPE':'Non-HOPE'}</Badge>}</div>
+  <p>{input.components.join(' · ')}{input.observations&&` · ${input.observations}`}</p>
+  {input.kind==='whole'&&<details><summary className="cursor-pointer font-medium">School audit</summary><Table><TableHeader><TableRow>{['Requirement','Required','Existing','Functional','Non-functional','Additional','Extra'].map(v=><TableHead key={v}>{v}</TableHead>)}</TableRow></TableHeader><TableBody>{auditGaps(input,result.enrolment).map(g=><TableRow key={g.key}><TableCell className="whitespace-normal">{g.label}</TableCell>{[g.required,g.existing,g.functional,g.nonFunctional,g.additional,g.extra].map((v,i)=><TableCell key={i}>{v}</TableCell>)}</TableRow>)}</TableBody></Table>{input.conditionNotes&&<p>{input.dilapidation}: {input.conditionNotes}</p>}</details>}
+  <Table><TableHeader><TableRow>{['Requirement','Quantity','Cost basis','Strategy / duration','Amount'].map(v=><TableHead key={v}>{v}</TableHead>)}</TableRow></TableHeader><TableBody>{result.items.map(item=><TableRow key={item.key}><TableCell className="whitespace-normal"><strong>{item.label}</strong>{item.operation&&<p>{item.operation}</p>}</TableCell><TableCell>{item.quantity} {item.unit}</TableCell><TableCell>{input.kind==='new'&&input.targeting==='nonhope'&&item.key!=='package'?'Included in package':item.lump?'Lump sum':money.format(item.cost)+' / unit'}</TableCell><TableCell>{item.strategy||'—'}{item.duration&&<p>{item.duration}</p>}</TableCell><TableCell className="tabular-nums">{input.kind==='new'&&input.targeting==='nonhope'&&item.key!=='package'?'—':money.format(item.total)}</TableCell></TableRow>)}</TableBody><TableFooter><TableRow><TableCell colSpan={4}>Total</TableCell><TableCell>{money.format(result.total)}</TableCell></TableRow></TableFooter></Table>
+ </div>;
+}
+export function InfrastructureDocumentLinks({documents}:{documents:InfraDocument[]}){return <ul className="flex flex-col gap-2">{documents.map(doc=><li key={doc.id}><a className="text-primary underline underline-offset-4" href={'/api/infrastructure/documents?id='+doc.id}>{doc.name}</a><span className="ml-2 text-sm text-muted-foreground">{doc.kind}</span></li>)}</ul>;}

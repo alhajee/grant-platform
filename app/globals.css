@@ -11,6 +11,14 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --canvas: #FBF7EF;
+  --butter: #F7E59B;
+  --peach: #FBD7BE;
+  --lilac: #DDD2F3;
+  --blush: #F8CFDD;
+  --sage: #e2ead5;
+  --attention: var(--sage);
+  --attention-foreground: #304438;
   --background: #ffffff;
   --foreground: #202124;
   --card: #ffffff;
@@ -47,6 +55,14 @@
   --text-xs: 0.875rem;
   --text-xs--line-height: 1.5;
   --color-background: var(--background);
+  --color-canvas: var(--canvas);
+  --color-butter: var(--butter);
+  --color-peach: var(--peach);
+  --color-lilac: var(--lilac);
+  --color-blush: var(--blush);
+  --color-sage: var(--sage);
+  --color-attention: var(--attention);
+  --color-attention-foreground: var(--attention-foreground);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -317,7 +333,6 @@
 
 .beap-page { min-height: 100dvh; }
 .review-entry { display: flex; justify-content: flex-end; margin: -4px 0 24px; }
-.beap-page.beap-review-page { background: var(--background); }
 .review-page-summary { padding: 0 0 24px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
 .review-back { margin: 0 0 12px -8px; }
 .review-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 0; }
@@ -395,14 +410,14 @@
 @media (max-width: 600px) { .review-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .review-heading h1 { font-size: 24px; } .review-entry { justify-content: flex-start; } }
 .beap-header { border-bottom: 1px solid var(--border); background: var(--background); }
 .subeb-header { max-width: 1328px; margin-inline: auto; padding: 20px 40px 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
-.subeb-navigation-capsule { display: flex; align-items: center; gap: 30px; padding: 6px 8px 6px 14px; border: 1px solid #ffffffcc; background: #ffffffb8; border-radius: 999px; box-shadow: 0 4px 20px #334e6008, inset 0 1px 0 #ffffffa6; }
+.subeb-navigation-capsule { display: flex; align-items: center; gap: 30px; padding: 6px 8px 6px 14px; border: 1px solid #ffffffcc; background: #ffffffb8; border-radius: 999px; box-shadow: 0 2px 4px rgb(25 63 61 / 4%), 0 8px 24px -8px rgb(25 63 61 / 16%), inset 0 1px 0 #ffffffa6; }
 .subeb-header-brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; letter-spacing: -.04em; white-space: nowrap; }
 .subeb-header-brand img { width: 34px; height: 38px; object-fit: contain; }
 .subeb-header nav { display: flex; align-items: center; gap: 4px; }
 .subeb-header nav a { display: flex; align-items: center; justify-content: center; min-height: 42px; padding-inline: 18px; border: 1px solid transparent; border-radius: 999px; font-size: 14px; color: var(--muted-foreground); white-space: nowrap; }
 .subeb-header nav a[aria-current] { color: var(--foreground); background: var(--background); border-color: #ffffffcc; font-weight: 500; box-shadow: 0 3px 10px #334e6012; }
 .subeb-header a:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
-.subeb-header-account { background: #ffffffb8; border: 1px solid #ffffffcc; border-radius: 999px; flex-shrink: 0; box-shadow: 0 4px 20px #334e6008; }
+.subeb-header-account { background: #ffffffb8; border: 1px solid #ffffffcc; border-radius: 999px; flex-shrink: 0; box-shadow: 0 2px 4px rgb(25 63 61 / 4%), 0 8px 24px -8px rgb(25 63 61 / 16%); }
 .subeb-header-account .account-trigger { min-height: 54px; border-radius: 999px; padding: 5px 14px 5px 6px; gap: 10px; }
 .subeb-header-account .account-avatar { order: -1; }
 .subeb-header-account .account-trigger-copy { text-align: left; gap: 2px; }
@@ -487,6 +502,62 @@
   .pillar-card-content, .pillar-card-footer { grid-column: 1 / -1; }
   .pillar-card-footer { flex-wrap: wrap; gap: 16px; }
   .pillar-budget strong { font-size: 16px; }
+}
+
+/* Compact admin context strip. Tokens stay local to its shadcn controls. */
+.impersonation-strip {
+  --card: #234e49;
+  --card-foreground: #f5f6e9;
+  --muted-foreground: #c8d9cd;
+  --primary: #416e63;
+  --primary-foreground: #fff;
+  --accent: #315e55;
+  --accent-foreground: #fff;
+  --ring: #a7c8b7;
+  position: relative;
+  background: linear-gradient(125deg, #315e55, #193f3d);
+  color: var(--card-foreground);
+}
+/* Inverse corners reveal the actual page surface without clipping its menus. */
+.impersonation-strip::before,
+.impersonation-strip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  width: 20px;
+  height: 20px;
+  z-index: 1;
+  pointer-events: none;
+}
+.impersonation-strip::before {
+  left: 0;
+  background: radial-gradient(circle at 100% 100%, transparent 19.5px, #315e55 20px);
+}
+.impersonation-strip::after {
+  right: 0;
+  background: radial-gradient(circle at 0 100%, transparent 19.5px, #193f3d 20px);
+}
+.impersonation-strip-inner {
+  background: transparent;
+  display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 3fr) minmax(248px, 1fr);
+  align-items: center; gap: 12px 24px; min-height: 60px; padding: 10px 24px;
+  border: 0; border-radius: 0;
+}
+.impersonation-strip-label { grid-column: 1; margin: 0; font-size: 13px; letter-spacing: 0; }
+.impersonation-strip-description { grid-column: 2; justify-items: center; gap: 2px; text-align: center; line-height: 1.4; }
+.impersonation-strip-description strong { color: var(--card-foreground); font-weight: 500; }
+.impersonation-strip-context { font-size: 12px; }
+.impersonation-strip-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+@media (max-width: 900px) {
+  .impersonation-strip-inner { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; padding: 12px 16px; }
+  .impersonation-strip-label { grid-column: 1; grid-row: 1; }
+  .impersonation-strip-description { grid-column: 1 / -1; grid-row: 2; justify-items: start; text-align: left; }
+  .impersonation-strip-actions { grid-column: 2; grid-row: 1; }
+}
+@media (max-width: 400px) {
+  .impersonation-strip-inner { grid-template-columns: minmax(0, 1fr); }
+  .impersonation-strip-description { grid-row: 2; }
+  .impersonation-strip-actions { grid-column: 1; grid-row: 3; justify-content: flex-start; }
 }
 
 /* Sign-in shares the same type, spacing, and component tokens as the workspace. */

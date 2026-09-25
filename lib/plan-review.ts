@@ -4,8 +4,12 @@ export const reviewActionLabels: Record<ReviewAction, string> = { submit: 'Sent 
 export type ReviewEvent = { id: number; action: ReviewAction; actorName: string; actorRole: string; comment: string; scope: string; submissionNumber: number; createdAt: string };
 type School = { name: string; lga: string; level: string; location: string };
 export type Snapshot = {
+  infrastructureDocuments?: import('./infrastructure-model').InfraDocument[];
+  sbmc?: import('./activity-plans').ActivitySnapshotLine[];
+  tlm?: import('./activity-plans').ActivitySnapshotLine[];
+  tlmDistribution?: import('./activity-plans').DistributionSchool[];
   setup?: import('./plan-setup').PlanSetup;
-  infrastructure: { id: number; code: string; quantity: number; unit_cost: string; duration: number; rationale: string; strategy: string; longitude: string; latitude: string; school: School; construction: { name: string } }[];
+  infrastructure: { id: number; code: string; quantity: number; unit_cost: string; duration: number; rationale: string; strategy: string; longitude: string; latitude: string; school: School; construction: { name: string }; package?: import('./infrastructure-model').InfrastructurePackage }[];
   sports: { id: number; code: string; section: string; activity_type: string; description: string; quantity: number; unit_cost: string; allocations: { id: number; quantity: number; longitude: string; latitude: string; school: School }[] }[];
 };
-export type PlanReview = { plan: ActionPlan; role: string; department: string | null; snapshot: Snapshot; pillarReviews: import('./pillar-review').PillarReview[]; readyForUbec: boolean; selectedSubmission: number | null; submissions: { number: number; createdAt: string }[]; events: ReviewEvent[] };
+export type PlanReview = { visiblePillars: import('./beap-pillars').ImplementedPillar[]; plan: ActionPlan; role: string; department: string | null; snapshot: Snapshot; pillarReviews: import('./pillar-review').PillarReview[]; readyForUbec: boolean; selectedSubmission: number | null; submissions: { number: number; createdAt: string }[]; events: ReviewEvent[] };

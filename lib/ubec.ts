@@ -14,10 +14,10 @@ export const departments = [
   { id: 'social', name: 'Social Mobilization' },
   { id: 'zonal', name: 'Zonal and State Offices' },
 ] as const;
-export const pillarDepartments: Record<PillarId, string> = { infrastructure: 'physical', quality: 'quality', teachers: 'teachers', sbmc: 'social', sports: 'academic', monitoring: 'physical', curriculum: 'academic', planning: 'planning', gscci: 'academic' };
+export const pillarDepartments: Record<PillarId, string> = { infrastructure: 'physical', tlm: 'academic', quality: 'quality', teachers: 'teachers', sbmc: 'social', sports: 'academic', monitoring: 'physical', curriculum: 'academic', planning: 'planning', gscci: 'academic' };
 export const isUbec = (role: string) => ['UBEC Executive Secretary', 'UBEC Department Reviewer'].includes(role);
 export const departmentName = (id: string) => departments.find(d => d.id === id)?.name ?? id;
-export const activePillars = (snapshot: Snapshot) => (['infrastructure', 'sports'] as const).filter(p => snapshot[p].length > 0);
+export const activePillars = (snapshot: Snapshot) => (['infrastructure', 'sports', 'sbmc', 'tlm'] as const).filter(p => (snapshot[p]?.length ?? 0) > 0);
 export const nationalStatusLabels: Record<string, string> = { received: 'Awaiting assignment', reviewing: 'Department review', returned: 'Returned to SUBEB', approved: 'Approved by UBEC' };
 export type UbecAssignment = { id: number; pillar: PillarId; department: string; feedback: string | null; recommendation: string | null; reviewer: string | null; completed_at: string | null; created_at: string };
 export type UbecRound = { id: number; plan_id: number; number: number; state_submission: number; status: string; snapshot: Snapshot; submitted_at: string; decision: string; decided_at: string | null };
