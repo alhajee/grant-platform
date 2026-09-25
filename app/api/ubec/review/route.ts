@@ -1,0 +1,100 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { getWorkspaceState } from '@/lib/workspace-state';
+import { getPostgres } from '@/lib/postgres';
+import { activePillars, departments, isUbec, type UbecRound, type UbecAssignment } from '@/lib/ubec';
+import { stateDisplayName } from '@/lib/state-names';
+import type { Snapshot } from '@/lib/plan-review';
+import { readPillarReviews, readyForUbec } from '@/lib/pillar-review';
+import { readPlanSnapshot } from '@/lib/plan-snapshot';
+const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
+const command = z.object({ action: z.enum(['submit','assign','feedback','return','approve']), version: z.number().int().nonnegative(), roundId: z.number().int().positive().optional(), comment: z.string().trim().max(5000).default(''), assignments: z.array(z.object({ pillar: z.enum(['infrastructure','sports']), department: z.string() }).strict()).max(28).optional(), assignmentId: z.number().int().positive().optional(), recommendation: z.enum(['endorse','changes']).optional() }).strict();
+
+export async function GET(request: NextRequest) {
+  try {
+    const user = await getWorkspaceState(request);
+    if (!user) return error('Sign in to view this plan.', 401);
+    const id = request.nextUrl.searchParams.get('plan');
+    if (!id || !/^[1-9]\d*$/.test(id)) return error('Choose a valid plan.');
+    return await getPostgres().transaction(async db => {
+      const plan = (await db.query('SELECT id,state_code,start_year,end_year,funding_quarters,status,version FROM action_plans WHERE id=$1 FOR SHARE', [id])).rows[0];
+      if (!plan || (!isUbec(user.role) && plan.state_code !== user.stateCode)) return error('Plan not found.', 404);
+      const national = isUbec(user.role), reviewer = user.role === 'UBEC Department Reviewer';
+      const rounds = (await db.query<UbecRound>(`SELECT r.* FROM ubec_rounds r WHERE plan_id=$1 ${reviewer ? 'AND EXISTS (SELECT 1 FROM ubec_assignments a WHERE a.round_id=r.id AND a.department=$2)' : ''} ORDER BY number DESC`, reviewer ? [id, user.department] : [id])).rows;
+      if (national && !rounds.length) return error('No assigned submission found.', 404);
+      const selected = request.nextUrl.searchParams.get('round');
+      const round = selected ? rounds.find(r => String(r.id) === selected) : rounds[0];
+      if (selected && !round) return error('Submission not found.', 404);
+      let assignments: UbecAssignment[] = [];
+      if (round) assignments = (await db.query<UbecAssignment>(`SELECT * FROM ubec_assignments WHERE round_id=$1 ${reviewer ? 'AND department=$2' : ''} ORDER BY pillar,department`, reviewer ? [round.id, user.department] : [round.id])).rows;
+      if (!national && round && !['returned','approved'].includes(round.status)) assignments = [];
+      const snapshot = round ? reviewer ? { setup: round.snapshot.setup, infrastructure: assignments.some(a => a.pillar === 'infrastructure') ? round.snapshot.infrastructure : [], sports: assignments.some(a => a.pillar === 'sports') ? round.snapshot.sports : [] } : round.snapshot : null;
+      const events = round ? (await db.query(`SELECT id,action,actor,comment,created_at FROM ubec_events WHERE round_id=$1 ${reviewer ? 'AND (actor_id=$2 OR action=\'assign\')' : !national ? "AND action IN ('submit','return','approve')" : ''} ORDER BY id DESC`, reviewer ? [round.id, user.userId] : [round.id])).rows : [];
+      return NextResponse.json({ plan: { ...plan, stateName: stateDisplayName(plan.state_code) }, user: { name: user.name, role: user.role }, role: user.role, department: user.department, rounds: rounds.map(r => ({ id: r.id, plan_id: r.plan_id, number: r.number, state_submission: r.state_submission, status: r.status, submitted_at: r.submitted_at, decision: r.decision, decided_at: r.decided_at })), round: round ? { ...round, snapshot } : null, assignments, events }, { headers: { 'Cache-Control': 'no-store' } });
+    });
+  } catch (cause) { console.error(cause); return error('Unable to load the UBEC review.', 503); }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getWorkspaceState(request);
+    if (!session) return error('Sign in to continue.', 401);
+    const parsed = command.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return error('Invalid review request.');
+    const input = parsed.data, id = request.nextUrl.searchParams.get('plan');
+    if (!id || !/^[1-9]\d*$/.test(id)) return error('Choose a valid plan.');
+    return await getPostgres().transaction(async db => {
+      const user = (await db.query('SELECT id,role,department,state_code,full_name,email FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
+      if (!user) return error('Session expired.', 401);
+      const expectedRole = input.action === 'submit' ? 'Executive Chairman' : input.action === 'feedback' ? 'UBEC Department Reviewer' : 'UBEC Executive Secretary';
+      if (user.role !== expectedRole) return error('You do not have permission for this action.', 403);
+      const plan = (await db.query('SELECT * FROM action_plans WHERE id=$1 FOR UPDATE', [id])).rows[0];
+      if (!plan || (input.action === 'submit' && plan.state_code !== user.state_code)) return error('Plan not found.', 404);
+      if (plan.version !== input.version) return error('This review has changed. Refresh before continuing.', 409);
+      let round = (await db.query<UbecRound>('SELECT * FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC LIMIT 1', [id])).rows[0];
+      let status = plan.status;
+      if (input.action === 'submit') {
+        if (plan.status !== 'awaiting_chairman') return error('Every implemented pillar must be sent to the Chairman by its department Director.', 409);
+        if (!(await db.query("SELECT id FROM users WHERE role='UBEC Executive Secretary' AND active LIMIT 1")).rowCount) return error('A UBEC ES account must be configured first.', 409);
+        if (round && round.status !== 'returned') return error('This plan has already been submitted.', 409);
+        if (round && !input.comment) return error('Describe how the UBEC feedback was addressed.');
+        const snapshot: Snapshot = await readPlanSnapshot(db, plan.id);
+        if (!readyForUbec(await readPillarReviews(db, plan.id), snapshot)) return error('Complete Infrastructure and Sports and obtain both departmental reviews before sending to UBEC.', 409);
+        round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(snapshot), user.id])).rows[0];
+        status = 'submitted_ubec';
+      } else {
+        if (!round || round.id !== input.roundId || !['received','reviewing'].includes(round.status)) return error('This submission is no longer open for review.', 409);
+        const assignments = (await db.query<UbecAssignment>('SELECT * FROM ubec_assignments WHERE round_id=$1', [round.id])).rows;
+        if (input.action === 'assign') {
+          if (!input.assignments?.length) return error('Choose at least one department.');
+          const pillars = activePillars(round.snapshot);
+          if (input.assignments.some(a => !pillars.includes(a.pillar) || !departments.some(d => d.id === a.department))) return error('Choose valid departments and populated pillars.');
+          if (pillars.some(p => ![...assignments, ...input.assignments!].some(a => a.pillar === p))) return error('Assign every populated pillar to a department.');
+          for (const assignment of input.assignments) {
+            if (!(await db.query("SELECT id FROM users WHERE role='UBEC Department Reviewer' AND department=$1 LIMIT 1", [assignment.department])).rowCount) return error(`No reviewer account is configured for ${departments.find(d => d.id === assignment.department)?.name}.`, 409);
+          }
+          for (const assignment of input.assignments) await db.query('INSERT INTO ubec_assignments(round_id,pillar,department) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [round.id, assignment.pillar, assignment.department]);
+          await db.query("UPDATE ubec_rounds SET status='reviewing' WHERE id=$1", [round.id]); status = 'ubec_review';
+        } else if (input.action === 'feedback') {
+          const assignment = assignments.find(a => a.id === input.assignmentId && a.department === user.department);
+          if (!assignment) return error('This pillar is not assigned to your department.', 403);
+          if (assignment.completed_at) return error('This review has already been submitted.', 409);
+          if (!input.comment || !input.recommendation) return error('Enter feedback and a recommendation.');
+          await db.query('UPDATE ubec_assignments SET feedback=$1,recommendation=$2,reviewer=$3,completed_at=NOW() WHERE id=$4', [input.comment, input.recommendation, user.full_name, assignment.id]);
+        } else {
+          if (!input.comment) return error('Enter the decision and consolidated feedback.');
+          if (input.action === 'approve' && (activePillars(round.snapshot).some(p => !assignments.some(a => a.pillar === p)) || assignments.some(a => !a.completed_at))) return error('All assigned departments must finish reviewing before approval.', 409);
+          await db.query('UPDATE ubec_rounds SET status=$1,decision=$2,decided_at=NOW() WHERE id=$3', [input.action === 'approve' ? 'approved' : 'returned', input.comment, round.id]);
+          status = input.action === 'approve' ? 'ubec_approved' : 'changes_requested';
+          if (input.action === 'return') await db.query("UPDATE plan_pillar_reviews SET status='changes_requested',updated_at=NOW() WHERE plan_id=$1", [id]);
+          // Publish only the ES decision to the state workflow, never draft departmental feedback.
+          const event = (await db.query(`INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,'general') RETURNING id`, [id, plan.submission_number, input.action === 'return' ? 'request_changes' : 'approve', user.full_name, user.email, user.role, input.comment])).rows[0];
+          await db.query("INSERT INTO plan_notifications(plan_id,user_id,event_id) SELECT $1,id,$2 FROM users WHERE state_code=$3 AND active AND role IN ('Executive Chairman','Director','Data Entry Staff')", [id, event.id, plan.state_code]);
+        }
+      }
+      await db.query('UPDATE action_plans SET status=$1,version=version+1,workflow_updated_at=NOW() WHERE id=$2', [status, id]);
+      await db.query('INSERT INTO ubec_events(round_id,plan_id,action,actor,actor_id,comment) VALUES($1,$2,$3,$4,$5,$6)', [round.id, id, input.action, user.full_name, user.id, input.action === 'assign' ? input.assignments!.map(a => `${a.pillar}: ${a.department}`).join('; ') : input.comment]);
+      return NextResponse.json({ status });
+    });
+  } catch (cause) { console.error(cause); return error('Unable to save this action. Refresh and try again.', 503); }
+}

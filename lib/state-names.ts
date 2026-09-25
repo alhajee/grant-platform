@@ -1,0 +1,15 @@
+const stateNames: Record<string, string> = {
+  AB: "Abia", AD: "Adamawa", AK: "Akwa Ibom", AN: "Anambra", BA: "Bauchi",
+  BE: "Benue", BO: "Borno", BY: "Bayelsa", CR: "Cross River", DE: "Delta",
+  EB: "Ebonyi", ED: "Edo", EK: "Ekiti", EN: "Enugu", GO: "Gombe",
+  IM: "Imo", JI: "Jigawa", KD: "Kaduna", KE: "Kebbi", KN: "Kano",
+  KO: "Kogi", KT: "Katsina", KW: "Kwara", LA: "Lagos", NA: "Nasarawa",
+  NI: "Niger", OG: "Ogun", ON: "Ondo", OS: "Osun", OY: "Oyo",
+  PL: "Plateau", RI: "Rivers", SO: "Sokoto", TA: "Taraba", YO: "Yobe", ZA: "Zamfara",
+};
+
+export function stateDisplayName(stateCode: string) {
+  const code = stateCode.trim().toUpperCase().replace(/^NG-/, "");
+  if (code === "FC" || code === "FCT") return "Federal Capital Territory";
+  return stateNames[code] ? `${stateNames[code]} State` : stateCode;
+}

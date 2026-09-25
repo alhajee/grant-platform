@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <title>School construction</title>
+  <desc>A terracotta-roofed classroom block with a crane, glazed windows and entrance steps.</desc>
+  <defs>
+    <linearGradient id="bg" x1="12" y1="0" x2="84" y2="96" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF7E8"/><stop offset="1" stop-color="#F8E3BA"/></linearGradient>
+    <linearGradient id="roof" x1="46" y1="23" x2="68" y2="48" gradientUnits="userSpaceOnUse"><stop stop-color="#F69462"/><stop offset="1" stop-color="#D85837"/></linearGradient>
+    <linearGradient id="wall" x1="22" y1="47" x2="57" y2="77" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFEF8"/><stop offset="1" stop-color="#F1DDAD"/></linearGradient>
+    <linearGradient id="glass" x1="23" y1="53" x2="31" y2="65" gradientUnits="userSpaceOnUse"><stop stop-color="#69B7BD"/><stop offset="1" stop-color="#2A717B"/></linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="18" fill="url(#bg)"/>
+  <ellipse cx="49" cy="80" rx="36" ry="7" fill="#AB7945" opacity=".13"/>
+  <g stroke="#C68828" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M73 18V62M79 18V62M73 23L79 31L73 39L79 47L73 55"/>
+    <path d="M47 18H86M49 23H85M49 23L56 18L64 23L72 18L79 23M76 12V18"/>
+  </g>
+  <path d="M53 24V34C53 38 58 38 58 34" stroke="#596B75" stroke-width="2" stroke-linecap="round"/>
+  <path d="M13 73L33 63L83 72L62 85Z" fill="#D5C5A1"/>
+  <path d="M13 73L62 85V88L13 76Z" fill="#B7A889"/>
+  <path d="M62 85L83 72V75L62 88Z" fill="#9B947F"/>
+  <path d="M19 47H61V76H19Z" fill="url(#wall)"/>
+  <path d="M61 47L78 38V66L61 76Z" fill="#D6BB87"/>
+  <path d="M16 47L39 28L64 47Z" fill="#FFF1CF"/>
+  <path d="M39 27L56 18L82 38L64 48Z" fill="url(#roof)"/>
+  <path d="M14 47L39 26L65 47L62 50L39 32L18 50Z" fill="#B94C32"/>
+  <path d="M39 26L56 17L82 37L82 40L64 49L64 46L78 38L56 21L42 29Z" fill="#E86F43"/>
+  <path d="M49 24L72 42M57 21L79 38" stroke="#FFBE8C" stroke-width="1.3" opacity=".65"/>
+  <path d="M22 53H31V65H22ZM48 53H57V65H48Z" fill="#FDFCF5"/>
+  <path d="M24 55H29V63H24ZM50 55H55V63H50Z" fill="url(#glass)"/>
+  <path d="M23 59H30M49 59H56" stroke="#F4E4C4" stroke-width="1.2"/>
+  <path d="M67 50L73 47V59L67 62Z" fill="#367A80"/>
+  <path d="M68 51L71 49V58L68 60Z" fill="#77BAC0"/>
+  <path d="M35 56A5 5 0 0 1 45 56V76H35Z" fill="#285761"/>
+  <path d="M37 57A3 3 0 0 1 43 57V75H37Z" fill="#39727B"/>
+  <circle cx="42" cy="66" r="1" fill="#F6C764"/>
+  <path d="M34 75H46L49 79H31Z" fill="#F9F1DC"/>
+  <path d="M31 79H49V82H31Z" fill="#BCB79F"/>
+  <path d="M21 70H31M49 70H58" stroke="#DEC899" stroke-width="1.5"/>
+  <path d="M76 74L79 65L82 74Z" fill="#EE8F47"/>
+  <path d="M77.2 70.5H80.8" stroke="#FFF9EA" stroke-width="2"/>
+  <path d="M74 75H84" stroke="#81684E" stroke-width="2" stroke-linecap="round"/>
+</svg>

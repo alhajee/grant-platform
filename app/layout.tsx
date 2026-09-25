@@ -3,11 +3,11 @@ import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "UBE Grant Portal",
+  title: "UBEC Grant Portal",
   description: "Annual grant planning and submission for State Universal Basic Education Boards.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: { url: "/ubec-logo.png", type: "image/png" },
+    shortcut: "/ubec-logo.png",
   },
 };
 
@@ -20,7 +20,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         {children}
-        <Toaster richColors position="top-right" />
+        <Toaster theme="light" position="top-right" />
       </body>
     </html>
   );

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <title>School renovation</title>
+  <desc>A partially restored brick wall, a blue paint roller and a fresh paint tin.</desc>
+  <defs>
+    <linearGradient id="bg" x1="10" y1="0" x2="90" y2="96" gradientUnits="userSpaceOnUse"><stop stop-color="#EFF5FF"/><stop offset="1" stop-color="#DCE5FF"/></linearGradient>
+    <linearGradient id="wall" x1="20" y1="26" x2="60" y2="75" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFDFA"/><stop offset="1" stop-color="#E5DCD4"/></linearGradient>
+    <linearGradient id="paint" x1="49" y1="28" x2="69" y2="66" gradientUnits="userSpaceOnUse"><stop stop-color="#8DBBFC"/><stop offset="1" stop-color="#4E82D9"/></linearGradient>
+    <linearGradient id="roller" x1="51" y1="16" x2="51" y2="34" gradientUnits="userSpaceOnUse"><stop stop-color="#9DD1FF"/><stop offset=".4" stop-color="#5C9FF0"/><stop offset="1" stop-color="#376ABF"/></linearGradient>
+    <linearGradient id="tin" x1="19" y1="66" x2="42" y2="78" gradientUnits="userSpaceOnUse"><stop stop-color="#6FADF3"/><stop offset="1" stop-color="#3E70C4"/></linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="18" fill="url(#bg)"/>
+  <ellipse cx="47" cy="81" rx="34" ry="6" fill="#3C579B" opacity=".12"/>
+  <path d="M20 27L27 22H72L65 27Z" fill="#FFFDF9"/>
+  <path d="M65 27L72 22V70L65 76Z" fill="#B8C5D7"/>
+  <path d="M20 27H65V76H20Z" fill="url(#wall)"/>
+  <path d="M20 56H27V50H37V57H45V76H20Z" fill="#DCA588"/>
+  <path d="M20 63H45M20 70H45M28 56V63M37 63V70M27 70V76" stroke="#F8E9D8" stroke-width="2"/>
+  <path d="M38 28H65V66C62 69 60 63 57 66C53 70 51 62 47 65C43 68 41 61 38 64Z" fill="url(#paint)"/>
+  <path d="M42 32V53M47 33V57" stroke="#BCDBFF" stroke-width="2" stroke-linecap="round" opacity=".6"/>
+  <path d="M68 26H77A3 3 0 0 1 80 29V41A4 4 0 0 1 77 45L63 50V62" stroke="#506B96" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M68 25H77A3 3 0 0 1 80 28V40" stroke="#C0D0E9" stroke-width="1.3" stroke-linecap="round"/>
+  <rect x="40" y="17" width="31" height="17" rx="5" fill="url(#roller)" transform="rotate(-8 40 17)"/>
+  <path d="M44 19L65 16" stroke="#BDE1FF" stroke-width="2.2" stroke-linecap="round"/>
+  <ellipse cx="70" cy="21.5" rx="3" ry="7.5" transform="rotate(-8 70 21.5)" fill="#477FCB"/>
+  <rect x="58" y="59" width="10" height="22" rx="4" fill="#EDAD56"/>
+  <rect x="59.5" y="60" width="3" height="16" rx="1.5" fill="#FFD89A"/>
+  <circle cx="63" cy="77" r="1.5" fill="#AD6E37"/>
+  <path d="M19 64L21 79C22 84 40 84 42 79L44 64Z" fill="url(#tin)"/>
+  <path d="M21 69C26 72 38 72 42 69L41 77C35 80 27 79 22 76Z" fill="#F8FAFF"/>
+  <path d="M31 70C29 73 28 74 28 76A3 3 0 0 0 34 76C34 74 32 72 31 70Z" fill="#6C9CE6"/>
+  <ellipse cx="31.5" cy="64" rx="12.5" ry="4" fill="#C7DCFB"/>
+  <ellipse cx="31.5" cy="64" rx="9.5" ry="2.4" fill="#609BE8"/>
+  <path d="M21 66V59C21 48 42 48 42 59V66" stroke="#6882A7" stroke-width="2" stroke-linecap="round"/>
+  <path d="M24 55C28 52 35 52 39 55" stroke="#E7EEFA" stroke-width="1.4" stroke-linecap="round"/>
+</svg>

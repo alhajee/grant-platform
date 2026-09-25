@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <title>Sports equipment</title>
+  <desc>A football, basketball and tennis racket on a soft mint background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="12" y1="0" x2="84" y2="96" gradientUnits="userSpaceOnUse"><stop stop-color="#EFF9F2"/><stop offset="1" stop-color="#CDE7DA"/></linearGradient>
+    <linearGradient id="ball" x1="50" y1="33" x2="84" y2="70" gradientUnits="userSpaceOnUse"><stop stop-color="#FFBE79"/><stop offset="1" stop-color="#DC7647"/></linearGradient>
+    <linearGradient id="football" x1="17" y1="47" x2="54" y2="83" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFA"/><stop offset="1" stop-color="#D2DFD8"/></linearGradient>
+    <clipPath id="basketball"><circle cx="64" cy="53" r="21"/></clipPath>
+    <clipPath id="football-clip"><circle cx="33" cy="65" r="22"/></clipPath>
+  </defs>
+  <rect width="96" height="96" rx="18" fill="url(#bg)"/>
+  <ellipse cx="49" cy="81" rx="36" ry="7" fill="#285D4F" opacity=".12"/>
+  <g transform="rotate(-28 35 34)">
+    <path d="M35 46V75" stroke="#365E59" stroke-width="6" stroke-linecap="round"/>
+    <path d="M35 60V76" stroke="#EAA55D" stroke-width="7" stroke-linecap="round"/>
+    <path d="M32 64L38 66M32 70L38 72" stroke="#C88348" stroke-width="1.4"/>
+    <ellipse cx="35" cy="29" rx="15" ry="20" fill="#FAFFF9" stroke="#35736A" stroke-width="4"/>
+    <path d="M26 16V42M32 11V47M38 11V47M44 16V42M21 22H49M20 29H50M22 36H48" stroke="#A0C5B6" stroke-width="1.2"/>
+    <path d="M24 17C27 12 31 10 35 10" stroke="#87BDB0" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <circle cx="64" cy="53" r="21" fill="url(#ball)"/>
+  <g clip-path="url(#basketball)" stroke="#A95535" stroke-width="1.7">
+    <path d="M42 48L85 60M69 31L59 75M47 36C64 39 66 59 78 72M57 29C61 46 75 51 88 47"/>
+  </g>
+  <path d="M52 41C55 37 60 35 65 35" stroke="#FFD59D" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="33" cy="65" r="22" fill="url(#football)"/>
+  <g clip-path="url(#football-clip)">
+    <path d="M30 55L40 58L42 68L33 74L25 66Z" fill="#345852"/>
+    <path d="M11 55L18 52L22 43L10 43ZM42 42L42 50L51 56L59 52ZM50 75L44 80L44 90L58 85ZM15 74L21 80L18 90L7 84Z" fill="#456C60"/>
+    <path d="M18 52L30 55M40 58L42 50M42 68L50 75M33 74L28 86M25 66L15 74" stroke="#91ABA0" stroke-width="1.5"/>
+  </g>
+  <path d="M18 57C20 51 25 48 31 47" stroke="#FFF" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M78 18V24M75 21H81" stroke="#73AA94" stroke-width="2" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <title>Water and sanitation facilities</title>
+  <desc>An elevated blue water tank feeding a tap, with a clean water droplet and ripples below.</desc>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="0" x2="91" y2="96" gradientUnits="userSpaceOnUse"><stop stop-color="#EBFBFF"/><stop offset="1" stop-color="#CFEDF0"/></linearGradient>
+    <linearGradient id="tank" x1="17" y1="30" x2="49" y2="39" gradientUnits="userSpaceOnUse"><stop stop-color="#57B9DA"/><stop offset=".45" stop-color="#338DB7"/><stop offset="1" stop-color="#24658E"/></linearGradient>
+    <linearGradient id="pipe" x1="44" y1="47" x2="72" y2="63" gradientUnits="userSpaceOnUse"><stop stop-color="#6BB8B0"/><stop offset="1" stop-color="#2C817F"/></linearGradient>
+    <linearGradient id="drop" x1="66" y1="65" x2="75" y2="80" gradientUnits="userSpaceOnUse"><stop stop-color="#6ED5FA"/><stop offset="1" stop-color="#208CC8"/></linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="18" fill="url(#bg)"/>
+  <ellipse cx="46" cy="81" rx="34" ry="6" fill="#447E87" opacity=".12"/>
+  <path d="M16 77L33 68L53 77L35 86Z" fill="#B9D5CE"/>
+  <path d="M16 77L35 86V89L16 80Z" fill="#8EBCB5"/>
+  <path d="M35 86L53 77V80L35 89Z" fill="#7CABAB"/>
+  <path d="M22 44V77M44 44V75M33 50V82" stroke="#467885" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M22 54L33 73L44 52M22 72L33 55L44 70" stroke="#65949A" stroke-width="2" stroke-linecap="round"/>
+  <path d="M16 46L33 53L50 45V50L33 57L16 50Z" fill="#335E70"/>
+  <path d="M17 24C17 15 49 15 49 24V43C49 54 17 54 17 43Z" fill="url(#tank)"/>
+  <path d="M18 33C24 38 41 38 48 33M18 42C24 47 41 47 48 42" stroke="#8AD3E8" stroke-width="1.8" opacity=".55"/>
+  <ellipse cx="33" cy="24" rx="16" ry="6.7" fill="#78C5DE"/>
+  <ellipse cx="33" cy="23.5" rx="12.5" ry="4.5" fill="#A7E0ED"/>
+  <path d="M26 19V16C26 13 40 13 40 16V19C40 22 26 22 26 19Z" fill="#367EAA"/>
+  <ellipse cx="33" cy="16" rx="7" ry="2.5" fill="#7FC5DE"/>
+  <path d="M22 29V42" stroke="#A4E0EE" stroke-width="2.5" stroke-linecap="round" opacity=".65"/>
+  <path d="M47 43V54H64A7 7 0 0 1 71 61V64" stroke="url(#pipe)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M47 45V52H63" stroke="#A7D9CE" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M58 53V46M52 45H64" stroke="#365B6B" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M52 44H64" stroke="#8EBBBC" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M68 63H74" stroke="#285D71" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="71" cy="83" rx="11" ry="3" fill="#73BACB" opacity=".32"/>
+  <ellipse cx="71" cy="82.5" rx="6" ry="1.5" stroke="#71B9CC" stroke-width="1"/>
+  <path d="M71 66C69 69 65.5 72.5 65.5 76A5.5 5.5 0 0 0 76.5 76C76.5 72.5 73 69 71 66Z" fill="url(#drop)"/>
+  <path d="M68.5 74C67.5 76 68 77.5 69 78" stroke="#CAF4FF" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

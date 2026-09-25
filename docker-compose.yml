@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ubec-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ubec
+      POSTGRES_USER: ubec_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your local .env}
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - ubec_postgres_data:/var/lib/postgresql/data
+      - ./db/postgres/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+      - ./db/postgres/002-construction-types.sql:/docker-entrypoint-initdb.d/002-construction-types.sql:ro
+      - ./db/postgres/003-sports-development.sql:/docker-entrypoint-initdb.d/003-sports-development.sql:ro
+      - ./db/postgres/004-action-plans.sql:/docker-entrypoint-initdb.d/004-action-plans.sql:ro
+      - ./db/postgres/005-state-review.sql:/docker-entrypoint-initdb.d/005-state-review.sql:ro
+      - ./db/postgres/006-ubec-review.sql:/docker-entrypoint-initdb.d/006-ubec-review.sql:ro
+      - ./db/postgres/007-subeb-users.sql:/docker-entrypoint-initdb.d/007-subeb-users.sql:ro
+      - ./db/postgres/008-department-reviews.sql:/docker-entrypoint-initdb.d/008-department-reviews.sql:ro
+      - ./db/postgres/009-plan-creation-permission.sql:/docker-entrypoint-initdb.d/009-plan-creation-permission.sql:ro
+      - ./db/postgres/010-plan-setup.sql:/docker-entrypoint-initdb.d/010-plan-setup.sql:ro
+      - ./db/postgres/011-beap-chair.sql:/docker-entrypoint-initdb.d/011-beap-chair.sql:ro
+      - ./db/postgres/012-funding-policy.sql:/docker-entrypoint-initdb.d/012-funding-policy.sql:ro
+
+volumes:
+  ubec_postgres_data:

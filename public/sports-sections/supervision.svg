@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <title>Supervision, assessment and verification</title>
+  <desc>A checked inspection clipboard and magnifying glass on a soft lavender background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="12" y1="0" x2="84" y2="96" gradientUnits="userSpaceOnUse"><stop stop-color="#F5F2FC"/><stop offset="1" stop-color="#E1DCEF"/></linearGradient>
+    <linearGradient id="board" x1="23" y1="21" x2="61" y2="77" gradientUnits="userSpaceOnUse"><stop stop-color="#9C9CBB"/><stop offset="1" stop-color="#696E91"/></linearGradient>
+    <linearGradient id="paper" x1="28" y1="27" x2="58" y2="71" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFFFB"/><stop offset="1" stop-color="#EEEEE6"/></linearGradient>
+    <linearGradient id="glass" x1="53" y1="48" x2="73" y2="69" gradientUnits="userSpaceOnUse"><stop stop-color="#F4FFF9"/><stop offset="1" stop-color="#B9DCCE"/></linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="18" fill="url(#bg)"/>
+  <ellipse cx="49" cy="82" rx="34" ry="7" fill="#62577F" opacity=".12"/>
+  <g transform="rotate(-8 42 46)">
+    <rect x="22" y="20" width="43" height="60" rx="5" fill="#585F7C"/>
+    <rect x="19" y="18" width="43" height="60" rx="5" fill="url(#board)"/>
+    <rect x="24" y="24" width="33" height="48" rx="2" fill="url(#paper)"/>
+    <path d="M34 17V15C34 8 47 8 47 15V17H51V25H30V17Z" fill="#536B68"/>
+    <path d="M37 16V15C37 12 44 12 44 15V16" stroke="#B7CFC0" stroke-width="2" stroke-linecap="round"/>
+    <path d="M33 21H48" stroke="#8BAA9C" stroke-width="2" stroke-linecap="round"/>
+    <g fill="#DFEDE3"><rect x="29" y="32" width="8" height="8" rx="2"/><rect x="29" y="46" width="8" height="8" rx="2"/><rect x="29" y="60" width="8" height="8" rx="2"/></g>
+    <g stroke="#4D8D78" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M31 35.5L33 37.5L36 33.5M31 49.5L33 51.5L36 47.5M31 63.5L33 65.5L36 61.5"/></g>
+    <path d="M42 34H51M42 38H48M42 48H51M42 52H48M42 62H51M42 66H47" stroke="#BFCCC3" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+  <path d="M72 69L84 81" stroke="#405D5A" stroke-width="8" stroke-linecap="round"/>
+  <path d="M74 70L85 81" stroke="#71988D" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="63" cy="59" r="18" fill="#365F59"/>
+  <circle cx="63" cy="59" r="14" fill="url(#glass)"/>
+  <path d="M52 54C54 49 59 46 65 47" stroke="#F9FFFC" stroke-width="2" stroke-linecap="round"/>
+  <path d="M56 59L61 64L70 54" stroke="#4F957A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M78 22V28M75 25H81" stroke="#ABA3BE" stroke-width="2" stroke-linecap="round"/>
+</svg>

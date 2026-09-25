@@ -1,268 +1,345 @@
 "use client";
+import { beapPillars } from '@/lib/beap-pillars';
+import { PlanStatusBadge } from "@/components/plan-status";
+import { currentPlanHref, planPeriod, type ActionPlan } from "@/lib/action-plans";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Building2Icon, CheckIcon, ChevronDownIcon, EyeIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { toast } from "sonner";
+import { ConstructionTypePicker, SchoolProjectDefaults } from "@/components/construction-type-picker";
+import { ProjectCategorySelect } from "@/components/project-category-select";
+import { AccountMenu } from "@/components/workspace-account-menu";
+import { UbecLogo } from "@/components/ubec-logo";
+import type { ConstructionType } from "@/lib/construction-types";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import type { LocalUser } from "@/lib/local-session";
 
-type School = { name: string; lga: string; level: string; location: "Rural" | "Urban" };
-type ProjectType = { id: string; name: string; duration: number; unitCost: number };
-type LineItem = School & { id: number; code: string; projectType: string; quantity: number; rationale: string; strategy: string; longitude: string; latitude: string };
+type School = { id: number; name: string; lga: string; level: string; location: "Rural" | "Urban" };
+type LineItem = Omit<School, "id"> & { id: number; schoolId: number; code: string; projectType: string; duration: number; unitCost: number; quantity: number; rationale: string; strategy: string; longitude: string; latitude: string };
+const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const projectTypes: ProjectType[] = [
-  { id: "six-classrooms", name: "A block of six (6) classrooms storey building", duration: 20, unitCost: 95503308.31 },
-  { id: "two-classrooms", name: "A block of two (2) classrooms, office and store", duration: 20, unitCost: 30350753.56 },
-  { id: "staff-rooms", name: "Two (2) rooms, toilet, kitchen and store", duration: 20, unitCost: 22583110.30 },
-  { id: "vip-toilet", name: "Four (4) holes VIP toilet", duration: 20, unitCost: 9567503.30 },
-  { id: "learning-shade", name: "Learning shade for Non-Formal Education Centres", duration: 20, unitCost: 6524600.50 },
-];
-
-const schools: School[] = [
-  { name: "Musa Kazir MEGA School Gashua", lga: "Bade", level: "Primary", location: "Urban" },
-  { name: "Nasarawa PS", lga: "Damaturu", level: "Primary", location: "Urban" },
-  { name: "Daya PS", lga: "Fika", level: "Primary", location: "Urban" },
-  { name: "Helma Saleh PS", lga: "Potiskum", level: "Primary", location: "Urban" },
-  { name: "Madamuwa PS", lga: "Bade", level: "Primary", location: "Rural" },
-  { name: "Daskum PS", lga: "Bursari", level: "Primary", location: "Rural" },
-  { name: "Zanna Zakariya", lga: "Damaturu", level: "ECCDE", location: "Urban" },
-  { name: "Ben-Kalio", lga: "Damaturu", level: "ECCDE", location: "Urban" },
-  { name: "Borno Kichi PS", lga: "Fune", level: "Primary", location: "Rural" },
-  { name: "Nyole PS", lga: "Fune", level: "Primary", location: "Rural" },
-  { name: "Gubana PS", lga: "Fune", level: "Primary", location: "Rural" },
-  { name: "Dumbulwa", lga: "Fika", level: "ECCDE", location: "Urban" },
-  { name: "GDJSS Kelluri", lga: "Geidam", level: "JSS", location: "Rural" },
-  { name: "Islamiya", lga: "Gujba", level: "ECCDE", location: "Urban" },
-  { name: "Kasatchiya PS", lga: "Gujba", level: "Primary", location: "Rural" },
-  { name: "Daddawel PS", lga: "Gujba", level: "Primary", location: "Rural" },
-  { name: "Jama'are PS", lga: "Gujba", level: "Primary", location: "Rural" },
-  { name: "Manawaji PS", lga: "Gulani", level: "Primary", location: "Rural" },
-  { name: "Guzumbana PS", lga: "Jakusko", level: "Primary", location: "Rural" },
-  { name: "Makadari Nomadic", lga: "Karasuwa", level: "Primary", location: "Rural" },
-  { name: "Kalgidi PS", lga: "Machina", level: "Primary", location: "Rural" },
-  { name: "Lemari PS", lga: "Nangere", level: "Primary", location: "Rural" },
-  { name: "Goni Musa Goni Yusuf Islamiya PS", lga: "Nguru", level: "Primary", location: "Urban" },
-  { name: "Afunori PS", lga: "Nguru", level: "Primary", location: "Rural" },
-  { name: "Nurul-Aulad Islamiya PS", lga: "Nguru", level: "Primary", location: "Urban" },
-  { name: "Yindiski", lga: "Potiskum", level: "ECCDE", location: "Urban" },
-  { name: "GDJSS Babbangida", lga: "Tarmuwa", level: "JSS", location: "Urban" },
-  { name: "GDJSS Toshia", lga: "Yunusari", level: "JSS", location: "Rural" },
-  { name: "GDJSS Yusufari Model", lga: "Yusufari", level: "JSS", location: "Urban" },
-  { name: "Tullowa PS", lga: "Bursari", level: "Primary", location: "Rural" },
-  { name: "GDJSS Bulabulin", lga: "Damaturu", level: "JSS", location: "Urban" },
-  { name: "Damagum Nursery", lga: "Fune", level: "ECCDE", location: "Urban" },
-  { name: "GDJSS Gubana", lga: "Fune", level: "JSS", location: "Rural" },
-  { name: "Kurmi PS", lga: "Fika", level: "Primary", location: "Rural" },
-  { name: "Kukuwa Tasha PS", lga: "Gujba", level: "Primary", location: "Rural" },
-  { name: "Buni Gari (Kasugula) PS", lga: "Gujba", level: "Primary", location: "Urban" },
-  { name: "Dutchi PS", lga: "Gulani", level: "Primary", location: "Rural" },
-  { name: "Jaba PS", lga: "Jakusko", level: "Primary", location: "Rural" },
-  { name: "Karasuwa Model PS", lga: "Karasuwa", level: "Primary", location: "Rural" },
-  { name: "Dawasa PS", lga: "Nangere", level: "Primary", location: "Rural" },
-  { name: "Ari Kime Nursery", lga: "Potiskum", level: "ECCDE", location: "Urban" },
-  { name: "Biriri PS", lga: "Tarmuwa", level: "Primary", location: "Rural" },
-  { name: "GDJSS Dapchi", lga: "Bursari", level: "JSS", location: "Urban" },
-  { name: "Modu Mustapha PS", lga: "Damaturu", level: "Primary", location: "Urban" },
-  { name: "Lawan Kalam PS", lga: "Fune", level: "Primary", location: "Rural" },
-  { name: "Mai Malah PS", lga: "Fune", level: "Primary", location: "Rural" },
-  { name: "Gadaka Central Nursery", lga: "Fika", level: "ECCDE", location: "Urban" },
-  { name: "Hausari Nursery", lga: "Geidam", level: "ECCDE", location: "Urban" },
-  { name: "Buni Gari PS", lga: "Gulani", level: "Primary", location: "Urban" },
-  { name: "Njibulwa PS", lga: "Gulani", level: "Primary", location: "Rural" },
-  { name: "Guyik PS", lga: "Jakusko", level: "Primary", location: "Rural" },
-  { name: "Faji Ganari PS", lga: "Karasuwa", level: "Primary", location: "Rural" },
-  { name: "Konkomma PS", lga: "Machina", level: "Primary", location: "Rural" },
-  { name: "Watinani PS", lga: "Nangere", level: "Primary", location: "Rural" },
-  { name: "Ari Kime II Nursery", lga: "Potiskum", level: "ECCDE", location: "Urban" },
-  { name: "Kara PS", lga: "Potiskum", level: "Primary", location: "Urban" },
-  { name: "Babbangida Central PS", lga: "Tarmuwa", level: "Primary", location: "Urban" },
-  { name: "Zajibiri PS", lga: "Yunusari", level: "Primary", location: "Rural" },
-  { name: "Guya PS", lga: "Yusufari", level: "Primary", location: "Rural" },
-];
-
-const seeded: LineItem[] = schools.slice(0, 4).map((school, index) => ({
-  ...school,
-  id: index + 1,
-  code: `UBC/SUBEB/NC/${String(index + 1).padStart(3, "0")}/2025`,
-  projectType: "six-classrooms",
-  quantity: 1,
-  rationale: "Overcrowded classrooms",
-  strategy: "NCB",
-  longitude: ["11.04", "11.95", "11.04", "11.13"][index],
-  latitude: ["12.87", "11.76", "11.54", "11.71"][index],
-}));
-
-const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 });
+function PlanNavigation({ count, plan }: { count: number; plan: ActionPlan | null }) {
+  return (
+    <nav className="plan-navigation" aria-label="Main navigation">
+      <span className="nav-period">BEAP{plan ? ` · ${planPeriod(plan)}` : ""}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" aria-label="Infrastructure — choose BEAP pillar">
+            Infrastructure<ChevronDownIcon data-icon="inline-end" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={10} className="w-64">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>BEAP{plan ? ` · ${planPeriod(plan)}` : ""}</DropdownMenuLabel>
+            <DropdownMenuItem aria-current="page">
+              <Building2Icon />Infrastructure<Badge variant="secondary" className="ml-auto">{count}</Badge><CheckIcon />
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Not available yet</DropdownMenuLabel>
+            {beapPillars.filter(p=>!p.href).map(pillar => (
+              <DropdownMenuItem key={pillar.id} disabled>{pillar.name}</DropdownMenuItem>
+            ))}
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </nav>
+  );
+}
 
 export default function InfrastructurePage() {
-  const [projectId, setProjectId] = useState(projectTypes[0].id);
+  const [projectTypes, setProjectTypes] = useState<ConstructionType[]>([]);
+  const [projectId, setProjectId] = useState("");
+  const [projectError, setProjectError] = useState("");
+  const [schoolOverride, setSchoolOverride] = useState<{ duration: number; unitCost: number } | null>(null);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [quantity, setQuantity] = useState("1");
   const [rationale, setRationale] = useState("");
   const [strategy, setStrategy] = useState("NCB");
   const [longitude, setLongitude] = useState("");
   const [latitude, setLatitude] = useState("");
-  const [items, setItems] = useState<LineItem[]>(seeded);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [items, setItems] = useState<LineItem[]>([]);
+  const [user, setUser] = useState<LocalUser | null>(null);
+  const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [schoolError, setSchoolError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<LineItem | null>(null);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(true);
+  const [compact, setCompact] = useState(false);
+  const [mobileView, setMobileView] = useState("editor");
+  const editorPaneRef = useRef<HTMLDivElement>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const savingRef = useRef(false);
+  const project = projectTypes.find((type) => type.id === projectId) ?? null;
+  const projectTotal = useMemo(() => items.reduce((sum, item) => sum + Math.round(item.unitCost * 100) * item.quantity, 0) / 100, [items]);
+  const schoolCount = new Set(items.map((item) => item.schoolId)).size;
+  const lgaCount = new Set(items.map((item) => item.lga)).size;
+  const hasFormChanges = Boolean(selectedSchool || rationale || longitude || latitude || quantity !== "1" || strategy !== "NCB" || schoolOverride);
+  const lineValues = schoolOverride ?? project;
+  const lineTotal = Math.round((lineValues?.unitCost ?? 0) * 100) * (Number(quantity) || 0) / 100;
 
-  const project = projectTypes.find((item) => item.id === projectId) ?? projectTypes[0];
-  const projectTotal = useMemo(() => items.reduce((sum, item) => {
-    const itemProject = projectTypes.find((type) => type.id === item.projectType) ?? projectTypes[0];
-    return sum + itemProject.unitCost * item.quantity;
-  }, 0), [items]);
+  const loadData = useCallback(async () => {
+    const response = await fetch(currentPlanHref("/api/infrastructure"));
+    if (!response.ok) throw new Error("Your project data could not be loaded. Please try again.");
+    const payload = await response.json() as { plan: ActionPlan; canEdit: boolean; schools: School[]; lines: LineItem[]; constructionTypes: ConstructionType[] };
+    if (!payload.canEdit) { window.location.replace(currentPlanHref('/beap/review')); return; }
+    setActionPlan(payload.plan);
+    setSchools(payload.schools);
+    setItems(payload.lines);
+    setProjectTypes(payload.constructionTypes);
+  }, []);
+
+  const initialize = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/session");
+      if (response.status === 401) { window.location.replace("/"); return; }
+      if (!response.ok) throw new Error("We couldn't connect to your workspace. Please try again.");
+      const payload = await response.json() as { user: LocalUser };
+      setUser(payload.user);
+      await loadData();
+      setLoadError("");
+    } catch { setLoadError("We couldn't load your project data. Check your connection and try again."); }
+    finally { setLoading(false); }
+  }, [loadData]);
+
+  useEffect(() => { void Promise.resolve().then(initialize); }, [initialize]);
+  useEffect(() => {
+    const element = workspaceRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setCompact(entry.contentRect.width < 760));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   function resetSchoolFields() {
-    setSelectedSchool(null);
-    setQuantity("1");
-    setRationale("");
-    setStrategy("NCB");
-    setLongitude("");
-    setLatitude("");
-    setEditingId(null);
+    setSelectedSchool(null); setQuantity("1"); setRationale(""); setStrategy("NCB");
+    setLongitude(""); setLatitude(""); setEditingId(null); setSchoolError("");
+    setSchoolOverride(null); setProjectError("");
   }
 
-  function handleAdd(event: FormEvent<HTMLFormElement>) {
+  function selectConstructionType(type: ConstructionType | null) {
+    setProjectId(type?.id ?? ""); setProjectError(""); setSchoolOverride(null);
+  }
+
+  function finishEditing() {
+    if (savingRef.current || removing) return;
+    if (hasFormChanges) { setLeaveOpen(true); return; }
+    window.location.assign(currentPlanHref("/beap"));
+  }
+
+  function openEditor() {
+    setEditorOpen(true);
+    setMobileView("editor");
+    requestAnimationFrame(() => document.getElementById("construction-type")?.focus());
+  }
+
+  async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedSchool) {
-      toast.error("Choose a school before adding this line.");
+    if (savingRef.current) return;
+    if (!project || !lineValues) {
+      setProjectError("Select a saved construction type or create a new one.");
+      document.getElementById("construction-type")?.focus();
       return;
     }
-    const next: LineItem = {
-      ...selectedSchool,
-      id: editingId ?? Date.now(),
-      code: editingId ? items.find((item) => item.id === editingId)?.code ?? "" : `UBC/SUBEB/NC/${String(items.length + 1).padStart(3, "0")}/2025`,
-      projectType: projectId,
-      quantity: Math.max(1, Number(quantity) || 1),
-      rationale,
-      strategy,
-      longitude,
-      latitude,
-    };
-    if (editingId) {
-      setItems((current) => current.map((item) => item.id === editingId ? next : item));
-      toast.success(`${selectedSchool.name} updated.`);
-    } else {
-      setItems((current) => [...current, next]);
-      toast.success(`${selectedSchool.name} added to this project.`);
+    if (!selectedSchool) {
+      setSchoolError("Select a school from the directory.");
+      document.getElementById("school")?.focus();
+      return;
     }
-    resetSchoolFields();
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const response = await fetch(currentPlanHref("/api/infrastructure"), {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: editingId ? "update" : "create", id: editingId, schoolId: selectedSchool.id, projectType: projectId, duration: lineValues.duration, unitCost: lineValues.unitCost, quantity: Number(quantity), rationale, strategy, longitude, latitude }),
+      });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Could not save this project line.");
+      resetSchoolFields();
+      toast.success(editingId ? "School line updated." : "School added to the plan.");
+      try { await loadData(); } catch { setLoadError("Your line was saved, but the preview could not refresh. Reload the plan to see it."); }
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to save. Please try again."); }
+    finally { savingRef.current = false; setSaving(false); }
   }
 
   function editItem(item: LineItem) {
-    setEditingId(item.id);
-    setProjectId(item.projectType);
-    setSelectedSchool({ name: item.name, lga: item.lga, level: item.level, location: item.location });
-    setQuantity(String(item.quantity));
-    setRationale(item.rationale);
-    setStrategy(item.strategy);
-    setLongitude(item.longitude);
-    setLatitude(item.latitude);
-    window.scrollTo({ top: 480, behavior: "smooth" });
+    setEditorOpen(true);
+    setEditingId(item.id); setProjectId(item.projectType);
+    setSchoolOverride({ duration: item.duration, unitCost: item.unitCost }); setProjectError("");
+    setSelectedSchool(schools.find((school) => school.id === item.schoolId) ?? { id: item.schoolId, name: item.name, lga: item.lga, level: item.level, location: item.location });
+    setQuantity(String(item.quantity)); setRationale(item.rationale); setStrategy(item.strategy);
+    setLongitude(item.longitude); setLatitude(item.latitude); setSchoolError(""); setMobileView("editor");
+    requestAnimationFrame(() => {
+      editorPaneRef.current?.querySelector<HTMLElement>("[data-slot='scroll-area-viewport']")?.scrollTo({ top: 0 });
+      document.getElementById("construction-type")?.focus({ preventScroll: true });
+    });
   }
 
-  function removeItem(id: number) {
-    setItems((current) => current.filter((item) => item.id !== id));
-    if (editingId === id) resetSchoolFields();
-    toast.success("School line removed.");
+  async function removeItem() {
+    if (!removeTarget || removing) return;
+    setRemoving(true);
+    try {
+      const response = await fetch(currentPlanHref("/api/infrastructure"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete", id: removeTarget.id }) });
+      const payload = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Could not remove this line.");
+      setItems((current) => current.filter((item) => item.id !== removeTarget.id));
+      if (editingId === removeTarget.id) resetSchoolFields();
+      setRemoveTarget(null);
+      toast.success("School line removed.");
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to remove this line. Please try again."); }
+    finally { setRemoving(false); }
   }
+
+  const editor = (
+    <section className="workspace-pane editor-pane" aria-label="Project editor" ref={editorPaneRef}>
+      <ScrollArea className="pane-scroll">
+        <div className="editor-canvas">
+          <header className="editor-heading"><h1>{editingId ? "Edit school project" : "Add a school project"}</h1></header>
+          {loadError && <Alert variant="destructive"><AlertTitle>Unable to refresh the plan</AlertTitle><AlertDescription>{loadError}<Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); void initialize(); }}>{loading ? "Retrying…" : "Try again"}</Button></AlertDescription></Alert>}
+          <form id="project-form" onSubmit={handleAdd}>
+            <fieldset disabled={loading || saving || Boolean(loadError)} className="project-fields">
+              <FieldGroup className="gap-6">
+                <Field>
+                  <FieldLabel htmlFor="category">Project category</FieldLabel>
+                  <ProjectCategorySelect id="category" disabled={loading || saving || Boolean(loadError)} />
+                </Field>
+                <ConstructionTypePicker types={projectTypes} value={project} onSelect={selectConstructionType} error={projectError} disabled={loading || saving || Boolean(loadError)}
+                  onCreated={(type) => { setProjectTypes((current) => [type, ...current.filter((item) => item.id !== type.id)]); selectConstructionType(type); }} />
+                {project && <SchoolProjectDefaults key={project.id} type={project} override={schoolOverride} onChange={setSchoolOverride} disabled={loading || saving || Boolean(loadError)} />}
+                <Separator />
+                <div className="section-heading"><h2>School & location</h2></div>
+                <Field data-invalid={Boolean(schoolError)}>
+                  <FieldLabel htmlFor="school">School name</FieldLabel>
+                  <Combobox items={schools} value={selectedSchool} onValueChange={(school) => { setSelectedSchool(school); setSchoolError(""); }} itemToStringLabel={(school: School) => school.name} itemToStringValue={(school: School) => String(school.id)} isItemEqualToValue={(a, b) => a.id === b.id}>
+                    <ComboboxInput id="school" className="w-full" placeholder={loading ? "Loading school directory…" : "Search by school name…"} showClear aria-invalid={Boolean(schoolError)} aria-describedby={schoolError ? "school-error" : undefined} />
+                    <ComboboxContent><ComboboxEmpty>No schools match your search.</ComboboxEmpty><ComboboxList>{(school: School) => <ComboboxItem key={school.id} value={school}><span className="school-option"><span>{school.name}</span><small>{school.lga} · {school.level}</small></span></ComboboxItem>}</ComboboxList></ComboboxContent>
+                  </Combobox>
+                  {schoolError && <FieldError id="school-error">{schoolError}</FieldError>}
+                </Field>
+                <dl className="school-facts"><div><dt>LGA</dt><dd>{selectedSchool?.lga ?? "—"}</dd></div><div><dt>School level</dt><dd>{selectedSchool?.level ?? "—"}</dd></div><div><dt>Location</dt><dd>{selectedSchool?.location ?? "—"}</dd></div></dl>
+                <FieldGroup className="field-columns">
+                  <Field><FieldLabel htmlFor="quantity">Quantity</FieldLabel><Input id="quantity" required min="1" step="1" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></Field>
+                  <Field><FieldLabel htmlFor="strategy">Implementation strategy</FieldLabel><Select value={strategy} onValueChange={setStrategy}><SelectTrigger id="strategy" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="NCB">NCB</SelectItem><SelectItem value="National Shopping">National Shopping</SelectItem><SelectItem value="Direct Labour">Direct Labour</SelectItem></SelectGroup></SelectContent></Select></Field>
+                </FieldGroup>
+                <Separator />
+                <div className="section-heading"><h2>Project justification</h2><p>Add supporting details for the review team.</p></div>
+                <Field><FieldLabel htmlFor="rationale">Why is this project needed?</FieldLabel><Textarea id="rationale" rows={3} placeholder="e.g. Existing classrooms cannot accommodate current enrolment." value={rationale} onChange={(event) => setRationale(event.target.value)} /></Field>
+                <FieldGroup className="field-columns">
+                  <Field><FieldLabel htmlFor="longitude">Longitude</FieldLabel><Input id="longitude" type="number" step="any" min="-180" max="180" inputMode="decimal" placeholder="e.g. 11.04" value={longitude} onChange={(event) => setLongitude(event.target.value)} /></Field>
+                  <Field><FieldLabel htmlFor="latitude">Latitude</FieldLabel><Input id="latitude" type="number" step="any" min="-90" max="90" inputMode="decimal" placeholder="e.g. 12.87" value={latitude} onChange={(event) => setLatitude(event.target.value)} /></Field>
+                </FieldGroup>
+              </FieldGroup>
+            </fieldset>
+          </form>
+        </div>
+      </ScrollArea>
+      <div className="editor-footer">
+        <div className="line-total"><span>Line total</span><strong>{project ? money.format(lineTotal) : "—"}</strong></div>
+        <div className="footer-actions">
+          {editingId && <Button variant="ghost" disabled={saving} onClick={resetSchoolFields}>Cancel</Button>}
+          <Button type="submit" form="project-form" disabled={loading || saving || Boolean(loadError)} aria-busy={saving}>{saving ? <Spinner data-icon="inline-start" /> : editingId ? <CheckIcon data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}{saving ? "Saving…" : editingId ? "Update school" : "Add school"}</Button>
+        </div>
+      </div>
+    </section>
+  );
+
+  const preview = (
+    <section className="workspace-pane preview-pane" aria-label="Plan preview">
+      <ScrollArea className="pane-scroll">
+        <article className="preview-document">
+          <div className="plan-overview"><div><span>Proposed budget</span>{loading ? <Skeleton className="h-8 w-48" /> : <strong>{money.format(projectTotal)}</strong>}</div><p>{schoolCount} {schoolCount === 1 ? "school" : "schools"}<span>·</span>{items.length} project {items.length === 1 ? "line" : "lines"}<span>·</span>{lgaCount} {lgaCount === 1 ? "LGA" : "LGAs"}</p></div>
+          <section className="school-schedule" aria-label="School projects">
+            {loading ? <div className="preview-loading" aria-label="Loading project lines"><Skeleton className="h-12 w-full" /><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div> : items.length ? (
+              <div className="school-table">
+                <Table className="table-fixed"><colgroup><col /><col className="quantity-column" /><col className="budget-column" /><col className="actions-column" /></colgroup>
+                  <TableHeader><TableRow><TableHead>School / project</TableHead><TableHead className="text-center">Qty.</TableHead><TableHead className="text-right">Amount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+                  <TableBody>{items.map((item) => <TableRow key={item.id} data-state={editingId === item.id ? "selected" : undefined}>
+                    <TableCell className="school-cell"><div className="school-name">{item.name}</div><div className="school-location">{item.lga} · {item.location}</div><div className="school-project">{projectTypes.find((type) => type.id === item.projectType)?.name ?? "Construction type unavailable"}</div><div className="school-code">{item.code} · {item.duration} weeks</div><div className="compact-amount">{item.quantity} × {money.format(item.unitCost)}<strong>{money.format(Math.round(item.unitCost * 100) * item.quantity / 100)}</strong></div></TableCell>
+                    <TableCell className="quantity-cell text-center">{item.quantity}</TableCell>
+                    <TableCell className="budget-cell text-right tabular-nums">{money.format(Math.round(item.unitCost * 100) * item.quantity / 100)}</TableCell>
+                    <TableCell className="line-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" disabled={saving || removing} aria-label={"Actions for " + item.name}><MoreHorizontalIcon /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onSelect={() => editItem(item)}><PencilIcon />Edit project line</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={() => setRemoveTarget(item)}><Trash2Icon />Remove project line</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></TableCell>
+                  </TableRow>)}</TableBody>
+                </Table>
+                <div className="schedule-total"><span>Total proposed budget</span><strong>{money.format(projectTotal)}</strong></div>
+              </div>
+            ) : <Empty><EmptyHeader><EmptyMedia variant="icon"><Building2Icon /></EmptyMedia><EmptyTitle>No schools added yet</EmptyTitle><EmptyDescription>Add your first school project to start building this plan.</EmptyDescription></EmptyHeader></Empty>}
+          </section>
+        </article>
+      </ScrollArea>
+    </section>
+  );
 
   return (
-    <div className="beap-shell">
-      <aside className="beap-sidebar">
-        <a className="portal-brand" href="/beap/infrastructure">
-          <span className="portal-mark">UBE</span>
-          <span><strong>Grant Portal</strong><small>Planning & submissions</small></span>
-        </a>
-        <p className="side-kicker">Workspace</p>
-        <nav className="side-nav" aria-label="Primary navigation">
-          <a href="#overview">Overview</a>
-          <a className="active" href="#annual-beap">Annual BEAP <span className="side-count">25</span></a>
-          <a href="#review">Review & submit</a>
-        </nav>
-        <p className="side-kicker">BEAP pillars</p>
-        <nav className="side-nav" aria-label="BEAP pillars">
-          <a className="active" href="#infrastructure">Infrastructure <span className="side-count">4</span></a>
-          <a href="#access">Access initiatives</a>
-          <a href="#quality">Quality</a>
-          <a href="#systems">Systems optimisation</a>
-          <a href="#sports">Sports development</a>
-          <a href="#gscci">GSCCI</a>
-        </nav>
-        <div className="sidebar-foot"><strong>Yobe SUBEB</strong><span>Data entry workspace</span></div>
-      </aside>
-
-      <section className="beap-workspace">
-        <header className="workspace-header">
-          <div className="workspace-title"><span className="mobile-brand">UBE</span><div><strong>Yobe State SUBEB</strong><span>2025 Annual BEAP · Matching Grant</span></div></div>
+    <div className="portal-shell">
+      <div className="portal-workspace" ref={workspaceRef}>
+        {editorOpen ? <header className="workspace-header editor-page-header" aria-label="Plan editor">
+          <div className="editor-header-heading">
+            <Button variant="ghost" size="icon" disabled={saving || removing} aria-label="Back to all pillars" title="Back to all pillars" onClick={finishEditing}><XIcon /></Button>
+            <span className="editor-plan-title">{actionPlan ? planPeriod(actionPlan) + " " : ""}Infrastructure plan</span>
+            {actionPlan && <PlanStatusBadge status={actionPlan.status} />}
+          </div>
           <div className="workspace-actions">
-            <Badge variant="secondary" data-mobile-hide="true">Draft</Badge>
-            <Button variant="outline" size="sm" onClick={() => toast.success("Draft saved locally.")}>Save draft</Button>
-            <Button size="sm" onClick={() => toast.info("Your plan is ready for the Executive Secretary review queue.")}>Submit to ES</Button>
+            <span className="save-status" aria-live="polite">{loading ? "Loading plan…" : saving ? <><Spinner />Saving…</> : loadError ? "Connection issue" : hasFormChanges ? "Unfinished school line" : <><CheckIcon aria-hidden="true" />All lines saved</>}</span>
+            <Button disabled={loading || saving || removing} onClick={finishEditing}>Done</Button>
           </div>
-        </header>
-
-        <main className="beap-main" id="infrastructure">
-          <div className="beap-breadcrumb">Annual BEAP &nbsp;/&nbsp; 2025 &nbsp;/&nbsp; <span>Infrastructure</span></div>
-          <div className="beap-hero">
-            <div><h1>Infrastructure projects</h1><p>Group schools under a construction type, add each location, and review the resulting project lines before submission.</p></div>
-            <div className="progress-block"><div className="progress-label"><span>Infrastructure completion</span><strong>34%</strong></div><Progress value={34} /></div>
+        </header> : <header className="workspace-header">
+          <div className="workspace-heading">
+            <a className="portal-brand" href="/beap" onClick={(event) => { event.preventDefault(); finishEditing(); }} aria-label="Grant Portal — all pillars">
+              <UbecLogo />
+              <span className="header-brand-name"><strong>Grant Portal</strong><small>Yobe State SUBEB</small></span>
+            </a>
+            <Separator orientation="vertical" className="h-7" />
+            <PlanNavigation count={items.length} plan={actionPlan} />
+            {actionPlan && <PlanStatusBadge status={actionPlan.status} />}
           </div>
-
-          <div className="stat-grid">
-            <div className="stat-card"><span>2025 matching grant</span><strong>{money.format(7109285169)}</strong></div>
-            <div className="stat-card"><span>Infrastructure plan</span><strong>{money.format(5331963877)}</strong></div>
-            <div className="stat-card"><span>Current construction lines</span><strong>{items.length} schools · {money.format(projectTotal)}</strong></div>
+          <div className="workspace-actions">
+            <span className="save-status" aria-live="polite">{loading ? "Loading plan…" : saving ? "Saving…" : loadError ? "Connection issue" : hasFormChanges ? "School line not added yet" : <><CheckIcon aria-hidden="true" />Plan up to date</>}</span>
+            <Button id="resume-editor" size="sm" className="header-review" aria-label={hasFormChanges ? "Resume editing" : "Edit plan"} title={hasFormChanges ? "Resume editing" : "Edit plan"} onClick={openEditor}><PencilIcon data-icon="inline-start" /><span>{hasFormChanges ? "Resume editing" : "Edit plan"}</span></Button>
+            <AccountMenu user={user} />
           </div>
-
-          <div className="category-strip" aria-label="Infrastructure categories">
-            {['Construction', 'Renovation', 'Furniture & equipment', 'Water & sanitation', 'Geophysical survey', 'Teaching & learning materials'].map((category, index) => <button className={`category-pill${index === 0 ? ' active' : ''}`} key={category} type="button" onClick={() => index ? toast.info(`${category} will use its own 2025 template fields.`) : undefined}>{category}</button>)}
-          </div>
-
-          <div className="entry-grid">
-            <Card className="form-card">
-              <CardHeader><div className="card-eyebrow">Construction</div><CardTitle>Project and school details</CardTitle><CardDescription>Select a project once, then add all schools receiving it.</CardDescription></CardHeader>
-              <form onSubmit={handleAdd}>
-                <CardContent>
-                  <FieldGroup>
-                    <Field><FieldLabel>Construction type</FieldLabel><Select value={projectId} onValueChange={setProjectId}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{projectTypes.map((type) => <SelectItem value={type.id} key={type.id}>{type.name}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
-                    <div className="form-two-col">
-                      <Field><FieldLabel>Duration</FieldLabel><Input value={`${project.duration} weeks`} readOnly /></Field>
-                      <Field><FieldLabel>Unit cost</FieldLabel><Input value={money.format(project.unitCost)} readOnly /></Field>
-                    </div>
-                    <Separator />
-                    <Field><FieldLabel>School name</FieldLabel><Combobox items={schools} value={selectedSchool} onValueChange={setSelectedSchool} itemToStringValue={(school: School) => school.name}><ComboboxInput className="w-full" placeholder="Start typing a school name…" showClear /><ComboboxContent><ComboboxEmpty>No matching school found.</ComboboxEmpty><ComboboxList>{(school: School) => <ComboboxItem key={`${school.name}-${school.lga}`} value={school}><span><strong>{school.name}</strong><small className="block text-muted-foreground">{school.lga} · {school.level}</small></span></ComboboxItem>}</ComboboxList></ComboboxContent></Combobox></Field>
-                    <div className="auto-fields"><div><span>LGA</span><strong>{selectedSchool?.lga ?? "Filled from school record"}</strong></div><div><span>School level</span><strong>{selectedSchool?.level ?? "—"}</strong></div><div><span>Location</span><strong>{selectedSchool?.location ?? "—"}</strong></div></div>
-                    <div className="form-two-col">
-                      <Field><FieldLabel>Quantity</FieldLabel><Input min="1" type="number" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></Field>
-                      <Field><FieldLabel>Implementation strategy</FieldLabel><Select value={strategy} onValueChange={setStrategy}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="NCB">NCB</SelectItem><SelectItem value="National Shopping">National Shopping</SelectItem><SelectItem value="Direct Labour">Direct Labour</SelectItem></SelectGroup></SelectContent></Select></Field>
-                    </div>
-                    <Field><FieldLabel>Justification / rationale</FieldLabel><Textarea placeholder="Why is this project needed at this school?" value={rationale} onChange={(event) => setRationale(event.target.value)} /></Field>
-                    <div className="form-two-col"><Field><FieldLabel>GPS longitude</FieldLabel><Input inputMode="decimal" placeholder="e.g. 11.04" value={longitude} onChange={(event) => setLongitude(event.target.value)} /></Field><Field><FieldLabel>GPS latitude</FieldLabel><Input inputMode="decimal" placeholder="e.g. 12.87" value={latitude} onChange={(event) => setLatitude(event.target.value)} /></Field></div>
-                    <div className="cost-panel"><div><span>Calculated line total</span><strong>{money.format(project.unitCost * (Number(quantity) || 0))}</strong></div><Badge variant="outline">{project.duration} weeks</Badge></div>
-                  </FieldGroup>
-                </CardContent>
-                <CardFooter className="form-actions">{editingId && <Button type="button" variant="outline" onClick={resetSchoolFields}>Cancel</Button>}<Button type="submit">{editingId ? "Update school" : "Add school to project"}</Button></CardFooter>
-              </form>
-            </Card>
-
-            <Card className="table-card">
-              <CardHeader><div className="card-eyebrow">Live preview</div><CardTitle>Added schools</CardTitle><CardDescription>Each school becomes a reviewable line in the 2025 submission.</CardDescription><CardAction><Badge variant="secondary">{items.length} lines</Badge></CardAction></CardHeader>
-              <CardContent>
-                <div className="table-wrap"><Table><TableHeader><TableRow><TableHead>School</TableHead><TableHead>LGA</TableHead><TableHead>Qty.</TableHead><TableHead>Location</TableHead><TableHead className="text-right">Cost</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{items.map((item) => { const rowProject = projectTypes.find((type) => type.id === item.projectType) ?? projectTypes[0]; return <TableRow key={item.id}><TableCell className="school-cell"><strong>{item.name}</strong><span>{item.code} · {item.level}</span></TableCell><TableCell>{item.lga}</TableCell><TableCell>{item.quantity}</TableCell><TableCell><Badge variant="outline">{item.location}</Badge></TableCell><TableCell className="text-right font-medium">{money.format(rowProject.unitCost * item.quantity)}</TableCell><TableCell><div className="row-actions"><Button size="sm" variant="ghost" onClick={() => editItem(item)}>Edit</Button><Button size="sm" variant="ghost" onClick={() => removeItem(item.id)}>Remove</Button></div></TableCell></TableRow>; })}</TableBody></Table></div>
-                <div className="summary-bar"><div><span>Selected construction type</span><strong>{project.name}</strong></div><div className="summary-total"><span>Current project total</span><strong>{money.format(projectTotal)}</strong></div></div>
-              </CardContent>
-            </Card>
-          </div>
+        </header>}
+        <main className="workspace-body" id="infrastructure">
+          {!editorOpen ? preview : compact ? <Tabs value={mobileView} onValueChange={setMobileView} className="mobile-workspace"><div className="mobile-tabs"><TabsList className="w-full"><TabsTrigger value="editor"><PencilIcon />Editor</TabsTrigger><TabsTrigger value="preview"><EyeIcon />Preview ({items.length})</TabsTrigger></TabsList></div><TabsContent value="editor" className="mobile-pane">{editor}</TabsContent><TabsContent value="preview" className="mobile-pane">{preview}</TabsContent></Tabs> : (
+            <ResizablePanelGroup orientation="horizontal" className="workspace-split" id="infrastructure-workspace">
+              <ResizablePanel id="project-editor" defaultSize="48%" minSize="34%" className="split-panel">{editor}</ResizablePanel>
+              <ResizableHandle withHandle aria-label="Resize editor and preview" />
+              <ResizablePanel id="plan-preview" defaultSize="52%" minSize="36%" className="split-panel">{preview}</ResizablePanel>
+            </ResizablePanelGroup>
+          )}
         </main>
-      </section>
+      </div>
+      <AlertDialog open={Boolean(removeTarget)} onOpenChange={(open) => { if (!open && !removing) setRemoveTarget(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Remove this project line?</AlertDialogTitle><AlertDialogDescription>{removeTarget?.name} will be removed from the plan. You can add the school again later.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={removing}>Keep line</AlertDialogCancel><Button variant="destructive" disabled={removing} onClick={removeItem}>{removing && <Spinner data-icon="inline-start" />}{removing ? "Removing…" : "Remove line"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <Dialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+        <DialogContent className="sm:max-w-sm" variant="inset-footer">
+          <DialogHeader><DialogTitle>You have an unfinished school line</DialogTitle><DialogDescription>Add or update this school before leaving to keep your changes. Previously saved project lines are safe.</DialogDescription></DialogHeader>
+          <DialogFooter><DialogClose asChild><Button variant="outline">Continue editing</Button></DialogClose><Button variant="destructiveOutline" onClick={() => window.location.assign(currentPlanHref("/beap"))}>Leave without saving</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
