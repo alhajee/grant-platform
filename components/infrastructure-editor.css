@@ -28,6 +28,12 @@
 .infrastructure-shell [data-slot=field-label]:has(input),.infrastructure-shell [data-slot=field-label]:has(select),.infrastructure-shell [data-slot=field-label]:has(textarea){display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%}
 .infrastructure-shell .preview-document{min-width:0}
 .infrastructure-shell .preview-document [data-slot=table-container]{background:var(--card);border:1px solid var(--border);border-radius:12px}
+.infra-cost-row{cursor:pointer}
+.infra-cost-row:focus-visible{outline:2px solid var(--ring);outline-offset:-2px}
+.infra-cost-table[data-kind=new] .infra-cost-row[data-state=selected]{background:color-mix(in srgb,var(--peach) 38%,var(--card))}
+.infra-cost-table[data-kind=whole] .infra-cost-row[data-state=selected]{background:color-mix(in srgb,var(--sage) 38%,var(--card))}
+.infra-cost-table[data-kind=furniture] .infra-cost-row[data-state=selected]{background:color-mix(in srgb,var(--lilac) 38%,var(--card))}
+@media(hover:hover) and (pointer:fine){.infra-cost-row:hover{background:color-mix(in srgb,var(--muted) 58%,var(--card))}.infra-cost-table[data-kind=new] .infra-cost-row[data-state=selected]:hover{background:color-mix(in srgb,var(--peach) 48%,var(--card))}.infra-cost-table[data-kind=whole] .infra-cost-row[data-state=selected]:hover{background:color-mix(in srgb,var(--sage) 48%,var(--card))}.infra-cost-table[data-kind=furniture] .infra-cost-row[data-state=selected]:hover{background:color-mix(in srgb,var(--lilac) 48%,var(--card))}}
 @media(max-width:850px){.infra-home{padding:20px}.infra-choices{grid-template-columns:1fr}.infra-steps{gap:16px;padding:12px 20px}.infra-review-summary{grid-template-columns:88px minmax(0,1fr);padding:14px;gap:14px}.infra-review-art{min-height:92px}.infra-review-art .infra-illustration{width:84px}}
 .land-agreement{--primary:var(--warning);--ring:var(--warning);--input:color-mix(in srgb,var(--warning) 45%,var(--card));padding:20px;border:1.5px dashed color-mix(in srgb,var(--warning) 55%,var(--card));border-radius:12px;background:color-mix(in srgb,var(--warning) 7%,var(--card));color:var(--warning-foreground);gap:16px}
 .land-agreement legend{float:left;width:100%;margin:0}
