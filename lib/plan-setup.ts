@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formatQuarters } from './format-quarters';
 
 const year = z.number().int().min(2004).max(2100);
 const amount = z.string().regex(/^\d{1,12}(\.\d{1,2})?$/, 'Enter a non-negative amount with up to two decimal places.');
@@ -19,7 +20,7 @@ export function fundingTotal(lodgment: string, other: string) {
   return `${total/hundred}.${String(total%hundred).padStart(2,'0')}`;
 }
 export function beapName(state: string, year: number, quarters: number[]) {
-  return `${state.replace(/ State$/, '').replace(/\s+/g,'')}-${year}-${[...quarters].sort().map(q=>`Q${q}`).join('+')}-BEAP`;
+  return `${state.replace(/ State$/, '').replace(/\s+/g,'')}-${year}-${formatQuarters(quarters)}-BEAP`;
 }
 export type PlanDocument = {id:string;name:string;size:number};
 export type PlanSetup = {

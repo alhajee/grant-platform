@@ -78,22 +78,24 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
       </DialogHeader>
       <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col overflow-hidden" noValidate>
         <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-5">
-          <Card className="gap-0 overflow-hidden border-primary/15 bg-[linear-gradient(110deg,color-mix(in_oklab,var(--sage)_20%,var(--card)),var(--card)_68%)] py-0 shadow-none">
+          <Card className="plan-funding-summary gap-0 overflow-hidden py-0 shadow-none">
             <CardContent className="p-0">
-              <div className="grid divide-y md:grid-cols-[1.15fr_repeat(3,minmax(0,1fr))] md:divide-x md:divide-y-0">
-                <div className="flex items-center gap-3 p-4">
+              <div className="plan-funding-layout">
+                <div className="plan-funding-total flex items-center gap-3 p-4">
                   <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><LandmarkIcon className="size-4" /></span>
                   <div className="min-w-0">
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Funding summary</p>
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Total available funding</p>
                     <p className="mt-1 text-xl font-semibold tabular-nums break-all">{money.format(Number(total))}</p>
-                    <p className="text-xs text-muted-foreground">Total funding envelope</p>
+                    <p className="text-xs text-muted-foreground">Your action plan’s funding envelope</p>
                   </div>
                 </div>
-                <div className="flex flex-col justify-center gap-1 p-4"><span className="text-xs text-muted-foreground">State lodgment</span><strong className="text-sm font-semibold tabular-nums">{money.format(Number(lodgment || 0))}</strong></div>
-                <div className="flex flex-col justify-center gap-1 p-4"><span className="text-xs text-muted-foreground">UBEC counterpart</span><strong className="text-sm font-semibold tabular-nums">{money.format(Number(lodgment || 0))}</strong></div>
-                <div className="flex flex-col justify-center gap-1 p-4"><span className="text-xs text-muted-foreground">Other funding</span><strong className="text-sm font-semibold tabular-nums">{money.format(Number(other || 0))}</strong></div>
+                <dl className="plan-funding-breakdown">
+                  <div><dt>State lodgment</dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
+                  <div><dt>UBEC counterpart <span className="funding-match">1:1 match</span></dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
+                  <div><dt>Other funding</dt><dd>{money.format(Number(other || 0))}</dd></div>
+                </dl>
               </div>
-              {quarters.length > 0 && <div className="border-t px-4 py-2.5 text-xs text-muted-foreground"><span className="font-medium text-foreground">Plan preview:</span> {beapName(stateName, Number(year), quarters.map(Number))}</div>}
+              <div className="plan-name-preview"><span>PLAN REFERENCE</span><strong>{quarters.length > 0 ? beapName(stateName, Number(year), quarters.map(Number)) : 'Choose your funding quarters below'}</strong></div>
             </CardContent>
           </Card>
 

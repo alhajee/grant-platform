@@ -151,6 +151,21 @@
 .create-plan-dialog[data-variant] [data-slot="dialog-title"] { font-size: 26px; letter-spacing: -.8px; line-height: 1.2; }
 .plan-calendar-art { width: 98px; height: 90px; flex-shrink: 0; }
 .plan-eyebrow { font-size: 10px; letter-spacing: 1.8px; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+.create-plan-dialog .plan-funding-summary { border: 1px solid #d4e0d7; border-radius: 18px; background: #f7f9f4; }
+.plan-funding-layout { display: grid; grid-template-columns: 1fr 1fr; }
+.plan-funding-total { padding: 24px; background: linear-gradient(135deg, #e7efdd, #f7f9f4); }
+.plan-funding-total > span { background: white; color: #004740; border: 1px solid #d3dfcc; width: 44px; height: 44px; }
+.plan-funding-total .text-xl { font-size: clamp(22px, 2.2vw, 30px); color: #004740; letter-spacing: -.8px; margin: 6px 0; overflow-wrap: anywhere; }
+.plan-funding-total .uppercase { font-size: 10px; letter-spacing: 1px; color: #496056; }
+.plan-funding-breakdown { display: flex; flex-direction: column; justify-content: center; gap: 12px; padding: 22px 24px; font-size: 12px; }
+.plan-funding-breakdown > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.plan-funding-breakdown dt { color: var(--muted-foreground); }
+.plan-funding-breakdown dd { font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
+.funding-match { display: inline-block; padding: 2px 5px; margin-left: 4px; border-radius: 5px; background: #e5eddc; color: #4b6840; font-size: 9px; white-space: nowrap; }
+.plan-name-preview { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding: 12px 24px; border-top: 1px solid #dce5d8; background: #fff; }
+.plan-name-preview > span { font-size: 9px; letter-spacing: 1px; color: var(--muted-foreground); }
+.plan-name-preview > strong { font-size: 12px; font-weight: 500; overflow-wrap: anywhere; color: #31584d; }
+@media (max-width: 600px) { .plan-funding-layout { grid-template-columns: 1fr; } .plan-funding-total, .plan-funding-breakdown { padding: 18px; } .plan-name-preview { padding: 12px 18px; } }
 .create-plan-dialog [data-slot="dialog-description"] { max-width: 470px; padding-top: 5px; }
 .create-plan-dialog form > div:first-child { background: var(--card); }
 .create-plan-dialog [data-slot="fieldset"], .create-plan-dialog [data-slot="field-set"] { box-shadow: none; }
