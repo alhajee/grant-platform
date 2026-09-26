@@ -9,7 +9,7 @@ export const planSetupSchema = z.object({
     .refine(q => new Set(q).size === q.length, 'Do not repeat quarters.').transform(q=>[...q].sort()),
   stateLodgment: amount,
   otherFunding: amount,
-}).strict().refine(p => p.implementationYear >= p.planningYear, {message:'Implementation year cannot be before the planning year.',path:['implementationYear']})
+}).strict().refine(p => p.implementationYear >= p.planningYear, {message:'Implementation year cannot be before the funding year.',path:['implementationYear']})
   .refine(p => Number(p.stateLodgment)*2+Number(p.otherFunding)>0, {message:'Enter funding greater than zero.',path:['stateLodgment']});
 
 export function fundingTotal(lodgment: string, other: string) {

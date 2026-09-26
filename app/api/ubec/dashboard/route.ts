@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     if (!isUbec(user.role)) return NextResponse.json({ error: 'UBEC access required.' }, { status: 403 });
     const reviewer = user.role === 'UBEC Department Reviewer';
     const yearValue = request.nextUrl.searchParams.get('year');
-    if (yearValue && !/^\d{4}$/.test(yearValue)) return NextResponse.json({ error: 'Invalid planning year.' }, { status: 400 });
+    if (yearValue && !/^\d{4}$/.test(yearValue)) return NextResponse.json({ error: 'Invalid funding year.' }, { status: 400 });
     const year = yearValue ? Number(yearValue) : null;
     const db = getPostgres();
     const result = await db.query<UbecRound & { state_code: string; start_year: number; end_year: number; funding_quarters: number[] | null }>(`SELECT r.*,p.state_code,p.start_year,p.end_year,p.funding_quarters FROM ubec_rounds r JOIN action_plans p ON p.id=r.plan_id WHERE r.number=(SELECT MAX(number) FROM ubec_rounds WHERE plan_id=r.plan_id) ${reviewer ? 'AND EXISTS(SELECT 1 FROM ubec_assignments a WHERE a.round_id=r.id AND a.department=$1)' : ''} ORDER BY r.submitted_at DESC`, reviewer ? [user.department] : []);
