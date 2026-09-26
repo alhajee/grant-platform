@@ -17,6 +17,10 @@ import { planHref, type PlanOverview } from '@/lib/action-plans';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
 
+function RequiredMark() {
+  return <><span className="text-destructive" aria-hidden="true">*</span><span className="sr-only"> (required)</span></>;
+}
+
 function FundingSummaryArtwork() {
   return <svg className="funding-summary-art" viewBox="0 0 76 68" fill="none" aria-hidden="true">
     <rect x="2" y="2" width="66" height="62" rx="19" fill="#fffdf9" />
@@ -47,6 +51,9 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
   const occupied = reserved(year);
   const total = /^\d{0,13}(\.\d{0,2})?$/.test(lodgment) && /^\d{0,13}(\.\d{0,2})?$/.test(other) ? fundingTotal(lodgment || '0', other || '0') : '0';
   const displayedTotal = money.format(Number(total));
+  const setupReady = planSetupSchema.safeParse({ planningYear: Number(year), implementationYear: Number(implementation), quarters: quarters.map(Number), stateLodgment: lodgment, otherFunding: other || '0' }).success;
+  const ratReady = files.length > 0 && files.length <= 3 && files.every(file => isRatSpreadsheet(file.name) && file.size > 0 && file.size <= maxRatFileBytes) && files.reduce((sum, file) => sum + file.size, 0) <= maxRatTotalBytes;
+  const canSubmit = setupReady && ratReady;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -117,15 +124,15 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
           <FieldGroup className="gap-3">
             <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>Plan period</FieldLegend><FieldGroup className="gap-3">
               <FieldGroup className="grid gap-3 sm:grid-cols-2">
-                <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year<FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(Number(n)))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
-                <Field data-invalid={!!errors.implementationYear}><FieldLabel htmlFor="implementation-year">Implementation year<FieldHelp>The year the funded activities are expected to be carried out.</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} aria-invalid={!!errors.implementationYear} onChange={e => setImplementation(e.target.value)} />{errors.implementationYear && <FieldError>{errors.implementationYear}</FieldError>}</Field>
+                <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year <RequiredMark /><FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} required aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(Number(n)))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
+                <Field data-invalid={!!errors.implementationYear}><FieldLabel htmlFor="implementation-year">Implementation year <RequiredMark /><FieldHelp>The year the funded activities are expected to be carried out.</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} required aria-invalid={!!errors.implementationYear} onChange={e => setImplementation(e.target.value)} />{errors.implementationYear && <FieldError>{errors.implementationYear}</FieldError>}</Field>
               </FieldGroup>
               <Field data-invalid={!!errors.quarters}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <FieldLabel id="quarters-label">Quarters<FieldHelp>Select every quarter covered by this plan. Locked quarters already belong to another plan.</FieldHelp></FieldLabel>
+                  <FieldLabel id="quarters-label">Quarters <RequiredMark /><FieldHelp>Select every quarter covered by this plan. Locked quarters already belong to another plan.</FieldHelp></FieldLabel>
                   {occupied.size < 4 && <Button type="button" variant="ghost" size="sm" className="quarter-select-all" disabled={saving} onClick={() => setQuarters(quarters.length === 4 - occupied.size ? [] : [1,2,3,4].filter(q => !occupied.has(q)).map(String))}>{quarters.length > 0 && quarters.length === 4 - occupied.size ? 'Clear' : occupied.size ? 'Select available' : 'Select all'}</Button>}
                 </div>
-                <ToggleGroup type="multiple" variant="outline" spacing={2} value={quarters} onValueChange={value => setQuarters(value.sort())} aria-labelledby="quarters-label" aria-describedby="quarter-guidance" aria-invalid={!!errors.quarters} className="plan-quarter-grid" disabled={saving}>
+                <ToggleGroup type="multiple" variant="outline" spacing={2} value={quarters} onValueChange={value => setQuarters(value.sort())} aria-labelledby="quarters-label" aria-describedby="quarter-guidance" aria-required="true" aria-invalid={!!errors.quarters} className="plan-quarter-grid" disabled={saving}>
                   {['Jan – Mar', 'Apr – Jun', 'Jul – Sep', 'Oct – Dec'].map((months, index) => {
                     const q = index + 1; const taken = occupied.has(q); const selected = quarters.includes(String(q));
                     return <ToggleGroupItem key={q} value={String(q)} className="plan-quarter" disabled={taken} aria-label={`Quarter ${q}, ${months}${taken ? ', already assigned' : ''}`}>
@@ -139,18 +146,18 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
               </Field>
             </FieldGroup></FieldSet>
             <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding amounts</FieldLegend><FieldGroup className="grid gap-3 md:grid-cols-2">
-              <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State contribution (₦)<FieldHelp>The amount paid by the state. UBEC adds the same amount.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
-              <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding (₦)</FieldLabel><CurrencyInput id="other-funding" value={other} maxIntegerDigits={13} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
+              <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State contribution (₦) <RequiredMark /><FieldHelp>The amount paid by the state. UBEC adds the same amount.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} required aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
+              <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding (₦) <span className="font-normal text-muted-foreground">Optional</span></FieldLabel><CurrencyInput id="other-funding" value={other} maxIntegerDigits={13} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
             </FieldGroup></FieldSet>
             <Field data-invalid={!!errors.rat} className="gap-3 rounded-xl border bg-card p-3 shadow-xs">
-              <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Rapid Assessment Tool (RAT)<FieldHelp>Upload the approved RAT as an Excel workbook. Each file can be up to 5 MB, with a 10 MB total.</FieldHelp></FieldLabel><FieldDescription>Excel (.xlsx) · up to 3 files</FieldDescription></div>
+              <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Rapid Assessment Tool (RAT) <RequiredMark /><FieldHelp>Upload the approved RAT as an Excel workbook. Each file can be up to 5 MB, with a 10 MB total.</FieldHelp></FieldLabel><FieldDescription>Excel (.xlsx) · up to 3 files</FieldDescription></div>
               <FileUpload compact id="rat-document" label="Rapid Assessment Tool (RAT) Excel files" multiple accept={ratFileAccept} disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 Excel files and 10 MB in total.'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/>
               <DocumentFiles compact documents={files.map((file,i)=>({id:String(i),name:file.name,size:file.size,file}))} disabled={saving} onRemove={id=>setFiles(current=>current.filter((_,i)=>String(i)!==id))}/>{errors.rat && <FieldError>{errors.rat}</FieldError>}
             </Field>
           </FieldGroup>
         </div>
         {errors.form && <FieldError role="alert" className="px-6 pt-3">{errors.form}</FieldError>}
-        <DialogFooter className="shrink-0 px-5 py-3"><Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{saving ? 'Creating…' : 'Create action plan'}</Button></DialogFooter>
+        <DialogFooter className="shrink-0 px-5 py-3"><Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button><Button type="submit" disabled={saving || !canSubmit}>{saving && <Spinner data-icon="inline-start" />}{saving ? 'Creating…' : 'Create action plan'}</Button></DialogFooter>
       </form>
     </DialogContent>
   </Dialog>;
