@@ -12,7 +12,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { CurrencyInput } from '@/components/currency-input';
 import { FileUpload, DocumentFiles } from '@/components/document-files';
 import { FieldHelp } from '@/components/field-help';
-import { planSetupSchema, fundingTotal, beapName, maxRatFileBytes, maxRatTotalBytes } from '@/lib/plan-setup';
+import { planSetupSchema, fundingTotal, maxRatFileBytes, maxRatTotalBytes } from '@/lib/plan-setup';
 import { planHref, type PlanOverview } from '@/lib/action-plans';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
@@ -95,7 +95,6 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                   <div><dt>Other funding</dt><dd>{money.format(Number(other || 0))}</dd></div>
                 </dl>
               </div>
-              <div className="plan-name-preview"><span>PLAN REFERENCE</span><strong>{quarters.length > 0 ? beapName(stateName, Number(year), quarters.map(Number)) : 'Choose your funding quarters below'}</strong></div>
             </CardContent>
           </Card>
 
