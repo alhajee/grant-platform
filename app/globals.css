@@ -541,23 +541,23 @@
 .plan-summary-identity [data-slot="card-title"] { overflow-wrap: anywhere; font-size: 18px; line-height: 1.25; letter-spacing: -.025em; }
 .plan-setup-summary-compact [data-slot="card-header"] > [data-slot="badge"] { gap: 6px; white-space: nowrap; }
 .plan-setup-summary-compact [data-slot="card-header"] > [data-slot="badge"] svg { width: 14px; height: 14px; }
-.plan-setup-summary-compact [data-slot="card-content"] { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(250px,.8fr); gap: 14px; padding: 14px; }
-.plan-funding-snapshot { display: grid; grid-template-columns: minmax(190px,1.15fr) minmax(0,2fr); min-width: 0; overflow: hidden; border-radius: 16px; background: #f6f8f2; }
-.plan-funding-total { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; padding: 18px; background: linear-gradient(135deg,#e9f0df,#dfe9d2); }
+.plan-setup-summary-compact [data-slot="card-content"] { display: flex; flex-direction: column; gap: 12px; padding: 14px; }
+.plan-funding-snapshot { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; min-width: 0; }
+.plan-funding-total { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; padding: 16px; border-radius: 15px; background: linear-gradient(135deg,#e7efdc,#dfe9d2); box-shadow: 0 8px 18px -16px rgb(0 50 40 / 32%), inset 0 1px 0 rgb(255 255 255 / 62%); }
 .plan-funding-total span, .plan-funding-snapshot dt { color: var(--muted-foreground); font-size: 11px; }
 .plan-funding-total strong { color: var(--primary); font-size: clamp(18px,2vw,24px); line-height: 1.2; letter-spacing: -.04em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.plan-funding-snapshot dl { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); min-width: 0; }
-.plan-funding-snapshot dl > div { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; padding: 14px; }
+.plan-funding-snapshot dl { display: contents; }
+.plan-funding-snapshot dl > div { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; padding: 16px; border-radius: 15px; background: color-mix(in srgb,var(--accent) 54%,var(--card)); box-shadow: 0 8px 18px -17px rgb(0 50 40 / 24%), inset 0 1px 0 rgb(255 255 255 / 66%); }
 .plan-funding-snapshot dd { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.plan-assessment-files { min-width: 0; padding: 14px; border-radius: 16px; background: linear-gradient(140deg,#f3f7f8,#e7f0f1); }
-.plan-assessment-files > header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.plan-assessment-files { display: grid; grid-template-columns: minmax(210px,auto) minmax(0,1fr); align-items: center; gap: 18px; min-width: 0; padding: 12px 14px; border-radius: 15px; background: linear-gradient(140deg,#f5f8f8,#eaf1f2); box-shadow: 0 8px 18px -17px rgb(0 50 40 / 24%), inset 0 1px 0 rgb(255 255 255 / 66%); }
+.plan-assessment-files > header { display: flex; align-items: center; gap: 10px; }
 .plan-assessment-files > header > svg { width: 20px; height: 20px; color: var(--primary); }
 .plan-assessment-files h3 { font-size: 13px; font-weight: 600; }
 .plan-assessment-files p { margin-top: 2px; color: var(--muted-foreground); font-size: 11px; }
-.pillar-plan-details .document-files { grid-auto-columns: minmax(0,1fr); }
+.pillar-plan-details .document-files { grid-auto-columns: minmax(180px,260px); justify-content: end; }
 .pillar-plan-details .document-open > .file-artwork { height: 28px; }
-@media (max-width:900px) { .plan-setup-summary-compact [data-slot="card-content"] { grid-template-columns: 1fr; } }
-@media (max-width:650px) { .plan-setup-summary-compact [data-slot="card-header"] { grid-template-columns: auto minmax(0,1fr); } .plan-setup-summary-compact [data-slot="card-header"] > [data-slot="badge"] { grid-column: 2; justify-self: start; } .plan-funding-snapshot { grid-template-columns: 1fr; } .plan-funding-snapshot dl { grid-template-columns: 1fr; } .plan-funding-snapshot dl > div { padding-block: 10px; } }
+@media (max-width:900px) { .plan-funding-snapshot { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width:650px) { .plan-setup-summary-compact [data-slot="card-header"] { grid-template-columns: auto minmax(0,1fr); } .plan-setup-summary-compact [data-slot="card-header"] > [data-slot="badge"] { grid-column: 2; justify-self: start; } .plan-funding-snapshot { grid-template-columns: 1fr; } .plan-funding-snapshot dl > div { padding-block: 12px; } .plan-assessment-files { grid-template-columns: 1fr; } .pillar-plan-details .document-files { justify-content: start; } }
 .pillar-sections { display: flex; flex-direction: column; gap: 36px; }
 .pillar-section { --pillar-tint: #e9efdd; --pillar-ink: #46613a; }
 .pillar-section[data-pillar="access"] { --pillar-tint: #fbe9dc; --pillar-ink: #925326; }
