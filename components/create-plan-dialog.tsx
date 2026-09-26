@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from 'react';
-import { CalendarRangeIcon, FileCheck2Icon, LandmarkIcon } from 'lucide-react';
+import { CheckIcon, LockKeyholeIcon, FileCheck2Icon, LandmarkIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Field, FieldGroup, FieldSet, FieldLegend, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field';
 import { Card, CardContent } from '@/components/ui/card';
@@ -56,11 +56,21 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
   }
 
   return <Dialog open onOpenChange={value => { if (!value && !pending.current) onClose(); }}>
-    <DialogContent variant="inset-footer" className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl" showCloseButton={!saving} onEscapeKeyDown={e => { if (pending.current) e.preventDefault(); }} onInteractOutside={e => { if (pending.current) e.preventDefault(); }}>
+    <DialogContent variant="inset-footer" className="create-plan-dialog flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl" showCloseButton={!saving} onEscapeKeyDown={e => { if (pending.current) e.preventDefault(); }} onInteractOutside={e => { if (pending.current) e.preventDefault(); }}>
       <DialogHeader className="border-b bg-[linear-gradient(135deg,color-mix(in_oklab,var(--sage)_18%,transparent),transparent_62%)] px-6 py-5">
         <div className="flex items-start gap-3 pr-8">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-primary/10 bg-primary/8 text-primary"><CalendarRangeIcon className="size-5" /></span>
+          <svg className="plan-calendar-art" viewBox="0 0 120 108" fill="none" aria-hidden="true">
+            <ellipse cx="61" cy="96" rx="48" ry="7" fill="#004740" opacity=".08" />
+            <rect x="15" y="22" width="77" height="68" rx="12" fill="#e2e9d5" transform="rotate(-9 15 22)" />
+            <rect x="27" y="15" width="77" height="75" rx="12" fill="#fff" stroke="#b9cec5" />
+            <path d="M27 27a12 12 0 0 1 12-12h53a12 12 0 0 1 12 12v13H27V27Z" fill="#004740" />
+            <path d="M46 10v14M85 10v14" stroke="#8daf9a" strokeWidth="5" strokeLinecap="round" />
+            <rect x="38" y="50" width="22" height="12" rx="4" fill="#dfe9d2" /><rect x="69" y="50" width="22" height="12" rx="4" fill="#ffdcc4" />
+            <rect x="38" y="69" width="22" height="12" rx="4" fill="#e9e0f4" /><rect x="69" y="69" width="22" height="12" rx="4" fill="#dfe9d2" />
+            <circle cx="101" cy="83" r="16" fill="#004740" stroke="white" strokeWidth="4" /><path d="m94 83 5 5 9-11" stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           <div className="space-y-1">
+            <p className="plan-eyebrow">PLAN YOUR IMPACT</p>
             <DialogTitle>Create action plan</DialogTitle>
             <DialogDescription>Set the funding period, confirm the available funds and attach the supporting RAT.</DialogDescription>
           </div>
@@ -93,7 +103,24 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                 <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year<FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setQuarters(q => q.filter(n => !reserved(value).has(Number(n)))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
                 <Field data-invalid={!!errors.implementationYear}><FieldLabel htmlFor="implementation-year">Implementation year<FieldHelp>The year the funded activities are expected to be carried out.</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} aria-invalid={!!errors.implementationYear} onChange={e => setImplementation(e.target.value)} />{errors.implementationYear && <FieldError>{errors.implementationYear}</FieldError>}</Field>
               </FieldGroup>
-              <Field data-invalid={!!errors.quarters}><FieldLabel id="quarters-label">Funding quarters<FieldHelp>Select every quarter covered by this plan. Disabled quarters already belong to another plan.</FieldHelp></FieldLabel><ToggleGroup type="multiple" variant="outline" spacing={2} value={quarters} onValueChange={setQuarters} aria-labelledby="quarters-label" aria-invalid={!!errors.quarters} className="w-full" disabled={saving}>{[1, 2, 3, 4].map(q => <ToggleGroupItem key={q} value={String(q)} className="flex-1" disabled={occupied.has(q)} title={occupied.has(q) ? 'Already covered by an existing plan' : undefined}>Q{q}</ToggleGroupItem>)}</ToggleGroup><FieldDescription>{occupied.size ? `Already covered: ${[...occupied].sort().map(q => `Q${q}`).join(', ')}. Choose another quarter or year.` : 'Select one or more quarters.'}</FieldDescription>{errors.quarters && <FieldError>{errors.quarters}</FieldError>}</Field>
+              <Field data-invalid={!!errors.quarters}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <FieldLabel id="quarters-label">Funding quarters<FieldHelp>Select every quarter covered by this plan. Disabled quarters already belong to another plan.</FieldHelp></FieldLabel>
+                  <Button type="button" variant="ghost" size="sm" className="quarter-select-all" disabled={saving || occupied.size === 4} onClick={() => setQuarters(quarters.length === 4 - occupied.size ? [] : [1,2,3,4].filter(q => !occupied.has(q)).map(String))}>{quarters.length > 0 && quarters.length === 4 - occupied.size ? 'Clear selection' : occupied.size ? 'Select available' : 'Select full year'}</Button>
+                </div>
+                <ToggleGroup type="multiple" variant="outline" spacing={2} value={quarters} onValueChange={value => setQuarters(value.sort())} aria-labelledby="quarters-label" aria-describedby="quarter-guidance" aria-invalid={!!errors.quarters} className="plan-quarter-grid" disabled={saving}>
+                  {['Jan – Mar', 'Apr – Jun', 'Jul – Sep', 'Oct – Dec'].map((months, index) => {
+                    const q = index + 1; const taken = occupied.has(q); const selected = quarters.includes(String(q));
+                    return <ToggleGroupItem key={q} value={String(q)} className="plan-quarter" disabled={taken} aria-label={`Quarter ${q}, ${months}${taken ? ', already assigned' : ''}`}>
+                      <span className="quarter-top"><span className="quarter-number">Q{q}</span><span className="quarter-indicator">{taken ? <LockKeyholeIcon /> : selected ? <CheckIcon /> : null}</span></span>
+                      <span className="quarter-months">{months}</span>
+                      <span className="quarter-status">{taken ? 'Already assigned' : selected ? 'Selected' : 'Available'}</span>
+                    </ToggleGroupItem>;
+                  })}
+                </ToggleGroup>
+                <FieldDescription id="quarter-guidance" className="quarter-guidance" aria-live="polite">{occupied.size === 4 ? 'This funding year is fully allocated. Choose another funding year to continue.' : quarters.length ? `${quarters.length} of ${4 - occupied.size} available quarters selected · ${quarters.length * 3} months of funding` : 'Choose the quarters this action plan will cover.'}</FieldDescription>
+                {errors.quarters && <FieldError>{errors.quarters}</FieldError>}
+              </Field>
             </FieldGroup></FieldSet>
             <FieldSet disabled={saving} className="gap-4 rounded-2xl border bg-card p-4 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding</FieldLegend><FieldGroup className="grid gap-4 md:grid-cols-2">
               <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State lodgment (₦)<FieldHelp>The amount paid by the state. UBEC provides an equal counterpart amount.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>

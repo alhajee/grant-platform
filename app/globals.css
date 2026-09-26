@@ -140,6 +140,53 @@
 [data-variant="inset-footer"] > [data-slot="dialog-close"] { color: var(--foreground); opacity: 1; }
 
 /* A single app shell; each pane owns its scroll position. */
+.create-plan-dialog[data-slot="dialog-content"] {
+  border-radius: 24px;
+  border-color: var(--border);
+  overflow: hidden;
+  box-shadow: 0 24px 80px -24px rgb(0 40 35 / 28%);
+}
+.create-plan-dialog[data-variant] > [data-slot="dialog-header"] { padding: 22px 28px 18px; background: linear-gradient(120deg, #f4f7ee, #fffaf5 75%); }
+.create-plan-dialog [data-slot="dialog-header"] > div { align-items: center; gap: 18px; }
+.create-plan-dialog[data-variant] [data-slot="dialog-title"] { font-size: 26px; letter-spacing: -.8px; line-height: 1.2; }
+.plan-calendar-art { width: 98px; height: 90px; flex-shrink: 0; }
+.plan-eyebrow { font-size: 10px; letter-spacing: 1.8px; font-weight: 700; color: var(--primary); margin-bottom: 7px; }
+.create-plan-dialog [data-slot="dialog-description"] { max-width: 470px; padding-top: 5px; }
+.create-plan-dialog form > div:first-child { background: var(--card); }
+.create-plan-dialog [data-slot="fieldset"], .create-plan-dialog [data-slot="field-set"] { box-shadow: none; }
+.create-plan-dialog .plan-quarter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 10px; }
+.create-plan-dialog .plan-quarter {
+  display: flex; flex-direction: column; align-items: stretch; justify-content: start;
+  height: auto; min-height: 118px; padding: 14px; gap: 8px; border: 1px solid var(--border);
+  border-radius: 14px; background: var(--card); color: var(--foreground); text-align: left;
+  box-shadow: 0 2px 3px rgb(0 40 35 / 3%); white-space: normal;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+.quarter-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.quarter-number { font-size: 22px; line-height: 1; font-weight: 650; letter-spacing: -.6px; }
+.quarter-indicator { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--border); border-radius: 50%; color: var(--primary); }
+.quarter-indicator svg { width: 12px; height: 12px; }
+.quarter-months { font-size: 13px; font-weight: 500; }
+.quarter-status { font-size: 10px; font-weight: 500; color: var(--muted-foreground); }
+.create-plan-dialog .plan-quarter[data-state="on"] { background: #edf4e7; border-color: #709781; box-shadow: inset 0 0 0 1px #709781; color: #004740; }
+.plan-quarter[data-state="on"] .quarter-indicator { background: #004740; border-color: #004740; color: white; }
+.plan-quarter[data-state="on"] .quarter-status { color: #356447; }
+.create-plan-dialog .plan-quarter:disabled { opacity: 1; background: #f5f6f5; color: #88918e; box-shadow: none; border-style: dashed; cursor: not-allowed; }
+.plan-quarter:disabled .quarter-indicator { border: 0; color: #88918e; }
+.create-plan-dialog .quarter-select-all { height: 28px; font-size: 12px; color: var(--primary); }
+.create-plan-dialog .quarter-guidance { font-size: 12px; margin-top: 0; }
+@media (hover: hover) {
+  .create-plan-dialog .plan-quarter:not(:disabled):hover { background: #e5eee1; border-color: #709781; }
+}
+.create-plan-dialog .plan-quarter:not(:disabled):active { transform: scale(.98); }
+@media (prefers-reduced-motion: reduce) { .create-plan-dialog .plan-quarter { transition: none; } }
+@media (max-width: 600px) {
+  .create-plan-dialog[data-variant] > [data-slot="dialog-header"] { padding: 20px; }
+  .plan-calendar-art { width: 68px; height: 68px; }
+  .create-plan-dialog[data-variant] [data-slot="dialog-title"] { font-size: 22px; }
+  .create-plan-dialog .plan-quarter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .create-plan-dialog .plan-quarter { min-height: 108px; }
+}
 .portal-shell { height: 100dvh; min-height: 0; overflow: hidden; }
 .portal-workspace { display: flex; flex: 1; flex-direction: column; min-width: 0; height: 100dvh; overflow: hidden; }
 .portal-brand { display: flex; align-items: center; gap: 11px; padding: 8px 0; color: var(--foreground); text-decoration: none; }
