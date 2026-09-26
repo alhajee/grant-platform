@@ -575,8 +575,8 @@
 .pillar-card-artwork svg { display: block; width: 140px; height: 102px; }
 .pillar-card-artwork .pillar-art { border: 0; border-radius: 0; background: transparent; }
 .pillar-component-card [data-slot="card-header"], .pillar-component-card [data-slot="card-content"] { padding: 0; }
-.pillar-component-card[data-slot="card"] { aspect-ratio: auto; height: 100%; min-height: 340px; }
-.pillar-component-card [data-slot="card-header"] { gap: 7px; grid-template-rows: 102px minmax(48px,auto) minmax(24px,auto); }
+.pillar-component-card[data-slot="card"] { aspect-ratio: auto; height: 100%; min-height: 356px; }
+.pillar-component-card [data-slot="card-header"] { gap: 10px; grid-template-rows: 116px minmax(48px,auto) minmax(24px,auto); }
 .pillar-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; position: relative; }
 .pillar-card-top .component-allocation { position: absolute; right: 0; top: 0; }
 .pillar-component-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: var(--pillar-tint); color: var(--pillar-ink); }
@@ -607,7 +607,7 @@
 @media (hover:hover) { .pillar-component-card[data-available="true"]:hover { border-color: var(--pillar-ink); box-shadow: 0 6px 18px rgb(0 50 40 / 7%); } }
 @media (max-width: 1100px) { .pillar-card-grid { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media (max-width: 800px) { .pillar-card-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-@media (max-width: 480px) { .pillar-card-grid { grid-template-columns: 1fr; } .pillar-component-card[data-slot="card"] { min-height: 340px; } .pillar-section-header h3 { font-size: 19px; } }
+@media (max-width: 480px) { .pillar-card-grid { grid-template-columns: 1fr; } .pillar-component-card[data-slot="card"] { min-height: 356px; } .pillar-section-header h3 { font-size: 19px; } }
 .beap-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; margin-bottom: 24px; }
 .beap-period { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; color: var(--muted-foreground); font-size: 14px; font-weight: 500; }
 .beap-period > span { opacity: .5; }
