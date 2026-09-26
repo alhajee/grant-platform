@@ -1,6 +1,6 @@
 'use client';
 import { useEffect,useState,useCallback,useRef } from 'react';
-import { ArrowLeftIcon,ArrowRightIcon,PlusIcon,PencilIcon,Trash2Icon,Building2Icon,SchoolIcon,ArmchairIcon } from 'lucide-react';
+import { ArrowLeftIcon,ArrowRightIcon,PlusIcon,PencilIcon,Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card,CardHeader,CardTitle,CardDescription,CardContent } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import { Combobox,ComboboxInput,ComboboxContent,ComboboxEmpty,ComboboxList,Combo
 import { currentPlanHref,planPeriod,type ActionPlan } from '@/lib/action-plans';
 import { packageSchema,kindNames,modelNames,modelFor,strategies,auditGaps,calculateInfrastructure,packageProblem,type InfrastructureInput,type InfrastructureSchool,type InfrastructurePackage,type InfraDocument } from '@/lib/infrastructure-model';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
+import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
 import { FileUpload, DocumentFiles } from '@/components/document-files';
 import './activity-plan-editor.css';
 import './infrastructure-editor.css';
@@ -77,7 +78,7 @@ export function InfrastructureEditor(){
   {!data&&!error&&<p className="p-8">Loading infrastructure…</p>}
   {data&&!draft&&<ScrollArea className="flex-1 min-h-0"><main className="infra-home">
    <div className="flex flex-wrap items-end justify-between gap-4"><div><h1>Infrastructure projects</h1><p className="text-muted-foreground">School packages and supporting documents</p></div><div className="text-right"><p className="text-sm text-muted-foreground">Saved package budget</p><strong className="text-2xl tabular-nums">{money.format(data.packages.reduce((s,p)=>s+Number(p.total_cost),0))}</strong></div></div>
-   <div className="infra-choices">{(['new','whole','furniture'] as const).map((kind,i)=>{const Icon=[Building2Icon,SchoolIcon,ArmchairIcon][i];return <Card key={kind}><CardHeader><Icon className="text-primary"/><CardTitle>{kindNames[kind]}</CardTitle><CardDescription>{['Build to the school’s model, with HOPE or Non-HOPE funding.','Audit facilities, identify gaps and cost the interventions.','Plan furniture quantities and costs for each school.'][i]}</CardDescription></CardHeader><CardContent><Button variant="outline" disabled={disabled} onClick={()=>begin(kind)}><PlusIcon data-icon="inline-start"/>{kind==='whole'?'Start assessment':'Add package'}</Button></CardContent></Card>;})}</div>
+   <div className="infra-choices">{(['new','whole','furniture'] as const).map((kind,i)=>{return <Card key={kind} className="infra-choice" data-kind={kind}><CardHeader><InfrastructureIllustration kind={kind}/><CardTitle>{kindNames[kind]}</CardTitle><CardDescription>{['Build to the school’s model, with HOPE or Non-HOPE funding.','Audit facilities, identify gaps and cost the interventions.','Plan furniture quantities and costs for each school.'][i]}</CardDescription></CardHeader><CardContent><Button variant="outline" disabled={disabled} onClick={()=>begin(kind)}><PlusIcon data-icon="inline-start"/>{kind==='whole'?'Start assessment':'Add package'}</Button></CardContent></Card>;})}</div>
    <Card><CardHeader><CardTitle>Saved packages <Badge variant="secondary">{data.packages.length}</Badge></CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>School</TableHead><TableHead>Intervention</TableHead><TableHead>Model</TableHead><TableHead>Budget</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader><TableBody>{data.packages.map(p=><TableRow key={p.id}><TableCell className="whitespace-normal"><strong>{p.school.name}</strong><p className="text-muted-foreground">{p.school.lga}</p></TableCell><TableCell>{kindNames[p.kind]}</TableCell><TableCell>{p.result.modelLabel}</TableCell><TableCell>{money.format(Number(p.total_cost))}</TableCell><TableCell><div className="flex gap-2"><Button variant="outline" size="sm" onClick={()=>{begin(p.kind,p);if(!data.canEdit)setStep(p.kind==='furniture'?2:p.kind==='whole'?4:3);}}>{data.canEdit?'Open':'View'}</Button><Button variant="ghost" size="icon" disabled={disabled} aria-label={'Delete package for '+p.school.name} onClick={()=>setRemove(p)}><Trash2Icon/></Button></div></TableCell></TableRow>)}{!data.packages.length&&<TableRow><TableCell colSpan={5}>No school packages yet.</TableCell></TableRow>}</TableBody></Table></CardContent></Card>
    <Card><CardHeader><CardTitle>Drawings</CardTitle><CardDescription>Shared across the plan. Add each school’s BOQ and survey within its package.</CardDescription></CardHeader><CardContent className="flex flex-col gap-5"><FieldGroup>{uploader('drawings')}</FieldGroup></CardContent></Card>
   </main></ScrollArea>}

@@ -1,6 +1,12 @@
 .infra-home{max-width:1440px;margin:auto;padding:32px;display:flex;flex-direction:column;gap:28px}
 .infra-home h1{font-size:28px;font-weight:650;letter-spacing:-.03em}
 .infra-choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.infra-choice{--choice-tint:var(--peach);background:linear-gradient(145deg,var(--card),color-mix(in srgb,var(--choice-tint) 38%,var(--card)));border-color:color-mix(in srgb,var(--choice-tint) 65%,var(--border));overflow:hidden}
+.infra-choice[data-kind=whole]{--choice-tint:var(--sage)}
+.infra-choice[data-kind=furniture]{--choice-tint:var(--lilac)}
+.infra-choice [data-slot=card-header]{flex:1;align-content:start;gap:12px}
+.infra-choice [data-slot=card-content]{margin-top:auto}
+.infra-illustration{width:140px;height:98px;color:var(--primary);margin-bottom:4px}
 .infra-steps{display:flex;gap:24px;padding:16px 28px;border-bottom:1px solid var(--border);background:var(--card);overflow:auto;flex-shrink:0}
 .infra-steps>span{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted-foreground);white-space:nowrap}
 .infra-steps>span>span{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--muted)}
