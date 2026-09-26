@@ -56,7 +56,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
   }
 
   return <Dialog open onOpenChange={value => { if (!value && !pending.current) onClose(); }}>
-    <DialogContent variant="inset-footer" className="create-plan-dialog flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl" showCloseButton={!saving} onEscapeKeyDown={e => { if (pending.current) e.preventDefault(); }} onInteractOutside={e => { if (pending.current) e.preventDefault(); }}>
+    <DialogContent variant="inset-footer" className="create-plan-dialog flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl" showCloseButton={!saving} onEscapeKeyDown={e => { if (pending.current) e.preventDefault(); }} onInteractOutside={e => { if (pending.current) e.preventDefault(); }}>
       <DialogHeader className="border-b bg-[linear-gradient(135deg,color-mix(in_oklab,var(--sage)_18%,transparent),transparent_62%)] px-6 py-5">
         <div className="flex items-start gap-3 pr-8">
           <svg className="plan-calendar-art" viewBox="0 0 120 108" fill="none" aria-hidden="true">
@@ -77,7 +77,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
         </div>
       </DialogHeader>
       <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col overflow-hidden" noValidate>
-        <div className="min-h-0 space-y-4 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 space-y-3 overflow-y-auto px-5 py-4">
           <Card className="plan-funding-summary gap-0 overflow-hidden py-0 shadow-none">
             <CardContent className="p-0">
               <div className="plan-funding-layout">
@@ -98,9 +98,9 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
             </CardContent>
           </Card>
 
-          <FieldGroup className="gap-4">
-            <FieldSet disabled={saving} className="gap-4 rounded-2xl border bg-card p-4 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>Funding period</FieldLegend><FieldGroup className="gap-4">
-              <FieldGroup className="grid gap-4 sm:grid-cols-2">
+          <FieldGroup className="gap-3">
+            <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>Funding period</FieldLegend><FieldGroup className="gap-3">
+              <FieldGroup className="grid gap-3 sm:grid-cols-2">
                 <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year<FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setQuarters(q => q.filter(n => !reserved(value).has(Number(n)))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
                 <Field data-invalid={!!errors.implementationYear}><FieldLabel htmlFor="implementation-year">Implementation year<FieldHelp>The year the funded activities are expected to be carried out.</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} aria-invalid={!!errors.implementationYear} onChange={e => setImplementation(e.target.value)} />{errors.implementationYear && <FieldError>{errors.implementationYear}</FieldError>}</Field>
               </FieldGroup>
@@ -123,11 +123,11 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                 {errors.quarters && <FieldError>{errors.quarters}</FieldError>}
               </Field>
             </FieldGroup></FieldSet>
-            <FieldSet disabled={saving} className="gap-4 rounded-2xl border bg-card p-4 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding</FieldLegend><FieldGroup className="grid gap-4 md:grid-cols-2">
+            <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding</FieldLegend><FieldGroup className="grid gap-3 md:grid-cols-2">
               <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State lodgment (₦)<FieldHelp>The amount paid by the state. UBEC provides an equal counterpart amount.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
               <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding sources (₦)<FieldHelp>Additional funding outside the state lodgment and UBEC counterpart.</FieldHelp></FieldLabel><CurrencyInput id="other-funding" value={other} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
             </FieldGroup></FieldSet>
-            <Field data-invalid={!!errors.rat} className="gap-4 rounded-2xl border bg-card p-4 shadow-xs">
+            <Field data-invalid={!!errors.rat} className="gap-3 rounded-xl border bg-card p-3 shadow-xs">
               <div className="flex items-start gap-3">
                 <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/8 text-primary"><FileCheck2Icon className="size-4" /></span>
                 <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Supporting RAT<FieldHelp>Attach the approved Rapid Assessment Tool used to prepare this action plan.</FieldHelp></FieldLabel><FieldDescription>Attach 1–3 approved files. PDF, XLSX or DOCX; 5 MB per file and 10 MB total.</FieldDescription></div>
@@ -138,7 +138,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
           </FieldGroup>
         </div>
         {errors.form && <FieldError role="alert" className="px-6 pt-3">{errors.form}</FieldError>}
-        <DialogFooter className="shrink-0 px-6 py-4"><Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{saving ? 'Creating…' : 'Create action plan'}</Button></DialogFooter>
+        <DialogFooter className="shrink-0 px-5 py-3"><Button type="button" variant="outline" onClick={onClose} disabled={saving}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{saving ? 'Creating…' : 'Create action plan'}</Button></DialogFooter>
       </form>
     </DialogContent>
   </Dialog>;
