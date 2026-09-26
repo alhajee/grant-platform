@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { currentPlanHref, planHref, planPeriod } from "@/lib/action-plans";
 import { PlanSetupSummary } from '@/components/plan-setup-summary';
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, Building2Icon, BookOpenIcon, GraduationCapIcon, ShieldCheckIcon, TrophyIcon, UsersIcon, MonitorIcon, ClipboardCheckIcon, LeafIcon, ChartNoAxesCombinedIcon } from "lucide-react";
 import { SubebHeader } from "@/components/subeb-header";
 import { defaultAllocation, infrastructureSplit, percent } from "@/lib/funding-policy";
 import { subebDepartmentName } from "@/lib/subeb-departments";
@@ -19,6 +19,8 @@ import { beapComponents, strategicPillars, componentSections, type BeapSummary, 
 import type { LocalUser } from "@/lib/local-session";
 
 const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const componentIcons = { infrastructure: Building2Icon, tlm: BookOpenIcon, quality: ShieldCheckIcon, teachers: GraduationCapIcon, sports: TrophyIcon, monitoring: ClipboardCheckIcon, curriculum: BookOpenIcon, sbmc: UsersIcon, planning: ChartNoAxesCombinedIcon, gscci: LeafIcon };
+const pillarDescriptions: Record<string, string> = { quality: 'Better teaching. Richer learning.', access: 'Welcoming schools. Stronger communities.', system: 'Better data. Smarter decisions.' };
 
 export default function BeapPage() {
   const [user, setUser] = useState<LocalUser | null>(null);
@@ -53,7 +55,7 @@ export default function BeapPage() {
   return (
     <div className="beap-page">
       <SubebHeader user={user} plan />
-      <main className="beap-main" id="main-content">
+      <main className="beap-main pillar-overview" id="main-content">
         <Button asChild variant="ghost" size="sm" className="mb-3"><Link href="/dashboard">← Dashboard</Link></Button>
         <header className="beap-heading">
           <div>
@@ -62,30 +64,47 @@ export default function BeapPage() {
             <p className="beap-intro">{summary?.canEdit ? 'Choose a component to start or continue your plan.' : 'View your saved plan and review history.'}</p>
           </div>
           <div className="beap-total" aria-live="polite">
-            <span>Saved plan budget</span>
+            <span>Proposed budget</span>
             {loading ? <Skeleton className="mt-2 h-8 w-56" /> : <strong>{error || !total ? "—" : money.format(total.budget)}</strong>}
             <small>{loading ? "Loading saved projects…" : error || !total ? "Unavailable" : `${total.lineCount} budget ${total.lineCount === 1 ? "line" : "lines"} · ${total.schoolCount} ${total.schoolCount === 1 ? "school" : "schools"}`}</small>
           </div>
         </header>
-        {summary && !error && <><PlanSetupSummary setup={summary.plan} /><div className="review-entry"><Button asChild><Link href={planHref('/beap/review', summary.plan.id)}>Review components & progress</Link></Button></div></>}
+        {summary && !error && <div className="pillar-plan-details"><PlanSetupSummary setup={summary.plan} compact /><div className="review-entry"><Button asChild><Link href={planHref('/beap/review', summary.plan.id)}>Review plan<ArrowRightIcon /></Link></Button></div></div>}
 
         {error && <Alert variant="destructive" className="mb-6"><AlertTitle>Unable to load your plan</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => { setLoading(true); setError(""); void loadOverview(); }}>Try again</Button></AlertDescription></Alert>}
 
         <section aria-labelledby="pillars-title">
           <div className="beap-section-heading"><h2 id="pillars-title">Plan by pillar</h2></div>
-          <div className="flex flex-col gap-5">
-            {visiblePillars.map((pillar,index)=><Card key={pillar.id}>
-              <CardHeader><div className="flex items-center justify-between gap-4"><CardTitle><h3>{index+1}. {pillar.name}</h3></CardTitle><Badge variant="secondary">{percent(pillar.components.reduce((sum,id)=>sum+allocation.shares[id],0))}%</Badge></div></CardHeader>
-              <CardContent className="flex flex-col gap-5">
-                {pillar.components.map(id=>{const component=beapComponents.find(c=>c.id===id)!;const stats=pillarSummaries[id];return <section key={id} className="rounded-xl border p-4" aria-labelledby={'component-'+id}>
-                  <div className="mb-3 flex items-center justify-between gap-4"><h4 id={'component-'+id} className="font-medium">{component.name}</h4><span className="tabular-nums text-muted-foreground">{percent(allocation.shares[id])}%</span></div>
-                  <div className="flex flex-col gap-3">{componentSections[id].map((section,sectionIndex)=>canSeeSection(id,section.department)&&<div key={section.name} className="flex flex-wrap items-center justify-between gap-3">
-                    <div><p className="text-sm">{section.name}{id==='infrastructure'&&<span className="ml-2 text-muted-foreground">{percent(sectionIndex===0?split.infrastructure:split.tlm)}% of total</span>}</p><p className="text-xs text-muted-foreground">{subebDepartmentName(section.department)}</p></div>
-                    {section.href ? <div className="flex flex-wrap items-center gap-3"><span className="text-sm tabular-nums text-muted-foreground">{loading?'Loading…':error||!stats?'—':money.format((id==='infrastructure'&&sectionIndex===1?summary?.tlm?.budget:stats.budget)??0)+' proposed'}</span>{summary&&!error&&<Button asChild variant="outline" size="sm"><Link href={planHref(section.href,summary.plan.id)}>{summary.editablePillars.some(p=>p===(id==='infrastructure'&&sectionIndex===1?'tlm':id))?'Open component':'View component'}<ArrowRightIcon data-icon="inline-end"/></Link></Button>}</div>:<Badge variant="outline">Not available yet</Badge>}
-                  </div>)}</div>
-                </section>;})}
-              </CardContent>
-            </Card>)}
+          <div className="pillar-sections">
+            {loading && <div className="pillar-card-grid">{[1,2,3,4].map(n => <Skeleton key={n} className="aspect-square rounded-2xl" />)}</div>}
+            {visiblePillars.map((pillar,index)=><section key={pillar.id} className="pillar-section" data-pillar={pillar.id} aria-labelledby={'pillar-'+pillar.id}>
+              <header className="pillar-section-header">
+                <span className="pillar-number">{String(index+1).padStart(2,'0')}</span>
+                <div><h3 id={'pillar-'+pillar.id}>{pillar.name}</h3><p>{pillarDescriptions[pillar.id]}</p></div>
+                <span className="pillar-share">{percent(pillar.components.reduce((sum,id)=>sum+allocation.shares[id],0))}% <small>allocation</small></span>
+              </header>
+              <div className="pillar-card-grid">
+                {pillar.components.flatMap(id => componentSections[id].map((section,sectionIndex) => {
+                  if (!canSeeSection(id,section.department)) return null;
+                  const key = id === 'infrastructure' && sectionIndex === 1 ? 'tlm' : id;
+                  const stats = pillarSummaries[key];
+                  const Icon = id === 'teachers' && sectionIndex === 1 ? MonitorIcon : componentIcons[key as keyof typeof componentIcons];
+                  const share = id === 'infrastructure' ? percent(sectionIndex === 0 ? split.infrastructure : split.tlm) : percent(allocation.shares[id]);
+                  const canOpen = !!section.href && !!summary && !error;
+                  return <Card key={id+'-'+sectionIndex} className="pillar-component-card" data-available={!!section.href}>
+                    <CardHeader>
+                      <div className="pillar-card-top"><span className="pillar-component-icon"><Icon aria-hidden="true" /></span><span className="component-allocation" title={id === 'teachers' ? 'Shared allocation for Teacher Development and ICT' : 'Share of total funding'}>{share}%{id === 'teachers' ? ' shared' : ''}</span></div>
+                      <CardTitle><h4>{section.name}</h4></CardTitle>
+                      <p className="pillar-department">{subebDepartmentName(section.department)}</p>
+                    </CardHeader>
+                    <CardContent>
+                      {section.href ? <div className="pillar-card-budget"><span>Proposed</span><strong>{stats ? money.format(stats.budget) : '—'}</strong></div> : <p className="pillar-coming-soon">{beapComponents.find(c=>c.id===id)?.description}</p>}
+                      {canOpen ? <Button asChild variant="outline" className="pillar-card-action"><Link href={planHref(section.href!,summary!.plan.id)}>{summary!.editablePillars.some(p=>p===key)?'Open':'View'}<span className="sr-only"> {section.name}</span><ArrowRightIcon /></Link></Button> : <Badge variant="secondary" className="pillar-unavailable">Coming soon</Badge>}
+                    </CardContent>
+                  </Card>;
+                }))}
+              </div>
+            </section>)}
           </div>
         </section>
       </main>
