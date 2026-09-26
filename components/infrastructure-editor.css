@@ -10,6 +10,9 @@
 .infra-choice-budget dt{font-size:12px;color:var(--muted-foreground)}
 .infra-choice-budget dd{margin:0;font-size:clamp(20px,2vw,28px);font-weight:600;letter-spacing:-.035em;line-height:1.25;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;color:var(--primary)}
 .infra-illustration{width:140px;height:98px;color:var(--primary);margin-bottom:4px}
+[data-slot=badge][data-role=intervention]{--intervention-tint:var(--peach);--intervention-ink:var(--warning-foreground);border-color:color-mix(in srgb,var(--intervention-tint) 74%,var(--border));background:color-mix(in srgb,var(--intervention-tint) 42%,var(--card));color:var(--intervention-ink);font-weight:600}
+[data-slot=badge][data-role=intervention][data-kind=whole]{--intervention-tint:var(--sage);--intervention-ink:var(--primary)}
+[data-slot=badge][data-role=intervention][data-kind=furniture]{--intervention-tint:var(--lilac);--intervention-ink:var(--primary)}
 .infra-review-stack{gap:14px}
 .infra-accessibility-note{border-style:dashed;background:color-mix(in srgb,var(--sage) 38%,var(--card));padding:12px}
 .infra-review-documents{gap:12px}
