@@ -536,7 +536,6 @@
 .pillar-section[data-pillar="access"] { --pillar-tint: #fbe9dc; --pillar-ink: #925326; }
 .pillar-section[data-pillar="system"] { --pillar-tint: #eee7f7; --pillar-ink: #685084; }
 .pillar-section-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
-.pillar-number { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 15px; background: var(--pillar-tint); color: var(--pillar-ink); font-size: 18px; font-weight: 650; }
 .pillar-section-header h3 { font-size: 22px; font-weight: 650; letter-spacing: -.6px; }
 .pillar-section-header p { margin-top: 3px; color: var(--muted-foreground); font-size: 13px; }
 .pillar-share { margin-left: auto; color: var(--pillar-ink); font-size: 20px; font-weight: 600; text-align: right; }

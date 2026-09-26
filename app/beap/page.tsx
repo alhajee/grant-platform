@@ -83,9 +83,8 @@ export default function BeapPage() {
           <div className="beap-section-heading"><h2 id="pillars-title">Plan by pillar</h2></div>
           <div className="pillar-sections">
             {loading && <div className="pillar-card-grid">{[1,2,3,4].map(n => <Skeleton key={n} className="aspect-square rounded-2xl" />)}</div>}
-            {visiblePillars.map((pillar,index)=><section key={pillar.id} className="pillar-section" data-pillar={pillar.id} aria-labelledby={'pillar-'+pillar.id}>
+            {visiblePillars.map((pillar)=><section key={pillar.id} className="pillar-section" data-pillar={pillar.id} aria-labelledby={'pillar-'+pillar.id}>
               <header className="pillar-section-header">
-                <span className="pillar-number">{String(index+1).padStart(2,'0')}</span>
                 <div><h3 id={'pillar-'+pillar.id}>{pillar.name}</h3><p>{pillarDescriptions[pillar.id]}</p></div>
                 <span className="pillar-share">{percent(pillar.components.reduce((sum,id)=>sum+allocation.shares[id],0))}% <small>allocation</small></span>
               </header>
