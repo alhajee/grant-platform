@@ -15,12 +15,11 @@ export async function GET(req:NextRequest){
   if(!canViewComponent(user,'infrastructure'))return error('Infrastructure belongs to another department.',403);
   const plan=await resolveActionPlan(req,user.stateCode);if(!plan)return error('Plan not found.',404);
   const db=getPostgres();
-  const [schools,packages,documents,reviews,legacy]=await Promise.all([
+  const [schools,packages,documents,reviews]=await Promise.all([
    db.query(`SELECT ${schoolFields} FROM schools WHERE state_code=$1 ORDER BY name`,[user.stateCode]),
    db.query(`SELECT p.*,p.result->'school' AS school FROM infrastructure_packages p WHERE p.plan_id=$1 ORDER BY p.id DESC`,[plan.id]),
-   db.query('SELECT d.id,d.kind,d.name,d.size,d.school_id AS "schoolId",s.name AS "schoolName" FROM infrastructure_documents d LEFT JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 ORDER BY d.created_at',[plan.id]),readPillarReviews(db,plan.id),
-   db.query('SELECT COUNT(*)::int AS count FROM infrastructure_lines WHERE plan_id=$1',[plan.id])]);
-  return NextResponse.json({plan,schools:schools.rows,packages:packages.rows,documents:documents.rows,legacyCount:legacy.rows[0].count,canEdit:mayEditPillar(user.role,user.department,'infrastructure',plan.status,reviews)},{headers:{'Cache-Control':'no-store'}});
+   db.query('SELECT d.id,d.kind,d.name,d.size,d.school_id AS "schoolId",s.name AS "schoolName" FROM infrastructure_documents d LEFT JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 ORDER BY d.created_at',[plan.id]),readPillarReviews(db,plan.id)]);
+  return NextResponse.json({plan,schools:schools.rows,packages:packages.rows,documents:documents.rows,canEdit:mayEditPillar(user.role,user.department,'infrastructure',plan.status,reviews)},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load infrastructure.',503);}
 }
 export async function POST(req:NextRequest){

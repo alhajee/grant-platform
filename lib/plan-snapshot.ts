@@ -2,8 +2,7 @@ import type { QueryResult, QueryResultRow } from 'pg';
 import type { Snapshot } from './plan-review';
 import { planSetupFields } from './plan-workspace';
 export async function readPlanSnapshot(db: { query<R extends QueryResultRow>(sql: string, values?: unknown[]): Promise<QueryResult<R>> }, planId: number): Promise<Snapshot> {
-  const infrastructure = await db.query(`SELECT to_jsonb(l) || jsonb_build_object('school', to_jsonb(s), 'construction', to_jsonb(t)) AS item
-    FROM infrastructure_lines l JOIN schools s ON s.id = l.school_id JOIN construction_types t ON t.id = l.project_type WHERE l.plan_id = $1 ORDER BY l.id`, [planId]);
+  const infrastructure: {rows:{item:Snapshot['infrastructure'][number]}[]} = {rows:[]};
   const sports = await db.query(`SELECT to_jsonb(b) || jsonb_build_object('allocations', COALESCE((SELECT jsonb_agg(to_jsonb(a) || jsonb_build_object('school', to_jsonb(s)) ORDER BY a.id)
     FROM sports_allocations a JOIN schools s ON s.id = a.school_id WHERE a.line_id = b.id), '[]'::jsonb)) AS item
     FROM sports_budget_lines b WHERE b.plan_id = $1 ORDER BY b.id`, [planId]);
