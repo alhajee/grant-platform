@@ -12,7 +12,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { CurrencyInput } from '@/components/currency-input';
 import { FileUpload, DocumentFiles } from '@/components/document-files';
 import { FieldHelp } from '@/components/field-help';
-import { planSetupSchema, fundingTotal, maxRatFileBytes, maxRatTotalBytes } from '@/lib/plan-setup';
+import { planSetupSchema, fundingTotal, isRatSpreadsheet, maxRatFileBytes, maxRatTotalBytes, ratFileAccept } from '@/lib/plan-setup';
 import { planHref, type PlanOverview } from '@/lib/action-plans';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
@@ -55,7 +55,8 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
     const issues: Record<string, string> = {};
     if (!parsed.success) for (const issue of parsed.error.issues) issues[String(issue.path[0])] = issue.message;
     if (!files.length) issues.rat = 'Attach the Rapid Assessment Tool (RAT) document.';
-    else if (files.length > 3 || files.some(f => !f.size || f.size > maxRatFileBytes) || files.reduce((sum, f) => sum + f.size, 0) > maxRatTotalBytes) issues.rat = 'Use 1–3 files, up to 5 MB each and 10 MB in total.';
+    else if (files.some(file => !isRatSpreadsheet(file.name))) issues.rat = 'Upload the RAT as an Excel (.xlsx) file.';
+    else if (files.length > 3 || files.some(f => !f.size || f.size > maxRatFileBytes) || files.reduce((sum, f) => sum + f.size, 0) > maxRatTotalBytes) issues.rat = 'Use 1–3 Excel files, up to 5 MB each and 10 MB in total.';
     setErrors(issues);
     if (!parsed.success || Object.keys(issues).length) return;
     pending.current = true; setSaving(true);
@@ -88,7 +89,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
           </svg>
           <div className="space-y-1">
             <DialogTitle>Create action plan</DialogTitle>
-            <DialogDescription>Choose the plan period, enter the funding and upload the assessment.</DialogDescription>
+            <DialogDescription>Choose the plan period, enter the funding and upload the Rapid Assessment Tool (RAT).</DialogDescription>
           </div>
         </div>
       </DialogHeader>
@@ -142,8 +143,8 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
               <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding (₦)</FieldLabel><CurrencyInput id="other-funding" value={other} maxIntegerDigits={13} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
             </FieldGroup></FieldSet>
             <Field data-invalid={!!errors.rat} className="gap-3 rounded-xl border bg-card p-3 shadow-xs">
-              <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Assessment documents<FieldHelp>Upload the approved Rapid Assessment Tool (RAT). Each file can be up to 5 MB, with a 10 MB total.</FieldHelp></FieldLabel><FieldDescription>PDF, XLSX or DOCX · up to 3 files</FieldDescription></div>
-              <FileUpload compact id="rat-document" label="assessment documents" multiple accept=".pdf,.xlsx,.docx" disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 files and 10 MB in total.'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/>
+              <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Rapid Assessment Tool (RAT)<FieldHelp>Upload the approved RAT as an Excel workbook. Each file can be up to 5 MB, with a 10 MB total.</FieldHelp></FieldLabel><FieldDescription>Excel (.xlsx) · up to 3 files</FieldDescription></div>
+              <FileUpload compact id="rat-document" label="Rapid Assessment Tool (RAT) Excel files" multiple accept={ratFileAccept} disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 Excel files and 10 MB in total.'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/>
               <DocumentFiles compact documents={files.map((file,i)=>({id:String(i),name:file.name,size:file.size,file}))} disabled={saving} onRemove={id=>setFiles(current=>current.filter((_,i)=>String(i)!==id))}/>{errors.rat && <FieldError>{errors.rat}</FieldError>}
             </Field>
           </FieldGroup>

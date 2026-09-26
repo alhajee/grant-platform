@@ -1,4 +1,5 @@
 import { maxRatFileBytes, maxRatTotalBytes } from './plan-setup';
+import JSZip from 'jszip';
 
 export class PlanInputError extends Error {
   constructor(message:string, public status=400) {super(message);}
@@ -26,8 +27,9 @@ export async function ratDocuments(form: FormData) {
     const name=file.name.replace(/[\x00-\x1f\x7f/\\]/g,'_').slice(-180);
     const ext=name.split('.').pop()?.toLowerCase();
     const content=Buffer.from(await file.arrayBuffer());
-    const media:Record<string,string>={pdf:'application/pdf',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'};
-    if(!ext||!media[ext]||(ext==='pdf'?content.subarray(0,5).toString()!=='%PDF-':content.subarray(0,4).toString('hex')!=='504b0304')) throw new PlanInputError('Use PDF, XLSX or DOCX RAT documents with a valid file signature.');
-    return {id:crypto.randomUUID(),name,size:file.size,mediaType:media[ext],content};
+    if(ext!=='xlsx'||content.subarray(0,4).toString('hex')!=='504b0304') throw new PlanInputError('Upload the RAT as a valid Excel (.xlsx) file.');
+    try {const workbook=await JSZip.loadAsync(content);if(!workbook.file('xl/workbook.xml'))throw new Error();}
+    catch {throw new PlanInputError('Upload the RAT as a valid Excel (.xlsx) workbook.');}
+    return {id:crypto.randomUUID(),name,size:file.size,mediaType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',content};
   }));
 }

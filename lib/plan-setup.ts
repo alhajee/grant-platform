@@ -31,3 +31,5 @@ export type PlanSetup = {
 };
 export const maxRatFileBytes = 5 * 1024 * 1024;
 export const maxRatTotalBytes = 10 * 1024 * 1024;
+export const ratFileAccept = '.xlsx';
+export const isRatSpreadsheet = (name: string) => name.toLowerCase().endsWith(ratFileAccept);
