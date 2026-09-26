@@ -77,9 +77,9 @@ export default function ReviewPage() {
   return <div className="beap-page beap-review-page"><SubebHeader plan />
     <main className="beap-main review-main"><div className="review-page-summary"><Button asChild variant="ghost" size="sm" className="review-back"><Link href={plan ? planHref('/beap', plan.id) : '/dashboard'}><ArrowLeftIcon data-icon="inline-start" />Back to pillars</Link></Button>
       <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan)} action plan` : 'Action plan review'}</h1>{plan && <PlanStatusBadge status={plan.status} />}</div><div className="review-actions">
-        {data && !error && <div className="review-version"><Select value={selected} onValueChange={value => void load(value)} disabled={saving || loading}><SelectTrigger id="submission-version" aria-label="Plan version"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">{'Current working plan'}</SelectItem>{data.submissions.map(s => <SelectItem key={s.number} value={String(s.number)}>Submission {s.number} · {date.format(new Date(s.createdAt))}</SelectItem>)}</SelectGroup></SelectContent></Select></div>}
-</div></div>
-      {data && !error && !statePlanOpen(data.plan.status) && <Button asChild variant="outline"><Link href={planHref('/ubec/review',data.plan.id)}>View UBEC review</Link></Button>}
+        {data && !error && <div className="review-version"><Select value={selected} onValueChange={value => void load(value)} disabled={saving || loading}><SelectTrigger id="submission-version" aria-label="Plan version" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">{'Current working plan'}</SelectItem>{data.submissions.map(s => <SelectItem key={s.number} value={String(s.number)}>Submission {s.number} · {date.format(new Date(s.createdAt))}</SelectItem>)}</SelectGroup></SelectContent></Select></div>}
+        {data && !error && !statePlanOpen(data.plan.status) && <Button asChild variant="outline" className="rounded-full"><Link href={planHref('/ubec/review',data.plan.id)}>View UBEC review</Link></Button>}
+      </div></div>
       </div>
       {error && <Alert variant="destructive"><AlertTitle>Review unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
       {loading ? <Skeleton className="h-64 w-full" /> : data && !error && <>

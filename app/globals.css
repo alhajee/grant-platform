@@ -409,7 +409,7 @@
 .review-ubec-entry .review-approval-note { margin-top: 0; }
 .review-heading > div:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .review-heading h1 { font-size: 28px; font-weight: 600; letter-spacing: -.035em; }
-.review-actions, .review-queue-items { display: flex; flex-wrap: wrap; gap: 12px; }
+.review-actions, .review-queue-items { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .review-queue { margin-bottom: 24px; }
 .review-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
 .review-table-card { overflow: hidden; padding: 0; gap: 0; border-radius: 10px; box-shadow: none; }
