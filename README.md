@@ -260,3 +260,6 @@ The portable build runs Vinext directly without a host `timeout` command. The ma
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)
 - [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+### Attachment removal
+
+Apply `db/postgres/017-document-removal.sql` to existing databases. Editable infrastructure attachment tiles support confirmed removal. Removed files are excluded from the working plan and package references; their stored content remains available to authorized historical reviews. Removal uses the same locked department/stage permission checks as other infrastructure edits.

@@ -18,7 +18,7 @@ export async function GET(req:NextRequest){
   const [schools,packages,documents,reviews]=await Promise.all([
    db.query(`SELECT ${schoolFields} FROM schools WHERE state_code=$1 ORDER BY name`,[user.stateCode]),
    db.query(`SELECT p.*,p.result->'school' AS school FROM infrastructure_packages p WHERE p.plan_id=$1 ORDER BY p.id DESC`,[plan.id]),
-   db.query('SELECT d.id,d.kind,d.name,d.size,d.school_id AS "schoolId",s.name AS "schoolName" FROM infrastructure_documents d LEFT JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 ORDER BY d.created_at',[plan.id]),readPillarReviews(db,plan.id)]);
+   db.query('SELECT d.id,d.kind,d.name,d.size,d.school_id AS "schoolId",s.name AS "schoolName" FROM infrastructure_documents d LEFT JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.removed_at IS NULL ORDER BY d.created_at',[plan.id]),readPillarReviews(db,plan.id)]);
   return NextResponse.json({plan,schools:schools.rows,packages:packages.rows,documents:documents.rows,canEdit:mayEditPillar(user.role,user.department,'infrastructure',plan.status,reviews)},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load infrastructure.',503);}
 }
@@ -49,7 +49,7 @@ export async function POST(req:NextRequest){
    const school=(await db.query(`SELECT ${schoolFields} FROM schools WHERE id=$1 AND state_code=$2 FOR SHARE`,[input.schoolId,user.stateCode])).rows[0];
    if(!school)return error('Select a school from your state register.',404);
    const problem=packageProblem(input,school.male+school.female);if(problem)return error(problem);
-   const docs=(await db.query('SELECT id,kind,created_at,school_id FROM infrastructure_documents WHERE plan_id=$1 AND id=ANY($2::uuid[])',[plan.id,input.documentIds])).rows;
+   const docs=(await db.query('SELECT id,kind,created_at,school_id FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL AND id=ANY($2::uuid[])',[plan.id,input.documentIds])).rows;
    if(new Set(input.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan.');
    if(docs.some(d=>d.school_id!==null&&d.school_id!==input.schoolId))return error('One or more attachments belong to a different school.');
    if(prior&&prior.kind!==input.kind)return error('An existing package’s intervention type cannot be changed.');

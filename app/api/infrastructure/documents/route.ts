@@ -7,6 +7,19 @@ import { canViewComponent } from '@/lib/subeb-access';
 import { planFormData,PlanInputError } from '@/lib/plan-upload';
 import { z } from 'zod';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
+export async function DELETE(req:NextRequest){
+ try{
+  const user=await getWorkspaceState(req);if(!user)return error('Sign in to remove documents.',401);
+  const plan=await resolveActionPlan(req,user.stateCode);if(!plan)return error('Plan not found.',404);
+  const id=z.string().uuid().safeParse(req.nextUrl.searchParams.get('id'));if(!id.success)return error('Document not found.',404);
+  return await mutatePlan(user,plan,'infrastructure',async db=>{
+   const removed=await db.query('UPDATE infrastructure_documents SET removed_at=NOW() WHERE id=$1 AND plan_id=$2 AND removed_at IS NULL RETURNING id',[id.data,plan.id]);
+   if(!removed.rowCount)return error('Document not found.',404);
+   const updated=await db.query(`UPDATE infrastructure_packages SET input=jsonb_set(input,'{documentIds}',(input->'documentIds') - $1::text),version=version+1 WHERE plan_id=$2 AND (input->'documentIds') ? $1 RETURNING id,version`,[id.data,plan.id]);
+   return NextResponse.json({ok:true,packages:updated.rows});
+  });
+ }catch(cause){console.error(cause);return error('Unable to remove the document.',503);}
+}
 export async function POST(req:NextRequest){
  try{
   const user=await getWorkspaceState(req);if(!user)return error('Sign in to upload documents.',401);
@@ -23,7 +36,7 @@ export async function POST(req:NextRequest){
   if(!ext||!types[ext]||!valid)return error('Use a valid PDF, DOCX, XLSX, PNG or JPEG file.');
   return await mutatePlan(user,plan,'infrastructure',async db=>{
    if(schoolId&&!(await db.query('SELECT id FROM schools WHERE id=$1 AND state_code=$2',[schoolId,user.stateCode])).rowCount)return error('School not found in your state.',404);
-   const count=(await db.query('SELECT COUNT(*)::int AS count FROM infrastructure_documents WHERE plan_id=$1',[plan.id])).rows[0].count;
+   const count=(await db.query('SELECT COUNT(*)::int AS count FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL',[plan.id])).rows[0].count;
    if(count>=100)return error('This plan has reached its 100-document limit.');
    const id=crypto.randomUUID();await db.query("INSERT INTO infrastructure_documents(id,plan_id,kind,name,media_type,content,size,school_id) VALUES($1,$2,$3,$4,$5,decode($6,'hex'),$7,$8)",[id,plan.id,kind.data,name,types[ext],bytes.toString('hex'),bytes.length,schoolId]);
    return NextResponse.json({id,kind:kind.data,name,size:bytes.length,schoolId});

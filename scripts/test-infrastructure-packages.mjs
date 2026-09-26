@@ -57,7 +57,19 @@ try{
  ok(await api('officer',path,{action:'save',input}),409);ok(await api('director',path,{action:'save',input}));
  const scoped=ok(await api('social',reviewPath));assert.equal(scoped.snapshot.infrastructure.length,0);assert.equal(scoped.snapshot.infrastructureDocuments,undefined);
  review=ok(await api('director',reviewPath));const historical=ok(await api('director',reviewPath+'&submission='+review.submissions[0].number));assert.equal(historical.snapshot.infrastructure.length,2);assert.equal(historical.snapshot.infrastructureDocuments.length,docs.length);assert.equal(historical.snapshot.infrastructureDocuments.find(d=>d.id===docs[1]).schoolId,school);
- console.log('PASS: package persistence, frozen school facts, totals, dossier gate, BOQ replacement, read isolation, download permissions, review locking and snapshots.');
+ async function removeDocument(who,id){const r=await fetch(`${base}/api/infrastructure/documents?plan=${plan}&id=${id}`,{method:'DELETE',headers:{Origin:base,Cookie:cookies[who]||''}});return {status:r.status,data:await r.json()};}
+ ok(await removeDocument('anonymous',docs[1]),401);
+ ok(await removeDocument('social',docs[1]),403);
+ ok(await removeDocument('officer',docs[1]),409);
+ ok(await removeDocument('director',docs[1]));
+ const afterRemoval=ok(await api('director',path));
+ assert.ok(!afterRemoval.documents.some(d=>d.id===docs[1]));
+ assert.ok(afterRemoval.packages.every(p=>!p.input.documentIds.includes(docs[1])));
+ ok(await removeDocument('director',docs[1]),404);
+ ok(await api('director','/api/infrastructure/documents?id='+docs[1]));
+ const preserved=ok(await api('director',reviewPath+'&submission='+review.submissions[0].number));
+ assert.ok(preserved.snapshot.infrastructureDocuments.some(d=>d.id===docs[1]));
+ console.log('PASS: packages, document removal permissions, review locking and preserved historical attachments.');
 }finally{
  if(plan){for(const table of ['plan_notifications','plan_review_events','plan_submissions','plan_pillar_reviews','infrastructure_documents','infrastructure_packages'])await db.query(`DELETE FROM ${table} WHERE plan_id=$1`,[plan]);await db.query('DELETE FROM action_plans WHERE id=$1',[plan]);}
  if(school)await db.query('DELETE FROM schools WHERE id=$1',[school]);if(secondSchool)await db.query('DELETE FROM schools WHERE id=$1',[secondSchool]);await db.query('DELETE FROM users WHERE id=ANY($1::int[])',[users]);await db.end();
