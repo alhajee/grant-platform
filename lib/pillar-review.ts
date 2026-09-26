@@ -3,6 +3,7 @@ import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import { canEditPillar } from './subeb-access';
 import type { PlanStatus } from './action-plans';
 import type { Snapshot } from './plan-review';
+import { infrastructureDocumentProblem } from './infrastructure-documents';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'chairman_ready';
 export type PillarReview = { pillar: ImplementedPillar; status: PillarReviewStatus };
@@ -20,7 +21,7 @@ export function mayEditPillar(role: string, department: string | null | undefine
     (role === 'Director' ? review === 'director_review' : ['draft','changes_requested'].includes(review));
 }
 export function readyForUbec(reviews: PillarReview[], snapshot: Snapshot) {
-  return implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready') && (snapshot[p]?.length ?? 0) > 0) && (snapshot.tlmDistribution?.length ?? 0)>0 && ['drawings','boq','survey'].every(kind=>snapshot.infrastructureDocuments?.some(d=>d.kind===kind));
+  return implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready') && (snapshot[p]?.length ?? 0) > 0) && (snapshot.tlmDistribution?.length ?? 0)>0 && !infrastructureDocumentProblem(snapshot);
 }
 export function aggregateReviewStatus(reviews: PillarReview[]): PlanStatus {
   if (implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready'))) return 'awaiting_chairman';

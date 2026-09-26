@@ -51,7 +51,7 @@ export const packageSchema = z.object({
 export type InfrastructureInput = z.infer<typeof packageSchema>;
 export type SchoolProfile = z.infer<typeof profileSchema>;
 export type InfrastructureSchool = {id:number;name:string;lga:string;level:string;location:string;male:number;female:number;latitude:string;longitude:string};
-export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'photo';name:string;size:number};
+export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'photo';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
 export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string};
 export type InfrastructurePackage = {id:number;version:number;kind:InfrastructureInput['kind'];input:InfrastructureInput;result:ReturnType<typeof calculateInfrastructure>;school:InfrastructureSchool;total_cost:string};
 const cents = (n:number) => Math.round(n*100);

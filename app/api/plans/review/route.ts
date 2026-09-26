@@ -1,4 +1,5 @@
 import { visibleComponents, visibleSnapshot } from '@/lib/plan-visibility';
+import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
 import { canViewWholeStatePlan } from '@/lib/subeb-access';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
       if (!recipients.length) return error(`No active ${recipientRole} is assigned to this department/state.`, 409);
       const snapshot = await readPlanSnapshot(db, plan.id);
       if (input.action !== 'request_changes' && !snapshot[input.pillar]?.length) return error('Add saved entries to this pillar before sending it.');
-      if (input.action !== 'request_changes' && input.pillar==='infrastructure' && !['drawings','boq','survey'].every(kind=>snapshot.infrastructureDocuments?.some(d=>d.kind===kind))) return error('Attach drawings, a BOQ and a site / geophysical survey before sending Infrastructure.');
+      if (input.action !== 'request_changes' && input.pillar==='infrastructure') { const problem=infrastructureDocumentProblem(snapshot); if(problem)return error(problem); }
       if (input.action !== 'request_changes' && input.pillar==='tlm' && !snapshot.tlmDistribution?.length) return error('Add at least one school to the TLM distribution list before sending it.');
       const status: PillarReviewStatus = input.action === 'submit' || (input.action === 'request_changes' && actor.role === 'Executive Chairman') ? 'director_review' : input.action === 'endorse' ? 'chairman_ready' : 'changes_requested';
       await db.query('INSERT INTO plan_pillar_reviews(plan_id,pillar,status) VALUES($1,$2,$3) ON CONFLICT(plan_id,pillar) DO UPDATE SET status=EXCLUDED.status,updated_at=NOW()', [plan.id,input.pillar,status]);
