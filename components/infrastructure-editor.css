@@ -10,3 +10,8 @@
 .infrastructure-shell .preview-document{min-width:0}
 .infrastructure-shell .preview-document [data-slot=table-container]{background:var(--card);border:1px solid var(--border);border-radius:12px}
 @media(max-width:850px){.infra-home{padding:20px}.infra-choices{grid-template-columns:1fr}.infra-steps{gap:16px;padding:12px 20px}}
+.land-agreement{--primary:var(--warning);--ring:var(--warning);--input:color-mix(in srgb,var(--warning) 45%,var(--card));padding:20px;border:1.5px dashed color-mix(in srgb,var(--warning) 55%,var(--card));border-radius:12px;background:color-mix(in srgb,var(--warning) 7%,var(--card));color:var(--warning-foreground);gap:16px}
+.land-agreement legend{float:left;width:100%;margin:0}
+.land-agreement-description{font-size:13px;line-height:1.6;margin:0}
+.land-agreement [data-slot=field-group]{gap:18px}
+.land-agreement [data-slot=field-label]{line-height:1.5}
