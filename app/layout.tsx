@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { ImpersonationBanner } from '@/components/impersonation-banner';
 import "./globals.css";
 
@@ -20,9 +21,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <ImpersonationBanner />
-        {children}
-        <Toaster theme="light" position="top-right" />
+        <TooltipProvider delayDuration={350} skipDelayDuration={100}>
+          <ImpersonationBanner />
+          {children}
+          <Toaster theme="light" position="top-right" />
+        </TooltipProvider>
       </body>
     </html>
   );

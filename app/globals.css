@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "../vendor/shadcn-tailwind-4.13.0.css";
+.field-help-trigger{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;flex:0 0 22px;border-radius:999px;color:var(--muted-foreground);cursor:help;outline:none;transition:color 160ms ease,background-color 160ms ease,box-shadow 160ms ease}
+.field-help-trigger svg{width:14px;height:14px}
+.field-help-trigger:focus-visible{color:var(--foreground);background:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 35%,transparent)}
+@media(hover:hover) and (pointer:fine){.field-help-trigger:hover{color:var(--foreground);background:var(--accent)}}
 /* State account management shares the compact SUBEB workspace shell. */
 .state-users-main { max-width: 1440px; margin: 0 auto; padding: 24px 32px 48px; display:flex; flex-direction:column; gap:24px; }
 .state-users-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; }
