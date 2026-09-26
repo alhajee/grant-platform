@@ -595,7 +595,9 @@
 .pillar-coming-soon { font-size: 12px; line-height: 1.5; color: var(--muted-foreground); }
 .pillar-unavailable { align-self: center; font-size: 11px; font-weight: 400; }
 .department-reviews { margin-bottom: 28px; }
-.department-review-card[data-slot="card"] { min-height: 290px; }
+.department-review-card[data-slot="card"] { min-height: 320px; }
+.department-review-card [data-slot="card-header"] { grid-template-rows: 118px minmax(48px,auto) minmax(24px,auto); gap: 10px; }
+.department-review-card .pillar-card-artwork { align-self: start; }
 .department-review-card h3 { font-size: 16px; line-height: 1.35; font-weight: 600; letter-spacing: -.25px; }
 .department-review-card [data-slot="card-content"] { display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; }
 .department-review-card [data-slot="badge"] { white-space: normal; }
