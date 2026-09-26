@@ -5,7 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { currentPlanHref, planHref, planPeriod } from "@/lib/action-plans";
 import { PlanSetupSummary } from '@/components/plan-setup-summary';
-import { ArrowRightIcon, Building2Icon, BookOpenIcon, GraduationCapIcon, ShieldCheckIcon, TrophyIcon, UsersIcon, MonitorIcon, ClipboardCheckIcon, LeafIcon, ChartNoAxesCombinedIcon } from "lucide-react";
+import { ArrowRightIcon } from "lucide-react";
+import { PillarIllustration } from "@/components/pillar-illustration";
+import { InfrastructureIllustration } from "@/components/infrastructure-illustration";
 import { SubebHeader } from "@/components/subeb-header";
 import { defaultAllocation, infrastructureSplit, percent } from "@/lib/funding-policy";
 import { subebDepartmentName } from "@/lib/subeb-departments";
@@ -19,7 +21,6 @@ import { beapComponents, strategicPillars, componentSections, type BeapSummary, 
 import type { LocalUser } from "@/lib/local-session";
 
 const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const componentIcons = { infrastructure: Building2Icon, tlm: BookOpenIcon, quality: ShieldCheckIcon, teachers: GraduationCapIcon, sports: TrophyIcon, monitoring: ClipboardCheckIcon, curriculum: BookOpenIcon, sbmc: UsersIcon, planning: ChartNoAxesCombinedIcon, gscci: LeafIcon };
 const pillarDescriptions: Record<string, string> = { quality: 'Better teaching. Richer learning.', access: 'Welcoming schools. Stronger communities.', system: 'Better data. Smarter decisions.' };
 
 export default function BeapPage() {
@@ -88,12 +89,11 @@ export default function BeapPage() {
                   if (!canSeeSection(id,section.department)) return null;
                   const key = id === 'infrastructure' && sectionIndex === 1 ? 'tlm' : id;
                   const stats = pillarSummaries[key];
-                  const Icon = id === 'teachers' && sectionIndex === 1 ? MonitorIcon : componentIcons[key as keyof typeof componentIcons];
                   const share = id === 'infrastructure' ? percent(sectionIndex === 0 ? split.infrastructure : split.tlm) : percent(allocation.shares[id]);
                   const canOpen = !!section.href && !!summary && !error;
-                  return <Card key={id+'-'+sectionIndex} className="pillar-component-card" data-available={!!section.href}>
+                  return <Card key={id+'-'+sectionIndex} className="pillar-component-card" data-component={key} data-available={!!section.href}>
                     <CardHeader>
-                      <div className="pillar-card-top"><span className="pillar-component-icon"><Icon aria-hidden="true" /></span><span className="component-allocation" title={id === 'teachers' ? 'Shared allocation for Teacher Development and ICT' : 'Share of total funding'}>{share}%{id === 'teachers' ? ' shared' : ''}</span></div>
+                      <div className="pillar-card-top"><div className="pillar-card-artwork">{key === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={key} standalone />}</div><span className="component-allocation" title={id === 'teachers' ? 'Shared allocation for Teacher Development and ICT' : 'Share of total funding'}>{share}%{id === 'teachers' ? ' shared' : ''}</span></div>
                       <CardTitle><h4>{section.name}</h4></CardTitle>
                       <p className="pillar-department">{subebDepartmentName(section.department)}</p>
                     </CardHeader>

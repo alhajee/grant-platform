@@ -10,15 +10,15 @@ const palettes = {
   gscci: ["#f7e9ed", "#edcdd9", "#b77994", "#70465c"],
 } as const;
 
-export function PillarIllustration({ pillar: id }: { pillar: PillarId }) {
+export function PillarIllustration({ pillar: id, standalone = false }: { pillar: PillarId; standalone?: boolean }) {
   const artwork: Record<PillarId, keyof typeof palettes> = { infrastructure:'infrastructure',tlm:'quality',quality:'quality',teachers:'quality',sbmc:'access',monitoring:'systems',curriculum:'quality',planning:'systems',sports:'sports',gscci:'gscci' };
   const pillar = artwork[id];
   const [background, soft, accent, ink] = palettes[pillar];
   return (
     <svg viewBox="0 0 240 176" fill="none" className="pillar-art" aria-hidden="true" focusable="false">
-      <rect width="240" height="176" rx="12" fill={background} />
+      {!standalone && <><rect width="240" height="176" rx="12" fill={background} />
       <circle cx="181" cy="43" r="42" fill={soft} opacity=".5" />
-      <path d="M19 132c36-20 67 26 107 10s65-27 97-14" stroke={accent} strokeOpacity=".18" />
+      <path d="M19 132c36-20 67 26 107 10s65-27 97-14" stroke={accent} strokeOpacity=".18" /></>}
       <g stroke={ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         {pillar === "infrastructure" && <>
           <path d="m44 129 91-22 70 26-91 24z" fill={soft} stroke="none" />
