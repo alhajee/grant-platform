@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from 'react';
-import { CheckIcon, LockKeyholeIcon, FileCheck2Icon } from 'lucide-react';
+import { CheckIcon, LockKeyholeIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Field, FieldGroup, FieldSet, FieldLegend, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field';
 import { Card, CardContent } from '@/components/ui/card';
@@ -86,9 +86,8 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
             <circle cx="101" cy="83" r="16" fill="#004740" stroke="white" strokeWidth="4" /><path d="m94 83 5 5 9-11" stroke="white" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <div className="space-y-1">
-            <p className="plan-eyebrow">PLAN YOUR IMPACT</p>
             <DialogTitle>Create action plan</DialogTitle>
-            <DialogDescription>Set the funding period, confirm the available funds and attach the supporting RAT.</DialogDescription>
+            <DialogDescription>Choose the plan period, enter the funding and upload the assessment.</DialogDescription>
           </div>
         </div>
       </DialogHeader>
@@ -100,14 +99,13 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                 <div className="plan-funding-total flex items-center gap-3 p-4">
                   <span className="funding-art-wrap"><FundingSummaryArtwork /></span>
                   <div className="min-w-0">
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Total available funding</p>
+                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Total funding</p>
                     <p className="mt-1 text-xl font-semibold tabular-nums break-all">{money.format(Number(total))}</p>
-                    <p className="text-xs text-muted-foreground">Your action plan’s funding envelope</p>
                   </div>
                 </div>
                 <dl className="plan-funding-breakdown">
-                  <div><dt>State lodgment</dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
-                  <div><dt>UBEC counterpart <span className="funding-match">1:1 match</span></dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
+                  <div><dt>State contribution</dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
+                  <div><dt>UBEC match</dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
                   <div><dt>Other funding</dt><dd>{money.format(Number(other || 0))}</dd></div>
                 </dl>
               </div>
@@ -115,15 +113,15 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
           </Card>
 
           <FieldGroup className="gap-3">
-            <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>Funding period</FieldLegend><FieldGroup className="gap-3">
+            <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>Plan period</FieldLegend><FieldGroup className="gap-3">
               <FieldGroup className="grid gap-3 sm:grid-cols-2">
                 <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year<FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setQuarters(q => q.filter(n => !reserved(value).has(Number(n)))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
                 <Field data-invalid={!!errors.implementationYear}><FieldLabel htmlFor="implementation-year">Implementation year<FieldHelp>The year the funded activities are expected to be carried out.</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} aria-invalid={!!errors.implementationYear} onChange={e => setImplementation(e.target.value)} />{errors.implementationYear && <FieldError>{errors.implementationYear}</FieldError>}</Field>
               </FieldGroup>
               <Field data-invalid={!!errors.quarters}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <FieldLabel id="quarters-label">Funding quarters<FieldHelp>Select every quarter covered by this plan. Disabled quarters already belong to another plan.</FieldHelp></FieldLabel>
-                  <Button type="button" variant="ghost" size="sm" className="quarter-select-all" disabled={saving || occupied.size === 4} onClick={() => setQuarters(quarters.length === 4 - occupied.size ? [] : [1,2,3,4].filter(q => !occupied.has(q)).map(String))}>{quarters.length > 0 && quarters.length === 4 - occupied.size ? 'Clear selection' : occupied.size ? 'Select available' : 'Select full year'}</Button>
+                  <FieldLabel id="quarters-label">Quarters<FieldHelp>Select every quarter covered by this plan. Locked quarters already belong to another plan.</FieldHelp></FieldLabel>
+                  {occupied.size < 4 && <Button type="button" variant="ghost" size="sm" className="quarter-select-all" disabled={saving} onClick={() => setQuarters(quarters.length === 4 - occupied.size ? [] : [1,2,3,4].filter(q => !occupied.has(q)).map(String))}>{quarters.length > 0 && quarters.length === 4 - occupied.size ? 'Clear' : occupied.size ? 'Select available' : 'Select all'}</Button>}
                 </div>
                 <ToggleGroup type="multiple" variant="outline" spacing={2} value={quarters} onValueChange={value => setQuarters(value.sort())} aria-labelledby="quarters-label" aria-describedby="quarter-guidance" aria-invalid={!!errors.quarters} className="plan-quarter-grid" disabled={saving}>
                   {['Jan – Mar', 'Apr – Jun', 'Jul – Sep', 'Oct – Dec'].map((months, index) => {
@@ -131,24 +129,20 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                     return <ToggleGroupItem key={q} value={String(q)} className="plan-quarter" disabled={taken} aria-label={`Quarter ${q}, ${months}${taken ? ', already assigned' : ''}`}>
                       <span className="quarter-top"><span className="quarter-number">Q{q}</span><span className="quarter-indicator">{taken ? <LockKeyholeIcon /> : selected ? <CheckIcon /> : null}</span></span>
                       <span className="quarter-months">{months}</span>
-                      <span className="quarter-status">{taken ? 'Already assigned' : selected ? 'Selected' : 'Available'}</span>
                     </ToggleGroupItem>;
                   })}
                 </ToggleGroup>
-                <FieldDescription id="quarter-guidance" className="quarter-guidance" aria-live="polite">{occupied.size === 4 ? 'This funding year is fully allocated. Choose another funding year to continue.' : quarters.length ? `${quarters.length} of ${4 - occupied.size} available quarters selected · ${quarters.length * 3} months of funding` : 'Choose the quarters this action plan will cover.'}</FieldDescription>
+                <FieldDescription id="quarter-guidance" className="quarter-guidance" aria-live="polite">{occupied.size === 4 ? 'All quarters are in another plan. Choose a different funding year.' : quarters.length ? `${quarters.length} ${quarters.length === 1 ? 'quarter' : 'quarters'} selected · ${quarters.length * 3} months` : 'Choose one or more quarters.'}</FieldDescription>
                 {errors.quarters && <FieldError>{errors.quarters}</FieldError>}
               </Field>
             </FieldGroup></FieldSet>
-            <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding</FieldLegend><FieldGroup className="grid gap-3 md:grid-cols-2">
-              <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State lodgment (₦)<FieldHelp>The amount paid by the state. UBEC provides an equal counterpart amount.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
-              <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding sources (₦)<FieldHelp>Additional funding outside the state lodgment and UBEC counterpart.</FieldHelp></FieldLabel><CurrencyInput id="other-funding" value={other} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
+            <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding amounts</FieldLegend><FieldGroup className="grid gap-3 md:grid-cols-2">
+              <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State contribution (₦)<FieldHelp>The amount paid by the state. UBEC adds the same amount.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
+              <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding (₦)</FieldLabel><CurrencyInput id="other-funding" value={other} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
             </FieldGroup></FieldSet>
             <Field data-invalid={!!errors.rat} className="gap-3 rounded-xl border bg-card p-3 shadow-xs">
-              <div className="flex items-start gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary/8 text-primary"><FileCheck2Icon className="size-4" /></span>
-                <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Supporting RAT<FieldHelp>Attach the approved Rapid Assessment Tool used to prepare this action plan.</FieldHelp></FieldLabel><FieldDescription>Attach 1–3 approved files. PDF, XLSX or DOCX; 5 MB per file and 10 MB total.</FieldDescription></div>
-              </div>
-              <FileUpload compact id="rat-document" label="RAT document" multiple accept=".pdf,.xlsx,.docx" disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 files and 10 MB in total.'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/>
+              <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Assessment documents<FieldHelp>Upload the approved Rapid Assessment Tool (RAT). Each file can be up to 5 MB, with a 10 MB total.</FieldHelp></FieldLabel><FieldDescription>PDF, XLSX or DOCX · up to 3 files</FieldDescription></div>
+              <FileUpload compact id="rat-document" label="assessment documents" multiple accept=".pdf,.xlsx,.docx" disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 files and 10 MB in total.'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/>
               <DocumentFiles compact documents={files.map((file,i)=>({id:String(i),name:file.name,size:file.size,file}))} disabled={saving} onRemove={id=>setFiles(current=>current.filter((_,i)=>String(i)!==id))}/>{errors.rat && <FieldError>{errors.rat}</FieldError>}
             </Field>
           </FieldGroup>

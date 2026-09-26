@@ -150,7 +150,6 @@
 .create-plan-dialog [data-slot="dialog-header"] > div { align-items: center; gap: 14px; }
 .create-plan-dialog[data-variant] [data-slot="dialog-title"] { font-size: 23px; letter-spacing: -.7px; line-height: 1.2; }
 .plan-calendar-art { width: 74px; height: 68px; flex-shrink: 0; }
-.plan-eyebrow { font-size: 9px; letter-spacing: 1.6px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
 .create-plan-dialog .plan-funding-summary { border: 0; border-radius: 18px; background: #f3f6ef; }
 .plan-funding-layout { display: grid; grid-template-columns: 1fr 1fr; }
 .plan-funding-total { padding: 16px 18px; background: #e8efdf; }
@@ -162,7 +161,6 @@
 .plan-funding-breakdown > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .plan-funding-breakdown dt { color: var(--muted-foreground); }
 .plan-funding-breakdown dd { font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
-.funding-match { margin-left: 3px; color: #688072; font-size: 10px; white-space: nowrap; }
 @media (max-width: 600px) { .plan-funding-layout { grid-template-columns: 1fr; } .plan-funding-total, .plan-funding-breakdown { padding: 14px 16px; } }
 .create-plan-dialog [data-slot="dialog-description"] { max-width: 470px; padding-top: 2px; }
 .create-plan-dialog form > div:first-child { background: var(--card); }
@@ -184,10 +182,8 @@
 .quarter-indicator { display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid var(--border); border-radius: 50%; color: var(--primary); }
 .quarter-indicator svg { width: 10px; height: 10px; }
 .quarter-months { font-size: 11px; font-weight: 500; }
-.quarter-status { font-size: 9px; font-weight: 500; color: var(--muted-foreground); }
 .create-plan-dialog .plan-quarter[data-state="on"] { background: #edf4e7; border-color: #709781; box-shadow: inset 0 0 0 1px #709781; color: #004740; }
 .plan-quarter[data-state="on"] .quarter-indicator { background: #004740; border-color: #004740; color: white; }
-.plan-quarter[data-state="on"] .quarter-status { color: #356447; }
 .create-plan-dialog .plan-quarter:disabled { opacity: 1; background: #f5f6f5; color: #88918e; box-shadow: none; border-style: dashed; cursor: not-allowed; }
 .plan-quarter:disabled .quarter-indicator { border: 0; color: #88918e; }
 .create-plan-dialog .quarter-select-all { height: 24px; padding-inline: 7px; font-size: 11px; color: var(--primary); }
