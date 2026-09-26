@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Spinner } from '@/components/ui/spinner';
 import { CurrencyInput } from '@/components/currency-input';
+import { FileUpload, DocumentFiles } from '@/components/document-files';
 import { planSetupSchema, fundingTotal, beapName, maxRatFileBytes, maxRatTotalBytes } from '@/lib/plan-setup';
 import { planHref, type PlanOverview } from '@/lib/action-plans';
 
@@ -69,7 +70,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
               <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State lodgment (₦)</FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
               <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding sources (₦)</FieldLabel><CurrencyInput id="other-funding" value={other} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
             </FieldGroup></FieldSet>
-            <Field data-invalid={!!errors.rat}><FieldLabel htmlFor="rat-document">RAT document</FieldLabel><Input id="rat-document" type="file" multiple accept=".pdf,.xlsx,.docx" disabled={saving} aria-invalid={!!errors.rat} onChange={e => setFiles(Array.from(e.target.files ?? []))} />{errors.rat && <FieldError>{errors.rat}</FieldError>}</Field>
+            <Field data-invalid={!!errors.rat}><FieldLabel htmlFor="rat-document">RAT document</FieldLabel><FileUpload id="rat-document" label="RAT document" multiple accept=".pdf,.xlsx,.docx" disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 files and 10 MB in total.'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/><DocumentFiles documents={files.map((file,i)=>({id:String(i),name:file.name,size:file.size,file}))} disabled={saving} onRemove={id=>setFiles(current=>current.filter((_,i)=>String(i)!==id))}/>{errors.rat && <FieldError>{errors.rat}</FieldError>}</Field>
           </FieldGroup>
           <Card><CardHeader><CardTitle>Funding summary</CardTitle></CardHeader><CardContent className="flex flex-col gap-6">
             <dl className="flex flex-col gap-4 text-sm"><div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">State lodgment</dt><dd className="tabular-nums">{money.format(Number(lodgment || 0))}</dd></div><div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">UBEC counterpart</dt><dd className="tabular-nums">{money.format(Number(lodgment || 0))}</dd></div><div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Other funding</dt><dd className="tabular-nums">{money.format(Number(other || 0))}</dd></div><div className="flex flex-col gap-1"><dt className="text-muted-foreground">Total funding envelope</dt><dd className="text-xl font-semibold tabular-nums break-all">{money.format(Number(total))}</dd></div></dl>
