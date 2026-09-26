@@ -6,7 +6,7 @@
 .infra-choice[data-kind=furniture]{--choice-tint:var(--lilac)}
 .infra-choice [data-slot=card-header]{flex:1;align-content:start;gap:12px}
 .infra-choice [data-slot=card-content]{margin-top:auto}
-.infra-choice-budget{display:flex;flex-direction:column;gap:4px;margin:0 0 20px}
+.infra-choice-budget{display:flex;flex-direction:column;margin:0 0 16px}
 .infra-choice-budget dt{font-size:12px;color:var(--muted-foreground)}
 .infra-choice-budget dd{margin:0;font-size:clamp(20px,2vw,28px);font-weight:600;letter-spacing:-.035em;line-height:1.25;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;color:var(--primary)}
 .infra-illustration{width:140px;height:98px;color:var(--primary);margin-bottom:4px}
