@@ -45,7 +45,8 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
   const pending = useRef(false);
   const reserved = (value: string) => new Set(plans.filter(p => p.startYear <= Number(value) && p.endYear >= Number(value)).flatMap(p => p.fundingQuarters ?? [1, 2, 3, 4]));
   const occupied = reserved(year);
-  const total = /^\d{0,12}(\.\d{0,2})?$/.test(lodgment) && /^\d{0,12}(\.\d{0,2})?$/.test(other) ? fundingTotal(lodgment || '0', other || '0') : '0';
+  const total = /^\d{0,13}(\.\d{0,2})?$/.test(lodgment) && /^\d{0,13}(\.\d{0,2})?$/.test(other) ? fundingTotal(lodgment || '0', other || '0') : '0';
+  const displayedTotal = money.format(Number(total));
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -72,7 +73,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
   }
 
   return <Dialog open onOpenChange={value => { if (!value && !pending.current) onClose(); }}>
-    <DialogContent variant="inset-footer" className="create-plan-dialog flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl" showCloseButton={!saving} onEscapeKeyDown={e => { if (pending.current) e.preventDefault(); }} onInteractOutside={e => { if (pending.current) e.preventDefault(); }}>
+    <DialogContent variant="inset-footer" className="create-plan-dialog flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[820px]" showCloseButton={!saving} onEscapeKeyDown={e => { if (pending.current) e.preventDefault(); }} onInteractOutside={e => { if (pending.current) e.preventDefault(); }}>
       <DialogHeader className="border-b bg-[linear-gradient(135deg,color-mix(in_oklab,var(--sage)_18%,transparent),transparent_62%)] px-6 py-5">
         <div className="flex items-start gap-3 pr-8">
           <svg className="plan-calendar-art" viewBox="0 0 120 108" fill="none" aria-hidden="true">
@@ -100,7 +101,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                   <span className="funding-art-wrap"><FundingSummaryArtwork /></span>
                   <div className="min-w-0">
                     <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Total funding</p>
-                    <p className="mt-1 text-xl font-semibold tabular-nums break-all">{money.format(Number(total))}</p>
+                    <p className="funding-total-value" data-long={displayedTotal.length > 18 || undefined}>{displayedTotal}</p>
                   </div>
                 </div>
                 <dl className="plan-funding-breakdown">
@@ -115,7 +116,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
           <FieldGroup className="gap-3">
             <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>Plan period</FieldLegend><FieldGroup className="gap-3">
               <FieldGroup className="grid gap-3 sm:grid-cols-2">
-                <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year<FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setQuarters(q => q.filter(n => !reserved(value).has(Number(n)))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
+                <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year<FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(Number(n)))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
                 <Field data-invalid={!!errors.implementationYear}><FieldLabel htmlFor="implementation-year">Implementation year<FieldHelp>The year the funded activities are expected to be carried out.</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} aria-invalid={!!errors.implementationYear} onChange={e => setImplementation(e.target.value)} />{errors.implementationYear && <FieldError>{errors.implementationYear}</FieldError>}</Field>
               </FieldGroup>
               <Field data-invalid={!!errors.quarters}>
@@ -137,8 +138,8 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
               </Field>
             </FieldGroup></FieldSet>
             <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding amounts</FieldLegend><FieldGroup className="grid gap-3 md:grid-cols-2">
-              <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State contribution (₦)<FieldHelp>The amount paid by the state. UBEC adds the same amount.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
-              <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding (₦)</FieldLabel><CurrencyInput id="other-funding" value={other} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
+              <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State contribution (₦)<FieldHelp>The amount paid by the state. UBEC adds the same amount.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
+              <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding (₦)</FieldLabel><CurrencyInput id="other-funding" value={other} maxIntegerDigits={13} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
             </FieldGroup></FieldSet>
             <Field data-invalid={!!errors.rat} className="gap-3 rounded-xl border bg-card p-3 shadow-xs">
               <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Assessment documents<FieldHelp>Upload the approved Rapid Assessment Tool (RAT). Each file can be up to 5 MB, with a 10 MB total.</FieldHelp></FieldLabel><FieldDescription>PDF, XLSX or DOCX · up to 3 files</FieldDescription></div>

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { formatQuarters } from './format-quarters';
 
 const year = z.number().int().min(2004).max(2100);
-const amount = z.string().regex(/^\d{1,12}(\.\d{1,2})?$/, 'Enter a non-negative amount with up to two decimal places.');
+const amount = z.string().regex(/^\d{1,13}(\.\d{1,2})?$/, 'Enter an amount below ₦10 trillion, with up to two decimal places.');
 export const planSetupSchema = z.object({
   planningYear: year,
   implementationYear: year,

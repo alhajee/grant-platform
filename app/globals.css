@@ -151,11 +151,12 @@
 .create-plan-dialog[data-variant] [data-slot="dialog-title"] { font-size: 23px; letter-spacing: -.7px; line-height: 1.2; }
 .plan-calendar-art { width: 74px; height: 68px; flex-shrink: 0; }
 .create-plan-dialog .plan-funding-summary { border: 0; border-radius: 18px; background: #f3f6ef; }
-.plan-funding-layout { display: grid; grid-template-columns: 1fr 1fr; }
+.plan-funding-layout { display: grid; grid-template-columns: 1.08fr 1fr; }
 .plan-funding-total { padding: 16px 18px; background: #e8efdf; }
 .plan-funding-total .funding-art-wrap { display: grid; width: 58px; height: 54px; flex: 0 0 58px; place-items: center; }
 .funding-summary-art { display: block; width: 68px; height: 61px; filter: drop-shadow(0 6px 8px rgb(0 71 64 / 8%)); }
-.plan-funding-total .text-xl { font-size: clamp(20px, 2vw, 26px); color: #004740; letter-spacing: -.7px; margin: 2px 0; overflow-wrap: anywhere; }
+.funding-total-value { margin: 2px 0; color: #004740; font-size: 25px; font-weight: 650; line-height: 1.15; letter-spacing: -.7px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.funding-total-value[data-long="true"] { font-size: 18px; letter-spacing: -.45px; }
 .plan-funding-total .uppercase { font-size: 10px; letter-spacing: 1px; color: #496056; }
 .plan-funding-breakdown { display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 14px 18px; font-size: 12px; }
 .plan-funding-breakdown > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
