@@ -39,7 +39,7 @@ export function PlanReviewContent({ snapshot, sbmcEditHref, tlmEditHref, visible
     return <Button variant="ghost" size="icon" aria-label={`${expanded[id] ? 'Hide' : 'Show'} details for ${label}`} aria-expanded={!!expanded[id]} aria-controls={`${id}-details`} onClick={() => setExpanded(previous => ({ ...previous, [id]: !previous[id] }))}>{expanded[id] ? <ChevronDown /> : <ChevronRight />}</Button>;
   }
   return <div className="review-sections">
-    {snapshot.setup && <PlanSetupSummary setup={snapshot.setup} />}
+    {snapshot.setup && <PlanSetupSummary setup={snapshot.setup} compact />}
     {visiblePillars.includes('infrastructure') && <Card id="review-infrastructure" className="review-table-card">
       <CardHeader><CardTitle><Building2 aria-hidden="true" />Infrastructure <Badge variant="secondary">{snapshot.infrastructure.length}</Badge></CardTitle><CardDescription>Project lines</CardDescription></CardHeader>
       <ReviewToolbar label="projects" view={infrastructureView} onChange={setInfrastructureView} filters={[...new Set(snapshot.infrastructure.map(line => line.school.lga))].sort()} filterLabel="LGAs" />

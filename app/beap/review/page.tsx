@@ -22,6 +22,8 @@ import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pilla
 import { subebDepartmentName as departmentName } from '@/lib/subeb-departments';
 import { mayEditPillar, pillarReviewLabels, statePlanOpen } from '@/lib/pillar-review';
 import { Badge } from '@/components/ui/badge';
+import { PillarIllustration } from '@/components/pillar-illustration';
+import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 export default function ReviewPage() {
@@ -83,9 +85,9 @@ export default function ReviewPage() {
       {loading ? <Skeleton className="h-64 w-full" /> : data && !error && <>
         {plan?.status === 'changes_requested' && latestFeedback && <Alert className="mb-6"><MessageSquareIcon /><AlertTitle>Changes requested · {scopeLabel(latestFeedback.scope)}</AlertTitle><AlertDescription><p className="review-comment">{latestFeedback.comment}</p>{editable && <Button asChild variant="outline"><Link href={planHref('/beap', data.plan.id)}>Edit plan</Link></Button>}</AlertDescription></Alert>}
         {selected !== 'current' && <Alert className="mb-6"><AlertTitle>Saved submission {data.selectedSubmission}</AlertTitle><AlertDescription>This version is read-only. Select the current version to take action.</AlertDescription></Alert>}
-        <Card className="mb-6">
-          <CardHeader><CardTitle>Department reviews</CardTitle></CardHeader>
-          <CardContent className="flex flex-col gap-4">
+        <section className="department-reviews" aria-labelledby="department-reviews-title">
+          <div className="beap-section-heading"><h2 id="department-reviews-title">Department reviews</h2></div>
+          <div className="pillar-card-grid department-review-grid">
             {data.pillarReviews.map(review => {
               const pillar = componentSections[review.pillar][0];
               const owns = data.department === pillarDepartments[review.pillar];
@@ -93,23 +95,29 @@ export default function ReviewPage() {
               const staffCanSend = open && owns && data.role==='Data Entry Staff' && ['draft','changes_requested'].includes(review.status);
               const directorCanReview = open && owns && data.role==='Director' && review.status==='director_review';
               const chairmanCanReturn = open && data.role==='Executive Chairman' && review.status==='chairman_ready';
-              return <div key={review.pillar} className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-col gap-1"><strong>{pillar.name}</strong><span className="text-sm text-muted-foreground">{departmentName(pillarDepartments[review.pillar])}</span></div>
-                <div className="flex flex-wrap items-center gap-2">
+              return <Card key={review.pillar} className="pillar-component-card department-review-card" data-component={review.pillar}>
+                <CardHeader>
+                  <div className="pillar-card-artwork">{review.pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={review.pillar} standalone />}</div>
+                  <CardTitle><h3>{pillar.name}</h3></CardTitle>
+                  <p className="pillar-department">{departmentName(pillarDepartments[review.pillar])}</p>
+                </CardHeader>
+                <CardContent>
                   <Badge variant="secondary">{pillarReviewLabels[review.status]}</Badge>
+                  <div className="department-review-actions">
                   {directorCanReview && <Button asChild variant="outline" size="sm"><Link href={planHref(pillar.href!,data.plan.id)}>Edit component</Link></Button>}
                   {(directorCanReview || chairmanCanReturn) && <Button variant="outline" size="sm" onClick={()=>openAction('request_changes',review.pillar)}>Request changes</Button>}
                   {staffCanSend && <Button size="sm" disabled={!data.snapshot[review.pillar]?.length || (review.pillar==='tlm'&&!data.snapshot.tlmDistribution?.length)} onClick={()=>openAction('submit',review.pillar)}>Send to Director</Button>}
                   {directorCanReview && <Button size="sm" onClick={()=>openAction('endorse',review.pillar)}>Send to Chairman</Button>}
-                </div>
-              </div>;
+                  </div>
+                </CardContent>
+              </Card>;
             })}
+          </div>
             {data.role==='Executive Chairman' && statePlanOpen(data.plan.status) && <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components ready</p>
               {data.readyForUbec && available ? <Button asChild><Link href={planHref('/ubec/review',data.plan.id)}><SendIcon data-icon="inline-start" />Send to UBEC</Link></Button> : <Button disabled>Send to UBEC</Button>}
             </div>}
-          </CardContent>
-        </Card>
+        </section>
         <div className="review-layout"><PlanReviewContent snapshot={data.snapshot} visiblePillars={data.visiblePillars} tlmEditHref={available && mayEditPillar(data.role, data.department, 'tlm', data.plan.status, data.pillarReviews) ? planHref('/beap/tlm', data.plan.id) : undefined} sbmcEditHref={available && mayEditPillar(data.role, data.department, 'sbmc', data.plan.status, data.pillarReviews) ? planHref('/beap/sbmc', data.plan.id) : undefined} /><Card className="review-history"><CardHeader><CardTitle>Review history</CardTitle></CardHeader><CardContent>{!data.events.length ? <p>No submissions yet.</p> : <ol>{data.events.map(event => <li key={event.id}><strong>{event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action]}</strong><span>Submission {event.submissionNumber} · {event.actorName}</span><span>{event.actorRole} · {date.format(new Date(event.createdAt))}</span>{event.scope !== 'general' && <span>{scopeLabel(event.scope)}</span>}{event.comment && <p className="review-comment">{event.comment}</p>}</li>)}</ol>}</CardContent></Card></div>
       </>}
     </main>
