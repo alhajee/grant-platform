@@ -1,5 +1,5 @@
-import { CalendarDaysIcon, FilesIcon } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { BanknoteIcon, CalendarDaysIcon, FilesIcon, LandmarkIcon, RefreshCwIcon, WalletCardsIcon } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { DocumentFiles } from '@/components/document-files';
 import { PlansArtwork } from '@/components/metric-artwork';
@@ -23,18 +23,18 @@ export function PlanSetupSummary({ setup, compact = false }: { setup: Partial<Pl
     </CardHeader>
     <CardContent>
       <section className="plan-funding-snapshot" aria-label="Funding summary">
-        <div className="plan-funding-total"><span>Total funding</span><strong>{amount(setup.fundingTotal)}</strong></div>
         <dl>{[
-          ['State contribution', amount(setup.stateLodgment)],
-          ['UBEC match', amount(setup.stateLodgment)],
-          ['Other funding', amount(setup.otherFunding)],
-        ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-      </section>
-      <section className="plan-assessment-files" aria-label="Assessment documents">
-        <header><FilesIcon aria-hidden="true" /><div><h3>Assessment {documents.length === 1 ? 'document' : 'documents'}</h3><p>{documents.length ? `${documents.length} supporting ${documents.length === 1 ? 'file' : 'files'} attached` : 'No files attached'}</p></div></header>
-        <DocumentFiles compact documents={documents}/>
+          { label: 'Total funding', value: amount(setup.fundingTotal), Icon: BanknoteIcon, primary: true },
+          { label: 'State contribution', value: amount(setup.stateLodgment), Icon: LandmarkIcon },
+          { label: 'UBEC match', value: amount(setup.stateLodgment), Icon: RefreshCwIcon },
+          { label: 'Other funding', value: amount(setup.otherFunding), Icon: WalletCardsIcon },
+        ].map(({ label, value, Icon, primary }) => <div key={label} data-primary={primary || undefined}><span className="plan-source-icon"><Icon aria-hidden="true" /></span><div><dt>{label}</dt><dd>{value}</dd></div></div>)}</dl>
       </section>
     </CardContent>
+    <CardFooter className="plan-assessment-files">
+      <header><span className="plan-document-icon"><FilesIcon aria-hidden="true" /></span><div><h3>Assessment {documents.length === 1 ? 'document' : 'documents'}</h3><p>{documents.length ? `${documents.length} ${documents.length === 1 ? 'file' : 'files'} attached` : 'No files attached'}</p></div></header>
+      <DocumentFiles compact documents={documents}/>
+    </CardFooter>
   </Card>;
 
   return <Card><CardHeader><CardTitle>Plan details</CardTitle><CardDescription>{setup.beapName}</CardDescription></CardHeader><CardContent className="flex flex-col gap-4">
