@@ -2,6 +2,10 @@
 .file-upload[data-dragging=true]{border-color:var(--primary);background:var(--accent)}
 .file-upload[data-disabled=true]{opacity:.6}
 .upload-emblem{display:grid;place-items:center;width:66px;height:70px;border-radius:18px;background:linear-gradient(145deg,var(--card),var(--accent));box-shadow:inset 0 0 0 1px var(--border),0 4px 8px color-mix(in srgb,var(--primary) 8%,transparent)}
+.upload-artwork{width:52px;height:52px;color:var(--upload-ink,var(--primary))}
+.file-upload[data-illustration=boq]{--upload-tint:var(--peach);--upload-ink:var(--warning-foreground);border-color:color-mix(in srgb,var(--peach) 70%,var(--border));background:linear-gradient(145deg,var(--card),color-mix(in srgb,var(--peach) 16%,var(--card)))}
+.file-upload[data-illustration=survey]{--upload-tint:var(--lilac);--upload-ink:var(--primary);border-color:color-mix(in srgb,var(--lilac) 76%,var(--border));background:linear-gradient(145deg,var(--card),color-mix(in srgb,var(--lilac) 18%,var(--card)))}
+.file-upload[data-illustration] .upload-emblem{background:linear-gradient(145deg,var(--card),color-mix(in srgb,var(--upload-tint) 66%,var(--card)));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--upload-tint) 72%,var(--border)),0 4px 10px color-mix(in srgb,var(--upload-ink) 9%,transparent)}
 .upload-copy{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
 .file-artwork{width:42px;height:48px;flex-shrink:0;color:var(--primary)}
 .file-artwork[data-kind=pdf]{color:#ba514e}.file-artwork[data-kind=sheet]{color:#34806b}.file-artwork[data-kind=word]{color:#527ba3}.file-artwork[data-kind=image]{color:#8d70a5}
@@ -9,6 +13,7 @@
 .file-upload[data-compact=true]{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;padding:6px 7px;text-align:left}
 .file-upload[data-compact=true] .upload-emblem{width:34px;height:36px;border-radius:9px;box-shadow:inset 0 0 0 1px var(--border)}
 .file-upload[data-compact=true] .upload-emblem .file-artwork{width:22px;height:26px}
+.file-upload[data-compact=true] .upload-emblem .upload-artwork{width:28px;height:28px}
 .file-upload[data-compact=true] .upload-copy{align-items:flex-start;gap:2px}
 .file-upload[data-compact=true] .upload-title{max-width:100%;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file-upload[data-compact=true] .upload-formats{display:none}
