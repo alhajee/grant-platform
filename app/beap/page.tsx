@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { currentPlanHref, planHref, planPeriod } from "@/lib/action-plans";
 import { PlanSetupSummary } from '@/components/plan-setup-summary';
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronDownIcon } from "lucide-react";
 import { PillarIllustration } from "@/components/pillar-illustration";
 import { InfrastructureIllustration } from "@/components/infrastructure-illustration";
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
@@ -75,7 +75,7 @@ export default function BeapPage() {
             {label:'Budget lines',value:total ? String(total.lineCount) : '—',Artwork:PlansArtwork,tone:'blue'},
           ].map(({label,value,Artwork,tone})=><div className="plan-kpi" data-tone={tone} key={label}><Artwork /><dl><dt>{label}</dt><dd>{loading ? <Skeleton className="h-7 w-24" /> : error ? '—' : value}</dd></dl></div>)}
         </section>
-        {summary && !error && <details className="pillar-plan-details plan-details-disclosure"><summary>Funding details & assessment documents <span>Implementation · {summary.plan.implementationYear ?? '—'}</span></summary><PlanSetupSummary setup={summary.plan} compact /></details>}
+        {summary && !error && <details className="pillar-plan-details plan-details-disclosure"><summary><span className="plan-details-summary-label"><ChevronDownIcon aria-hidden="true" />Funding details & assessment documents</span><span>Implementation · {summary.plan.implementationYear ?? '—'}</span></summary><PlanSetupSummary setup={summary.plan} compact /></details>}
 
         {error && <Alert variant="destructive" className="mb-6"><AlertTitle>Unable to load your plan</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => { setLoading(true); setError(""); void loadOverview(); }}>Try again</Button></AlertDescription></Alert>}
 
