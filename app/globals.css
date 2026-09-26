@@ -600,9 +600,11 @@
 .pillar-unavailable { align-self: center; font-size: 11px; font-weight: 400; }
 .department-reviews { margin-bottom: 28px; }
 .department-review-card[data-slot="card"] { min-height: 252px; padding: 16px; gap: 10px; }
-.department-review-card [data-slot="card-header"] { grid-template-rows: 84px minmax(34px,auto) minmax(18px,auto); gap: 6px; }
-.department-review-card .pillar-card-artwork { align-self: start; width: 110px; height: 80px; }
-.department-review-card .pillar-card-artwork svg { width: 110px; height: 80px; }
+.department-review-card [data-slot="card-header"] { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+.department-review-card .pillar-card-artwork { flex: 0 0 74px; align-self: start; width: 100px; height: 74px; }
+.department-review-card .pillar-card-artwork svg { display: block; width: 100px; height: 74px; min-height: 0; overflow: visible; }
+.department-review-card[data-component="infrastructure"] .pillar-card-artwork { flex-basis: 80px; width: 110px; height: 80px; }
+.department-review-card[data-component="infrastructure"] .pillar-card-artwork svg { width: 110px; height: 80px; }
 .department-review-card h3 { font-size: 16px; line-height: 1.35; font-weight: 600; letter-spacing: -.25px; }
 .department-review-card [data-slot="card-content"] { display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; }
 .department-review-card [data-slot="badge"] { white-space: normal; }
