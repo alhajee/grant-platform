@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from 'react';
-import { CheckIcon, LockKeyholeIcon, FileCheck2Icon, LandmarkIcon } from 'lucide-react';
+import { CheckIcon, LockKeyholeIcon, FileCheck2Icon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Field, FieldGroup, FieldSet, FieldLegend, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,22 @@ import { planSetupSchema, fundingTotal, maxRatFileBytes, maxRatTotalBytes } from
 import { planHref, type PlanOverview } from '@/lib/action-plans';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+
+function FundingSummaryArtwork() {
+  return <svg className="funding-summary-art" viewBox="0 0 76 68" fill="none" aria-hidden="true">
+    <rect x="2" y="2" width="66" height="62" rx="19" fill="#fffdf9" />
+    <path d="M12 27 33 14l21 13H12Z" fill="#004740" />
+    <path d="M16 29h34v24H16V29Z" fill="#fff" />
+    <path d="M20 32v17M28.5 32v17M37 32v17M45.5 32v17" stroke="#8dac98" strokeWidth="4" strokeLinecap="round" />
+    <path d="M12 52h42M9 57h48" stroke="#004740" strokeWidth="4" strokeLinecap="round" />
+    <ellipse cx="57" cy="48" rx="14" ry="5" fill="#f2b68e" />
+    <path d="M43 43v5c0 2.8 6.3 5 14 5s14-2.2 14-5v-5" fill="#ffd8bd" />
+    <ellipse cx="57" cy="43" rx="14" ry="5" fill="#ffe5d2" stroke="#d88957" strokeWidth="1.5" />
+    <path d="M56 39.5v7M52.5 42h7M52.5 44h7" stroke="#9b4b22" strokeWidth="1.4" strokeLinecap="round" />
+    <circle cx="63" cy="17" r="9" fill="#b9ce8e" stroke="#fff" strokeWidth="3" />
+    <path d="m59 17 2.5 2.5 5-5.5" stroke="#004740" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>;
+}
 
 export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: string; plans: PlanOverview[]; onClose: () => void }) {
   const [year, setYear] = useState(String(new Date().getFullYear()));
@@ -82,7 +98,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
             <CardContent className="p-0">
               <div className="plan-funding-layout">
                 <div className="plan-funding-total flex items-center gap-3 p-4">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground"><LandmarkIcon className="size-4" /></span>
+                  <span className="funding-art-wrap"><FundingSummaryArtwork /></span>
                   <div className="min-w-0">
                     <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Total available funding</p>
                     <p className="mt-1 text-xl font-semibold tabular-nums break-all">{money.format(Number(total))}</p>

@@ -154,7 +154,8 @@
 .create-plan-dialog .plan-funding-summary { border: 0; border-radius: 18px; background: #f3f6ef; }
 .plan-funding-layout { display: grid; grid-template-columns: 1fr 1fr; }
 .plan-funding-total { padding: 16px 18px; background: #e8efdf; }
-.plan-funding-total > span { background: #004740; color: white; border: 0; width: 36px; height: 36px; border-radius: 12px; }
+.plan-funding-total .funding-art-wrap { display: grid; width: 58px; height: 54px; flex: 0 0 58px; place-items: center; }
+.funding-summary-art { display: block; width: 68px; height: 61px; filter: drop-shadow(0 6px 8px rgb(0 71 64 / 8%)); }
 .plan-funding-total .text-xl { font-size: clamp(20px, 2vw, 26px); color: #004740; letter-spacing: -.7px; margin: 2px 0; overflow-wrap: anywhere; }
 .plan-funding-total .uppercase { font-size: 10px; letter-spacing: 1px; color: #496056; }
 .plan-funding-breakdown { display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 14px 18px; font-size: 12px; }
