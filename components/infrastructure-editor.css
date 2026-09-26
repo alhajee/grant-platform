@@ -10,16 +10,13 @@
 .infra-choice-budget dt{font-size:12px;color:var(--muted-foreground)}
 .infra-choice-budget dd{margin:0;font-size:clamp(20px,2vw,28px);font-weight:600;letter-spacing:-.035em;line-height:1.25;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;color:var(--primary)}
 .infra-illustration{width:140px;height:98px;color:var(--primary);margin-bottom:4px}
-.infra-review-summary{--review-tint:var(--peach);display:grid;grid-template-columns:112px minmax(0,1fr);align-items:center;gap:18px;padding:18px;border:1px solid color-mix(in srgb,var(--review-tint) 70%,var(--border));border-radius:18px;background:linear-gradient(145deg,var(--card),color-mix(in srgb,var(--review-tint) 32%,var(--card)));overflow:hidden}
-.infra-review-summary[data-kind=whole]{--review-tint:var(--sage)}
-.infra-review-summary[data-kind=furniture]{--review-tint:var(--lilac)}
-.infra-review-art{display:grid;place-items:center;align-self:stretch;min-height:108px;border-radius:14px;background:color-mix(in srgb,var(--card) 64%,transparent)}
-.infra-review-art .infra-illustration{width:104px;height:auto;margin:0}
-.infra-review-copy{display:flex;flex-direction:column;gap:8px;min-width:0}
-.infra-review-copy>p{margin:0;color:var(--muted-foreground);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
-.infra-review-copy h2{margin:0;font-size:20px;font-weight:650;line-height:1.25;letter-spacing:-.025em;overflow-wrap:anywhere}
-.infra-review-badges{display:flex;flex-wrap:wrap;gap:8px}
-.infra-accessibility-note{border-style:dashed;background:color-mix(in srgb,var(--sage) 38%,var(--card))}
+.infra-review-stack{gap:14px}
+.infra-accessibility-note{border-style:dashed;background:color-mix(in srgb,var(--sage) 38%,var(--card));padding:12px}
+.infra-review-documents{container-type:inline-size;gap:10px}
+.infra-review-documents>[data-slot=field-group]{display:grid;grid-template-columns:1fr;gap:10px}
+.infra-review-documents [data-slot=field]{display:grid;grid-template-columns:minmax(138px,.8fr) minmax(0,1.2fr);align-items:center;gap:6px 10px;min-width:0;padding:6px;border:1px solid var(--border);border-radius:12px;background:color-mix(in srgb,var(--muted) 32%,var(--card))}
+.infra-review-documents .document-files{grid-column:1/-1;width:100%}
+@container(max-width:420px){.infra-review-documents [data-slot=field]{grid-template-columns:1fr}}
 .infra-steps{display:flex;gap:24px;padding:16px 28px;border-bottom:1px solid var(--border);background:var(--card);overflow:auto;flex-shrink:0}
 .infra-steps>span{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted-foreground);white-space:nowrap}
 .infra-steps>span>span{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--muted)}
@@ -35,7 +32,7 @@
 .infra-cost-table[data-kind=furniture] .infra-cost-row[data-state=selected]{background:color-mix(in srgb,var(--lilac) 38%,var(--card))}
 @media(hover:hover) and (pointer:fine){.infra-cost-row:hover{background:color-mix(in srgb,var(--muted) 58%,var(--card))}.infra-cost-table[data-kind=new] .infra-cost-row[data-state=selected]:hover{background:color-mix(in srgb,var(--peach) 48%,var(--card))}.infra-cost-table[data-kind=whole] .infra-cost-row[data-state=selected]:hover{background:color-mix(in srgb,var(--sage) 48%,var(--card))}.infra-cost-table[data-kind=furniture] .infra-cost-row[data-state=selected]:hover{background:color-mix(in srgb,var(--lilac) 48%,var(--card))}}
 @media(hover:hover) and (pointer:fine){.infra-cost-navigation [data-slot=button]:not(:disabled):hover{background:var(--primary);color:var(--primary-foreground)}}
-@media(max-width:850px){.infra-home{padding:20px}.infra-choices{grid-template-columns:1fr}.infra-steps{gap:16px;padding:12px 20px}.infra-review-summary{grid-template-columns:88px minmax(0,1fr);padding:14px;gap:14px}.infra-review-art{min-height:92px}.infra-review-art .infra-illustration{width:84px}}
+@media(max-width:850px){.infra-home{padding:20px}.infra-choices{grid-template-columns:1fr}.infra-steps{gap:16px;padding:12px 20px}}
 .land-agreement{--primary:var(--warning);--ring:var(--warning);--input:color-mix(in srgb,var(--warning) 45%,var(--card));padding:20px;border:1.5px dashed color-mix(in srgb,var(--warning) 55%,var(--card));border-radius:12px;background:color-mix(in srgb,var(--warning) 7%,var(--card));color:var(--warning-foreground);gap:16px}
 .land-agreement legend{float:left;width:100%;margin:0}
 .land-agreement-description{font-size:13px;line-height:1.6;margin:0}
