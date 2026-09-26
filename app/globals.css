@@ -132,7 +132,7 @@
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--foreground) 2%, var(--background));
 }
-[data-variant="inset-footer"] [data-slot="dialog-footer"] > button { border-radius: 10px; }
+[data-variant="inset-footer"] [data-slot="dialog-footer"] > button { border-radius: 999px; }
 [data-variant="inset-footer"] > [data-slot="dialog-close"] { color: var(--foreground); opacity: 1; }
 
 /* A single app shell; each pane owns its scroll position. */
