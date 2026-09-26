@@ -8,6 +8,7 @@ import { PlanSetupSummary } from '@/components/plan-setup-summary';
 import { ArrowRightIcon } from "lucide-react";
 import { PillarIllustration } from "@/components/pillar-illustration";
 import { InfrastructureIllustration } from "@/components/infrastructure-illustration";
+import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
 import { SubebHeader } from "@/components/subeb-header";
 import { defaultAllocation, infrastructureSplit, percent } from "@/lib/funding-policy";
 import { subebDepartmentName } from "@/lib/subeb-departments";
@@ -64,13 +65,17 @@ export default function BeapPage() {
             <div className="beap-title"><h1>{summary && summary.plan.startYear !== summary.plan.endYear ? "Multi-year action plan" : "Annual action plan"}</h1>{summary && <PlanStatusBadge status={summary.plan.status} />}</div>
             <p className="beap-intro">{summary?.canEdit ? 'Choose a component to start or continue your plan.' : 'View your saved plan and review history.'}</p>
           </div>
-          <div className="beap-total" aria-live="polite">
-            <span>Proposed budget</span>
-            {loading ? <Skeleton className="mt-2 h-8 w-56" /> : <strong>{error || !total ? "—" : money.format(total.budget)}</strong>}
-            <small>{loading ? "Loading saved projects…" : error || !total ? "Unavailable" : `${total.lineCount} budget ${total.lineCount === 1 ? "line" : "lines"} · ${total.schoolCount} ${total.schoolCount === 1 ? "school" : "schools"}`}</small>
-          </div>
+          {summary && !error && <Button asChild><Link href={planHref('/beap/review', summary.plan.id)}>Review plan<ArrowRightIcon /></Link></Button>}
         </header>
-        {summary && !error && <div className="pillar-plan-details"><PlanSetupSummary setup={summary.plan} compact /><div className="review-entry"><Button asChild><Link href={planHref('/beap/review', summary.plan.id)}>Review plan<ArrowRightIcon /></Link></Button></div></div>}
+        <section className="plan-kpis" aria-label="Plan at a glance">
+          {[
+            {label:'Proposed budget',value:total ? money.format(total.budget) : '—',Artwork:BudgetArtwork,tone:'sage'},
+            {label:'Available funding',value:summary?.plan.fundingTotal != null ? money.format(Number(summary.plan.fundingTotal)) : '—',Artwork:BudgetArtwork,tone:'peach'},
+            {label:'Schools',value:total ? String(total.schoolCount) : '—',Artwork:SchoolsArtwork,tone:'lilac'},
+            {label:'Budget lines',value:total ? String(total.lineCount) : '—',Artwork:PlansArtwork,tone:'blue'},
+          ].map(({label,value,Artwork,tone})=><div className="plan-kpi" data-tone={tone} key={label}><Artwork /><dl><dt>{label}</dt><dd>{loading ? <Skeleton className="h-7 w-24" /> : error ? '—' : value}</dd></dl></div>)}
+        </section>
+        {summary && !error && <details className="pillar-plan-details plan-details-disclosure"><summary>Funding details & assessment documents <span>Implementation · {summary.plan.implementationYear ?? '—'}</span></summary><PlanSetupSummary setup={summary.plan} compact /></details>}
 
         {error && <Alert variant="destructive" className="mb-6"><AlertTitle>Unable to load your plan</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => { setLoading(true); setError(""); void loadOverview(); }}>Try again</Button></AlertDescription></Alert>}
 
