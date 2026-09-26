@@ -95,7 +95,13 @@ export default function BeapPage() {
                   const stats = pillarSummaries[key];
                   const share = id === 'infrastructure' ? percent(sectionIndex === 0 ? split.infrastructure : split.tlm) : percent(allocation.shares[id]);
                   const canOpen = !!section.href && !!summary && !error;
-                  return <Card key={id+'-'+sectionIndex} className="pillar-component-card" data-component={key} data-available={!!section.href}>
+                  const canEdit = !!summary?.editablePillars.some(pillarId => pillarId === key);
+                  const cardHref = canOpen
+                    ? canEdit
+                      ? planHref(section.href!, summary!.plan.id)
+                      : `${planHref('/beap/review', summary!.plan.id)}#review-${key}`
+                    : undefined;
+                  return <Card key={id+'-'+sectionIndex} className="pillar-component-card" data-component={key} data-available={canOpen}>
                     <CardHeader>
                       <div className="pillar-card-top"><div className="pillar-card-artwork">{key === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={key} standalone />}</div><span className="component-allocation" title={id === 'teachers' ? 'Shared allocation for Teacher Development and ICT' : 'Share of total funding'}>{share}%{id === 'teachers' ? ' shared' : ''}</span></div>
                       <CardTitle><h4>{section.name}</h4></CardTitle>
@@ -105,7 +111,7 @@ export default function BeapPage() {
                       {section.href ? <div className="pillar-card-budget"><span>Proposed</span><strong>{stats ? money.format(stats.budget) : '—'}</strong></div> : <p className="pillar-coming-soon">{beapComponents.find(c=>c.id===id)?.description}</p>}
                       {!canOpen && <Badge variant="secondary" className="pillar-unavailable">Coming soon</Badge>}
                     </CardContent>
-                    {canOpen && <Link className="pillar-card-link" href={planHref(section.href!,summary!.plan.id)}><span className="sr-only">{summary!.editablePillars.some(p=>p===key)?'Open':'View'} {section.name}</span></Link>}
+                    {cardHref && <Link className="pillar-card-link" href={cardHref}><span className="sr-only">{canEdit ? 'Open' : 'Review'} {section.name}</span></Link>}
                   </Card>;
                 }))}
               </div>
