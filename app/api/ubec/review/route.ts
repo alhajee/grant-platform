@@ -56,12 +56,12 @@ export async function POST(request: NextRequest) {
       let round = (await db.query<UbecRound>('SELECT * FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC LIMIT 1', [id])).rows[0];
       let status = plan.status;
       if (input.action === 'submit') {
-        if (plan.status !== 'awaiting_chairman') return error('Every implemented pillar must be sent to the Chairman by its department Director.', 409);
+        if (plan.status !== 'awaiting_chairman') return error('The nominated BEAP Chair must send every implemented component to the SUBEB Executive Chairman first.', 409);
         if (!(await db.query("SELECT id FROM users WHERE role='UBEC Executive Secretary' AND active LIMIT 1")).rowCount) return error('A UBEC ES account must be configured first.', 409);
         if (round && round.status !== 'returned') return error('This plan has already been submitted.', 409);
         if (round && !input.comment) return error('Describe how the UBEC feedback was addressed.');
         const snapshot: Snapshot = await readPlanSnapshot(db, plan.id);
-        if (!readyForUbec(await readPillarReviews(db, plan.id), snapshot)) return error('Complete Infrastructure and Sports and obtain both departmental reviews before sending to UBEC.', 409);
+        if (!readyForUbec(await readPillarReviews(db, plan.id), snapshot)) return error('Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(snapshot), user.id])).rows[0];
         status = 'submitted_ubec';
       } else {

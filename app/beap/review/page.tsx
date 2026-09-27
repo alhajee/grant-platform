@@ -61,12 +61,13 @@ export default function ReviewPage() {
   const editable = data && implementedPillars.some(p => mayEditPillar(data.role,data.department,p,data.plan.status,data.pillarReviews));
   const available = !loading && !error && selected === 'current';
   const latestFeedback = data?.events.find(e => e.action === 'request_changes');
-  const openAction = (value: ReviewAction, pillar: ImplementedPillar) => { setDialogResubmit(data?.pillarReviews.find(r=>r.pillar===pillar)?.status === 'changes_requested'); setDialogAction(value); setAction(value); setComment(''); setScope(pillar); setFormError(''); };
+  const actionReviewStatus = data?.pillarReviews.find(review => review.pillar === scope)?.status;
+  const openAction = (value: ReviewAction, pillar?: ImplementedPillar) => { setDialogResubmit(pillar ? data?.pillarReviews.find(r=>r.pillar===pillar)?.status === 'changes_requested' : false); setDialogAction(value); setAction(value); setComment(''); setScope(pillar ?? 'general'); setFormError(''); };
   async function confirm() {
     if (!action || !data || pending.current) return;
     pending.current = true; setSaving(true); setFormError('');
     try {
-      const response = await fetch(currentPlanHref('/api/plans/review'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, version: data.plan.version, comment, pillar: scope }) });
+      const response = await fetch(currentPlanHref('/api/plans/review'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, version: data.plan.version, comment, ...(scope !== 'general' ? { pillar: scope } : {}) }) });
       const result = await response.json() as { error?: string };
       if (!response.ok) throw new Error(result.error);
       setAction(null); toast.success(reviewActionLabels[action]); await load();
@@ -94,7 +95,8 @@ export default function ReviewPage() {
               const open = available && statePlanOpen(data.plan.status);
               const staffCanSend = open && owns && data.role==='Data Entry Staff' && ['draft','changes_requested'].includes(review.status);
               const directorCanReview = open && owns && data.role==='Director' && review.status==='director_review';
-              const chairmanCanReturn = open && data.role==='Executive Chairman' && review.status==='chairman_ready';
+              const beapChairCanReview = open && data.role==='Director' && data.isBeapChair && review.status==='beap_review';
+              const executiveChairmanCanReturn = open && data.role==='Executive Chairman' && review.status==='chairman_ready';
               return <Card key={review.pillar} className="pillar-component-card department-review-card" data-component={review.pillar}>
                 <CardHeader>
                   <div className="pillar-card-artwork">{review.pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={review.pillar} standalone />}</div>
@@ -105,14 +107,18 @@ export default function ReviewPage() {
                   <Badge variant="secondary">{pillarReviewLabels[review.status]}</Badge>
                   <div className="department-review-actions">
                   {directorCanReview && <Button asChild variant="outline" size="sm"><a href={planHref(pillar.href!,data.plan.id)}>Edit component</a></Button>}
-                  {(directorCanReview || chairmanCanReturn) && <Button variant="outline" size="sm" onClick={()=>openAction('request_changes',review.pillar)}>Request changes</Button>}
+                  {(directorCanReview || beapChairCanReview || executiveChairmanCanReturn) && <Button variant="outline" size="sm" onClick={()=>openAction('request_changes',review.pillar)}>Request changes</Button>}
                   {staffCanSend && <Button size="sm" disabled={!data.snapshot[review.pillar]?.length || (review.pillar==='tlm'&&!data.snapshot.tlmDistribution?.length)} onClick={()=>openAction('submit',review.pillar)}>Send to Director</Button>}
-                  {directorCanReview && <Button size="sm" onClick={()=>openAction('endorse',review.pillar)}>Send to Chairman</Button>}
+                  {directorCanReview && <Button size="sm" onClick={()=>openAction('endorse',review.pillar)}>Send to BEAP Chair</Button>}
                   </div>
                 </CardContent>
               </Card>;
             })}
           </div>
+            {data.role==='Director' && data.isBeapChair && statePlanOpen(data.plan.status) && <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>['beap_review','chairman_ready'].includes(r.status)).length} of {implementedPillars.length} components reviewed by Directors</p>
+              <Button disabled={!data.readyForExecutiveChairman || !available} onClick={()=>openAction('forward')}><SendIcon data-icon="inline-start" />Send plan to Executive Chairman</Button>
+            </div>}
             {data.role==='Executive Chairman' && statePlanOpen(data.plan.status) && <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components ready</p>
               {data.readyForUbec && available ? <Button asChild><Link href={planHref('/ubec/review',data.plan.id)}><SendIcon data-icon="inline-start" />Send to UBEC</Link></Button> : <Button disabled>Send to UBEC</Button>}
@@ -121,9 +127,9 @@ export default function ReviewPage() {
         <div className="review-layout"><PlanReviewContent showPlanReference={false} snapshot={data.snapshot} visiblePillars={data.visiblePillars} tlmEditHref={available && mayEditPillar(data.role, data.department, 'tlm', data.plan.status, data.pillarReviews) ? planHref('/beap/tlm', data.plan.id) : undefined} sbmcEditHref={available && mayEditPillar(data.role, data.department, 'sbmc', data.plan.status, data.pillarReviews) ? planHref('/beap/sbmc', data.plan.id) : undefined} /><Card className="review-history"><CardHeader><CardTitle>Review history</CardTitle></CardHeader><CardContent>{!data.events.length ? <p>No submissions yet.</p> : <ol>{data.events.map(event => <li key={event.id}><strong>{event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action]}</strong><span>Submission {event.submissionNumber} · {event.actorName}</span><span>{event.actorRole} · {date.format(new Date(event.createdAt))}</span>{event.scope !== 'general' && <span>{scopeLabel(event.scope)}</span>}{event.comment && <p className="review-comment">{event.comment}</p>}</li>)}</ol>}</CardContent></Card></div>
       </>}
     </main>
-    <Dialog open={Boolean(action)} onOpenChange={open => { if (!open && !saving) setAction(null); }}><DialogContent variant="inset-footer" className="sm:max-w-sm" showCloseButton={!saving} onEscapeKeyDown={e => { if (saving) e.preventDefault(); }} onInteractOutside={e => { if (saving) e.preventDefault(); }}><DialogHeader><DialogTitle>{dialogAction === 'submit' ? dialogResubmit ? 'Resubmit to Director' : 'Submit to Director' : dialogAction === 'endorse' ? 'Send to Chairman' : 'Request changes'}</DialogTitle><DialogDescription>{dialogAction === 'submit' ? 'Saved entries in this component will be sent to your department Director. Other departments can continue working.' : dialogAction === 'endorse' ? 'Send this department’s reviewed component to the Executive Chairman. It will be locked until changes are requested.' : 'Return this pillar with feedback. Chairman feedback goes to the department Director; Director feedback goes to the department’s officers.'}</DialogDescription></DialogHeader>
+    <Dialog open={Boolean(action)} onOpenChange={open => { if (!open && !saving) setAction(null); }}><DialogContent variant="inset-footer" className="sm:max-w-sm" showCloseButton={!saving} onEscapeKeyDown={e => { if (saving) e.preventDefault(); }} onInteractOutside={e => { if (saving) e.preventDefault(); }}><DialogHeader><DialogTitle>{dialogAction === 'submit' ? dialogResubmit ? 'Resubmit to Director' : 'Submit to Director' : dialogAction === 'endorse' ? 'Send to BEAP Chair' : dialogAction === 'forward' ? 'Send plan to Executive Chairman' : 'Request changes'}</DialogTitle><DialogDescription>{dialogAction === 'submit' ? 'Saved entries in this component will be sent to your department Director. Other departments can continue working.' : dialogAction === 'endorse' ? 'Send this department’s reviewed component to the nominated BEAP Chair for state-level consolidation.' : dialogAction === 'forward' ? 'Send the consolidated plan to the SUBEB Executive Chairman for the final state-level review before UBEC submission.' : actionReviewStatus === 'chairman_ready' ? 'Return this component to the BEAP Chair with the changes required by the Executive Chairman.' : actionReviewStatus === 'beap_review' ? 'Return this component to its department Director with the changes required by the BEAP Chair.' : 'Return this component to the department’s Data Entry Staff with the Director’s required changes.'}</DialogDescription></DialogHeader>
       <form onSubmit={e => { e.preventDefault(); void confirm(); }}><FieldGroup className="px-4 pb-5">
-        <Field data-invalid={Boolean(formError)}><FieldLabel htmlFor="review-comment">{dialogAction === 'request_changes' ? 'Required changes' : dialogAction === 'submit' && dialogResubmit ? 'Changes made' : 'Comment (optional)'}</FieldLabel><Textarea id="review-comment" value={comment} onChange={e => setComment(e.target.value)} disabled={saving} required={dialogAction === 'request_changes' || (dialogAction === 'submit' && dialogResubmit)} maxLength={5000} aria-invalid={Boolean(formError)} />{formError && <FieldError>{formError}</FieldError>}</Field></FieldGroup><DialogFooter><DialogClose asChild><Button variant="outline" type="button" disabled={saving}>Cancel</Button></DialogClose><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{dialogAction === 'submit' ? 'Submit to Director' : dialogAction === 'endorse' ? 'Send to Chairman' : 'Send feedback'}</Button></DialogFooter></form>
+        <Field data-invalid={Boolean(formError)}><FieldLabel htmlFor="review-comment">{dialogAction === 'request_changes' ? 'Required changes' : dialogAction === 'submit' && dialogResubmit ? 'Changes made' : 'Comment (optional)'}</FieldLabel><Textarea id="review-comment" value={comment} onChange={e => setComment(e.target.value)} disabled={saving} required={dialogAction === 'request_changes' || (dialogAction === 'submit' && dialogResubmit)} maxLength={5000} aria-invalid={Boolean(formError)} />{formError && <FieldError>{formError}</FieldError>}</Field></FieldGroup><DialogFooter><DialogClose asChild><Button variant="outline" type="button" disabled={saving}>Cancel</Button></DialogClose><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{dialogAction === 'submit' ? 'Submit to Director' : dialogAction === 'endorse' ? 'Send to BEAP Chair' : dialogAction === 'forward' ? 'Send to Executive Chairman' : 'Send feedback'}</Button></DialogFooter></form>
     </DialogContent></Dialog>
   </div>;
 }

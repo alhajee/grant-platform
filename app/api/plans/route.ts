@@ -46,13 +46,14 @@ export async function GET(request: NextRequest) {
       const pendingActions: {label:string;href:string}[]=[];
       if(!['submitted_ubec','ubec_review','ubec_approved'].includes(plan.status)) {
         for(const pillar of implementedPillars) {
-          if(pillarDepartments[pillar]!==workspace.department)continue;
           const status=reviews.find(r=>r.plan_id===plan.id&&r.pillar===pillar)?.status??'draft';
           const name=componentSections[pillar][0].name;
-          if(workspace.role==='Director'&&status==='director_review') pendingActions.push({label:`Review ${name}`,href:`/beap/review?plan=${plan.id}#review-${pillar}`});
-          if(workspace.role==='Data Entry Staff'&&['draft','changes_requested'].includes(status)) pendingActions.push({label:`${status==='changes_requested'?'Address feedback on':'Complete'} ${name}`,href:`${componentSections[pillar][0].href}?plan=${plan.id}`});
+          const owns=pillarDepartments[pillar]===workspace.department;
+          if(owns&&workspace.role==='Director'&&status==='director_review') pendingActions.push({label:`Review ${name}`,href:`/beap/review?plan=${plan.id}#review-${pillar}`});
+          if(owns&&workspace.role==='Data Entry Staff'&&['draft','changes_requested'].includes(status)) pendingActions.push({label:`${status==='changes_requested'?'Address feedback on':'Complete'} ${name}`,href:`${componentSections[pillar][0].href}?plan=${plan.id}`});
+          if(workspace.role==='Director'&&workspace.isBeapChair&&status==='beap_review') pendingActions.push({label:`BEAP Chair review: ${name}`,href:`/beap/review?plan=${plan.id}#review-${pillar}`});
         }
-        if(workspace.role==='Executive Chairman'&&implementedPillars.every(p=>reviews.some(r=>r.plan_id===plan.id&&r.pillar===p&&r.status==='chairman_ready'))) pendingActions.push({label:'Review and send to UBEC',href:`/beap/review?plan=${plan.id}`});
+        if(workspace.role==='Executive Chairman'&&implementedPillars.every(p=>reviews.some(r=>r.plan_id===plan.id&&r.pillar===p&&r.status==='chairman_ready'))) pendingActions.push({label:'Executive review and send to UBEC',href:`/beap/review?plan=${plan.id}`});
       }
       return {...plan,pendingActions,pendingReview:pendingActions.length>0&&workspace.role!=='Data Entry Staff'};
     });

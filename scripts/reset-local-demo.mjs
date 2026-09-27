@@ -24,7 +24,7 @@ const accounts = [
   { email:'ubec.es@demo.local', name:'UBEC Executive Secretary', role:'UBEC Executive Secretary', department:null, state:'UBEC' },
   ...departments.flatMap(([id,name]) => [
     { email:`yobe.officer.${id}@demo.local`, name:id==='physical'?'Amina Muhammad':`${name} Officer`, role:'Data Entry Staff', department:id, state:'YO' },
-    { email:`yobe.director.${id}@demo.local`, name:id==='physical'?'Ibrahim Musa':`${name} Director`, role:'Director', department:id, state:'YO' },
+    { email:`yobe.director.${id}@demo.local`, name:id==='physical'?'Ibrahim Musa':`${name} Director`, role:'Director', department:id, state:'YO', isBeapChair:id==='physical' },
     { email:`ubec.${id}@demo.local`, name:`${name} Reviewer`, role:'UBEC Department Reviewer', department:id, state:'UBEC' },
   ]),
 ];
@@ -46,8 +46,8 @@ try {
     removed[table] = (await db.query(`DELETE FROM public.${table}`)).rowCount;
   }
   for (const account of accounts) await db.query(
-    'INSERT INTO users(email,full_name,role,department,state_code,password_hash,active,session_version) VALUES($1,$2,$3,$4,$5,$6,TRUE,$7)',
-    [account.email,account.name,account.role,account.department,account.state,passwordHash,sessionVersion],
+    'INSERT INTO users(email,full_name,role,department,state_code,password_hash,active,session_version,is_beap_chair) VALUES($1,$2,$3,$4,$5,$6,TRUE,$7,$8)',
+    [account.email,account.name,account.role,account.department,account.state,passwordHash,sessionVersion,account.isBeapChair??false],
   );
   assert.deepEqual(await references(), originalReferences, 'Reference data changed');
   assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM action_plans')).rows[0].n,0);

@@ -29,6 +29,7 @@ services:
       - ./db/postgres/016-infrastructure-school-documents.sql:/docker-entrypoint-initdb.d/016-infrastructure-school-documents.sql:ro
       - ./db/postgres/019-tlm-textbook-details.sql:/docker-entrypoint-initdb.d/019-tlm-textbook-details.sql:ro
       - ./db/postgres/020-other-activities.sql:/docker-entrypoint-initdb.d/020-other-activities.sql:ro
+      - ./db/postgres/021-beap-chair-workflow.sql:/docker-entrypoint-initdb.d/021-beap-chair-workflow.sql:ro
 
 volumes:
   ubec_postgres_data:
