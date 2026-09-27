@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
           if(owns&&workspace.role==='Data Entry Staff'&&['draft','changes_requested'].includes(status)) pendingActions.push({label:`${status==='changes_requested'?'Address feedback on':'Complete'} ${name}`,href:`${componentSections[pillar][0].href}?plan=${plan.id}`});
           if(workspace.role==='Director'&&workspace.isBeapChair&&status==='beap_review') pendingActions.push({label:`BEAP Chair review: ${name}`,href:`/beap/review?plan=${plan.id}#review-${pillar}`});
         }
-        if(workspace.role==='Executive Chairman'&&implementedPillars.every(p=>reviews.some(r=>r.plan_id===plan.id&&r.pillar===p&&r.status==='chairman_ready'))) pendingActions.push({label:'Executive review and send to UBEC',href:`/beap/review?plan=${plan.id}`});
+        if(workspace.role==='Executive Chairman'&&implementedPillars.some(p=>reviews.some(r=>r.plan_id===plan.id&&r.pillar===p&&r.status==='chairman_ready'))) pendingActions.push({label:implementedPillars.every(p=>reviews.some(r=>r.plan_id===plan.id&&r.pillar===p&&r.status==='chairman_ready'))?'Executive review and send to UBEC':'Review components from BEAP Chair',href:`/beap/review?plan=${plan.id}`});
       }
       return {...plan,pendingActions,pendingReview:pendingActions.length>0&&workspace.role!=='Data Entry Staff'};
     });

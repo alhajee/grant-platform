@@ -12,6 +12,7 @@ import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
 import { aggregateReviewStatus, readPillarReviews, readyForExecutiveChairman, readyForUbec, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
+import { readBeapChairSubmissionMode } from '@/lib/workflow-settings';
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const command = z.object({ action: z.enum(['submit', 'request_changes', 'endorse', 'forward']), version: z.number().int().nonnegative(), comment: z.string().trim().max(5000).default(''), pillar: z.enum(implementedPillars).optional() }).strict();
@@ -31,11 +32,12 @@ export async function GET(request: NextRequest) {
       const submissions = (await db.query('SELECT number, created_at AS "createdAt" FROM plan_submissions WHERE plan_id = $1 ORDER BY number DESC', [plan.id])).rows;
       const events = (await db.query(`SELECT id, action, actor_name AS "actorName", actor_role AS "actorRole", comment, scope, submission_number AS "submissionNumber", created_at AS "createdAt" FROM plan_review_events WHERE plan_id = $1 ORDER BY id DESC`, [plan.id])).rows;
       const pillarReviews = await readPillarReviews(db, plan.id);
+      const beapChairSubmissionMode = await readBeapChairSubmissionMode(db, workspace.stateCode);
       const visiblePillars = visibleComponents(workspace);
       const visibleEvents = canViewWholeStatePlan(workspace) ? events : events.filter(event => visiblePillars.includes(event.scope));
       const visibleSubmissions = canViewWholeStatePlan(workspace) ? submissions : submissions.filter(submission => visibleEvents.some(event => event.submissionNumber === submission.number));
       if (requested && !visibleSubmissions.some(submission => submission.number === Number(requested))) return error('Submission not found.', 404);
-      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbec(pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, isBeapChair: workspace.isBeapChair, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbec(pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }
@@ -56,8 +58,10 @@ export async function POST(request: NextRequest) {
       if (!statePlanOpen(plan.status)) return error('The plan is locked during UBEC review.', 409);
       const reviews = await readPillarReviews(db, plan.id);
       const snapshot = await readPlanSnapshot(db, plan.id);
-      if (input.action === 'forward') {
+      const beapChairSubmissionMode = await readBeapChairSubmissionMode(db, workspace.stateCode);
+      if (input.action === 'forward' && beapChairSubmissionMode === 'complete_plan') {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send the plan to the SUBEB Executive Chairman.', 403);
+        if (input.pillar) return error('This state sends the complete BEAP to the Executive Chairman at once.', 409);
         if (!readyForExecutiveChairman(reviews,snapshot)) return error('Every implemented component must reach the BEAP Chair before all components can be sent together to the Executive Chairman.', 409);
         const recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Executive Chairman'", [workspace.stateCode])).rows;
         if (!recipients.length) return error('No active SUBEB Executive Chairman is configured for this state.',409);
@@ -96,6 +100,11 @@ export async function POST(request: NextRequest) {
         if (actor.role !== 'Executive Chairman') return error('Only the SUBEB Executive Chairman can return this component to the BEAP Chair.', 403);
         status = 'beap_review'; recipientLabel = 'nominated BEAP Chair';
         recipients = (await db.query('SELECT id FROM users WHERE state_code=$1 AND active AND is_beap_chair', [workspace.stateCode])).rows;
+      } else if (input.action === 'forward' && current.status === 'beap_review') {
+        if (beapChairSubmissionMode !== 'individual_components') return error('This state sends the complete BEAP to the Executive Chairman at once.', 409);
+        if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send this component to the SUBEB Executive Chairman.', 403);
+        status = 'chairman_ready'; recipientLabel = 'SUBEB Executive Chairman';
+        recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Executive Chairman'", [workspace.stateCode])).rows;
       } else {
         return error('This action is no longer available for this component.', 409);
       }
