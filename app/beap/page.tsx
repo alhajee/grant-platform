@@ -110,7 +110,7 @@ export default function BeapPage() {
                       {section.href ? <div className="pillar-card-budget"><span>Proposed</span><strong>{stats ? money.format(stats.budget) : '—'}</strong></div> : <p className="pillar-coming-soon">{beapComponents.find(c=>c.id===id)?.description}</p>}
                       {!canOpen && <Badge variant="secondary" className="pillar-unavailable">Coming soon</Badge>}
                     </CardContent>
-                    {cardHref && <Link className="pillar-card-link" href={cardHref}><span className="sr-only">{canEdit ? 'Open' : 'Review'} {section.name}</span></Link>}
+                    {cardHref && <a className="pillar-card-link" href={cardHref}><span className="sr-only">{canEdit ? 'Open' : 'Review'} {section.name}</span></a>}
                   </Card>;
                 }))}
               </div>
