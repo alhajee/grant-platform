@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { ArrowLeftIcon, MessageSquareIcon, SendIcon, HistoryIcon } from 'lucide-react';
 import { SubebHeader } from '@/components/subeb-header';
 import { PlanStatusBadge } from '@/components/plan-status';
@@ -76,15 +75,15 @@ export default function ReviewPage() {
   }
   const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : value.replace(':', ' · line ');
   return <div className="beap-page beap-review-page"><SubebHeader plan />
-    <main className="beap-main review-main"><div className="review-page-summary"><Button asChild variant="ghost" size="sm" className="review-back"><Link href={plan ? planHref('/beap', plan.id) : '/dashboard'}><ArrowLeftIcon data-icon="inline-start" />Back to pillars</Link></Button>
+    <main className="beap-main review-main"><div className="review-page-summary"><Button asChild variant="ghost" size="sm" className="review-back"><a href={plan ? planHref('/beap', plan.id) : '/dashboard'}><ArrowLeftIcon data-icon="inline-start" />Back to pillars</a></Button>
       <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan)} action plan` : 'Action plan review'}</h1>{plan && <PlanStatusBadge status={plan.status} />}</div><div className="review-actions">
         {data && !error && <div className="review-version"><Select value={selected} onValueChange={value => void load(value)} disabled={saving || loading}><SelectTrigger id="submission-version" aria-label="Plan version" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">{'Current working plan'}</SelectItem>{data.submissions.map(s => <SelectItem key={s.number} value={String(s.number)}>Submission {s.number} · {date.format(new Date(s.createdAt))}</SelectItem>)}</SelectGroup></SelectContent></Select></div>}
-        {data && !error && !statePlanOpen(data.plan.status) && <Button asChild variant="outline" className="rounded-full"><Link href={planHref('/ubec/review',data.plan.id)}>View UBEC review</Link></Button>}
+        {data && !error && !statePlanOpen(data.plan.status) && <Button asChild variant="outline" className="rounded-full"><a href={planHref('/ubec/review',data.plan.id)}>View UBEC review</a></Button>}
       </div></div>
       </div>
       {error && <Alert variant="destructive"><AlertTitle>Review unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
       {loading ? <Skeleton className="h-64 w-full" /> : data && !error && <>
-        {plan?.status === 'changes_requested' && latestFeedback && <Alert className="mb-6"><MessageSquareIcon /><AlertTitle>Changes requested · {scopeLabel(latestFeedback.scope)}</AlertTitle><AlertDescription><p className="review-comment">{latestFeedback.comment}</p>{editable && <Button asChild variant="outline"><Link href={planHref('/beap', data.plan.id)}>Edit plan</Link></Button>}</AlertDescription></Alert>}
+        {plan?.status === 'changes_requested' && latestFeedback && <Alert className="mb-6"><MessageSquareIcon /><AlertTitle>Changes requested · {scopeLabel(latestFeedback.scope)}</AlertTitle><AlertDescription><p className="review-comment">{latestFeedback.comment}</p>{editable && <Button asChild variant="outline"><a href={planHref('/beap', data.plan.id)}>Edit plan</a></Button>}</AlertDescription></Alert>}
         {selected !== 'current' && <Alert className="mb-6"><AlertTitle>Saved submission {data.selectedSubmission}</AlertTitle><AlertDescription>This version is read-only. Select the current version to take action.</AlertDescription></Alert>}
         <section className="department-reviews" aria-labelledby="department-reviews-title">
           <div className="beap-section-heading"><h2 id="department-reviews-title">All budgeted activities</h2></div>
@@ -121,7 +120,7 @@ export default function ReviewPage() {
             </div>}
             {data.role==='Executive Chairman' && statePlanOpen(data.plan.status) && <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components ready</p>
-              {data.readyForUbec && available ? <Button asChild><Link href={planHref('/ubec/review',data.plan.id)}><SendIcon data-icon="inline-start" />Send to UBEC</Link></Button> : <Button disabled>Send to UBEC</Button>}
+              {data.readyForUbec && available ? <Button asChild><a href={planHref('/ubec/review',data.plan.id)}><SendIcon data-icon="inline-start" />Send to UBEC</a></Button> : <Button disabled>Send to UBEC</Button>}
             </div>}
         </section>
         <div className="review-layout"><PlanReviewContent showPlanReference={false} snapshot={data.snapshot} visiblePillars={data.visiblePillars} tlmEditHref={available && mayEditPillar(data.role, data.department, 'tlm', data.plan.status, data.pillarReviews) ? planHref('/beap/tlm', data.plan.id) : undefined} sbmcEditHref={available && mayEditPillar(data.role, data.department, 'sbmc', data.plan.status, data.pillarReviews) ? planHref('/beap/sbmc', data.plan.id) : undefined} /><Card className="review-history"><CardHeader><CardTitle>Review history</CardTitle></CardHeader><CardContent>{!data.events.length ? <p>No submissions yet.</p> : <ol>{data.events.map(event => <li key={event.id}><strong>{event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action]}</strong><span>Submission {event.submissionNumber} · {event.actorName}</span><span>{event.actorRole} · {date.format(new Date(event.createdAt))}</span>{event.scope !== 'general' && <span>{scopeLabel(event.scope)}</span>}{event.comment && <p className="review-comment">{event.comment}</p>}</li>)}</ol>}</CardContent></Card></div>

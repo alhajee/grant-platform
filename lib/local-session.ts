@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-export type LocalUser = { name: string; role: string; email: string; department?: string | null; sessionVersion?: number; adminSessionId?:string; impersonation?: { id:string; adminName:string; expiresAt:string } };
+export type LocalUser = { name: string; role: string; email: string; department?: string | null; isBeapChair?: boolean; sessionVersion?: number; adminSessionId?:string; impersonation?: { id:string; adminName:string; expiresAt:string } };
 
 type SessionPayload = LocalUser & { expiresAt: number };
 

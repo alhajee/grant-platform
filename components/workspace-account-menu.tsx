@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDownIcon, EyeIcon, LogOutIcon, MailIcon, MoreVerticalIcon } from "lucide-react";
+import { BadgeCheckIcon, ChevronDownIcon, EyeIcon, LogOutIcon, MailIcon, MoreVerticalIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,10 @@ export function AccountMenu({ user, onViewPlan, disabled = false }: { user: Loca
         {onViewPlan ? <Button variant="outline" size="icon" disabled={disabled} aria-label="More plan options"><MoreVerticalIcon /></Button> : (
           <Button variant="ghost" className="account-trigger" disabled={disabled} aria-label={`Account menu for ${name}`}>
             <span className="account-trigger-copy"><strong>{name}</strong>{role && <small>{role}</small>}</span>
-            <Avatar size="lg" className="account-avatar"><AvatarFallback>{initials}</AvatarFallback></Avatar>
+            <span className="account-avatar-wrap">
+              <Avatar size="lg" className="account-avatar"><AvatarFallback>{initials}</AvatarFallback></Avatar>
+              {user?.isBeapChair && <span className="account-chair-seal" title="Nominated BEAP Chair" aria-label="Nominated BEAP Chair"><BadgeCheckIcon aria-hidden="true" /></span>}
+            </span>
             <ChevronDownIcon className="account-chevron" aria-hidden="true" data-icon="inline-end" />
           </Button>
         )}
@@ -33,8 +36,10 @@ export function AccountMenu({ user, onViewPlan, disabled = false }: { user: Loca
       <DropdownMenuContent align="end" sideOffset={10} collisionPadding={12} className="account-dropdown">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="account-menu-profile">
-            <Avatar size="lg" className="account-avatar"><AvatarFallback>{initials}</AvatarFallback></Avatar>
-            <span><strong>{name}</strong>{role && <small>{role}</small>}</span>
+            <span className="account-avatar-wrap">
+              <Avatar size="lg" className="account-avatar"><AvatarFallback>{initials}</AvatarFallback></Avatar>
+            </span>
+            <span><strong>{name}</strong>{role && <small>{role}</small>}{user?.isBeapChair && <span className="account-chair-label"><BadgeCheckIcon aria-hidden="true" />Nominated BEAP Chair</span>}</span>
           </DropdownMenuLabel>
           {user?.email && <div className="account-menu-email"><MailIcon aria-hidden="true" /><span>{user.email}</span></div>}
         </DropdownMenuGroup>

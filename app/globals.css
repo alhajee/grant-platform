@@ -217,6 +217,9 @@
 .account-trigger-copy small { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; line-height: 1.3; color: var(--muted-foreground); font-weight: 400; }
 .account-avatar { --muted: color-mix(in srgb, var(--primary) 12%, var(--background)); --muted-foreground: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--background)); box-shadow: inset 0 0 0 2px var(--background); }
 .account-avatar [data-slot="avatar-fallback"] { font-weight: 600; letter-spacing: -.025em; }
+.account-avatar-wrap { position: relative; display: inline-flex; flex: 0 0 auto; }
+.account-chair-seal { position: absolute; right: -4px; bottom: -3px; display: grid; width: 20px; height: 20px; place-items: center; border: 2px solid var(--background); border-radius: 999px; background: #e8b44d; color: #173f38; box-shadow: 0 2px 5px rgb(23 63 56 / 20%); }
+.account-chair-seal svg { width: 13px; height: 13px; stroke-width: 2.3; }
 .account-chevron { color: var(--muted-foreground); }
 .account-trigger[data-state="open"] .account-chevron { transform: rotate(180deg); }
 .account-dropdown { width: 296px; max-width: calc(100vw - 24px); padding: 6px; border-radius: 16px; box-shadow: 0 14px 36px -12px rgb(0 0 0 / 18%), 0 3px 8px -3px rgb(0 0 0 / 8%); }
@@ -224,6 +227,8 @@
 .account-menu-profile > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .account-menu-profile strong { font-size: 14px; line-height: 1.4; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .account-menu-profile small { font-size: 14px; line-height: 1.4; font-weight: 400; color: var(--muted-foreground); }
+.account-chair-label { display: inline-flex; width: fit-content; align-items: center; gap: 5px; margin-top: 2px; padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, #e8b44d 22%, var(--background)); color: color-mix(in srgb, var(--primary) 86%, #7a4b00); font-size: 11px; line-height: 1.25; font-weight: 650; letter-spacing: .01em; }
+.account-chair-label svg { width: 13px; height: 13px; }
 .account-menu-email { display: flex; align-items: center; gap: 8px; padding: 8px 10px 12px; color: var(--muted-foreground); font-size: 14px; line-height: 1.5; }
 .account-menu-email svg { width: 14px; height: 14px; flex-shrink: 0; }
 .account-menu-email span { min-width: 0; overflow-wrap: anywhere; }
@@ -497,7 +502,7 @@
 .subeb-header a:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 .subeb-header-account { background: #ffffffb8; border: 1px solid #ffffffcc; border-radius: 999px; flex-shrink: 0; box-shadow: 0 2px 4px rgb(25 63 61 / 4%), 0 8px 24px -8px rgb(25 63 61 / 16%); }
 .subeb-header-account .account-trigger { min-height: 54px; border-radius: 999px; padding: 5px 14px 5px 6px; gap: 10px; }
-.subeb-header-account .account-avatar { order: -1; }
+.subeb-header-account .account-avatar-wrap { order: -1; }
 .subeb-header-account .account-trigger-copy { text-align: left; gap: 2px; }
 .subeb-header + .dashboard-main { padding-top: 24px; }
 @media(hover:hover) and (pointer:fine) { .subeb-header nav a:hover { color: var(--foreground); background: var(--background); } }
