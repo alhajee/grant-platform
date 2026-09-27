@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       const submissions = (await db.query('SELECT number, created_at AS "createdAt" FROM plan_submissions WHERE plan_id = $1 ORDER BY number DESC', [plan.id])).rows;
       const events = (await db.query(`SELECT id, action, actor_name AS "actorName", actor_role AS "actorRole", comment, scope, submission_number AS "submissionNumber", created_at AS "createdAt" FROM plan_review_events WHERE plan_id = $1 ORDER BY id DESC`, [plan.id])).rows;
       const pillarReviews = await readPillarReviews(db, plan.id);
-      const beapChairSubmissionMode = await readBeapChairSubmissionMode(db, workspace.stateCode);
+      const beapChairSubmissionMode = await readBeapChairSubmissionMode(db);
       const visiblePillars = visibleComponents(workspace);
       const visibleEvents = canViewWholeStatePlan(workspace) ? events : events.filter(event => visiblePillars.includes(event.scope));
       const visibleSubmissions = canViewWholeStatePlan(workspace) ? submissions : submissions.filter(submission => visibleEvents.some(event => event.submissionNumber === submission.number));
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       if (!statePlanOpen(plan.status)) return error('The plan is locked during UBEC review.', 409);
       const reviews = await readPillarReviews(db, plan.id);
       const snapshot = await readPlanSnapshot(db, plan.id);
-      const beapChairSubmissionMode = await readBeapChairSubmissionMode(db, workspace.stateCode);
+      const beapChairSubmissionMode = await readBeapChairSubmissionMode(db);
       if (input.action === 'forward' && beapChairSubmissionMode === 'complete_plan') {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send the plan to the SUBEB Executive Chairman.', 403);
         if (input.pillar) return error('This state sends the complete BEAP to the Executive Chairman at once.', 409);
