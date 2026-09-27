@@ -12,7 +12,7 @@ export function infrastructureDocumentProblem(snapshot: Snapshot): string | null
  }
  for(const [id,school] of schools){
   for(const kind of school.survey?['boq','survey']:['boq']){
-   if(!documents.some(d=>d.schoolId===id&&d.kind===kind))return `Attach ${kind==='boq'?'a BOQ':'a site / geophysical survey'} for ${school.name} before sending Infrastructure.`;
+   if(!documents.some(d=>d.schoolId===id&&d.kind===kind))return `Attach ${kind==='boq'?'a BOQ':'a geophysical survey report'} for ${school.name} before sending Infrastructure.`;
   }
  }
  return null;

@@ -31,9 +31,10 @@ export async function POST(req:NextRequest){
   const file=form.get('file');if(!file||typeof file==='string'||!file.size||file.size>5*1024*1024)return error('Choose a nonempty file up to 5 MB.');
   const name=file.name.replace(/[\x00-\x1f\x7f/\\]/g,'_').slice(-180),ext=name.split('.').pop()?.toLowerCase();
   const bytes=Buffer.from(await file.arrayBuffer());
-  const types:Record<string,string>={pdf:'application/pdf',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg'};
-  const valid=ext==='pdf'?bytes.subarray(0,5).toString()==='%PDF-':ext==='png'?bytes.subarray(0,8).toString('hex')==='89504e470d0a1a0a':['jpg','jpeg'].includes(ext??'')?bytes.subarray(0,3).toString('hex')==='ffd8ff':['docx','xlsx'].includes(ext??'')&&bytes.subarray(0,4).toString('hex')==='504b0304';
-  if(!ext||!types[ext]||!valid)return error('Use a valid PDF, DOCX, XLSX, PNG or JPEG file.');
+  const types:Record<string,string>={pdf:'application/pdf',xls:'application/vnd.ms-excel',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg'};
+  const allowed=kind.data==='boq'?['pdf','xls','xlsx']:['pdf','docx','xlsx','png','jpg','jpeg'];
+  const valid=ext==='pdf'?bytes.subarray(0,5).toString()==='%PDF-':ext==='xls'?bytes.subarray(0,8).toString('hex')==='d0cf11e0a1b11ae1':ext==='png'?bytes.subarray(0,8).toString('hex')==='89504e470d0a1a0a':['jpg','jpeg'].includes(ext??'')?bytes.subarray(0,3).toString('hex')==='ffd8ff':['docx','xlsx'].includes(ext??'')&&bytes.subarray(0,4).toString('hex')==='504b0304';
+  if(!ext||!allowed.includes(ext)||!types[ext]||!valid)return error(kind.data==='boq'?'Upload the BOQ as a valid Excel (.xls or .xlsx) or PDF file.':'Use a valid PDF, DOCX, XLSX, PNG or JPEG file.');
   return await mutatePlan(user,plan,'infrastructure',async db=>{
    if(schoolId&&!(await db.query('SELECT id FROM schools WHERE id=$1 AND state_code=$2',[schoolId,user.stateCode])).rowCount)return error('School not found in your state.',404);
    const count=(await db.query('SELECT COUNT(*)::int AS count FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL',[plan.id])).rows[0].count;

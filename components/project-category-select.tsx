@@ -8,7 +8,7 @@ const categories = [
   { value: "renovation", label: "Renovation", initials: "RE", available: false },
   { value: "furniture", label: "Furniture & equipment", initials: "FE", available: false },
   { value: "water", label: "Water & sanitation", initials: "WS", available: false },
-  { value: "survey", label: "Geophysical survey", initials: "GS", available: false },
+  { value: "survey", label: "Geophysical survey report", initials: "GS", available: false },
   { value: "teaching", label: "Teaching materials", initials: "TM", available: false },
 ] as const;
 
