@@ -14,6 +14,7 @@ RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM production-dependencies AS provision
 COPY scripts/provision-production-user.mjs ./provision-production-user.mjs
+COPY scripts/seed-production-users.mjs ./seed-production-users.mjs
 ENTRYPOINT ["node", "provision-production-user.mjs"]
 
 FROM node:22-alpine AS runtime
