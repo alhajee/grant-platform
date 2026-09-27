@@ -104,7 +104,7 @@ export default function ReviewPage() {
                 <CardContent>
                   <Badge variant="secondary">{pillarReviewLabels[review.status]}</Badge>
                   <div className="department-review-actions">
-                  {directorCanReview && <Button asChild variant="outline" size="sm"><Link href={planHref(pillar.href!,data.plan.id)}>Edit component</Link></Button>}
+                  {directorCanReview && <Button asChild variant="outline" size="sm"><a href={planHref(pillar.href!,data.plan.id)}>Edit component</a></Button>}
                   {(directorCanReview || chairmanCanReturn) && <Button variant="outline" size="sm" onClick={()=>openAction('request_changes',review.pillar)}>Request changes</Button>}
                   {staffCanSend && <Button size="sm" disabled={!data.snapshot[review.pillar]?.length || (review.pillar==='tlm'&&!data.snapshot.tlmDistribution?.length)} onClick={()=>openAction('submit',review.pillar)}>Send to Director</Button>}
                   {directorCanReview && <Button size="sm" onClick={()=>openAction('endorse',review.pillar)}>Send to Chairman</Button>}
