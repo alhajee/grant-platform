@@ -8,7 +8,7 @@ assert.equal(r.classroomSubtotal,300,'Block row amounts are lump sums, never mul
 assert.equal(r.items.find(i=>i.key==='block3os').quantity,2);
 assert.equal(r.items.find(i=>i.key==='toilet').total,70,'Toilets use a lump sum');
 assert.equal(r.otherSubtotal,525);assert.equal(r.vat,61.88);assert.equal(r.total,886.88);
-hope.classroomStrategy='GCPA';r=calculateInfrastructure(hope,300);assert.equal(r.vat,39.38);assert.equal(r.total,864.38);
+hope.classroomStrategy='Request for quotation';r=calculateInfrastructure(hope,300);assert.equal(r.vat,39.38);assert.equal(r.total,864.38);
 hope.grouping='storey';r=calculateInfrastructure(hope,321);assert.equal(r.items.find(i=>i.key==='block6os').quantity,1);assert.equal(r.items.find(i=>i.key==='block3').quantity,2);
 hope.targeting='nonhope';hope.lumpSum=450;hope.duration='6 months';r=calculateInfrastructure(hope,321);assert.equal(r.total,450);assert.equal(r.vat,0);assert.equal(r.items.find(i=>i.key==='dualDesk').cost,0);
 const whole=make('whole');whole.audit={classroomPri:{existing:4,functional:2,extra:0},dualDesk:{existing:100,functional:80,extra:3},fence:{existing:20,functional:10,extra:5}};whole.fenceRequired=50;

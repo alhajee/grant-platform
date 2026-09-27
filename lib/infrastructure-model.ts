@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { implementationStrategies } from './activity-plans.ts';
 
-export const strategies = ['NCB', 'Request for Quotation', 'GCPA'] as const;
+export const strategies = implementationStrategies;
 export const kindNames = { new: 'New Construction', whole: 'Whole School Approach', furniture: 'Furniture/Equipment' } as const;
 export const modelNames = ['Model 1 · Small School', 'Model 2 · Medium School', 'Model 3 · Large School'];
 export const modelFor = (enrolment: number) => enrolment <= 240 ? 0 : enrolment <= 320 ? 1 : 2;
