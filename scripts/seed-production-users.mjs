@@ -3,8 +3,9 @@ import { Client } from "pg";
 import { hashSync } from "bcryptjs";
 
 const connectionString = process.env.DATABASE_URL;
-const superAdminEmail = process.env.SEED_SUPER_ADMIN_EMAIL?.trim().toLowerCase();
+const superAdminEmail = (process.env.SEED_SUPER_ADMIN_EMAIL || "admin@ubec.test").trim().toLowerCase();
 const superAdminName = process.env.SEED_SUPER_ADMIN_NAME?.trim() || "UBEC Super Administrator";
+const sharedPassword = process.env.SEED_SHARED_PASSWORD?.trim();
 
 if (!connectionString) throw new Error("DATABASE_URL is required.");
 if (!superAdminEmail || !/^\S+@\S+\.\S+$/.test(superAdminEmail)) {
@@ -54,7 +55,7 @@ const accounts = [
 
 const credentials = accounts.map(account => ({
   ...account,
-  password: `Ubec-${randomBytes(18).toString("base64url")}!7a`,
+  password: sharedPassword || `Ubec-${randomBytes(18).toString("base64url")}!7a`,
 }));
 
 const db = new Client({ connectionString, connectionTimeoutMillis: 5000 });
