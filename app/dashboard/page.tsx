@@ -11,6 +11,7 @@ import { DashboardArtwork } from "@/components/dashboard-artwork";
 import { Button } from "@/components/ui/button";
 import { PlanStatusBadge } from '@/components/plan-status';
 import { PlanNotifications } from '@/components/plan-notifications';
+import { emptyInvestmentFilters, investmentFilterCount, InvestmentFilter, type InvestmentArea } from '@/components/investment-filter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,6 +32,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [investmentFilters, setInvestmentFilters] = useState(emptyInvestmentFilters);
   const [open, setOpen] = useState(false);
   const load = useCallback(async () => {
     setError("");
@@ -57,10 +59,33 @@ export default function DashboardPage() {
   const actionQueue = plans.flatMap(plan=>(plan.pendingActions??[]).map(action=>({...action,plan})));
   const totalBudget = plans.reduce((sum, p) => sum + p.budget, 0);
   const latest = plans[0];
-  const infrastructure = plans.reduce((sum, p) => sum + p.infrastructureBudget, 0);
-  const sbmc = plans.reduce((sum,p)=>sum+(p.sbmcBudget??0),0);
-  const tlm = plans.reduce((sum,p)=>sum+(p.tlmBudget??0),0);
-  const sports = plans.reduce((sum, p) => sum + p.sportsBudget, 0);
+  const investmentPlans = plans.filter(plan => {
+    const quarters = plan.fundingQuarters ?? [1, 2, 3, 4];
+    return (!investmentFilters.years.length || investmentFilters.years.some(year => year >= plan.startYear && year <= plan.endYear))
+      && (!investmentFilters.quarters.length || investmentFilters.quarters.some(quarter => quarters.includes(quarter)))
+      && (!investmentFilters.statuses.length || investmentFilters.statuses.includes(plan.status))
+      && (!investmentFilters.minimumBudget || plan.budget >= Number(investmentFilters.minimumBudget))
+      && (!investmentFilters.maximumBudget || plan.budget <= Number(investmentFilters.maximumBudget))
+      && (!investmentFilters.hasBudgetLines || plan.lineCount > 0)
+      && (!investmentFilters.hasSchools || plan.schoolCount > 0);
+  });
+  const areaAmounts: Record<InvestmentArea, number> = {
+    infrastructure: investmentPlans.reduce((sum, plan) => sum + plan.infrastructureBudget, 0),
+    sports: investmentPlans.reduce((sum, plan) => sum + plan.sportsBudget, 0),
+    sbmc: investmentPlans.reduce((sum, plan) => sum + (plan.sbmcBudget ?? 0), 0),
+    tlm: investmentPlans.reduce((sum, plan) => sum + (plan.tlmBudget ?? 0), 0),
+  };
+  const selectedAreas = investmentFilters.areas.length ? investmentFilters.areas : ["infrastructure", "sports", "sbmc", "tlm"] as InvestmentArea[];
+  const areaDetails: Record<InvestmentArea, { label: string; color: string }> = {
+    infrastructure: { label: "Infrastructure", color: "var(--primary)" },
+    sports: { label: "Sports development", color: "var(--dashboard-sage)" },
+    sbmc: { label: "SBMC", color: "var(--lilac)" },
+    tlm: { label: "TLM", color: "var(--peach)" },
+  };
+  const investmentTotal = selectedAreas.reduce((sum, area) => sum + areaAmounts[area], 0);
+  let investmentCursor = 0;
+  const investmentGradient = investmentTotal ? `conic-gradient(${selectedAreas.map(area => { const start = investmentCursor; investmentCursor += areaAmounts[area] / investmentTotal * 100; return `${areaDetails[area].color} ${start}% ${investmentCursor}%`; }).join(", ")})` : "var(--muted)";
+  const activeInvestmentFilters = investmentFilterCount(investmentFilters);
   const visiblePlans = plans.filter((p) => `${planPeriod(p)} action plan ${p.status}`.includes(query.toLowerCase().trim()) || (/^\d{4}$/.test(query.trim()) && Number(query) >= p.startYear && Number(query) <= p.endYear));
   const unavailable = loading || Boolean(error);
 
@@ -100,9 +125,9 @@ export default function DashboardPage() {
           </div>}
         </section>
         <aside className="dashboard-aside">
-          <Card className="budget-allocation"><CardHeader><CardTitle><h2>Where your plans invest</h2></CardTitle><CardDescription>Proposed budget across all periods</CardDescription></CardHeader><CardContent>
-            <div className="allocation-donut" role="img" aria-label={unavailable ? "Budget breakdown unavailable" : `Infrastructure ${money.format(infrastructure)}; Sports development ${money.format(sports)}; SBMC ${money.format(sbmc)}; TLM ${money.format(tlm)}`} style={{ background: unavailable || !totalBudget ? "var(--muted)" : `conic-gradient(var(--primary) 0 ${infrastructure / totalBudget * 100}%, var(--dashboard-sage) ${infrastructure / totalBudget * 100}% ${(infrastructure+sports)/totalBudget*100}%, var(--lilac) ${(infrastructure+sports)/totalBudget*100}% ${(infrastructure+sports+sbmc)/totalBudget*100}%, var(--peach) ${(infrastructure+sports+sbmc)/totalBudget*100}% 100%)` }}><div><span>{unavailable ? "—" : compactMoney.format(totalBudget)}</span><small>Total proposed</small></div></div>
-            <div className="allocation-legend"><div><span><i />Infrastructure</span><strong>{unavailable ? "—" : compactMoney.format(infrastructure)}</strong></div><div><span><i />Sports development</span><strong>{unavailable ? "—" : compactMoney.format(sports)}</strong></div><div><span><i style={{background:"var(--lilac)"}}/>SBMC</span><strong>{unavailable?"—":compactMoney.format(sbmc)}</strong></div><div><span><i style={{background:"var(--peach)"}}/>TLM</span><strong>{unavailable?"—":compactMoney.format(tlm)}</strong></div></div>
+          <Card className="budget-allocation"><CardHeader className="allocation-card-header"><div><CardTitle><h2>Where your plans invest</h2></CardTitle><CardDescription>{activeInvestmentFilters ? `${investmentPlans.length} matching ${investmentPlans.length === 1 ? "plan" : "plans"}` : "Proposed budget across all periods"}</CardDescription></div><InvestmentFilter plans={plans} value={investmentFilters} onChange={setInvestmentFilters} /></CardHeader><CardContent>
+            <div className="allocation-donut" role="img" aria-label={unavailable ? "Budget breakdown unavailable" : selectedAreas.map(area => `${areaDetails[area].label} ${money.format(areaAmounts[area])}`).join("; ")} style={{ background: unavailable ? "var(--muted)" : investmentGradient }}><div><span>{unavailable ? "—" : compactMoney.format(investmentTotal)}</span><small>{activeInvestmentFilters ? "Filtered proposed" : "Total proposed"}</small></div></div>
+            <div className="allocation-legend">{selectedAreas.map(area => <div key={area}><span><i style={{ background: areaDetails[area].color }} />{areaDetails[area].label}</span><strong>{unavailable ? "—" : compactMoney.format(areaAmounts[area])}</strong></div>)}</div>
           </CardContent></Card>
           {!unavailable && actionQueue.length > 0 && <Card className="review-queue">
             <CardHeader><div className="review-queue-heading"><ReviewArtwork /><div><CardTitle>Needs your attention</CardTitle><CardDescription>{actionQueue.length} {actionQueue.length === 1 ? 'item' : 'items'} waiting for you</CardDescription></div></div></CardHeader>

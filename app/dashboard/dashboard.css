@@ -97,6 +97,11 @@
 .plan-card-bottom [data-slot=button] { font-size: 14px; }
 .dashboard-aside { display: flex; flex-direction: column; gap: 20px; grid-column: 2; grid-row: 3; }
 .budget-allocation { border-radius: 14px; box-shadow: none; gap: 20px; }
+.allocation-card-header { display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.allocation-card-header > div:first-child { min-width: 0; }
+.allocation-card-header [data-slot=button] { flex-shrink: 0; }
+.allocation-card-header [data-slot=badge] { min-width: 20px; justify-content: center; padding-inline: 5px; }
+.investment-filter-popover { max-height: min(680px, calc(100dvh - 24px)); overflow-y: auto; }
 .budget-allocation h2 { font-size: 15px; letter-spacing: -.025em; }
 .budget-allocation [data-slot=card-description] { font-size: 14px; }
 .allocation-donut { height: 160px; width: 160px; border-radius: 50%; padding: 15px; margin: 2px auto 25px; transform: rotate(-90deg); }
