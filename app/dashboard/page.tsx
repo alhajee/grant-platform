@@ -76,7 +76,7 @@ export default function DashboardPage() {
   });
   const actionQueue = dashboardPlans.flatMap(plan=>(plan.pendingActions??[]).map(action=>({...action,plan})));
   const totalBudget = dashboardPlans.reduce((sum, p) => sum + p.budget, 0);
-  const dashboardSchoolCount = activeInvestmentFilters ? dashboardPlans.reduce((sum, plan) => sum + plan.schoolCount, 0) : targetedSchools;
+  const dashboardSchoolCount = activeInvestmentFilters ? new Set(dashboardPlans.flatMap(plan => plan.schoolIds ?? [])).size : targetedSchools;
   const latest = dashboardPlans[0];
   const areaAmounts: Record<InvestmentArea, number> = {
     infrastructure: dashboardPlans.reduce((sum, plan) => sum + plan.infrastructureBudget, 0),

@@ -18,13 +18,18 @@ export async function GET(request: NextRequest) {
       COALESCE(i.budget, 0)::float8 AS "infrastructureBudget", COALESCE(s.budget, 0)::float8 AS "sportsBudget", COALESCE(a.sbmc,0)::float8 AS "sbmcBudget", COALESCE(a.tlm,0)::float8 AS "tlmBudget",
       (COALESCE(i.budget, 0) + COALESCE(s.budget, 0) + COALESCE(a.budget, 0))::float8 AS budget,
       (COALESCE(i.lines, 0) + COALESCE(s.lines, 0) + COALESCE(a.lines, 0))::int AS "lineCount",
-      (SELECT COUNT(DISTINCT school_id)::int FROM (SELECT school_id FROM infrastructure_packages WHERE plan_id=p.id
-        UNION SELECT a.school_id FROM sports_allocations a JOIN sports_budget_lines b ON b.id = a.line_id WHERE b.plan_id = p.id UNION SELECT school_id FROM tlm_distribution WHERE plan_id=p.id) beneficiaries) AS "schoolCount",
+      COALESCE(beneficiaries.count, 0)::int AS "schoolCount",
+      COALESCE(beneficiaries.ids, ARRAY[]::int[]) AS "schoolIds",
       GREATEST(p.created_at, p.workflow_updated_at, i.updated, s.updated, a.updated, (SELECT MAX(updated_at) FROM tlm_distribution WHERE plan_id=p.id), (SELECT MAX(a.updated_at) FROM sports_allocations a JOIN sports_budget_lines b ON b.id = a.line_id WHERE b.plan_id = p.id)) AS "updatedAt"
       FROM action_plans p
       LEFT JOIN LATERAL (SELECT SUM(total_cost) AS budget, COUNT(*) AS lines, MAX(updated_at) AS updated FROM infrastructure_packages WHERE plan_id=p.id) i ON TRUE
       LEFT JOIN LATERAL (SELECT SUM(unit_cost * quantity) AS budget, COUNT(*) AS lines, MAX(updated_at) AS updated FROM sports_budget_lines WHERE plan_id = p.id) s ON TRUE
       LEFT JOIN LATERAL (SELECT SUM(unit_cost*quantity) AS budget,SUM(unit_cost*quantity) FILTER(WHERE workstream='sbmc') AS sbmc,SUM(unit_cost*quantity) FILTER(WHERE workstream='tlm') AS tlm,COUNT(*) AS lines,MAX(updated_at) AS updated FROM activity_plan_lines WHERE plan_id=p.id) a ON TRUE
+      LEFT JOIN LATERAL (SELECT COUNT(*)::int AS count, ARRAY_AGG(school_id ORDER BY school_id)::int[] AS ids FROM (
+        SELECT school_id FROM infrastructure_packages WHERE plan_id=p.id
+        UNION SELECT allocation.school_id FROM sports_allocations allocation JOIN sports_budget_lines line ON line.id=allocation.line_id JOIN schools school ON school.id=allocation.school_id WHERE line.plan_id=p.id AND line.state_code=p.state_code AND school.state_code=p.state_code
+        UNION SELECT distribution.school_id FROM tlm_distribution distribution JOIN schools school ON school.id=distribution.school_id WHERE distribution.plan_id=p.id AND school.state_code=p.state_code
+      ) plan_beneficiaries WHERE school_id IS NOT NULL) beneficiaries ON TRUE
       WHERE p.state_code = $1 ORDER BY "updatedAt" DESC, p.id DESC`, [workspace.stateCode]),
       db.query<{ count: number }>(`SELECT COUNT(*)::int AS count FROM (
         SELECT i.school_id FROM infrastructure_packages i JOIN action_plans p ON p.id=i.plan_id WHERE p.state_code=$1
