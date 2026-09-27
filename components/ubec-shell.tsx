@@ -27,8 +27,8 @@ export function UbecShell({ children, user, review = false, allocations = false 
     <div className="national-shell national-horizontal-shell">
       <header className="national-header">
         <div className="national-navigation-capsule">
-          <Link href="/ubec" className="national-header-brand" aria-label="UBEC Grant Portal overview">
-            <UbecLogo /><span>Grant Portal</span>
+          <Link href="/ubec" className="national-header-brand" aria-label="BEAPMS Portal overview">
+            <UbecLogo /><span>BEAPMS Portal</span>
           </Link>
           <nav aria-label="UBEC navigation" className="national-header-nav">
             {navigation.map(({ label, hash: targetHash }) => (

@@ -31,10 +31,10 @@ export function SubebHeader({ user, plan = false, users = false }: { user?: Loca
   const plansActive = plan || hash === '#action-plans';
   return <header className="subeb-header">
     <div className="subeb-navigation-capsule">
-      <Link href="/dashboard" className="subeb-header-brand" aria-label="Grant Portal overview"><UbecLogo /><span>Grant Portal</span></Link>
+      <Link href="/dashboard" className="subeb-header-brand" aria-label="BEAPMS Portal overview"><UbecLogo /><span>BEAPMS Portal</span></Link>
       <nav aria-label="SUBEB navigation">
         <a href="/dashboard" aria-current={!plansActive && !users ? 'page' : undefined}>Overview</a>
-        <a href="/dashboard#action-plans" aria-current={plansActive ? (plan ? 'page' : 'location') : undefined}>Action plans</a>
+        <a href="/dashboard#action-plans" aria-current={plansActive ? (plan ? 'page' : 'location') : undefined}>Basic Education Action Plans</a>
         {canManageStateUsers((user === undefined ? sessionUser : user)?.role) && <Link href="/users" aria-current={users ? 'page' : undefined}>Users</Link>}
       </nav>
     </div>

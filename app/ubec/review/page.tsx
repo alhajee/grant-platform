@@ -38,7 +38,7 @@ const load=useCallback(async(value='current')=>{const ticket=++requestId.current
   const canSubmit=data?.role==='Executive Chairman'&&data.plan.status==='awaiting_chairman'&&current&&!loading&&!error;
   const content=<div className="ubec-review-workspace">
     <Button asChild variant="ghost" size="sm"><Link href={national?'/ubec':`/beap/review?plan=${data?.plan.id??''}`}><ArrowLeft data-icon="inline-start"/>{national?'Overview':'State review'}</Link></Button>
-    <div className="national-page-title"><div><span className="national-eyebrow">{data?.plan.stateName??'ACTION PLAN'}</span><h1>{data?`${planPeriod({startYear:data.plan.start_year,endYear:data.plan.end_year,fundingQuarters:data.plan.funding_quarters})} action plan`:'Plan review'}</h1></div><div className="review-actions">
+    <div className="national-page-title"><div><span className="national-eyebrow">{data?.plan.stateName??'BASIC EDUCATION ACTION PLAN'}</span><h1>{data?`${planPeriod({startYear:data.plan.start_year,endYear:data.plan.end_year,fundingQuarters:data.plan.funding_quarters})} action plan`:'Plan review'}</h1></div><div className="review-actions">
     {canSubmit&&<Button onClick={()=>open('submit')}><Send data-icon="inline-start"/>{data.round?'Send to UBEC':'Send to UBEC'}</Button>}
     {es&&openRound&&<><Button variant="outline" onClick={()=>open('assign')}><UsersRound data-icon="inline-start"/>Assign departments</Button><Button variant="outline" onClick={()=>open('return')}><MessageSquare data-icon="inline-start"/>Return to SUBEB</Button><Button disabled={!data.assignments.length||data.assignments.some(a=>!a.completed_at)} onClick={()=>open('approve')}><Check data-icon="inline-start"/>Approve plan</Button></>}
     </div></div>

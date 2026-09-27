@@ -34,12 +34,12 @@ export default function Home() {
 
   return (
     <main className="login-page">
-      <section className="brand-panel" aria-label="UBEC Grant Portal introduction">
+      <section className="brand-panel" aria-label="BEAPMS Portal introduction">
         <div className="login-classroom" aria-hidden="true" />
         <div className="brand-content">
-          <a className="wordmark" href="#top" aria-label="UBEC Grant Portal home">
+          <a className="wordmark" href="#top" aria-label="BEAPMS Portal home">
             <UbecLogo size={64} />
-            <span>UBEC Grant Portal</span>
+            <span>BEAPMS Portal</span>
           </a>
           <p className="copyright">Copyright © 2026 Universal Basic Education Commission. All rights reserved</p>
         </div>
@@ -48,7 +48,7 @@ export default function Home() {
       <section className="signin-panel" id="top" aria-labelledby="sign-in-title">
         <LoginContours />
         <div className="signin-card">
-          <div className="portal-brand login-mobile-brand"><UbecLogo /><span><strong>Grant Portal</strong><small>Yobe State SUBEB</small></span></div>
+          <div className="portal-brand login-mobile-brand"><UbecLogo /><span><strong>BEAPMS Portal</strong><small>Yobe State SUBEB</small></span></div>
           <header className="signin-heading">
             <h1 id="sign-in-title">Welcome back</h1>
             <p>Sign in to your UBEC workspace.</p>

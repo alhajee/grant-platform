@@ -18,7 +18,7 @@ export function PlanSetupSummary({ setup, compact = false }: { setup: Partial<Pl
   if (compact) return <Card className="plan-setup-summary plan-setup-summary-compact">
     <CardHeader>
       <div className="plan-summary-emblem"><PlansArtwork /></div>
-      <div className="plan-summary-identity"><CardDescription>Action plan reference</CardDescription><CardTitle>{reference}</CardTitle></div>
+      <div className="plan-summary-identity"><CardDescription>Basic Education Action Plan reference</CardDescription><CardTitle>{reference}</CardTitle></div>
       <Badge variant="secondary"><CalendarDaysIcon aria-hidden="true" />Implementation {setup.implementationYear ?? '—'}</Badge>
     </CardHeader>
     <CardContent>

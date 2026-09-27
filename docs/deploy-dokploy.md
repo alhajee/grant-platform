@@ -1,4 +1,4 @@
-# Deploying the UBEC Grant Portal with Dokploy
+# Deploying the BEAPMS Portal with Dokploy
 
 The production stack is defined in `docker-compose.prod.yml`. It builds the
 application as a standalone Node server, keeps PostgreSQL private, applies each
@@ -113,4 +113,3 @@ If national review is required immediately, repeat the command with role
 - Confirm database backups, restore procedures, monitoring, and alerting.
 - Run role/workflow acceptance testing using non-production fixtures before users
   enter real data.
-

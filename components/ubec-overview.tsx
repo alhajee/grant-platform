@@ -46,7 +46,7 @@ export function UbecOverview({ data, onStage, children }: { data: UbecDashboard;
 
 
 
-      {[{ label: 'Action plans', value: items.length, artwork: PlansArtwork, tone: 'white' }, { label: 'Targeted schools', value: schools, artwork: SchoolsArtwork, tone: 'lime' }, { label: 'States represented', value: states, artwork: StatesArtwork, tone: 'white' }].map(kpi => <Card className="overview-metric" data-tone={kpi.tone} key={kpi.label}><CardHeader><CardTitle><kpi.artwork />{kpi.label}</CardTitle></CardHeader><CardContent><strong>{kpi.value.toLocaleString()}</strong><a className="overview-round-link" href="#submissions" aria-label={`View ${kpi.label.toLowerCase()} in submissions`}><ArrowUpRight /></a></CardContent></Card>)}
+      {[{ label: 'Basic Education Action Plans', value: items.length, artwork: PlansArtwork, tone: 'white' }, { label: 'Targeted schools', value: schools, artwork: SchoolsArtwork, tone: 'lime' }, { label: 'States represented', value: states, artwork: StatesArtwork, tone: 'white' }].map(kpi => <Card className="overview-metric" data-tone={kpi.tone} key={kpi.label}><CardHeader><CardTitle><kpi.artwork />{kpi.label}</CardTitle></CardHeader><CardContent><strong>{kpi.value.toLocaleString()}</strong><a className="overview-round-link" href="#submissions" aria-label={`View ${kpi.label.toLowerCase()} in submissions`}><ArrowUpRight /></a></CardContent></Card>)}
     </section>
     {children}
     <div className="overview-secondary-grid">

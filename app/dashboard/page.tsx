@@ -104,7 +104,7 @@ export default function DashboardPage() {
         <div className="dashboard-hero-copy"><div><h1 id="hero-title">{loading ? <span className="sr-only">Loading state…</span> : stateName ? `${stateName} SUBEB` : "State unavailable"}</h1></div>{canCreatePlan && <Button className="hero-create" onClick={beginPlan} disabled={unavailable}><PlusIcon />Create action plan</Button>}</div>
         <DashboardArtwork />
         <section className="dashboard-stats" aria-label="Workspace totals">
-          {[{ label: "Action plans", value: String(dashboardPlans.length), artwork: PlansArtwork, tone: "ivory" }, { label: "Total proposed budget", value: compactMoney.format(totalBudget), artwork: BudgetArtwork, tone: "teal" }, { label: "Targeted schools", value: String(dashboardSchoolCount), artwork: SchoolsArtwork, tone: "sage" }].map((stat) => (
+          {[{ label: "Basic Education Action Plans", value: String(dashboardPlans.length), artwork: PlansArtwork, tone: "ivory" }, { label: "Total proposed budget", value: compactMoney.format(totalBudget), artwork: BudgetArtwork, tone: "teal" }, { label: "Targeted schools", value: String(dashboardSchoolCount), artwork: SchoolsArtwork, tone: "sage" }].map((stat) => (
             <Card className="dashboard-stat" data-tone={stat.tone} key={stat.label}>
               <CardHeader><CardTitle className="stat-label"><stat.artwork />{stat.label}</CardTitle></CardHeader>
               <CardContent>
@@ -121,7 +121,7 @@ export default function DashboardPage() {
       {isOfficer && !user?.department && <Alert className="mb-6"><AlertTitle>Department assignment needed</AlertTitle><AlertDescription>Your Director or Executive Chairman can assign your department in Users. Until then, you can view saved plans but cannot edit or submit them.</AlertDescription></Alert>}
       <div className="dashboard-body">
         <section className="dashboard-plans" id="action-plans" aria-labelledby="plans-title">
-          <div className="dashboard-section-title"><div><h2 id="plans-title">Your action plans <span>{unavailable ? "—" : dashboardPlans.length}</span></h2></div>{canCreatePlan && <Button variant="outline" size="sm" onClick={beginPlan} disabled={unavailable}><PlusIcon />New plan</Button>}</div>
+          <div className="dashboard-section-title"><div><h2 id="plans-title">Your Basic Education Action Plans <span>{unavailable ? "—" : dashboardPlans.length}</span></h2></div>{canCreatePlan && <Button variant="outline" size="sm" onClick={beginPlan} disabled={unavailable}><PlusIcon />New plan</Button>}</div>
           <div className="plan-search"><SearchIcon aria-hidden="true" /><Input aria-label="Search action plans by year" placeholder="Find a plan by year…" value={query} onChange={(e) => setQuery(e.target.value)} disabled={unavailable} /></div>
           {loading ? <div className="dashboard-plan-list"><Skeleton className="h-48 w-full rounded-xl" /><Skeleton className="h-48 w-full rounded-xl" /></div> : error ? <div className="dashboard-empty">Your plans will appear here when the connection is restored.</div> : <div className="dashboard-plan-list">
             {visiblePlans.map((plan, index) => <Card className="dashboard-plan-card" key={plan.id}>
