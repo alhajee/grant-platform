@@ -100,6 +100,9 @@ export function packageProblem(input:InfrastructureInput,enrolment:number){
  if(enrolment<=0&&input.kind!=='furniture')return 'Record the school’s enrolment before creating its package.';
  if(input.kind==='new'&&!Object.values(input.land).every(Boolean))return 'Confirm all three land declarations.';
  if(input.kind==='new'&&modelFor(enrolment)===0&&input.grouping==='storey')return 'The small-school model uses standard classroom blocks.';
+ if(input.kind==='whole'&&!input.observations.trim())return 'Enter the site observations.';
+ const primaryAudit=input.audit.classroomPri;
+ if(input.kind==='whole'&&primaryAudit&&primaryAudit.existing>primaryAudit.functional&&!input.conditionNotes.trim())return 'Enter the structural condition notes.';
  const result=calculateInfrastructure(input,enrolment);
  if(!result.items.length||result.total<=0)return 'Add and cost the required items before saving.';
  if(!Number.isSafeInteger(cents(result.total)))return 'The package total is too large.';

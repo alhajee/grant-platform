@@ -52,6 +52,8 @@ export async function POST(req:NextRequest){
    const docs=(await db.query('SELECT id,kind,created_at,school_id FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL AND id=ANY($2::uuid[])',[plan.id,input.documentIds])).rows;
    if(new Set(input.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan.');
    if(docs.some(d=>d.school_id!==null&&d.school_id!==input.schoolId))return error('One or more attachments belong to a different school.');
+   const primaryAudit=input.audit.classroomPri;
+   if(input.kind==='whole'&&primaryAudit&&primaryAudit.existing>primaryAudit.functional&&!docs.some(d=>d.kind==='photo'))return error('Attach photographic evidence for the Whole School audit.');
    if(prior&&prior.kind!==input.kind)return error('An existing package’s intervention type cannot be changed.');
    if(prior?.kind==='whole'&&!docs.some(d=>d.kind==='boq'&&d.school_id===input.schoolId&&!prior.input.documentIds.includes(d.id)&&new Date(d.created_at)>new Date(prior.updated_at)))return error('Attach an updated BOQ for this school before saving changes to a Whole School Renovation/Expansion package.');
    const result={...calculateInfrastructure(input,school.male+school.female),school};
