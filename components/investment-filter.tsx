@@ -55,7 +55,6 @@ export function InvestmentFilter({ plans, value, onChange }: { plans: PlanOvervi
     <SheetTrigger asChild><Button type="button" variant="outline" className="investment-filter-trigger"><ListFilterIcon data-icon="inline-start" />Filter investments{count > 0 && <Badge variant="secondary">{count}</Badge>}</Button></SheetTrigger>
     <SheetContent side="right" className="investment-filter-sheet" aria-labelledby="investment-filter-title">
       <SheetHeader className="investment-filter-header">
-        <span className="investment-filter-emblem"><ListFilterIcon aria-hidden="true" /></span>
         <span className="min-w-0"><span className="flex items-center gap-2"><SheetTitle id="investment-filter-title">Filter investments</SheetTitle>{count > 0 && <Badge>{count} active</Badge>}</span><SheetDescription>Combine options to refine the budget breakdown.</SheetDescription></span>
       </SheetHeader>
       <Separator />
