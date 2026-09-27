@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       const snapshot = await readPlanSnapshot(db, plan.id);
       if (input.action === 'forward') {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send the plan to the SUBEB Executive Chairman.', 403);
-        if (!readyForExecutiveChairman(reviews,snapshot)) return error('Every implemented component must be reviewed by its department Director before the BEAP Chair can send the plan onward.', 409);
+        if (!readyForExecutiveChairman(reviews,snapshot)) return error('Every implemented component must reach the BEAP Chair before all components can be sent together to the Executive Chairman.', 409);
         const recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Executive Chairman'", [workspace.stateCode])).rows;
         if (!recipients.length) return error('No active SUBEB Executive Chairman is configured for this state.',409);
         await db.query("UPDATE plan_pillar_reviews SET status='chairman_ready',updated_at=NOW() WHERE plan_id=$1 AND status='beap_review'",[plan.id]);
