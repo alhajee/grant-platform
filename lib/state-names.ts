@@ -13,3 +13,10 @@ export function stateDisplayName(stateCode: string) {
   if (code === "FC" || code === "FCT") return "Federal Capital Territory";
   return stateNames[code] ? `${stateNames[code]} State` : stateCode;
 }
+
+export function subebDisplayName(stateCode: string) {
+  const value = stateCode.trim();
+  const code = value.toUpperCase().replace(/^NG-/, "");
+  if (code === "FC" || code === "FCT" || code === "FEDERAL CAPITAL TERRITORY") return "FCT UBEB";
+  return `${(stateNames[code] ?? value.replace(/\s+State$/i, '')).toUpperCase()} SUBEB`;
+}

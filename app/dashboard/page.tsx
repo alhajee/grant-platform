@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { planHref, planPeriod, type PlanOverview } from "@/lib/action-plans";
+import { subebDisplayName } from '@/lib/state-names';
 import type { LocalUser } from "@/lib/local-session";
 
 const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 2 });
@@ -101,7 +102,7 @@ export default function DashboardPage() {
     <SubebHeader user={user} />
     <main className="dashboard-main" id="main-content">
       <section className="dashboard-hero" aria-labelledby="hero-title">
-        <div className="dashboard-hero-copy"><div><h1 id="hero-title">{loading ? <span className="sr-only">Loading state…</span> : stateName ? `${stateName} SUBEB` : "State unavailable"}</h1></div>{canCreatePlan && <Button className="hero-create" onClick={beginPlan} disabled={unavailable}><PlusIcon />Create action plan</Button>}</div>
+        <div className="dashboard-hero-copy"><div><h1 id="hero-title">{loading ? <span className="sr-only">Loading state…</span> : stateName ? subebDisplayName(stateName) : "State unavailable"}</h1></div>{canCreatePlan && <Button className="hero-create" onClick={beginPlan} disabled={unavailable}><PlusIcon />Create action plan</Button>}</div>
         <DashboardArtwork />
         <section className="dashboard-stats" aria-label="Workspace totals">
           {[{ label: "Basic Education Action Plans", value: String(dashboardPlans.length), artwork: PlansArtwork, tone: "ivory" }, { label: "Total proposed budget", value: compactMoney.format(totalBudget), artwork: BudgetArtwork, tone: "teal" }, { label: "Targeted schools", value: String(dashboardSchoolCount), artwork: SchoolsArtwork, tone: "sage" }].map((stat) => (

@@ -48,7 +48,7 @@ export default function Home() {
       <section className="signin-panel" id="top" aria-labelledby="sign-in-title">
         <LoginContours />
         <div className="signin-card">
-          <div className="portal-brand login-mobile-brand"><UbecLogo /><span><strong>BEAPMS Portal</strong><small>Yobe State SUBEB</small></span></div>
+          <div className="portal-brand login-mobile-brand"><UbecLogo /><span><strong>BEAPMS Portal</strong><small>YOBE SUBEB</small></span></div>
           <header className="signin-heading">
             <h1 id="sign-in-title">Welcome back</h1>
             <p>Sign in to your UBEC workspace.</p>
