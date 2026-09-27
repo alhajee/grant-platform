@@ -389,6 +389,16 @@
 .sports-school-heading h2 { font-size: 14px; font-weight: 550; overflow-wrap: anywhere; }
 .sports-school-heading p { margin-top: 4px; color: var(--muted-foreground); font-size: 14px; }
 .sports-empty-action { display: flex; justify-content: center; }
+.sports-editable-row { cursor: pointer; }
+.sports-editable-row:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.sports-editable-table[data-view="budget"] .sports-editable-row[data-state="selected"] { background: color-mix(in srgb, var(--peach) 42%, var(--card)); }
+.sports-editable-table[data-view="allocation"] .sports-editable-row[data-state="selected"] { background: color-mix(in srgb, var(--sage) 42%, var(--card)); }
+@media (hover:hover) and (pointer:fine) {
+  .sports-editable-row:hover { background: color-mix(in srgb, var(--muted) 58%, var(--card)); }
+  .sports-editable-table[data-view="budget"] .sports-editable-row[data-state="selected"]:hover { background: color-mix(in srgb, var(--peach) 52%, var(--card)); }
+  .sports-editable-table[data-view="allocation"] .sports-editable-row[data-state="selected"]:hover { background: color-mix(in srgb, var(--sage) 52%, var(--card)); }
+  .sports-line-navigation [data-slot="button"]:not(:disabled):hover { background: var(--primary); color: var(--primary-foreground); }
+}
 @container (max-width: 480px) {
   .sports-amount-column { width: 0; }
   .sports-amount-cell, .sports-table:has(.sports-amount-column) [data-slot="table-head"]:nth-child(2) { display: none; }

@@ -14,7 +14,6 @@
 [data-slot=badge][data-role=intervention][data-kind=whole]{--intervention-tint:var(--sage);--intervention-ink:var(--primary)}
 [data-slot=badge][data-role=intervention][data-kind=furniture]{--intervention-tint:var(--lilac);--intervention-ink:var(--primary)}
 .infra-review-stack{gap:14px}
-.infra-accessibility-note{border-style:dashed;background:color-mix(in srgb,var(--sage) 38%,var(--card));padding:12px}
 .infra-review-documents{gap:12px}
 .infra-review-documents>[data-slot=field-group]{gap:18px}
 .infra-review-documents [data-slot=field]{min-width:0;gap:8px}

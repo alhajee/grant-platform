@@ -3,13 +3,14 @@ import { PlanStatusBadge } from "@/components/plan-status";
 import { currentPlanHref, planPeriod, type ActionPlan } from "@/lib/action-plans";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { CheckIcon, EyeIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { SportsAllocationFields, SportsBudgetFields, emptyAllocation, emptyBudget, type AllocationDraft, type BudgetDraft, type FormErrors } from "@/components/sports-plan-forms";
 import { SportsBeneficiaryPreview, SportsBudgetPreview, type SportsTarget } from "@/components/sports-plan-preview";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup, ButtonGroupSeparator } from "@/components/ui/button-group";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -51,6 +52,10 @@ export default function SportsPage() {
   const equipmentQuantity = plan.lines.filter((line) => line.section === "equipment").reduce((sum, line) => sum + line.quantity, 0);
   const allocatedQuantity = plan.allocations.reduce((sum, item) => sum + item.quantity, 0);
   const lineTotal = sportsLineTotal({ quantity: Number(budget.quantity) || 0, unitCost: Number(budget.unitCost) || 0 });
+  const orderedTargets: SportsTarget[] = view === "budget"
+    ? sportsSections.flatMap((section) => plan.lines.filter((line) => line.section === section.id).map((item) => ({ entity: "budget" as const, item })))
+    : [...new Set(plan.allocations.map((item) => item.schoolId))].flatMap((schoolId) => plan.allocations.filter((item) => item.schoolId === schoolId).map((item) => ({ entity: "allocation" as const, item })));
+  const editingIndex = editingId ? orderedTargets.findIndex((target) => target.item.id === editingId) : -1;
 
   const loadPlan = useCallback(async () => {
     const response = await fetch(currentPlanHref("/api/sports"), { cache: "no-store" });
@@ -83,6 +88,13 @@ export default function SportsPage() {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, saving]);
+  useEffect(() => {
+    if (!editingId) return;
+    const frame = requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(`[data-sports-row-id="${view}-${editingId}"]`)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest", inline: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [editingId, view]);
 
   function resetBudget(next: BudgetDraft = emptyBudget) { setBudget(next); setBudgetBaseline(next); setErrors({}); }
   function resetAllocation(next: AllocationDraft = emptyAllocation) { setAllocation(next); setAllocationBaseline(next); setErrors({}); }
@@ -107,6 +119,10 @@ export default function SportsPage() {
     };
     if (target.entity === "budget" ? budgetDirty : allocationDirty) setPendingAction({ run, leaving: false });
     else run();
+  }
+  function navigateLine(offset: number) {
+    const target = orderedTargets[editingIndex + offset];
+    if (target) edit(target);
   }
   async function write(body: unknown) {
     const response = await fetch(currentPlanHref("/api/sports"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -167,10 +183,10 @@ export default function SportsPage() {
     </div></ScrollArea>
     <div className="editor-footer">
       <div className="line-total"><span>{view === "budget" ? "Line total" : "Items for this school"}</span><strong>{view === "budget" ? money.format(Number.isFinite(lineTotal) ? lineTotal : 0) : Number(allocation.quantity || 0).toLocaleString()}</strong></div>
-      <div className="footer-actions">{editingId && <Button variant="ghost" disabled={saving} onClick={() => {
+      <div className="footer-actions">{editingId && <><Button variant="ghost" disabled={saving} onClick={() => {
         const run = () => view === "budget" ? resetBudget() : resetAllocation();
         if (view === "budget" ? budgetDirty : allocationDirty) setPendingAction({ run, leaving: false }); else run();
-      }}>Cancel</Button>}
+      }}>Cancel</Button><ButtonGroup className="sports-line-navigation" aria-label={`${view === "budget" ? "Budget item" : "School allocation"} navigation`}><Button size="icon" variant="secondary" aria-label={`Previous ${view === "budget" ? "budget item" : "school allocation"}`} title="Previous item" disabled={disabled || editingIndex <= 0} onClick={() => navigateLine(-1)}><ChevronLeftIcon /></Button><ButtonGroupSeparator /><Button size="icon" variant="secondary" aria-label={`Next ${view === "budget" ? "budget item" : "school allocation"}`} title="Next item" disabled={disabled || editingIndex < 0 || editingIndex === orderedTargets.length - 1} onClick={() => navigateLine(1)}><ChevronRightIcon /></Button></ButtonGroup></>}
         <Button type="submit" form="sports-form" disabled={disabled || (view === "allocation" && !hasEquipment)} aria-busy={saving}>{saving ? <Spinner data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}{saving ? "Saving…" : editingId ? "Save changes" : view === "budget" ? "Add item" : "Add to school"}</Button>
       </div>
     </div>

@@ -53,7 +53,7 @@ export async function POST(req:NextRequest){
    if(new Set(input.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan.');
    if(docs.some(d=>d.school_id!==null&&d.school_id!==input.schoolId))return error('One or more attachments belong to a different school.');
    if(prior&&prior.kind!==input.kind)return error('An existing package’s intervention type cannot be changed.');
-   if(prior?.kind==='whole'&&!docs.some(d=>d.kind==='boq'&&d.school_id===input.schoolId&&!prior.input.documentIds.includes(d.id)&&new Date(d.created_at)>new Date(prior.updated_at)))return error('Attach an updated BOQ for this school before saving changes to a Whole School package.');
+   if(prior?.kind==='whole'&&!docs.some(d=>d.kind==='boq'&&d.school_id===input.schoolId&&!prior.input.documentIds.includes(d.id)&&new Date(d.created_at)>new Date(prior.updated_at)))return error('Attach an updated BOQ for this school before saving changes to a Whole School Renovation/Expansion package.');
    const result={...calculateInfrastructure(input,school.male+school.female),school};
    const args=[JSON.stringify(input),JSON.stringify(result),result.total.toFixed(2),input.schoolId,input.kind];
    if(prior)await db.query('UPDATE infrastructure_packages SET input=$1::jsonb,result=$2::jsonb,total_cost=$3,school_id=$4,kind=$5,version=version+1,updated_at=NOW() WHERE id=$6 AND plan_id=$7',[...args,v.id,plan.id]);

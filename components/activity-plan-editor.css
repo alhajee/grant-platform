@@ -18,4 +18,9 @@
 .activity-table-section { margin-block:24px; }
 .activity-table-section h2 { font-size:15px;font-weight:600;line-height:1.5;margin-bottom:12px; }
 .activity-table-section td:first-child { min-width:200px;white-space:normal; }
+.activity-line-row{cursor:pointer}
+.activity-line-row:focus-visible{outline:2px solid var(--ring);outline-offset:-2px}
+.activity-shell[data-workstream=sbmc] .activity-line-row[data-state=selected]{background:color-mix(in srgb,var(--sage) 42%,var(--card))}
+.activity-shell[data-workstream=tlm] .activity-line-row[data-state=selected]{background:color-mix(in srgb,var(--lilac) 42%,var(--card))}
+@media(hover:hover) and (pointer:fine){.activity-line-row:hover{background:color-mix(in srgb,var(--muted) 58%,var(--card))}.activity-shell[data-workstream=sbmc] .activity-line-row[data-state=selected]:hover{background:color-mix(in srgb,var(--sage) 52%,var(--card))}.activity-shell[data-workstream=tlm] .activity-line-row[data-state=selected]:hover{background:color-mix(in srgb,var(--lilac) 52%,var(--card))}.activity-line-navigation [data-slot=button]:not(:disabled):hover{background:var(--primary);color:var(--primary-foreground)}}
 @media(max-width:850px){.activity-shell{height:auto;overflow:visible}.activity-shell .portal-workspace{height:auto;overflow:visible}.activity-split{grid-template-columns:1fr;overflow:visible}.activity-split .workspace-pane{min-height:500px}.activity-split .pane-scroll{max-height:650px}.activity-split .editor-pane{border-right:0;border-bottom:1px solid var(--border)}}

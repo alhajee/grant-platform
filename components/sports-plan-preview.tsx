@@ -28,12 +28,12 @@ export function SportsBudgetPreview({ plan, disabled, onEdit, onRemove, editingI
         const typeLines = lines.filter((line) => line.activityType === type);
         return <div className="sports-table" key={type}>
           <div className="sports-type-heading"><h3>{type}</h3><span>{typeLines.length} {typeLines.length === 1 ? "line" : "lines"}</span></div>
-          <Table className="table-fixed"><colgroup><col /><col className="sports-amount-column" /><col className="actions-column" /></colgroup>
+          <Table className="table-fixed sports-editable-table" data-view="budget"><colgroup><col /><col className="sports-amount-column" /><col className="actions-column" /></colgroup>
             <TableHeader><TableRow><TableHead>Item / allowable activity</TableHead><TableHead className="text-right">Amount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
-            <TableBody>{typeLines.map((line) => <TableRow key={line.id} data-state={editingId === line.id ? "selected" : undefined}>
+            <TableBody>{typeLines.map((line) => <TableRow key={line.id} className="sports-editable-row" tabIndex={0} aria-label={`Edit ${line.description}`} aria-selected={editingId === line.id} data-sports-row-id={`budget-${line.id}`} data-state={editingId === line.id ? "selected" : undefined} onClick={() => !disabled && onEdit({ entity: "budget", item: line })} onKeyDown={(event) => { if (!disabled && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit({ entity: "budget", item: line }); } }}>
               <TableCell className="school-cell"><div className="school-name">{line.description}</div><div className="school-location">{line.quantity.toLocaleString()} × {money.format(line.unitCost)}</div>{line.section === "equipment" && <div className="school-code">{line.code}</div>}<div className="sports-mobile-amount">{money.format(sportsLineTotal(line))}</div></TableCell>
               <TableCell className="sports-amount-cell">{money.format(sportsLineTotal(line))}</TableCell>
-              <TableCell className="line-actions"><RowActions label={line.description} disabled={disabled} onEdit={() => onEdit({ entity: "budget", item: line })} onRemove={() => onRemove({ entity: "budget", item: line })} /></TableCell>
+              <TableCell className="line-actions" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}><RowActions label={line.description} disabled={disabled} onEdit={() => onEdit({ entity: "budget", item: line })} onRemove={() => onRemove({ entity: "budget", item: line })} /></TableCell>
             </TableRow>)}</TableBody>
           </Table>
           {typeLines.length > 1 && <div className="schedule-total"><span>Subtotal</span><strong>{money.format(sportsBudget(typeLines))}</strong></div>}
@@ -51,14 +51,14 @@ export function SportsBeneficiaryPreview({ plan, disabled, onEdit, onRemove, edi
     const school = allocations[0];
     return <section key={schoolId} className="sports-table" aria-label={school.name}>
       <div className="sports-school-heading"><h2>{school.name}</h2><p>{school.lga} · {school.level} · {school.location}</p></div>
-      <Table className="table-fixed"><colgroup><col /><col className="quantity-column" /><col className="actions-column" /></colgroup>
+      <Table className="table-fixed sports-editable-table" data-view="allocation"><colgroup><col /><col className="quantity-column" /><col className="actions-column" /></colgroup>
         <TableHeader><TableRow><TableHead>Sport / equipment</TableHead><TableHead className="text-right">Qty.</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
         <TableBody>{allocations.map((allocation) => {
           const line = plan.lines.find((item) => item.id === allocation.lineId);
-          return <TableRow key={allocation.id} data-state={editingId === allocation.id ? "selected" : undefined}>
+          return <TableRow key={allocation.id} className="sports-editable-row" tabIndex={0} aria-label={`Edit ${line?.description ?? "equipment"} for ${school.name}`} aria-selected={editingId === allocation.id} data-sports-row-id={`allocation-${allocation.id}`} data-state={editingId === allocation.id ? "selected" : undefined} onClick={() => !disabled && onEdit({ entity: "allocation", item: allocation })} onKeyDown={(event) => { if (!disabled && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit({ entity: "allocation", item: allocation }); } }}>
             <TableCell className="school-cell"><div className="school-name">{line?.description}</div><div className="school-location">{line?.activityType}</div>{(allocation.longitude || allocation.latitude) && <div className="school-code">Long. {allocation.longitude || "—"} · Lat. {allocation.latitude || "—"}</div>}</TableCell>
             <TableCell className="quantity-cell text-right tabular-nums">{allocation.quantity.toLocaleString()}</TableCell>
-            <TableCell className="line-actions"><RowActions label={`${line?.description} — ${school.name}`} disabled={disabled} onEdit={() => onEdit({ entity: "allocation", item: allocation })} onRemove={() => onRemove({ entity: "allocation", item: allocation })} /></TableCell>
+            <TableCell className="line-actions" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}><RowActions label={`${line?.description} — ${school.name}`} disabled={disabled} onEdit={() => onEdit({ entity: "allocation", item: allocation })} onRemove={() => onRemove({ entity: "allocation", item: allocation })} /></TableCell>
           </TableRow>;
         })}</TableBody>
       </Table>
