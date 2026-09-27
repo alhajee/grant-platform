@@ -1,4 +1,3 @@
-.dashboard-page { --dashboard-sage: #b8c997; min-height: 100dvh; background: var(--canvas); }
 .dashboard-page .review-queue {
   --card: var(--attention);
   --card-foreground: var(--attention-foreground);

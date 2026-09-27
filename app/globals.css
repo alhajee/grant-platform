@@ -55,6 +55,9 @@
   --radius: .625rem;
 }
 
+/* Shared SUBEB workspace canvas, including the dashboard and user directory. */
+.dashboard-page { --dashboard-sage: #b8c997; min-height: 100dvh; background: var(--canvas); }
+
 .school-reuse-toast { border-color: color-mix(in srgb, var(--warning) 38%, var(--border)) !important; background: color-mix(in srgb, var(--warning) 10%, var(--popover)) !important; color: var(--warning-foreground) !important; }
 .school-reuse-toast [data-close-button] { border-color: color-mix(in srgb, var(--warning) 38%, var(--border)) !important; background: var(--popover) !important; color: var(--warning-foreground) !important; }
 @theme inline {
