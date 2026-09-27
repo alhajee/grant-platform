@@ -101,7 +101,28 @@
 .investment-filter-trigger [data-slot=badge] { min-width: 20px; margin-left: auto; justify-content: center; padding-inline: 5px; }
 .dashboard-aside-content { grid-row: 2; display: flex; flex-direction: column; gap: 20px; }
 .budget-allocation { border-radius: 14px; box-shadow: none; gap: 20px; }
-.investment-filter-popover { max-height: min(680px, calc(100dvh - 24px)); overflow-y: auto; }
+.investment-filter-sheet { width: min(480px, 100vw); max-width: none; gap: 0; overflow: hidden; box-shadow: -24px 0 70px -38px color-mix(in srgb, var(--foreground) 45%, transparent); }
+.investment-filter-header { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 20px 58px 20px 20px; background: color-mix(in srgb, var(--primary) 7%, var(--background)); }
+.investment-filter-emblem { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--primary); color: var(--primary-foreground); box-shadow: 0 8px 18px -12px color-mix(in srgb, var(--primary) 70%, transparent); }
+.investment-filter-emblem svg { width: 18px; height: 18px; }
+.investment-filter-header [data-slot=sheet-title] { font-size: 17px; letter-spacing: -.02em; }
+.investment-filter-header [data-slot=sheet-description] { margin-top: 4px; font-size: 13px; line-height: 1.45; }
+.investment-filter-header [data-slot=badge] { flex: none; }
+.investment-filter-scroll { min-height: 0; flex: 1; }
+.investment-filter-accordion { padding: 0 20px 20px; }
+.investment-filter-accordion [data-slot=accordion-trigger] { padding-block: 15px; text-decoration: none; }
+.investment-filter-accordion [data-slot=accordion-trigger]:hover { color: var(--primary); text-decoration: none; }
+.investment-filter-section-label { display: flex; min-width: 0; align-items: center; gap: 9px; font-size: 14px; }
+.investment-filter-section-label > svg { width: 17px; height: 17px; color: var(--muted-foreground); }
+.investment-filter-section-label [data-slot=badge] { min-width: 20px; justify-content: center; padding-inline: 5px; }
+.investment-filter-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
+.investment-filter-options [data-slot=toggle-group-item] { width: 100%; min-height: 36px; height: auto; justify-content: flex-start; padding: 7px 10px; border-radius: 9px; white-space: normal; text-align: left; line-height: 1.25; }
+.investment-filter-options-wide { grid-template-columns: 1fr; }
+.investment-filter-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.investment-filter-checks [data-slot=field] { min-height: 44px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; background: color-mix(in srgb, var(--muted) 35%, transparent); }
+.investment-filter-checks [data-slot=field-label] { font-size: 13px; line-height: 1.35; }
+.investment-filter-footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; background: color-mix(in srgb, var(--muted) 42%, var(--background)); }
+.investment-filter-footer [data-slot=button] { border-radius: 9px; }
 .budget-allocation h2 { font-size: 15px; letter-spacing: -.025em; }
 .budget-allocation [data-slot=card-description] { font-size: 14px; }
 .allocation-donut { height: 160px; width: 160px; border-radius: 50%; padding: 15px; margin: 2px auto 25px; transform: rotate(-90deg); }
