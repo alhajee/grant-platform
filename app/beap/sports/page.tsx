@@ -98,6 +98,14 @@ export default function SportsPage() {
 
   function resetBudget(next: BudgetDraft = emptyBudget) { setBudget(next); setBudgetBaseline(next); setErrors({}); }
   function resetAllocation(next: AllocationDraft = emptyAllocation) { setAllocation(next); setAllocationBaseline(next); setErrors({}); }
+  function changeAllocation(next: AllocationDraft) {
+    if (next.schoolId && next.schoolId !== allocation.schoolId) {
+      const existingActivities = [...new Set(plan.allocations.filter((item) => item.schoolId === next.schoolId && item.id !== next.id).map((item) => plan.lines.find((line) => line.id === item.lineId)?.description).filter((description): description is string => Boolean(description)))];
+      const selectedSchool = plan.schools.find((item) => item.id === next.schoolId);
+      if (existingActivities.length) toast.warning(`${selectedSchool?.name ?? "This school"} is already used in this plan.`, { id: `school-reuse-sports-${next.schoolId}`, description: `This school already has ${existingActivities.join(", ")}. Continue only if this is intentional.`, duration: 10000, closeButton: true, className: "school-reuse-toast" });
+    }
+    setAllocation(next); setErrors({});
+  }
   function changeView(next: PlanView) { setView(next); setErrors({}); setMobileView("editor"); }
   function focusEditor(id: string) {
     setMobileView("editor");
@@ -177,7 +185,7 @@ export default function SportsPage() {
       <header className="editor-heading"><h1>{view === "budget" ? editingId ? "Edit budget item" : "Add a budget item" : editingId ? "Edit school allocation" : "Add a beneficiary school"}</h1></header>
       {loadError && <Alert variant="destructive"><AlertTitle>Unable to refresh the plan</AlertTitle><AlertDescription>{loadError}<Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); void initialize(); }}>Try again</Button></AlertDescription></Alert>}
       <form id="sports-form" onSubmit={save} noValidate><fieldset className="project-fields" disabled={disabled}>
-        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { setBudget(next); setErrors({}); }} plan={plan} errors={errors} disabled={disabled} /> : <SportsAllocationFields draft={allocation} onChange={(next) => { setAllocation(next); setErrors({}); }} plan={plan} errors={errors} disabled={disabled} />}
+        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { setBudget(next); setErrors({}); }} plan={plan} errors={errors} disabled={disabled} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
       </fieldset></form>
       {view === "allocation" && !hasEquipment && !loading && !loadError && <div className="sports-empty-action"><Button variant="outline" onClick={() => changeView("budget")}>Go to budget</Button></div>}
     </div></ScrollArea>
