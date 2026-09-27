@@ -7,6 +7,7 @@ import { ButtonGroup,ButtonGroupSeparator } from '@/components/ui/button-group';
 import { Card,CardHeader,CardTitle,CardDescription,CardContent } from '@/components/ui/card';
 import { Field,FieldGroup,FieldLabel,FieldSet,FieldLegend } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/currency-input';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect,NativeSelectOption } from '@/components/ui/native-select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,7 +34,7 @@ const docHelp:Partial<Record<InfraDocument['kind'],string>>={drawings:'Attach th
 function SelectField({label,value,options,onChange,help}:{label:string;value:string;options:{value:string;label:string}[];onChange:(v:string)=>void;help?:string}){
  const id=useId();return <Field><div className="flex items-center gap-1"><FieldLabel htmlFor={id}>{label}</FieldLabel>{help&&<FieldHelp>{help}</FieldHelp>}</div><NativeSelect id={id} aria-label={label} value={value} onChange={e=>onChange(e.target.value)}>{options.map(o=><NativeSelectOption key={o.value} value={o.value}>{o.label}</NativeSelectOption>)}</NativeSelect></Field>;
 }
-function NumberField({label,value,onChange,step='1',help}:{label:string;value:number;onChange:(n:number)=>void;step?:string;help?:string}){const id=useId();return <Field><div className="flex items-center gap-1"><FieldLabel htmlFor={id}>{label}</FieldLabel>{help&&<FieldHelp>{help}</FieldHelp>}</div><Input id={id} aria-label={label} type="number" min="0" step={step} value={value||''} onChange={e=>onChange(Number(e.target.value))}/></Field>;}
+function NumberField({label,value,onChange,step='1',help}:{label:string;value:number;onChange:(n:number)=>void;step?:string;help?:string}){const id=useId();return <Field><div className="flex items-center gap-1"><FieldLabel htmlFor={id}>{label}</FieldLabel>{help&&<FieldHelp>{help}</FieldHelp>}</div>{step==='0.01'?<CurrencyInput id={id} aria-label={label} placeholder="0.00" value={value?String(value):''} onValueChange={amount=>onChange(Number(amount))}/>:<Input id={id} aria-label={label} type="number" min="0" step={step} value={value||''} onChange={e=>onChange(Number(e.target.value))}/>}</Field>;}
 export function InfrastructureEditor(){
  const [data,setData]=useState<Data|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [draft,setDraft]=useState<InfrastructureInput|null>(null),[editing,setEditing]=useState<InfrastructurePackage|null>(null),[step,setStep]=useState(0),[selected,setSelected]=useState('classroomPri');
@@ -41,7 +42,7 @@ export function InfrastructureEditor(){
  const [baseline,setBaseline]=useState(''),[pending,setPending]=useState<null|(()=>void)>(null),[remove,setRemove]=useState<InfrastructurePackage|null>(null);
  const lock=useRef(false);
  const load=useCallback(async()=>{const r=await fetch(currentPlanHref('/api/infrastructure/packages'),{cache:'no-store'});const body=await r.json() as Data & {error?:string};if(!r.ok)throw Error(body.error??'Unable to load infrastructure.');setData(body);setError('');},[]);
- useEffect(()=>{void load().catch(e=>setError(e.message));},[load]);
+ useEffect(()=>{void Promise.resolve().then(load).catch(e=>setError(e.message));},[load]);
  const dirty=!!draft&&(JSON.stringify(draft)!==baseline||profileDirty);
  useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
  const guard=(run:()=>void)=>{if(dirty)setPending(()=>run);else run();};

@@ -1,0 +1,79 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE_URL: postgresql://ubec_app:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}@postgres:5432/ubec
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in Dokploy}
+    expose:
+      - "3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    networks:
+      - frontend
+      - backend
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ubec
+      POSTGRES_USER: ubec_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}
+    volumes:
+      - ubec_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ubec_app -d ubec"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  migrate:
+    build:
+      context: .
+      dockerfile: db/postgres/Dockerfile.migrate
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://ubec_app:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}@postgres:5432/ubec
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  provision:
+    profiles:
+      - tools
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: provision
+    environment:
+      DATABASE_URL: postgresql://ubec_app:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}@postgres:5432/ubec
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - backend
+
+volumes:
+  ubec_postgres_data:
+
+networks:
+  frontend:
+  backend:
+    internal: true

@@ -1,0 +1,4 @@
+# Add these in Dokploy's Environment tab. Never commit the real values.
+POSTGRES_PASSWORD=generate-a-long-random-database-password
+AUTH_SECRET=generate-at-least-32-random-characters
+

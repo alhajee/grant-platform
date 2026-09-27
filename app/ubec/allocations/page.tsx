@@ -21,7 +21,7 @@ export default function AllocationsPage(){
   const pending=useRef(false);
   const apply=(next:Data)=>{setData(next);setValues(Object.fromEntries(Object.entries(next.policy.allocation.shares).map(([id,bp])=>[id,String(bp/100)])));setTlm(String(next.policy.allocation.tlmWithinInfrastructure/100));};
   const load=useCallback(async()=>{setLoading(true);setError('');try{const r=await fetch('/api/funding-policy',{cache:'no-store'});if(r.status===401){window.location.replace('/');return;}if(!r.ok)throw Error('Unable to load allocations.');const next=await r.json() as Data;if(!next.user.role.startsWith('UBEC ')){window.location.replace('/dashboard');return;}apply(next);}catch(e){setError(e instanceof Error?e.message:'Unable to load allocations.');}finally{setLoading(false);}},[]);
-  useEffect(()=>{void load();},[load]);
+  useEffect(()=>{void Promise.resolve().then(load);},[load]);
   const validNumber=(value:string)=>/^\d{1,3}(\.\d{1,2})?$/.test(value);
   const allocation={shares:Object.fromEntries(beapComponents.map(c=>[c.id,Math.round(Number(values[c.id])*100)])),tlmWithinInfrastructure:Math.round(Number(tlm)*100)} as Allocation;
   const validInputs=Object.values(values).length===9&&Object.values(values).every(validNumber)&&validNumber(tlm);

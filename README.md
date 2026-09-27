@@ -1,5 +1,12 @@
 # vinext-starter
 
+## Production deployment
+
+The repository includes a production Node image, health endpoint, migration
+runner, and a PostgreSQL-backed Dokploy Compose stack. See
+[`docs/deploy-dokploy.md`](docs/deploy-dokploy.md). Local development continues
+to use `docker-compose.yml`; Dokploy should use `docker-compose.prod.yml`.
+
 ## Current configuration
 
 ### Super-admin demo switching

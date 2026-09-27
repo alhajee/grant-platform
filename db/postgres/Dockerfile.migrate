@@ -1,0 +1,6 @@
+FROM postgres:16-alpine
+COPY db/postgres/*.sql /migrations/
+COPY scripts/run-postgres-migrations.sh /usr/local/bin/run-postgres-migrations
+RUN chmod 0555 /usr/local/bin/run-postgres-migrations
+ENTRYPOINT ["run-postgres-migrations"]
+

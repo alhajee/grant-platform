@@ -43,7 +43,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled }: 
     </Field>
     <Separator />
     <Field data-invalid={Boolean(errors.description)}>
-      <FieldLabel htmlFor="sports-description">{draft.section === "equipment" || draft.section === "competitions" ? "Item description" : "Activity / item description"}</FieldLabel>
+      <FieldLabel htmlFor="sports-description">{draft.section === "equipment" || draft.section === "competitions" ? "Item description" : "Allowable activity / item description"}</FieldLabel>
       <Input id="sports-description" value={draft.description} maxLength={1000} placeholder={draft.section === "equipment" ? "e.g. Footballs" : "Enter a description"} onChange={(event) => onChange({ ...draft, description: event.target.value })} aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? "sports-description-error" : undefined} />
       {errors.description && <FieldError id="sports-description-error">{errors.description}</FieldError>}
     </Field>

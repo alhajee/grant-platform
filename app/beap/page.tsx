@@ -61,8 +61,7 @@ export default function BeapPage() {
         <Button asChild variant="ghost" size="sm" className="mb-3"><Link href="/dashboard">← Dashboard</Link></Button>
         <header className="beap-heading">
           <div>
-            <p className="beap-period">{summary ? planPeriod(summary.plan) : "Action plan"} <span aria-hidden="true">/</span> Matching Grant</p>
-            <div className="beap-title"><h1>{summary && summary.plan.startYear !== summary.plan.endYear ? "Multi-year action plan" : "Annual action plan"}</h1>{summary && <PlanStatusBadge status={summary.plan.status} />}</div>
+            <div className="beap-title"><h1>{summary ? `${planPeriod(summary.plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{summary && <PlanStatusBadge status={summary.plan.status} />}</div>
             <p className="beap-intro">{summary?.canEdit ? 'Choose a component to start or continue your plan.' : 'View your saved plan and review history.'}</p>
           </div>
           {summary && !error && <Button asChild><Link href={planHref('/beap/review', summary.plan.id)}>Review plan<ArrowRightIcon /></Link></Button>}

@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+!.env.example
+.next
+.vinext
+.wrangler
+.sites-runtime
+dist
+node_modules
+outputs
+work
+*.log
+*.tsbuildinfo
+

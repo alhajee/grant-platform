@@ -7,17 +7,17 @@ import {stateDisplayName} from '@/lib/state-names';
 import {toast} from 'sonner';
 type Status={isAdmin:boolean;impersonating:boolean;session?:{name:string;role:string;stateCode:string;expiresAt:string}|null};
 export function ImpersonationBanner(){
-  const [status,setStatus]=useState<Status|null>(null),[busy,setBusy]=useState(false);
+  const [status,setStatus]=useState<Status|null>(null),[busy,setBusy]=useState(false),[now,setNow]=useState(0);
   useEffect(()=>{
     let alive=true;
-    const load=()=>{void fetch('/api/admin/impersonation?status=1',{cache:'no-store'}).then(async r=>r.ok?await r.json() as Status:null).then(next=>{if(alive)setStatus(next);}).catch(()=>{});};
+    const load=()=>{void fetch('/api/admin/impersonation?status=1',{cache:'no-store'}).then(async r=>r.ok?await r.json() as Status:null).then(next=>{if(alive){setNow(Date.now());setStatus(next);}}).catch(()=>{});};
     const changed=(event:StorageEvent)=>{if(event.key==='ubec-identity-change')window.location.reload();};
     load();window.addEventListener('focus',load);window.addEventListener('storage',changed);
     const timer=setInterval(load,60000);
     return ()=>{alive=false;clearInterval(timer);window.removeEventListener('focus',load);window.removeEventListener('storage',changed);};
   },[]);
   if(!status?.isAdmin||!status.impersonating)return null;
-  const expired=!status.session||new Date(status.session.expiresAt).getTime()<=Date.now();
+  const expired=!status.session||new Date(status.session.expiresAt).getTime()<=now;
   async function stop(){setBusy(true);try{await switchUser();}catch(e){toast.error(e instanceof Error?e.message:'Unable to return to admin.');setBusy(false);}}
   return <div className="impersonation-strip" role="region" aria-label="Impersonation">
     <Alert className="impersonation-strip-inner">

@@ -27,6 +27,8 @@ services:
       - ./db/postgres/014-activity-plans.sql:/docker-entrypoint-initdb.d/014-activity-plans.sql:ro
       - ./db/postgres/015-infrastructure-packages.sql:/docker-entrypoint-initdb.d/015-infrastructure-packages.sql:ro
       - ./db/postgres/016-infrastructure-school-documents.sql:/docker-entrypoint-initdb.d/016-infrastructure-school-documents.sql:ro
+      - ./db/postgres/019-tlm-textbook-details.sql:/docker-entrypoint-initdb.d/019-tlm-textbook-details.sql:ro
+      - ./db/postgres/020-other-activities.sql:/docker-entrypoint-initdb.d/020-other-activities.sql:ro
 
 volumes:
   ubec_postgres_data:

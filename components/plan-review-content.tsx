@@ -28,7 +28,7 @@ function ReviewToolbar({ label, view, onChange, filters, filterLabel }: { label:
   </div>;
 }
 
-export function PlanReviewContent({ snapshot, sbmcEditHref, tlmEditHref, visiblePillars = ['infrastructure', 'sports', 'sbmc', 'tlm'] }: { snapshot: Snapshot; sbmcEditHref?: string; tlmEditHref?: string; visiblePillars?: readonly string[] }) {
+export function PlanReviewContent({ snapshot, sbmcEditHref, tlmEditHref, showPlanReference = true, visiblePillars = ['infrastructure', 'sports', 'sbmc', 'tlm'] }: { snapshot: Snapshot; sbmcEditHref?: string; tlmEditHref?: string; showPlanReference?: boolean; visiblePillars?: readonly string[] }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [infrastructureView, setInfrastructureView] = useState(initialView);
   const [sportsView, setSportsView] = useState(initialView);
@@ -39,7 +39,7 @@ export function PlanReviewContent({ snapshot, sbmcEditHref, tlmEditHref, visible
     return <Button variant="ghost" size="icon" aria-label={`${expanded[id] ? 'Hide' : 'Show'} details for ${label}`} aria-expanded={!!expanded[id]} aria-controls={`${id}-details`} onClick={() => setExpanded(previous => ({ ...previous, [id]: !previous[id] }))}>{expanded[id] ? <ChevronDown /> : <ChevronRight />}</Button>;
   }
   return <div className="review-sections">
-    {snapshot.setup && <PlanSetupSummary setup={snapshot.setup} compact />}
+    {showPlanReference && snapshot.setup && <PlanSetupSummary setup={snapshot.setup} compact />}
     {visiblePillars.includes('infrastructure') && <Card id="review-infrastructure" className="review-table-card">
       <CardHeader><CardTitle><Building2 aria-hidden="true" />Infrastructure <Badge variant="secondary">{snapshot.infrastructure.length}</Badge></CardTitle><CardDescription>Project lines</CardDescription></CardHeader>
       <ReviewToolbar label="projects" view={infrastructureView} onChange={setInfrastructureView} filters={[...new Set(snapshot.infrastructure.map(line => line.school.lga))].sort()} filterLabel="LGAs" />
@@ -67,7 +67,7 @@ export function PlanReviewContent({ snapshot, sbmcEditHref, tlmEditHref, visible
       <CardHeader><CardTitle><Trophy aria-hidden="true" />Sports activities <Badge variant="secondary">{snapshot.sports.length}</Badge></CardTitle><CardDescription>Budget items</CardDescription></CardHeader>
       <ReviewToolbar label="budget items" view={sportsView} onChange={setSportsView} filters={[...new Set(snapshot.sports.map(line => line.section))].sort()} filterLabel="sections" />
       <Table className="review-data-table" aria-label="Sports budget items">
-        <TableHeader><TableRow><TableHead><span className="sr-only">Details</span></TableHead><TableHead><Trophy />Budget item</TableHead><TableHead><Tag />Section</TableHead><TableHead><Tag />Activity</TableHead><TableHead className="review-number"><Hash />Qty.</TableHead><TableHead className="review-number"><Banknote />Unit cost</TableHead><TableHead className="review-number"><Banknote />Amount</TableHead></TableRow></TableHeader>
+        <TableHeader><TableRow><TableHead><span className="sr-only">Details</span></TableHead><TableHead><Trophy />Budget item</TableHead><TableHead><Tag />Section</TableHead><TableHead><Tag />Allowable activity</TableHead><TableHead className="review-number"><Hash />Qty.</TableHead><TableHead className="review-number"><Banknote />Unit cost</TableHead><TableHead className="review-number"><Banknote />Amount</TableHead></TableRow></TableHeader>
         <TableBody>
           {!sports.length && <TableRow><TableCell colSpan={7} className="review-table-empty">{snapshot.sports.length ? 'No budget items match your search or filter.' : 'No sports budget items.'}</TableCell></TableRow>}
           {sports.map(line => {

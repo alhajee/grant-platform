@@ -29,7 +29,7 @@ export function SportsBudgetPreview({ plan, disabled, onEdit, onRemove, editingI
         return <div className="sports-table" key={type}>
           <div className="sports-type-heading"><h3>{type}</h3><span>{typeLines.length} {typeLines.length === 1 ? "line" : "lines"}</span></div>
           <Table className="table-fixed"><colgroup><col /><col className="sports-amount-column" /><col className="actions-column" /></colgroup>
-            <TableHeader><TableRow><TableHead>Item / activity</TableHead><TableHead className="text-right">Amount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Item / allowable activity</TableHead><TableHead className="text-right">Amount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
             <TableBody>{typeLines.map((line) => <TableRow key={line.id} data-state={editingId === line.id ? "selected" : undefined}>
               <TableCell className="school-cell"><div className="school-name">{line.description}</div><div className="school-location">{line.quantity.toLocaleString()} × {money.format(line.unitCost)}</div>{line.section === "equipment" && <div className="school-code">{line.code}</div>}<div className="sports-mobile-amount">{money.format(sportsLineTotal(line))}</div></TableCell>
               <TableCell className="sports-amount-cell">{money.format(sportsLineTotal(line))}</TableCell>

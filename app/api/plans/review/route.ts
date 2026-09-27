@@ -8,6 +8,7 @@ import { getWorkspaceState } from '@/lib/workspace-state';
 import { resolveActionPlan, planFields } from '@/lib/plan-workspace';
 import { type ActionPlan } from '@/lib/action-plans';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
+import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
 import { aggregateReviewStatus, readPillarReviews, readyForUbec, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
@@ -65,6 +66,11 @@ export async function POST(request: NextRequest) {
       const recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role=$2 AND ($2='Executive Chairman' OR department=$3)", [workspace.stateCode,recipientRole,department])).rows;
       if (!recipients.length) return error(`No active ${recipientRole} is assigned to this department/state.`, 409);
       const snapshot = await readPlanSnapshot(db, plan.id);
+      if(input.action!=='request_changes' && input.pillar==='sbmc') {
+        const problem=sbmcBudgetProblem((snapshot.sbmc??[]).reduce((sum,line)=>sum+budgetKobo(line.unit_cost)*BigInt(line.quantity),BigInt(0)),plan,true);
+        if(problem)return error(problem);
+        if(snapshot.sbmc?.some(line=>!line.rationale?.trim()||!line.implementation_approach?.trim()))return error('Complete the rationale and implementation approach for every SBMC item before sending it.');
+      }
       if (input.action !== 'request_changes' && !snapshot[input.pillar]?.length) return error('Add saved entries to this pillar before sending it.');
       if (input.action !== 'request_changes' && input.pillar==='infrastructure') { const problem=infrastructureDocumentProblem(snapshot); if(problem)return error(problem); }
       if (input.action !== 'request_changes' && input.pillar==='tlm' && !snapshot.tlmDistribution?.length) return error('Add at least one school to the TLM distribution list before sending it.');

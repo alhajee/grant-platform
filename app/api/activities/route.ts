@@ -7,6 +7,7 @@ import { getPostgres } from '@/lib/postgres';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { mayEditPillar, readPillarReviews } from '@/lib/pillar-review';
 import { activityLineSchema, activityWorkstreams } from '@/lib/activity-plans';
+import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 export async function GET(req:NextRequest){
  try{
@@ -15,7 +16,7 @@ export async function GET(req:NextRequest){
   const parsed=z.enum(activityWorkstreams).safeParse(req.nextUrl.searchParams.get('workstream')); if(!parsed.success)return error('Choose a component.');
   const db=getPostgres(), workstream=parsed.data;
   if(!canViewComponent(user,workstream))return error('This component belongs to another department.',403);
-  const lines=(await db.query('SELECT id,workstream,activity,description,quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
+  const lines=(await db.query('SELECT id,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject" FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
   const schools=workstream==='tlm'?(await db.query('SELECT id,name,lga,level,location FROM schools WHERE state_code=$1 ORDER BY name',[user.stateCode])).rows:[];
   const distribution=workstream==='tlm'?(await db.query('SELECT s.id,s.name,s.lga,s.level,s.location FROM tlm_distribution d JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND s.state_code=$2 ORDER BY s.name',[plan.id,user.stateCode])).rows:[];
   return NextResponse.json({plan,lines,schools,distribution,canEdit:mayEditPillar(user.role,user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
@@ -43,9 +44,14 @@ export async function POST(req:NextRequest){
     if(action==='delete')await db.query('DELETE FROM activity_plan_lines WHERE id=$1 AND plan_id=$2',[id,plan.id]);
     else{
      const line=activityLineSchema.safeParse(body); if(!line.success)return error(line.error.issues[0].message);
-     const v=line.data, values=[v.activity,v.description,v.quantity,v.unitCost.toFixed(2),v.strategy,v.targetGroup,v.location,v.equipment];
-     if(action==='create')await db.query('INSERT INTO activity_plan_lines(activity,description,quantity,unit_cost,strategy,target_group,location,equipment,plan_id,workstream) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[...values,plan.id,workstream]);
-     else await db.query('UPDATE activity_plan_lines SET activity=$1,description=$2,quantity=$3,unit_cost=$4,strategy=$5,target_group=$6,location=$7,equipment=$8,updated_at=NOW() WHERE id=$9 AND plan_id=$10',[...values,id,plan.id]);
+     const v=line.data, values=[v.activity,v.customActivity,v.description,v.quantity,v.unitCost.toFixed(2),v.strategy,v.targetGroup,v.location,v.equipment,v.rationale,v.implementationApproach,v.textbookClasses,v.textbookSubject];
+     if(workstream==='sbmc') {
+      const existing=(await db.query("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='sbmc' AND ($2::bigint IS NULL OR id<>$2)",[plan.id,action==='update'?id:null])).rows[0].total;
+      const problem=sbmcBudgetProblem(budgetKobo(existing)+budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity),plan);
+      if(problem)return error(problem);
+     }
+     if(action==='create')await db.query('INSERT INTO activity_plan_lines(activity,custom_activity,description,quantity,unit_cost,strategy,target_group,location,equipment,rationale,implementation_approach,textbook_classes,textbook_subject,plan_id,workstream) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',[...values,plan.id,workstream]);
+     else await db.query('UPDATE activity_plan_lines SET activity=$1,custom_activity=$2,description=$3,quantity=$4,unit_cost=$5,strategy=$6,target_group=$7,location=$8,equipment=$9,rationale=$10,implementation_approach=$11,textbook_classes=$12,textbook_subject=$13,updated_at=NOW() WHERE id=$14 AND plan_id=$15',[...values,id,plan.id]);
     }
    }
    return NextResponse.json({ok:true});

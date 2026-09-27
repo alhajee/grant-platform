@@ -2,6 +2,13 @@
 .activity-split .editor-pane { border-right:1px solid var(--border); }
 .activity-split [data-slot=native-select-wrapper] { width:100%; }
 .activity-split .preview-document { max-width:none; }
+.activity-shell .editor-canvas { padding:18px 22px 20px; }
+.activity-shell .editor-heading { margin-bottom:18px; }
+.activity-shell .editor-heading h1 { font-size:21px; }
+.activity-shell .editor-canvas [data-slot=field-group] { gap:16px; }
+.activity-shell .editor-canvas [data-slot=field] { gap:6px; min-width:0; }
+.activity-shell .editor-canvas [data-slot=textarea] { min-height:60px; padding-block:8px; resize:vertical; }
+.activity-shell .editor-footer { padding-block:12px; }
 @media(min-width:851px){
  body:has(.activity-shell){display:flex;flex-direction:column;height:100dvh;overflow:hidden}
  body:has(.activity-shell)>.impersonation-strip{flex-shrink:0}

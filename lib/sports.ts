@@ -3,10 +3,10 @@ import { z } from "zod";
 // These are the four budget sections in the 2025 BEAP Sports Development sheet.
 // Sport and activity names are supplied by the state, not a seeded catalogue.
 export const sportsSections = [
-  { id: "equipment", label: "Sports equipment", typeLabel: "Sport / game", placeholder: "Enter or choose a sport…" },
-  { id: "competitions", label: "Sports competitions", typeLabel: "Competition type", placeholder: "Enter or choose a competition…" },
-  { id: "publicity", label: "Publicity & administration", typeLabel: "Publicity / administration type", placeholder: "Enter or choose a type…" },
-  { id: "supervision", label: "Supervision, assessment & verification", typeLabel: "Supervision / activity type", placeholder: "Enter or choose an activity…" },
+  { id: "equipment", label: "Sports equipment", typeLabel: "Allowable activity", placeholder: "Enter or choose a sport…" },
+  { id: "competitions", label: "Sports competitions", typeLabel: "Allowable activity", placeholder: "Enter or choose a competition…" },
+  { id: "publicity", label: "Publicity & administration", typeLabel: "Allowable activity", placeholder: "Enter or choose an activity…" },
+  { id: "supervision", label: "Supervision, assessment & verification", typeLabel: "Allowable activity", placeholder: "Enter or choose an activity…" },
 ] as const;
 
 export type SportsSection = typeof sportsSections[number]["id"];
