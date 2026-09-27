@@ -52,10 +52,10 @@ export function InvestmentFilter({ plans, value, onChange }: { plans: PlanOvervi
   const budgetCount = Number(Boolean(value.minimumBudget)) + Number(Boolean(value.maximumBudget));
 
   return <Sheet open={open} onOpenChange={setOpen}>
-    <SheetTrigger asChild><Button type="button" variant="outline" className="investment-filter-trigger"><ListFilterIcon data-icon="inline-start" />Filter investments{count > 0 && <Badge variant="secondary">{count}</Badge>}</Button></SheetTrigger>
+    <SheetTrigger asChild><Button type="button" variant="outline" className="investment-filter-trigger"><ListFilterIcon data-icon="inline-start" />Filter dashboard{count > 0 && <Badge variant="secondary">{count}</Badge>}</Button></SheetTrigger>
     <SheetContent side="right" className="investment-filter-sheet" aria-labelledby="investment-filter-title">
       <SheetHeader className="investment-filter-header">
-        <span className="min-w-0"><span className="flex items-center gap-2"><SheetTitle id="investment-filter-title">Filter investments</SheetTitle>{count > 0 && <Badge>{count} active</Badge>}</span><SheetDescription>Combine options to refine the budget breakdown.</SheetDescription></span>
+        <span className="min-w-0"><span className="flex items-center gap-2"><SheetTitle id="investment-filter-title">Filter dashboard</SheetTitle>{count > 0 && <Badge>{count} active</Badge>}</span><SheetDescription>Combine options to refine the plans and budget breakdown.</SheetDescription></span>
       </SheetHeader>
       <Separator />
       <ScrollArea className="investment-filter-scroll">
@@ -82,7 +82,7 @@ export function InvestmentFilter({ plans, value, onChange }: { plans: PlanOvervi
         </Accordion>
       </ScrollArea>
       <Separator />
-      <SheetFooter className="investment-filter-footer"><Button type="button" variant="ghost" size="sm" disabled={!count} onClick={() => onChange(emptyInvestmentFilters)}><RotateCcwIcon data-icon="inline-start" />Clear all</Button><Button type="button" size="sm" onClick={() => setOpen(false)}>Show results</Button></SheetFooter>
+      <SheetFooter className="investment-filter-footer"><Button type="button" variant="ghost" size="sm" disabled={!count} onClick={() => onChange(emptyInvestmentFilters)}><RotateCcwIcon data-icon="inline-start" />Clear filters</Button></SheetFooter>
     </SheetContent>
   </Sheet>;
 }
