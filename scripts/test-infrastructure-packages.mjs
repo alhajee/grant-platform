@@ -24,12 +24,22 @@ try{
  ok(await api('officer',path,{action:'save',input}));let current=ok(await api('officer',path));const project=current.packages[0];assert.equal(Number(project.total_cost),1000);
  ok(await api('officer',path,{action:'save',id:project.id,version:999,input}),409);
  ok(await api('officer',path,{action:'profile',schoolId:school,profile:{male:200,female:200,latitude:'12',longitude:'10'}}));
+ const lockedProfile=(await db.query('SELECT enrolment_male,enrolment_female,latitude,longitude FROM schools WHERE id=$1',[school])).rows[0];
+ assert.deepEqual([lockedProfile.enrolment_male,lockedProfile.enrolment_female],[100,100],'Existing learner figures remain locked');
+ assert.deepEqual([lockedProfile.latitude,lockedProfile.longitude],['12','10'],'Coordinates remain editable');
  let review=ok(await api('officer',reviewPath));assert.equal(review.snapshot.infrastructure[0].package.result.enrolment,200,'Stored package retains original enrolment');
  ok(await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version}),400);
  const docs=[];
  async function upload(kind){const f=new FormData();f.set('kind',kind);if(kind!=='drawings')f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],kind+'.pdf',{type:'application/pdf'}));const d=ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f));assert.equal(d.schoolId,kind==='drawings'?null:school);docs.push(d.id);return d;}
  for(const kind of ['drawings','boq','survey'])await upload(kind);
  secondSchool=(await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES($1,'Second school','QA','Primary','Rural') RETURNING id",[marker])).rows[0].id;
+ ok(await api('officer',path,{action:'profile',schoolId:secondSchool,profile:{male:150,female:100,latitude:'11',longitude:'9'}}));
+ const initialProfile=(await db.query('SELECT enrolment_male,enrolment_female FROM schools WHERE id=$1',[secondSchool])).rows[0];
+ assert.deepEqual([initialProfile.enrolment_male,initialProfile.enrolment_female],[150,100],'Missing learner figures can be entered once');
+ await db.query('UPDATE schools SET enrolment_male=0,enrolment_female=100 WHERE id=$1',[secondSchool]);
+ ok(await api('officer',path,{action:'profile',schoolId:secondSchool,profile:{male:150,female:200,latitude:'11',longitude:'9'}}));
+ const partialProfile=(await db.query('SELECT enrolment_male,enrolment_female FROM schools WHERE id=$1',[secondSchool])).rows[0];
+ assert.deepEqual([partialProfile.enrolment_male,partialProfile.enrolment_female],[150,100],'Only missing learner figures remain editable');
  const furniture=packageSchema.parse({kind:'furniture',schoolId:secondSchool,components:['Primary'],furniture:[{description:'Desks',quantity:1,cost:100}]});
  ok(await api('officer',path,{action:'save',input:{...furniture,documentIds:[docs[1]]}}),400);
  ok(await api('officer',path,{action:'save',input:furniture}));

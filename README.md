@@ -57,7 +57,7 @@ Run `DATABASE_URL=<local connection> node scripts/test-ubec-review.mjs` with the
 
 ## Local UBEC PostgreSQL data
 
-The local development database is defined in `docker-compose.yml`. Start it with `docker compose up -d`, then seed it from the provided school workbook with `python3 scripts/seed-yobe-schools.py`. The importer loads the Yobe primary, JSS, and SSS rows, normalises the known LGA spelling differences, and creates four initial infrastructure lines. Use `docker compose down -v` only when you intentionally want to remove local database data and initialise it again.
+The local development database is defined in `docker-compose.yml`. Start it with `docker compose up -d`, then seed it from the provided school workbook with `python3 scripts/seed-yobe-schools.py`. The importer loads the Yobe primary, JSS, and SSS rows, normalises the known LGA spelling differences, assigns stable synthetic male/female learner counts across the three infrastructure model bands for demonstrations, and creates four initial infrastructure lines. The sample learner counts are not census data and must be replaced with an authoritative DNEMIS/Annual School Census import for production planning. Use `docker compose down -v` only when you intentionally want to remove local database data and initialise it again.
 
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 

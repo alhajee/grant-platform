@@ -34,7 +34,11 @@ export async function POST(req:NextRequest){
    if(v.action==='profile'){
     const profile=profileSchema.safeParse(v.profile);if(!profile.success||!v.schoolId)return error('Enter valid school enrolment and coordinates.');
     const p=profile.data;
-    const updated=await db.query('UPDATE schools SET enrolment_male=$1,enrolment_female=$2,latitude=$3,longitude=$4 WHERE id=$5 AND state_code=$6',[p.male,p.female,p.latitude,p.longitude,v.schoolId,user.stateCode]);
+    const current=(await db.query('SELECT enrolment_male,enrolment_female FROM schools WHERE id=$1 AND state_code=$2 FOR UPDATE',[v.schoolId,user.stateCode])).rows[0];
+    if(!current)return error('School not found.',404);
+    const maleEnrolmentLocked=Number(current.enrolment_male)>0;
+    const femaleEnrolmentLocked=Number(current.enrolment_female)>0;
+    const updated=await db.query('UPDATE schools SET enrolment_male=$1,enrolment_female=$2,latitude=$3,longitude=$4 WHERE id=$5 AND state_code=$6',[maleEnrolmentLocked?current.enrolment_male:p.male,femaleEnrolmentLocked?current.enrolment_female:p.female,p.latitude,p.longitude,v.schoolId,user.stateCode]);
     return updated.rowCount?NextResponse.json({ok:true}):error('School not found.',404);
    }
    const prior=v.id?(await db.query('SELECT * FROM infrastructure_packages WHERE id=$1 AND plan_id=$2 FOR UPDATE',[v.id,plan.id])).rows[0]:null;

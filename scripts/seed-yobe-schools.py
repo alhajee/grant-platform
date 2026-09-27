@@ -2,6 +2,7 @@
 """Load the Yobe rows from the supplied school workbook into local PostgreSQL."""
 
 import csv
+import hashlib
 import io
 import subprocess
 import sys
@@ -16,6 +17,21 @@ LGA_FIXES = {"BARDE": "BADE", "BOSARI": "BURSARI", "TARMUA": "TARMUWA"}
 
 def clean(value):
     return " ".join(str(value or "").strip().split())
+
+
+def sample_enrolment(name, lga, level):
+    """Return stable demo figures spanning all three infrastructure models.
+
+    These values are deliberately synthetic and must be replaced by an
+    authoritative DNEMIS/Annual School Census import for production planning.
+    """
+    digest = int(hashlib.sha256(f"{name}|{lga}|{level}".encode()).hexdigest()[:12], 16)
+    bands = ((120, 240), (241, 320), (321, 560))
+    minimum, maximum = bands[digest % len(bands)]
+    total = minimum + ((digest >> 3) % (maximum - minimum + 1))
+    female_share = 46 + ((digest >> 11) % 7)
+    female = round(total * female_share / 100)
+    return total - female, female
 
 
 def main():
@@ -37,7 +53,8 @@ def main():
             key = (name.upper(), lga, level)
             if key not in seen:
                 seen.add(key)
-                rows.append((name, lga, level, town, category.title(), location))
+                male, female = sample_enrolment(name, lga, level)
+                rows.append((name, lga, level, town, category.title(), location, male, female))
 
     data = io.StringIO()
     writer = csv.writer(data, lineterminator="\n")
@@ -59,7 +76,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 -- Provision demo accounts separately; the school import must not reset passwords.
 TRUNCATE infrastructure_lines, schools RESTART IDENTITY CASCADE;
-COPY schools (name, lga, level, town, category, location) FROM STDIN WITH (FORMAT csv);
+COPY schools (name, lga, level, town, category, location, enrolment_male, enrolment_female) FROM STDIN WITH (FORMAT csv);
 """ + data.getvalue() + "\\.\n" + """
 INSERT INTO action_plans (state_code, start_year, end_year) VALUES ('YO', 2025, 2025) ON CONFLICT DO NOTHING;
 INSERT INTO infrastructure_lines (school_id, plan_id, code, project_type, quantity, rationale, strategy, longitude, latitude, duration, unit_cost)
@@ -80,7 +97,15 @@ FROM (
     )
     if result.returncode:
         raise SystemExit(result.stderr.strip() or "Unable to seed PostgreSQL.")
-    print(f"Seeded {len(rows)} Yobe schools and 4 infrastructure project lines.")
+    model_counts = [0, 0, 0]
+    for row in rows:
+        total = row[-2] + row[-1]
+        model_counts[0 if total <= 240 else 1 if total <= 320 else 2] += 1
+    print(
+        f"Seeded {len(rows)} Yobe schools with sample learner counts "
+        f"(small={model_counts[0]}, medium={model_counts[1]}, large={model_counts[2]}) "
+        "and 4 infrastructure project lines."
+    )
 
 
 if __name__ == "__main__":
