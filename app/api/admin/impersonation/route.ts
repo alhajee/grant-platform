@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {getAuthenticatedUser,sessionBinding} from '@/lib/workspace-state';
 import {getPostgres} from '@/lib/postgres';
 import {isUbec} from '@/lib/ubec';
+import {isSameRequestOrigin} from '@/lib/request-origin';
 
 const json=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{'Cache-Control':'no-store'}});
 const destination=(role:string)=>isUbec(role)?'/ubec':'/dashboard';
@@ -25,7 +26,7 @@ export async function GET(request:NextRequest){
 }
 export async function POST(request:NextRequest){
   try{
-    if(request.headers.get('origin')!==request.nextUrl.origin)return json({error:'This action must come from the portal.'},403);
+    if(!isSameRequestOrigin(request))return json({error:'This action must come from the portal.'},403);
     const actor=await getAuthenticatedUser(request);
     if(!actor)return json({error:'Sign in to continue.'},401);
     if(actor.role!=='Super Admin')return json({error:'Super-admin access required.'},403);
