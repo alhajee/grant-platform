@@ -35,7 +35,7 @@ export function SubebHeader({ user, plan = false, users = false }: { user?: Loca
       <nav aria-label="SUBEB navigation">
         <a href="/dashboard" aria-current={!plansActive && !users ? 'page' : undefined}>Overview</a>
         <a href="/dashboard#action-plans" aria-current={plansActive ? (plan ? 'page' : 'location') : undefined}>Basic Education Action Plans</a>
-        {canManageStateUsers((user === undefined ? sessionUser : user)?.role) && <Link href="/users" aria-current={users ? 'page' : undefined}>Users</Link>}
+        {canManageStateUsers((user === undefined ? sessionUser : user)?.role) && <a href="/users" aria-current={users ? 'page' : undefined}>Users</a>}
       </nav>
     </div>
     <div className="subeb-header-account"><AccountMenu user={user === undefined ? sessionUser : user} /></div>
