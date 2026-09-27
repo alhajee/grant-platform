@@ -125,7 +125,9 @@ export default function DashboardPage() {
           </div>}
         </section>
         <aside className="dashboard-aside">
-          <Card className="budget-allocation"><CardHeader className="allocation-card-header"><div><CardTitle><h2>Where your plans invest</h2></CardTitle><CardDescription>{activeInvestmentFilters ? `${investmentPlans.length} matching ${investmentPlans.length === 1 ? "plan" : "plans"}` : "Proposed budget across all periods"}</CardDescription></div><InvestmentFilter plans={plans} value={investmentFilters} onChange={setInvestmentFilters} /></CardHeader><CardContent>
+          <div className="investment-filter-bar"><InvestmentFilter plans={plans} value={investmentFilters} onChange={setInvestmentFilters} /></div>
+          <div className="dashboard-aside-content">
+          <Card className="budget-allocation"><CardHeader><CardTitle><h2>Where your plans invest</h2></CardTitle><CardDescription>{activeInvestmentFilters ? `${investmentPlans.length} matching ${investmentPlans.length === 1 ? "plan" : "plans"}` : "Proposed budget across all periods"}</CardDescription></CardHeader><CardContent>
             <div className="allocation-donut" role="img" aria-label={unavailable ? "Budget breakdown unavailable" : selectedAreas.map(area => `${areaDetails[area].label} ${money.format(areaAmounts[area])}`).join("; ")} style={{ background: unavailable ? "var(--muted)" : investmentGradient }}><div><span>{unavailable ? "—" : compactMoney.format(investmentTotal)}</span><small>{activeInvestmentFilters ? "Filtered proposed" : "Total proposed"}</small></div></div>
             <div className="allocation-legend">{selectedAreas.map(area => <div key={area}><span><i style={{ background: areaDetails[area].color }} />{areaDetails[area].label}</span><strong>{unavailable ? "—" : compactMoney.format(areaAmounts[area])}</strong></div>)}</div>
           </CardContent></Card>
@@ -134,6 +136,7 @@ export default function DashboardPage() {
             <CardContent><div className="review-queue-list">{actionQueue.map(action => <div className="review-queue-row" key={action.href}><div><p className="font-medium">{action.label}</p><p className="text-sm text-muted-foreground">{planPeriod(action.plan)} action plan</p></div><Button asChild variant="outline" size="sm"><Link href={action.href}>Open<ArrowUpRightIcon data-icon="inline-end" /></Link></Button></div>)}</div></CardContent>
           </Card>}
           <div className="dashboard-next"><span className="next-icon"><CircleCheckIcon /></span><h3>{latest ? "Progress saved" : "One workspace. Three pillars."}</h3><p>{latest ? `Your ${planPeriod(latest)} plan is saved. Return to your pillars whenever you're ready.` : "Bring your education priorities together, one pillar at a time."}</p>{latest && !unavailable && <Button asChild variant="link"><a href={planHref("/beap", latest.id)}>Back to your plan<ArrowRightIcon /></a></Button>}</div>
+          </div>
         </aside>
       </div>
       <footer className="dashboard-footer"><span>Universal Basic Education Commission</span><span>© {new Date().getFullYear()}</span></footer>

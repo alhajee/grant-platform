@@ -95,12 +95,12 @@
 .plan-card-bottom > span { font-size: 14px; color: var(--muted-foreground); }
 .plan-card-bottom small { display: block; font-size: 14px; color: var(--foreground); margin-top: 4px; }
 .plan-card-bottom [data-slot=button] { font-size: 14px; }
-.dashboard-aside { display: flex; flex-direction: column; gap: 20px; grid-column: 2; grid-row: 3; }
+.dashboard-aside { display: grid; grid-template-rows: subgrid; grid-column: 2; grid-row: 2 / span 2; }
+.investment-filter-bar { grid-row: 1; display: flex; align-items: center; margin: 22px 0 18px; }
+.investment-filter-trigger { width: 100%; height: 40px; justify-content: flex-start; border-radius: var(--radius-md); background: var(--background); box-shadow: none; }
+.investment-filter-trigger [data-slot=badge] { min-width: 20px; margin-left: auto; justify-content: center; padding-inline: 5px; }
+.dashboard-aside-content { grid-row: 2; display: flex; flex-direction: column; gap: 20px; }
 .budget-allocation { border-radius: 14px; box-shadow: none; gap: 20px; }
-.allocation-card-header { display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.allocation-card-header > div:first-child { min-width: 0; }
-.allocation-card-header [data-slot=button] { flex-shrink: 0; }
-.allocation-card-header [data-slot=badge] { min-width: 20px; justify-content: center; padding-inline: 5px; }
 .investment-filter-popover { max-height: min(680px, calc(100dvh - 24px)); overflow-y: auto; }
 .budget-allocation h2 { font-size: 15px; letter-spacing: -.025em; }
 .budget-allocation [data-slot=card-description] { font-size: 14px; }
@@ -158,7 +158,8 @@
   .dashboard-stats .stat-icon { display: grid; }
   .dashboard-body { grid-template-columns: 1fr; row-gap: 20px; }
   .dashboard-plans { display: block; grid-column: 1; grid-row: auto; }
-  .dashboard-aside { grid-column: 1; grid-row: auto; }
+  .dashboard-aside { display: flex; grid-column: 1; grid-row: auto; flex-direction: column; gap: 20px; }
+  .investment-filter-bar { margin: 0; }
   .dashboard-section-title h2 { font-size: 18px; }
   .dashboard-section-title p { max-width: 220px; line-height: 1.6; }
   .dashboard-plan-list { grid-template-columns: 1fr; }

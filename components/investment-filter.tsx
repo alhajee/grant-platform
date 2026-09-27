@@ -48,7 +48,7 @@ export function InvestmentFilter({ plans, value, onChange }: { plans: PlanOvervi
   };
 
   return <Popover open={open} onOpenChange={setOpen}>
-    <PopoverTrigger asChild><Button type="button" variant="outline" size="sm" className="rounded-full"><ListFilterIcon data-icon="inline-start" />Filter{count > 0 && <Badge variant="secondary">{count}</Badge>}</Button></PopoverTrigger>
+    <PopoverTrigger asChild><Button type="button" variant="outline" className="investment-filter-trigger"><ListFilterIcon data-icon="inline-start" />Filter investments{count > 0 && <Badge variant="secondary">{count}</Badge>}</Button></PopoverTrigger>
     <PopoverContent align="end" sideOffset={8} collisionPadding={12} className="investment-filter-popover w-[390px] max-w-[calc(100vw-24px)]" aria-labelledby="investment-filter-title">
       <PopoverHeader><PopoverTitle id="investment-filter-title">Filter investments</PopoverTitle><PopoverDescription>Combine filters to focus the budget breakdown.</PopoverDescription></PopoverHeader>
       <FieldGroup className="gap-4">
