@@ -502,6 +502,9 @@
 .subeb-header nav { display: flex; align-items: center; gap: 4px; }
 .subeb-header nav a { display: flex; align-items: center; justify-content: center; min-height: 42px; padding-inline: 18px; border: 1px solid transparent; border-radius: 999px; font-size: 14px; color: var(--muted-foreground); white-space: nowrap; }
 .subeb-header nav a[aria-current] { color: var(--foreground); background: var(--background); border-color: #ffffffcc; font-weight: 500; box-shadow: 0 3px 10px #334e6012; }
+.admin-section-tabs { width: 100%; justify-content: flex-start; gap: 8px; border-bottom: 1px solid var(--border); }
+.admin-section-tabs [data-slot=tabs-trigger] { flex: 0 0 auto; min-height: 42px; padding-inline: 18px; border-radius: 10px 10px 0 0; }
+.admin-section-tabs [data-slot=tabs-trigger][data-state=active] { background: var(--card); border-color: var(--border); border-bottom-color: var(--card); box-shadow: 0 8px 18px -14px var(--foreground); }
 .subeb-header a:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 .subeb-header-account { background: #ffffffb8; border: 1px solid #ffffffcc; border-radius: 999px; flex-shrink: 0; box-shadow: 0 2px 4px rgb(25 63 61 / 4%), 0 8px 24px -8px rgb(25 63 61 / 16%); }
 .subeb-header-account .account-trigger { min-height: 54px; border-radius: 999px; padding: 5px 14px 5px 6px; gap: 10px; }
@@ -518,6 +521,8 @@
   .subeb-header-account .account-trigger { min-height: 50px; }
   .subeb-header nav { padding: 4px; background: #ffffffb8; border: 1px solid #ffffffcc; border-radius: 999px; }
   .subeb-header nav a { flex: 1; min-height: 40px; }
+  .admin-section-tabs { overflow-x: auto; }
+  .admin-section-tabs [data-slot=tabs-trigger] { min-height: 40px; padding-inline: 12px; }
 }
 .beap-header-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; max-width: 1200px; min-height: 76px; margin: 0 auto; padding: 0 32px; }
 .beap-account { display: flex; align-items: center; gap: 16px; }
