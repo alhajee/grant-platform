@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { ExternalLinkIcon, EyeIcon, EyeOffIcon, LockKeyholeIcon, MailIcon } from "lucide-react";
 import { LoginContours } from "@/components/login-artwork";
-import { LoginVideo } from "@/components/login-video";
+import { LoginPhotos } from "@/components/login-photos";
 import { UbecLogo } from "@/components/ubec-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +39,7 @@ export default function Home() {
   return (
     <main className="login-page">
       <section className="login-hero" aria-labelledby="beapms-title">
-        <LoginVideo />
+        <LoginPhotos />
         <div className="login-hero-sheen" aria-hidden="true" />
         <div className="login-hero-inner">
           <a className="login-agency" href="https://hope-gov.ubec.gov.ng/" target="_blank" rel="noreferrer" aria-label="Visit the UBEC HOPE website (opens in a new tab)">

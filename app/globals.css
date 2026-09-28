@@ -774,6 +774,7 @@
 .login-motion-control { position:absolute; z-index:3; left:clamp(32px,4.6vw,72px); bottom:16px; padding:6px 12px; border:1px solid rgb(255 255 255 / 35%); border-radius:999px; color:white; background:rgb(2 37 33 / 65%); font-size:12px; cursor:pointer; }
 .login-motion-control:focus-visible { outline:2px solid #f4c85f; outline-offset:3px; }
 .login-scene { opacity: 0; background-position: center; background-size: cover; will-change: opacity,transform; animation: login-scene-cycle 30s linear infinite; }
+.login-scenes[data-paused="true"] .login-scene { animation-play-state:paused; }
 .login-scene-students { --scene-from:translate3d(-1%,.5%,0) scale(1.05); --scene-to:translate3d(1.5%,-1%,0) scale(1.16); background-image: url("/beap-login-students.webp"); background-position: 52% center; }
 .login-scene-classroom { --scene-from:translate3d(2%,0,0) scale(1.16); --scene-to:translate3d(-1.5%,1%,0) scale(1.06); background-image: url("/beap-login-classroom.webp"); background-position: 56% center; animation-delay: -20s; }
 .login-scene-school { --scene-from:translate3d(-2%,1%,0) scale(1.07); --scene-to:translate3d(1%,-1%,0) scale(1.17); background-image: url("/beap-login-school.webp"); background-position: center; animation-delay: -10s; }
@@ -872,5 +873,6 @@
   .login-scene { animation:none !important; opacity:0; transform:none; will-change:auto; }
   .login-scene-students { opacity:1; }
   .login-scene-progress { display:none; }
+  .login-photo-control { display:none; }
   .signin-button:hover:not(:disabled)::before,.signin-button:focus-visible::before { background:#f4c85f; }
 }
