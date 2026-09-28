@@ -803,7 +803,6 @@
 .signin-card { position:relative; width:100%; max-width:460px; border-color:rgb(0 70 61 / 12%); border-radius:24px; background:rgb(255 255 255 / 82%); box-shadow:0 28px 80px -36px rgb(6 55 48 / 48%),inset 0 1px 0 rgb(255 255 255 / 80%); backdrop-filter:blur(18px); animation:login-card-in .72s .12s cubic-bezier(.22,1,.36,1) both; }
 .signin-heading { gap:8px; padding-inline:clamp(24px,4vw,38px); }
 .signin-heading [data-slot=card-title] { font-size:clamp(29px,3vw,38px); font-weight:600; line-height:1.1; letter-spacing:-.045em; }
-.signin-heading [data-slot=card-description] { max-width:330px; font-size:14px; line-height:1.55; }
 .signin-card [data-slot=card-content] { padding-inline:clamp(24px,4vw,38px); }
 .form-input-group { min-height:50px; background:rgb(255 255 255 / 78%); }
 .form-input-group [data-slot=input-group-control] { min-height:48px; }
@@ -818,8 +817,6 @@
   transition:background-color 9999s ease-out 0s;
 }
 .signin-button { width:100%; min-height:50px; margin-top:28px; box-shadow:0 12px 26px -14px color-mix(in srgb,var(--primary) 72%,transparent); }
-.signin-footer { justify-content:center; gap:8px; margin-top:2px; color:var(--muted-foreground); font-size:12px; }
-.signin-footer svg { width:14px; height:14px; }
 .login-mobile-brand { display:none; }
 .login-copyright { position:relative; color:rgb(255 255 255 / 66%); font-size:11px; text-shadow:0 1px 8px rgb(0 25 22 / 40%); }
 @keyframes login-scene-cycle { 0%{opacity:1;transform:scale(1.045)} 29%{opacity:1} 36%,94%{opacity:0;transform:scale(1.11)} 100%{opacity:1;transform:scale(1.045)} }

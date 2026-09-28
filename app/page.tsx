@@ -6,7 +6,7 @@ import { EyeIcon, EyeOffIcon, LockKeyholeIcon, MailIcon } from "lucide-react";
 import { LoginContours } from "@/components/login-artwork";
 import { UbecLogo } from "@/components/ubec-logo";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
@@ -68,7 +68,6 @@ export default function Home() {
           <CardHeader className="signin-heading">
             <div className="login-mobile-brand"><UbecLogo size={46}/><span><strong>BEAPMS Portal</strong><small>Universal Basic Education Commission</small></span></div>
             <CardTitle id="sign-in-title">Welcome back</CardTitle>
-            <CardDescription>Sign in with your assigned UBEC or SUBEB account.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit}>
@@ -92,7 +91,6 @@ export default function Home() {
               <Button type="submit" className="signin-button" disabled={isSigningIn} aria-busy={isSigningIn}>{isSigningIn && <Spinner data-icon="inline-start" />} {isSigningIn ? "Signing in…" : "Sign in to BEAPMS"}</Button>
             </form>
           </CardContent>
-          <CardFooter className="signin-footer"><LockKeyholeIcon aria-hidden="true"/><span>Authorized UBEC and SUBEB personnel only</span></CardFooter>
         </Card>
         <p className="login-copyright">© 2026 Universal Basic Education Commission</p>
       </section>
