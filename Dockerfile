@@ -25,6 +25,8 @@ ENV NODE_ENV=production \
     PORT=3000
 COPY --from=production-dependencies --chown=node:node /app/node_modules/ ./node_modules/
 COPY --from=build --chown=node:node /app/dist/standalone/ ./
+COPY --chown=node:node scripts/seed-production-users.mjs ./scripts/seed-production-users.mjs
+COPY --chown=node:node lib/nigeria-map.json ./lib/nigeria-map.json
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
