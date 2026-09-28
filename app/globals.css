@@ -769,11 +769,11 @@
 .login-page { position:relative; min-height:100dvh; overflow:hidden; background:#073f37; }
 .login-hero { position:absolute; inset:0; isolation:isolate; min-height:100dvh; overflow:hidden; color:#fff; background:#073f37; }
 .login-scenes,.login-scene,.login-hero-sheen { position: absolute; inset: 0; }
-.login-scenes { z-index: -3; background: #073f37; }
-.login-scene { opacity: 0; background-position: center; background-size: cover; will-change: opacity,transform; animation: login-scene-cycle 24s linear infinite; }
-.login-scene-students { background-image: url("/beap-login-students.webp"); background-position: 52% center; }
-.login-scene-classroom { background-image: url("/beap-login-classroom.webp"); background-position: 56% center; animation-delay: 8s; }
-.login-scene-school { background-image: url("/beap-login-school.webp"); background-position: center; animation-delay: 16s; }
+.login-scenes { z-index: -3; overflow:hidden; background: #073f37; }
+.login-scene { opacity: 0; background-position: center; background-size: cover; will-change: opacity,transform; animation: login-scene-cycle 30s linear infinite; }
+.login-scene-students { --scene-from:translate3d(-1%,.5%,0) scale(1.05); --scene-to:translate3d(1.5%,-1%,0) scale(1.16); background-image: url("/beap-login-students.webp"); background-position: 52% center; }
+.login-scene-classroom { --scene-from:translate3d(2%,0,0) scale(1.16); --scene-to:translate3d(-1.5%,1%,0) scale(1.06); background-image: url("/beap-login-classroom.webp"); background-position: 56% center; animation-delay: -20s; }
+.login-scene-school { --scene-from:translate3d(-2%,1%,0) scale(1.07); --scene-to:translate3d(1%,-1%,0) scale(1.17); background-image: url("/beap-login-school.webp"); background-position: center; animation-delay: -10s; }
 .login-hero-sheen { z-index:-2; background:linear-gradient(90deg,rgb(2 37 33 / 94%) 0%,rgb(4 52 46 / 76%) 43%,rgb(4 52 46 / 30%) 72%,rgb(4 52 46 / 20%) 100%),linear-gradient(0deg,rgb(1 29 26 / 66%) 0%,transparent 58%); }
 .login-hero::before { content:""; position:absolute; inset:0; z-index:-1; opacity:.16; background-image: linear-gradient(rgb(255 255 255 / 13%) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 13%) 1px, transparent 1px); background-size: 72px 72px; mask-image: linear-gradient(90deg,#000,transparent 76%); }
 .login-hero::after { content:""; position:absolute; right:-140px; bottom:-210px; width:440px; aspect-ratio:1; border:1px solid rgb(241 188 72 / 32%); border-radius:50%; box-shadow: 0 0 0 72px rgb(241 188 72 / 5%),0 0 0 145px rgb(241 188 72 / 4%); animation: login-orbit 14s ease-in-out infinite alternate; }
@@ -796,9 +796,9 @@
 .login-hero-footer p { max-width:460px; color:rgb(255 255 255 / 68%); font-size:13px; line-height:1.6; }
 .login-scene-progress { display:flex; gap:7px; }
 .login-scene-progress span { position:relative; width:38px; height:3px; overflow:hidden; border-radius:999px; background:rgb(255 255 255 / 25%); }
-.login-scene-progress span::after { content:""; position:absolute; inset:0; background:#f4c85f; transform:scaleX(0); transform-origin:left; animation:login-progress 24s linear infinite; }
-.login-scene-progress span:nth-child(2)::after { animation-delay:8s; }
-.login-scene-progress span:nth-child(3)::after { animation-delay:16s; }
+.login-scene-progress span::after { content:""; position:absolute; inset:0; background:#f4c85f; transform:scaleX(0); transform-origin:left; animation:login-progress 30s linear infinite; }
+.login-scene-progress span:nth-child(2)::after { animation-delay:-20s; }
+.login-scene-progress span:nth-child(3)::after { animation-delay:-10s; }
 .signin-panel { position:relative; z-index:2; isolation:isolate; overflow:hidden; display:flex; width:min(44vw,640px); min-width:430px; min-height:100dvh; margin-left:auto; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:48px clamp(28px,4vw,68px); background:transparent; }
 .signin-panel .login-contours { position:absolute; inset:0; width:100%; height:100%; stroke:#fff; stroke-width:1; opacity:.04; pointer-events:none; user-select:none; }
 .login-ambient { position:absolute; border-radius:50%; filter:blur(2px); pointer-events:none; animation:login-float 9s ease-in-out infinite alternate; }
@@ -826,7 +826,7 @@
 .signin-button:active:not(:disabled) { transform:translateY(0) scale(.99); box-shadow:0 8px 18px -12px color-mix(in srgb,var(--primary) 78%,transparent); }
 .login-mobile-brand { display:none; }
 .login-copyright { position:relative; color:rgb(255 255 255 / 66%); font-size:11px; text-shadow:0 1px 8px rgb(0 25 22 / 40%); }
-@keyframes login-scene-cycle { 0%{opacity:1;transform:scale(1.045)} 29%{opacity:1} 36%,94%{opacity:0;transform:scale(1.11)} 100%{opacity:1;transform:scale(1.045)} }
+@keyframes login-scene-cycle { 0%{opacity:1;transform:var(--scene-from)} 27%{opacity:1} 36%{opacity:0;transform:var(--scene-to)} 94%{opacity:0;transform:var(--scene-from)} 100%{opacity:1;transform:var(--scene-from)} }
 @keyframes login-progress { 0%{transform:scaleX(0)} 29%{transform:scaleX(1)} 29.1%,100%{transform:scaleX(0)} }
 @keyframes login-copy-in { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:none} }
 @keyframes login-card-in { from{opacity:0;transform:translateY(20px) scale(.985)} to{opacity:1;transform:none} }
@@ -866,6 +866,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .portal-shell *, .portal-shell *::before, .portal-shell *::after,.login-page *,.login-page *::before,.login-page *::after { scroll-behavior:auto !important; transition-duration:0s !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
-  .login-scene-students { opacity:1; transform:none; }
+  .login-scene { animation:none !important; opacity:0; transform:none; will-change:auto; }
+  .login-scene-students { opacity:1; }
+  .login-scene-progress { display:none; }
   .signin-button:hover:not(:disabled)::before,.signin-button:focus-visible::before { background:#f4c85f; }
 }
