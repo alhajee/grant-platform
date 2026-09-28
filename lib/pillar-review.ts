@@ -5,6 +5,7 @@ import type { PlanStatus } from './action-plans';
 import type { Snapshot } from './plan-review';
 import { infrastructureDocumentProblem } from './infrastructure-documents';
 import type { DepartmentAccess } from './user-departments';
+import type { UbecSubmissionMode } from './workflow-settings';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'beap_review' | 'chairman_ready';
 export type PillarReview = { pillar: ImplementedPillar; status: PillarReviewStatus };
@@ -23,6 +24,26 @@ export function mayEditPillar(role: string, departments: DepartmentAccess, pilla
 }
 export function readyForUbec(reviews: PillarReview[], snapshot: Snapshot) {
   return implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready')) && planIsComplete(snapshot);
+}
+// Components the Executive Chairman holds and may send to UBEC.
+export function componentsWithExecutiveChairman(reviews: PillarReview[]) {
+  return implementedPillars.filter(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready'));
+}
+export function readyForUbecSubmission(mode: UbecSubmissionMode, reviews: PillarReview[], snapshot: Snapshot) {
+  return mode === 'reviewed_components' ? componentsWithExecutiveChairman(reviews).length > 0 : readyForUbec(reviews, snapshot);
+}
+// UBEC receives only the components that completed the state review chain.
+export function ubecSubmissionSnapshot(snapshot: Snapshot, reviews: PillarReview[]): Snapshot {
+  const sent = componentsWithExecutiveChairman(reviews);
+  return {
+    setup: snapshot.setup,
+    infrastructure: sent.includes('infrastructure') ? snapshot.infrastructure : [],
+    ...(sent.includes('infrastructure') ? { infrastructureDocuments: snapshot.infrastructureDocuments } : {}),
+    sports: sent.includes('sports') ? snapshot.sports : [],
+    sbmc: sent.includes('sbmc') ? snapshot.sbmc ?? [] : [],
+    tlm: sent.includes('tlm') ? snapshot.tlm ?? [] : [],
+    tlmDistribution: sent.includes('tlm') ? snapshot.tlmDistribution ?? [] : [],
+  };
 }
 export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Snapshot) {
   return implementedPillars.every(p => reviews.some(r => r.pillar === p && ['beap_review','chairman_ready'].includes(r.status))) &&

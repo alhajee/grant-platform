@@ -121,7 +121,7 @@ export default function ReviewPage() {
               <Button disabled={!data.readyForExecutiveChairman || !available} onClick={()=>openAction('forward')}><SendIcon data-icon="inline-start" />Send to Executive Chairman</Button></> : <div className="flex flex-col gap-1"><p className="text-sm font-medium">Send reviewed components individually.</p><p className="text-sm text-muted-foreground">Use the button on each component when it is ready. {data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components have been sent to the Executive Chairman.</p></div>}
             </div>}
             {data.role==='Executive Chairman' && statePlanOpen(data.plan.status) && <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components ready</p>
+              <p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components ready{data.ubecSubmissionMode==='reviewed_components'?'. Only ready components are sent to UBEC.':''}</p>
               {data.readyForUbec && available ? <Button asChild><a href={planHref('/ubec/review',data.plan.id)}><SendIcon data-icon="inline-start" />Send to UBEC</a></Button> : <Button disabled>Send to UBEC</Button>}
             </div>}
         </section>

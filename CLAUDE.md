@@ -61,7 +61,12 @@ The Super Admin configures the BEAP Chair handoff globally:
 - `complete_plan`: the BEAP Chair waits for all implemented components and sends one collated submission;
 - `individual_components`: the BEAP Chair may forward reviewed components separately.
 
-The setting applies across every SUBEB, not per state. The implementation lives in:
+A second global setting controls the Executive Chairman's handoff to UBEC (`ubec_submission_mode`, migration `026-ubec-submission-mode.sql`):
+
+- `complete_plan` (default): every implemented component must be complete and reviewed before sending to UBEC;
+- `reviewed_components`: the Executive Chairman may send whichever components have reached them; unfinished components are left out of the UBEC snapshot and the plan locks during UBEC review. Intended for easy user testing.
+
+These settings apply across every SUBEB, not per state. The implementation lives in:
 
 - `app/api/plans/review/route.ts`
 - `app/api/ubec/review/route.ts`

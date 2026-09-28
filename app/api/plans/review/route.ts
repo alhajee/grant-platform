@@ -11,8 +11,8 @@ import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
-import { aggregateReviewStatus, readPillarReviews, readyForExecutiveChairman, readyForUbec, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
-import { readBeapChairSubmissionMode } from '@/lib/workflow-settings';
+import { aggregateReviewStatus, readPillarReviews, readyForExecutiveChairman, readyForUbecSubmission, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
+import { readBeapChairSubmissionMode, readWorkflowSettings } from '@/lib/workflow-settings';
 import { hasDepartment, userDepartmentsSql } from '@/lib/user-departments';
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
@@ -33,12 +33,12 @@ export async function GET(request: NextRequest) {
       const submissions = (await db.query('SELECT number, created_at AS "createdAt" FROM plan_submissions WHERE plan_id = $1 ORDER BY number DESC', [plan.id])).rows;
       const events = (await db.query(`SELECT id, action, actor_name AS "actorName", actor_role AS "actorRole", comment, scope, submission_number AS "submissionNumber", created_at AS "createdAt" FROM plan_review_events WHERE plan_id = $1 ORDER BY id DESC`, [plan.id])).rows;
       const pillarReviews = await readPillarReviews(db, plan.id);
-      const beapChairSubmissionMode = await readBeapChairSubmissionMode(db);
+      const { mode: beapChairSubmissionMode, ubecMode: ubecSubmissionMode } = await readWorkflowSettings(db);
       const visiblePillars = visibleComponents(workspace);
       const visibleEvents = canViewWholeStatePlan(workspace) ? events : events.filter(event => visiblePillars.includes(event.scope));
       const visibleSubmissions = canViewWholeStatePlan(workspace) ? submissions : submissions.filter(submission => visibleEvents.some(event => event.submissionNumber === submission.number));
       if (requested && !visibleSubmissions.some(submission => submission.number === Number(requested))) return error('Submission not found.', 404);
-      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbec(pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }
