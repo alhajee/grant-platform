@@ -821,8 +821,8 @@
   transition:background-color 9999s ease-out 0s;
 }
 .signin-button { position:relative; isolation:isolate; overflow:hidden; width:100%; min-height:50px; margin-top:28px; box-shadow:0 12px 26px -14px color-mix(in srgb,var(--primary) 72%,transparent); transition:transform .2s ease,box-shadow .2s ease,filter .2s ease; }
-.signin-button::after { position:absolute; inset:-45% auto -45% -42%; width:34%; content:""; pointer-events:none; background:linear-gradient(90deg,transparent,rgb(255 235 174 / 42%),transparent); transform:skewX(-20deg); }
-.signin-button:focus-visible::after { animation:signin-button-shine .72s ease-out; }
+.signin-button::before { position:absolute; inset:0; padding:2px; border-radius:inherit; content:""; pointer-events:none; opacity:0; background:conic-gradient(from var(--signin-glow-angle),transparent 0 66%,rgb(244 200 95 / 28%) 76%,#f4c85f 87%,#fff0b0 92%,transparent 100%); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); mask-composite:exclude; transition:opacity .2s ease; }
+.signin-button:focus-visible::before { opacity:1; animation:signin-button-orbit 1.35s linear infinite; }
 .signin-button:active:not(:disabled) { transform:translateY(0) scale(.99); box-shadow:0 8px 18px -12px color-mix(in srgb,var(--primary) 78%,transparent); }
 .login-mobile-brand { display:none; }
 .login-copyright { position:relative; color:rgb(255 255 255 / 66%); font-size:11px; text-shadow:0 1px 8px rgb(0 25 22 / 40%); }
@@ -832,10 +832,11 @@
 @keyframes login-card-in { from{opacity:0;transform:translateY(20px) scale(.985)} to{opacity:1;transform:none} }
 @keyframes login-orbit { to{transform:translate(-24px,-18px) rotate(8deg)} }
 @keyframes login-float { to{transform:translate(18px,-16px) scale(1.07)} }
-@keyframes signin-button-shine { from{left:-42%} to{left:112%} }
+@property --signin-glow-angle { syntax:"<angle>"; initial-value:0deg; inherits:false; }
+@keyframes signin-button-orbit { to{--signin-glow-angle:360deg} }
 @media (hover:hover) and (pointer:fine) {
-  .signin-button:hover:not(:disabled) { transform:translateY(-2px); filter:saturate(1.08); box-shadow:0 18px 34px -15px color-mix(in srgb,var(--primary) 80%,transparent); }
-  .signin-button:hover:not(:disabled)::after { animation:signin-button-shine .72s ease-out; }
+  .signin-button:hover:not(:disabled) { transform:translateY(-2px); filter:saturate(1.08); box-shadow:0 0 0 1px rgb(244 200 95 / 14%),0 18px 34px -15px color-mix(in srgb,#f4c85f 74%,transparent); }
+  .signin-button:hover:not(:disabled)::before { opacity:1; animation:signin-button-orbit 1.35s linear infinite; }
 }
 @media (max-width:1050px) { .login-hero-inner { padding-right:49vw; } .signin-panel { width:48vw; min-width:400px; } .login-hero-copy h1 { font-size:clamp(40px,5.5vw,62px); } }
 @media (max-width:880px) {
@@ -866,4 +867,5 @@
 @media (prefers-reduced-motion: reduce) {
   .portal-shell *, .portal-shell *::before, .portal-shell *::after,.login-page *,.login-page *::before,.login-page *::after { scroll-behavior:auto !important; transition-duration:0s !important; animation-duration:.01ms !important; animation-iteration-count:1 !important; }
   .login-scene-students { opacity:1; transform:none; }
+  .signin-button:hover:not(:disabled)::before,.signin-button:focus-visible::before { background:#f4c85f; }
 }
