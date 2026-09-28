@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import { ExternalLinkIcon, EyeIcon, EyeOffIcon, LockKeyholeIcon, MailIcon } from "lucide-react";
 import { LoginContours } from "@/components/login-artwork";
+import { LoginVideo } from "@/components/login-video";
 import { UbecLogo } from "@/components/ubec-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,11 +39,7 @@ export default function Home() {
   return (
     <main className="login-page">
       <section className="login-hero" aria-labelledby="beapms-title">
-        <div className="login-scenes" aria-hidden="true">
-          <span className="login-scene login-scene-students" />
-          <span className="login-scene login-scene-classroom" />
-          <span className="login-scene login-scene-school" />
-        </div>
+        <LoginVideo />
         <div className="login-hero-sheen" aria-hidden="true" />
         <div className="login-hero-inner">
           <a className="login-agency" href="https://hope-gov.ubec.gov.ng/" target="_blank" rel="noreferrer" aria-label="Visit the UBEC HOPE website (opens in a new tab)">
@@ -56,7 +53,6 @@ export default function Home() {
           </div>
           <div className="login-hero-footer">
             <p>One coordinated workspace for accountable basic education planning.</p>
-            <div className="login-scene-progress" aria-hidden="true"><span/><span/><span/></div>
           </div>
         </div>
       </section>
