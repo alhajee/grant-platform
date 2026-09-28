@@ -2,7 +2,6 @@
 import "./dashboard.css";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { ArrowRightIcon, ArrowUpRightIcon, CalendarDaysIcon, CircleCheckIcon, FileTextIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork, ReviewArtwork } from "@/components/metric-artwork";
 import { CreatePlanDialog } from "@/components/create-plan-dialog";
@@ -142,7 +141,7 @@ export default function DashboardPage() {
           </CardContent></Card>
           {!unavailable && actionQueue.length > 0 && <Card className="review-queue">
             <CardHeader><div className="review-queue-heading"><ReviewArtwork /><div><CardTitle>Needs your attention</CardTitle><CardDescription>{actionQueue.length} {actionQueue.length === 1 ? 'item' : 'items'} waiting for you</CardDescription></div></div></CardHeader>
-            <CardContent><div className="review-queue-list">{actionQueue.map(action => <div className="review-queue-row" key={action.href}><div><p className="font-medium">{action.label}</p><p className="text-sm text-muted-foreground">{planPeriod(action.plan)} action plan</p></div><Button asChild variant="outline" size="sm"><Link href={action.href}>Open<ArrowUpRightIcon data-icon="inline-end" /></Link></Button></div>)}</div></CardContent>
+            <CardContent><div className="review-queue-list">{actionQueue.map(action => <div className="review-queue-row" key={action.href}><div><p className="font-medium">{action.label}</p><p className="text-sm text-muted-foreground">{planPeriod(action.plan)} action plan</p></div><Button asChild variant="outline" size="sm"><a href={action.href}>Open<ArrowUpRightIcon data-icon="inline-end" /></a></Button></div>)}</div></CardContent>
           </Card>}
           <div className="dashboard-next"><span className="next-icon"><CircleCheckIcon /></span><h3>{latest ? "Progress saved" : "One workspace. Three pillars."}</h3><p>{latest ? `Your ${planPeriod(latest)} plan is saved. Return to your pillars whenever you're ready.` : "Bring your education priorities together, one pillar at a time."}</p>{latest && !unavailable && <Button asChild variant="link"><a href={planHref("/beap", latest.id)}>Back to your plan<ArrowRightIcon /></a></Button>}</div>
           </div>

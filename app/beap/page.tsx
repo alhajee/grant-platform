@@ -2,7 +2,6 @@
 
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { currentPlanHref, planHref, planPeriod } from "@/lib/action-plans";
 import { PlanSetupSummary } from '@/components/plan-setup-summary';
 import { ArrowRightIcon, ChevronDownIcon } from "lucide-react";
@@ -59,13 +58,13 @@ export default function BeapPage() {
     <div className="beap-page">
       <SubebHeader user={user} plan />
       <main className="beap-main pillar-overview" id="main-content">
-        <Button asChild variant="ghost" size="sm" className="mb-3"><Link href="/dashboard">← Dashboard</Link></Button>
+        <Button asChild variant="ghost" size="sm" className="mb-3"><a href="/dashboard">← Dashboard</a></Button>
         <header className="beap-heading">
           <div>
             <div className="beap-title"><h1>{summary ? `${planPeriod(summary.plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{summary && <PlanStatusBadge status={summary.plan.status} />}</div>
             <p className="beap-intro">{summary?.canEdit ? 'Choose a component to start or continue your plan.' : 'View your saved plan and review history.'}</p>
           </div>
-          {summary && !error && <Button asChild><Link href={planHref('/beap/review', summary.plan.id)}>Review plan<ArrowRightIcon /></Link></Button>}
+          {summary && !error && <Button asChild><a href={planHref('/beap/review', summary.plan.id)}>Review plan<ArrowRightIcon /></a></Button>}
         </header>
         <section className="plan-kpis" aria-label="Plan at a glance">
           {[

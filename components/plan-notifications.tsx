@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
 import { BellIcon } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -20,5 +19,5 @@ export function PlanNotifications() {
   useEffect(() => { void Promise.resolve().then(load); const focus = () => { void load(); }; window.addEventListener('focus', focus); return () => window.removeEventListener('focus', focus); }, [load]);
   if (error) return <Alert className="mb-6"><AlertTitle>Notifications unavailable</AlertTitle><AlertDescription><Button variant="outline" onClick={load}>Try again</Button></AlertDescription></Alert>;
   if (!items.length) return null;
-  return <Alert className="mb-6"><BellIcon /><AlertTitle>Plan updates ({items.length})</AlertTitle><AlertDescription><div className="review-notifications">{items.map(item => <Link key={item.id} href={planHref('/beap/review', item.planId)}>{planPeriod(item)} · {item.action === 'approve' && item.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[item.action]}<span>{item.actorName}</span></Link>)}</div></AlertDescription></Alert>;
+  return <Alert className="mb-6"><BellIcon /><AlertTitle>Plan updates ({items.length})</AlertTitle><AlertDescription><div className="review-notifications">{items.map(item => <a key={item.id} href={planHref('/beap/review', item.planId)}>{planPeriod(item)} · {item.action === 'approve' && item.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[item.action]}<span>{item.actorName}</span></a>)}</div></AlertDescription></Alert>;
 }

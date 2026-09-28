@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { UbecLogo } from './ubec-logo';
 import { AccountMenu } from './workspace-account-menu';
@@ -31,7 +30,7 @@ export function SubebHeader({ user, plan = false, users = false }: { user?: Loca
   const plansActive = plan || hash === '#action-plans';
   return <header className="subeb-header">
     <div className="subeb-navigation-capsule">
-      <Link href="/dashboard" className="subeb-header-brand" aria-label="BEAPMS Portal overview"><UbecLogo /><span>BEAPMS Portal</span></Link>
+      <a href="/dashboard" className="subeb-header-brand" aria-label="BEAPMS Portal overview"><UbecLogo /><span>BEAPMS Portal</span></a>
       <nav aria-label="SUBEB navigation">
         <a href="/dashboard" aria-current={!plansActive && !users ? 'page' : undefined}>Overview</a>
         <a href="/dashboard#action-plans" aria-current={plansActive ? (plan ? 'page' : 'location') : undefined}>Basic Education Action Plans</a>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { ArrowUpRight, CircleCheck, MapPin, UsersRound } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,7 +78,7 @@ export function UbecAttention({ items, reviewer }: { items: NationalItem[]; revi
     <CardHeader><CardTitle>Needs attention</CardTitle></CardHeader>
     <CardContent>
       <div className="attention-counts">{reviewer ? <div><strong>{actionable.length}</strong><span>Plans to review</span></div> : <><div><strong>{ready}</strong><span>Ready for decision</span></div><div><strong>{unassigned}</strong><span>Awaiting assignment</span></div></>}</div>
-      {actionable.length ? <ol className="attention-list">{actionable.slice(0,4).map(item => <li key={item.id}><Link href={`/ubec/review?plan=${item.planId}`}><span className="attention-item-icon">{needsDecision(item) ? <CircleCheck /> : <UsersRound />}</span><span><strong>{item.state.replace(/ State$/, '')}</strong><small>{item.startYear === item.endYear ? item.startYear : `${item.startYear}–${item.endYear}`} · {reviewer ? `${item.pending} reviews pending` : needsDecision(item) ? 'Ready for decision' : 'Assign departments'}</small></span><ArrowUpRight aria-hidden="true" /></Link></li>)}</ol> : <Empty><EmptyHeader><EmptyMedia variant="icon"><CircleCheck /></EmptyMedia><EmptyTitle>No actions waiting</EmptyTitle><EmptyDescription>No {reviewer ? 'assigned reviews' : 'assignments or decisions'} waiting in this period.</EmptyDescription></EmptyHeader></Empty>}
+      {actionable.length ? <ol className="attention-list">{actionable.slice(0,4).map(item => <li key={item.id}><a href={`/ubec/review?plan=${item.planId}`}><span className="attention-item-icon">{needsDecision(item) ? <CircleCheck /> : <UsersRound />}</span><span><strong>{item.state.replace(/ State$/, '')}</strong><small>{item.startYear === item.endYear ? item.startYear : `${item.startYear}–${item.endYear}`} · {reviewer ? `${item.pending} reviews pending` : needsDecision(item) ? 'Ready for decision' : 'Assign departments'}</small></span><ArrowUpRight aria-hidden="true" /></a></li>)}</ol> : <Empty><EmptyHeader><EmptyMedia variant="icon"><CircleCheck /></EmptyMedia><EmptyTitle>No actions waiting</EmptyTitle><EmptyDescription>No {reviewer ? 'assigned reviews' : 'assignments or decisions'} waiting in this period.</EmptyDescription></EmptyHeader></Empty>}
     </CardContent><CardFooter><span className="map-detail-label">{actionable.length > 4 ? `Showing 4 of ${actionable.length} plans` : 'Latest submission per plan'}</span></CardFooter>
   </Card>;
 }

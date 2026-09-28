@@ -1,5 +1,4 @@
 'use client';
-import Link from 'next/link';
 import { useSyncExternalStore } from 'react';
 import { UbecLogo } from './ubec-logo';
 import { AccountMenu } from './workspace-account-menu';
@@ -27,14 +26,14 @@ export function UbecShell({ children, user, review = false, allocations = false 
     <div className="national-shell national-horizontal-shell">
       <header className="national-header">
         <div className="national-navigation-capsule">
-          <Link href="/ubec" className="national-header-brand" aria-label="BEAPMS Portal overview">
+          <a href="/ubec" className="national-header-brand" aria-label="BEAPMS Portal overview">
             <UbecLogo /><span>BEAPMS Portal</span>
-          </Link>
+          </a>
           <nav aria-label="UBEC navigation" className="national-header-nav">
             {navigation.map(({ label, hash: targetHash }) => (
               <a key={label} href={`/ubec${targetHash}`} aria-current={activeHash === targetHash ? (targetHash && !review ? 'location' : 'page') : undefined}>{label}</a>
             ))}
-            {user?.role==='UBEC Executive Secretary' && <Link href="/ubec/allocations" aria-current={allocations?'page':undefined}>Allocations</Link>}
+            {user?.role==='UBEC Executive Secretary' && <a href="/ubec/allocations" aria-current={allocations?'page':undefined}>Allocations</a>}
           </nav>
         </div>
         <div className="national-header-account">
