@@ -2,15 +2,18 @@
 
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
+import { EyeIcon, EyeOffIcon, LockKeyholeIcon, MailIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react";
 import { LoginContours } from "@/components/login-artwork";
 import { UbecLogo } from "@/components/ubec-logo";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function Home() {
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,39 +37,66 @@ export default function Home() {
 
   return (
     <main className="login-page">
-      <section className="brand-panel" aria-label="BEAPMS Portal introduction">
-        <div className="login-classroom" aria-hidden="true" />
-        <div className="brand-content">
-          <a className="wordmark" href="#top" aria-label="BEAPMS Portal home">
-            <UbecLogo size={64} />
-            <span>BEAPMS Portal</span>
-          </a>
-          <p className="copyright">Copyright © 2026 Universal Basic Education Commission. All rights reserved</p>
+      <section className="login-hero" aria-labelledby="beapms-title">
+        <div className="login-scenes" aria-hidden="true">
+          <span className="login-scene login-scene-students" />
+          <span className="login-scene login-scene-classroom" />
+          <span className="login-scene login-scene-school" />
+        </div>
+        <div className="login-hero-sheen" aria-hidden="true" />
+        <div className="login-hero-inner">
+          <div className="login-agency">
+            <UbecLogo size={58} />
+            <span><strong>Universal Basic Education Commission</strong><small>Federal Republic of Nigeria</small></span>
+          </div>
+          <div className="login-hero-copy">
+            <p className="login-kicker"><SparklesIcon aria-hidden="true" />Planning better education, together</p>
+            <h1 id="beapms-title">Basic Education Action Plan <span>Management System</span> <small>(BEAPMS)</small></h1>
+            <p>Supporting UBEC and SUBEBs to strengthen financial allocation and management in the basic education sector.</p>
+          </div>
+          <div className="login-hero-footer">
+            <p>One coordinated workspace for accountable basic education planning.</p>
+            <div className="login-scene-progress" aria-hidden="true"><span/><span/><span/></div>
+          </div>
         </div>
       </section>
 
       <section className="signin-panel" id="top" aria-labelledby="sign-in-title">
         <LoginContours />
-        <div className="signin-card">
-          <div className="portal-brand login-mobile-brand"><UbecLogo /><span><strong>BEAPMS Portal</strong><small>YOBE SUBEB</small></span></div>
-          <header className="signin-heading">
-            <h1 id="sign-in-title">Welcome back</h1>
-            <p>Sign in to your UBEC workspace.</p>
-          </header>
-          <form onSubmit={handleSubmit}>
-            <FieldGroup className="gap-5">
-              <Field data-disabled={isSigningIn}>
-                <FieldLabel htmlFor="email">Work email</FieldLabel>
-                <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required className="form-input" disabled={isSigningIn} />
-              </Field>
-              <Field data-disabled={isSigningIn}>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
-                <Input id="password" name="password" type="password" autoComplete="current-password" placeholder="Enter your password" required className="form-input" disabled={isSigningIn} />
-              </Field>
-            </FieldGroup>
-            <Button type="submit" className="signin-button" disabled={isSigningIn} aria-busy={isSigningIn}>{isSigningIn && <Spinner data-icon="inline-start" />} {isSigningIn ? "Signing in…" : "Sign In"}</Button>
-          </form>
-        </div>
+        <div className="login-ambient login-ambient-one" aria-hidden="true" />
+        <div className="login-ambient login-ambient-two" aria-hidden="true" />
+        <Card className="signin-card">
+          <CardHeader className="signin-heading">
+            <div className="login-mobile-brand"><UbecLogo size={46}/><span><strong>BEAPMS Portal</strong><small>Universal Basic Education Commission</small></span></div>
+            <p className="signin-eyebrow"><ShieldCheckIcon aria-hidden="true"/>Secure portal access</p>
+            <CardTitle id="sign-in-title">Welcome back</CardTitle>
+            <CardDescription>Sign in with your assigned UBEC or SUBEB account.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit}>
+              <FieldGroup className="gap-5">
+                <Field data-disabled={isSigningIn}>
+                  <FieldLabel htmlFor="email">Work email</FieldLabel>
+                  <InputGroup className="form-input-group">
+                    <InputGroupAddon><MailIcon aria-hidden="true"/></InputGroupAddon>
+                    <InputGroupInput id="email" name="email" type="email" autoComplete="email" placeholder="name@ubec.gov.ng" required disabled={isSigningIn} />
+                  </InputGroup>
+                </Field>
+                <Field data-disabled={isSigningIn}>
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <InputGroup className="form-input-group">
+                    <InputGroupAddon><LockKeyholeIcon aria-hidden="true"/></InputGroupAddon>
+                    <InputGroupInput id="password" name="password" type={showPassword?"text":"password"} autoComplete="current-password" placeholder="Enter your password" required disabled={isSigningIn} />
+                    <InputGroupAddon align="inline-end"><InputGroupButton size="icon-xs" aria-label={showPassword?"Hide password":"Show password"} aria-pressed={showPassword} onClick={()=>setShowPassword(value=>!value)}>{showPassword?<EyeOffIcon/>:<EyeIcon/>}</InputGroupButton></InputGroupAddon>
+                  </InputGroup>
+                </Field>
+              </FieldGroup>
+              <Button type="submit" className="signin-button" disabled={isSigningIn} aria-busy={isSigningIn}>{isSigningIn && <Spinner data-icon="inline-start" />} {isSigningIn ? "Signing in…" : "Sign in to BEAPMS"}</Button>
+            </form>
+          </CardContent>
+          <CardFooter className="signin-footer"><LockKeyholeIcon aria-hidden="true"/><span>Authorized UBEC and SUBEB personnel only</span></CardFooter>
+        </Card>
+        <p className="login-copyright">© 2026 Universal Basic Education Commission</p>
       </section>
     </main>
   );
