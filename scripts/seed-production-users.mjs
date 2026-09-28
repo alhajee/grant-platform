@@ -60,6 +60,9 @@ try {
     'INSERT INTO funding_policies(allocation,actor_name) SELECT $1::jsonb,$2 WHERE NOT EXISTS(SELECT 1 FROM funding_policies)',
     [JSON.stringify(baselineAllocation), 'Initial allocation'],
   );
+  await db.query(
+    "INSERT INTO state_workflow_settings(state_code,beap_chair_submission_mode) VALUES('GLOBAL','complete_plan') ON CONFLICT(state_code) DO NOTHING",
+  );
   await db.query('COMMIT');
   process.stdout.write(`${JSON.stringify({ generatedAt: new Date().toISOString(), stateCount: states.length, subebUserCount: states.length * 4, accounts: credentials }, null, 2)}\n`);
 } catch (error) {

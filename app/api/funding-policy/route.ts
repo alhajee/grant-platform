@@ -26,6 +26,7 @@ export async function PUT(request:NextRequest) {
       const actor=(await db.query("SELECT full_name FROM users WHERE id=$1 AND active AND session_version=$2 AND role='UBEC Executive Secretary' FOR SHARE",[user.userId,user.sessionVersion])).rows[0];
       if(!actor)return fail('Your access has changed. Sign in again.',403);
       const latest=(await db.query('SELECT id,allocation FROM funding_policies ORDER BY id DESC LIMIT 1')).rows[0];
+      if(!latest)return fail('Funding allocations have not been configured. Ask an administrator to restore the baseline allocation.',409);
       if(latest.id!==parsed.data.version)return fail('Allocations have changed. Reload the latest version before saving.',409);
       const policy=(await db.query(`INSERT INTO funding_policies(allocation,created_by,actor_name) VALUES($1::jsonb,$2,$3) RETURNING ${fields}`,[JSON.stringify(parsed.data.allocation),user.userId,actor.full_name])).rows[0];
       return NextResponse.json({policy},{headers:{'Cache-Control':'no-store'}});

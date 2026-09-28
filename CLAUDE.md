@@ -1,0 +1,189 @@
+# BEAPMS project handoff
+
+Last updated: 28 September 2026 (Africa/Lagos)
+
+This file is the working context for any agent continuing this project. Read it before changing code or production data. `README.md` has broader historical detail, but parts of its older workflow narrative are superseded by the current implementation and the requirements below.
+
+## Product and repository
+
+- Product: Basic Education Action Plan Management System (BEAPMS) for UBEC and Nigeria's SUBEBs.
+- Repository root: `/Users/muhammad/SANDBOX/Alhajee/UBEC`
+- Main stack: Next.js/Vinext, TypeScript, React, PostgreSQL 16, shadcn-style UI components.
+- Local portal: `http://localhost:5173`
+- Production portal: `https://ubec.byteflow.com.ng`
+- Production hosting: Dokploy compose service `ubec-grant-portal-oi6ecu` on `s01.verifio.africa`.
+- Production health check: `GET /api/health` should return `{ "status": "ok" }`.
+- Deployments follow pushes to `main`.
+- Never commit `.env`, passwords, database URLs, backups, or generated credentials.
+- Ignore the untracked `output/` directory unless the user explicitly asks about its contents.
+
+## Commands and source-control conventions
+
+- Validate changes with `npm run lint` and `npm run build`.
+- The lint run currently has four pre-existing warnings; do not claim zero warnings unless they are actually removed.
+- Use `apply_patch` for source edits.
+- Preserve unrelated user changes in a dirty worktree.
+- The host Git binary may fail while creating an Xcode cache file. The known working fallback is:
+  `/Users/muhammad/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback/git`
+- Push only reviewed, tested changes to `main`; then wait for Dokploy and verify production health.
+
+## Current production data
+
+Production was intentionally cleared and reseeded on 28 September 2026.
+
+- 37 SUBEB/UBEB workspaces: Nigeria's 36 states plus FCT.
+- 4 state users per workspace (148 total):
+  - one Data Entry Officer assigned all SUBEB departments;
+  - one general Director assigned all SUBEB departments, including Physical Planning;
+  - one nominated BEAP Chair, implemented as a Physical Planning Director;
+  - one SUBEB Executive Chairman.
+- 13 non-state users: one Super Admin, one UBEC Executive Secretary, and 11 UBEC department reviewers.
+- Total expected users: 161.
+- Schools: 1,549 seeded directory records.
+- Production action plans were cleared. A temporary end-to-end plan was created after the reset and deleted after the test passed.
+- A pre-reset database backup exists inside the production PostgreSQL container at:
+  `/var/lib/postgresql/data/ubec-before-national-seed-20260928.dump`
+- All seeded accounts use the previously agreed shared password supplied through `SEED_SHARED_PASSWORD`. Do not write the password in this file or source control.
+- Account naming and email generation are defined in `scripts/seed-production-users.mjs`.
+
+## Current SUBEB workflow (authoritative)
+
+The required state flow is:
+
+1. Data Entry Staff enters and submits a department component.
+2. The assigned department Director reviews it and chooses **Send to BEAP Chair**.
+3. All components converge at the nominated SUBEB BEAP Chair.
+4. The BEAP Chair sends reviewed work to the **SUBEB Executive Chairman**.
+5. The SUBEB Executive Chairman sends the complete plan to UBEC.
+
+The Super Admin configures the BEAP Chair handoff globally:
+
+- `complete_plan`: the BEAP Chair waits for all implemented components and sends one collated submission;
+- `individual_components`: the BEAP Chair may forward reviewed components separately.
+
+The setting applies across every SUBEB, not per state. The implementation lives in:
+
+- `app/api/plans/review/route.ts`
+- `app/api/ubec/review/route.ts`
+- `app/beap/review/page.tsx`
+- `lib/pillar-review.ts`
+- `lib/workflow-settings.ts`
+- `app/api/admin/workflow-settings/route.ts`
+
+Only Infrastructure and Sports are currently treated as implemented blocking components. The other seven pillars are visible but not complete editors yet.
+
+## Roles and department access
+
+- Data Entry Staff and ordinary Directors can have one, several, or all departments.
+- Department assignments are stored in `user_departments`; `users.department` remains the first/legacy department value.
+- The state Users interface supports multi-select department assignment.
+- A Director can manage only staff whose department set is contained within the Director's own assignments.
+- The Executive Chairman can create Directors, nominate the one BEAP Chair, and delegate plan creation.
+- The BEAP Chair is visually identified in the account menu.
+- Important files:
+  - `db/postgres/024-user-departments.sql`
+  - `lib/user-departments.ts`
+  - `lib/workspace-state.ts`
+  - `app/api/users/route.ts`
+  - `app/api/admin/users/route.ts`
+  - `app/users/page.tsx`
+  - `components/department-checkboxes.tsx`
+
+## Recent user-facing work
+
+- Removed the unneeded “Accessible by design” component.
+- Renamed “Whole School Approach” to “Whole School Renovation/Expansion”.
+- Whole-school audit uses the table as the editing entry point; redundant edit buttons were removed.
+- Audit fields are required except “Extra beyond standard”.
+- Selecting a school already used by another activity shows a dismissible orange warning toast.
+- Furniture/equipment items use a compact editor plus table instead of endlessly duplicating full forms.
+- Required item fields are visually marked and incomplete items block Continue.
+- Learner counts are locked only when a value exists; empty values remain editable.
+- Fixed several production-only navigation failures by using real links/navigation rather than fragile client-only click behavior.
+- Plan title is shown as `<year> · <quarters> BEAP`, not “action plan”.
+- Workspace branding is `<STATE> SUBEB`; FCT is `FCT UBEB`.
+- Admin workspace has Users first, then Workflow settings, then Activity; platform settings are global.
+- Login uses a full-page UBEC education-photo slideshow with soft image transitions, overlaid login card, HOPE-site identity link, and a custard orbit/glow on the login button. Videos were intentionally abandoned in favor of images.
+
+## Critical production incident and permanent fix
+
+After the production reset, creating a plan failed with:
+
+`null value in column "funding_policy_id" of relation "action_plans" violates not-null constraint`
+
+Cause: `TRUNCATE users ... CASCADE` also truncated `funding_policies` because PostgreSQL follows foreign-key dependencies during `TRUNCATE ... CASCADE`, even when the FK uses `ON DELETE SET NULL`.
+
+Fixes in commit `e43ed57`:
+
+- `scripts/seed-production-users.mjs` restores the baseline funding policy when the table is empty.
+- `app/api/plans/route.ts` explicitly reads and pins the latest funding policy and returns a clear `409` configuration error if none exists.
+
+Production was repaired and verified by creating a real plan through `POST /api/plans` with a valid generated XLSX (`201`), then deleting only that temporary test plan.
+
+## Reset-safety audit
+
+The user asked for a proactive check for similar post-reset failures.
+
+The audit found and fixed another reset-sensitive platform record:
+
+- `state_workflow_settings.updated_by` references `users(id) ON DELETE SET NULL`.
+- The production reset used `TRUNCATE users ... CASCADE`, so PostgreSQL likely truncated `state_workflow_settings` just as it truncated `funding_policies`.
+- Runtime reads safely fall back to `complete_plan`, and the admin save action recreates the row, so the portal may appear functional; however, the durable `GLOBAL` row should be restored by the nationwide seed to avoid silent configuration loss.
+- An idempotent insert was added to `scripts/seed-production-users.mjs`:
+  `INSERT INTO state_workflow_settings(state_code,beap_chair_submission_mode) VALUES ('GLOBAL','complete_plan') ON CONFLICT (state_code) DO NOTHING`
+- Migration `025-restore-required-settings.sql` restores a missing global row in existing deployments while preserving configured values.
+
+Then audit production/reference integrity:
+
+- Expected nonempty durable tables: `users`, `schools`, `funding_policies`, `state_workflow_settings`, `schema_migrations`.
+- Check `construction_types`; it may legitimately be empty on a fresh system because types are state-defined.
+- Confirm `funding_policies >= 1` and exactly one `state_workflow_settings` row with `state_code='GLOBAL'`.
+- Inspect every FK referencing `users` or `action_plans` before any future reset. Never assume `ON DELETE` behavior protects a table from `TRUNCATE ... CASCADE`.
+- Search APIs for required reference records read via `rows[0]`, `LIMIT 1`, or scalar subqueries and ensure absence produces a clear error or safe baseline.
+- `app/api/funding-policy/route.ts` now returns a clear configuration error instead of dereferencing a missing latest policy.
+- Check fresh logins and page/API access for all four state roles plus Super Admin and UBEC Executive Secretary.
+- Exercise with temporary records and delete only the records created by the test.
+
+## Safer reset guidance
+
+- Do not repeat a broad `TRUNCATE users ... CASCADE` without first listing dependent tables and classifying configuration versus transactional data.
+- Prefer an explicit reset script or explicit table list that preserves reference/configuration rows.
+- If a clean nationwide demo reset is required, back up first, clear only intended user/plan/transactional data, run all migrations, run `scripts/seed-production-users.mjs`, then assert required baseline counts before exposing the portal.
+- The nationwide seed is transactional and refuses to overwrite existing seeded emails.
+- The seed currently restores a missing funding policy; it should also restore the global workflow setting as described above.
+
+## Important commits
+
+- `ee75a2f` — multi-department state users and nationwide seed.
+- `199a8b0` — include nationwide seed runner in the production image.
+- `e43ed57` — restore funding policy during production seed and guard plan creation.
+- `def5183` — remove login slideshow footer content.
+- `de1d5ba` — use login photos with a soft crossfade slideshow.
+
+## Dashboard funding semantics
+
+- `fundingTotal` is the funding envelope entered at plan creation: state contribution twice (state plus UBEC match) plus other funding.
+- `budget` is the sum of saved activity/project lines and can legitimately be zero on a new plan.
+- The dashboard hero must show **Total plan funding** from `fundingTotal` so a newly created plan immediately displays its funding.
+- Plan cards show **Available funding** and separately report the amount already proposed in activity lines.
+- The investment breakdown continues to use activity-line proposals; do not treat unallocated funding as spending.
+
+## UX expectations from the user
+
+- Keep language plain and role-specific. Buttons should name the actual recipient, e.g. “Send to BEAP Chair” and “Send to Executive Chairman”.
+- Prefer shadcn components and established page patterns.
+- Dashboard-style grid background and header spacing should remain consistent across pages.
+- Avoid redundant cards and excessively wide controls.
+- Table rows themselves should be actionable when that is the established interaction.
+- Validate required fields visibly and block progression when data is incomplete.
+- Do not push until asked when the user explicitly says to stop pushing; otherwise recent instructions have authorized pushing completed production fixes.
+
+## Definition of done for the current audit
+
+1. Restore/protect every required configuration row found missing after the reset.
+2. Add defensive API handling for missing configuration where appropriate.
+3. Run lint and production build.
+4. Commit and push the fixes.
+5. Wait for the Dokploy deployment to complete successfully.
+6. Verify `/api/health` and non-destructive role/API smoke tests on production.
+7. Report exactly what was found, fixed, and verified.
