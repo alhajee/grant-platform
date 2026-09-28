@@ -19,8 +19,8 @@ export function LoginVideo() {
   return <>
     <div className="login-scenes" aria-hidden="true">
       <video ref={video} className="login-background-video" muted loop playsInline preload="metadata"
-        poster="/beap-login-classroom.webp" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}>
-        <source src="/beap-classroom-motion.mp4" type="video/mp4" />
+        poster="/beap-login-students.webp" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)}>
+        <source src="/beap-scenes-motion.mp4" type="video/mp4" />
       </video>
     </div>
     <button type="button" className="login-motion-control" onClick={() => {
