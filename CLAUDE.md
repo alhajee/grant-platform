@@ -39,7 +39,12 @@ Production was intentionally cleared and reseeded on 28 September 2026.
   - one SUBEB Executive Chairman.
 - 13 non-state users: one Super Admin, one UBEC Executive Secretary, and 11 UBEC department reviewers.
 - Total expected users: 161.
-- Schools: 1,549 seeded directory records.
+- Schools: 79,848 directory records across all 37 states (28 September 2026).
+  - Yobe: 1,549 from the original `scripts/seed-yobe-schools.py` load (includes private and SSS).
+  - Other 36 states: 78,299 public Primary and JSS schools from `scripts/seed-national-schools.py` (source: `School list-1.xlsx`).
+  - Learner counts are synthetic test figures (120–560, stable per school) so infrastructure models can be exercised; replace with DNEMIS/census data for real planning.
+  - The import is idempotent (`ON CONFLICT DO NOTHING`) and never changes existing schools. School uniqueness is `(state_code, name, lga, level)` since migration `027-schools-unique-per-state.sql`.
+  - Pre-import production backup: `/var/lib/postgresql/data/ubec-before-national-schools-20260928.dump` inside the PostgreSQL container.
 - Production action plans were cleared. A temporary end-to-end plan was created after the reset and deleted after the test passed.
 - A pre-reset database backup exists inside the production PostgreSQL container at:
   `/var/lib/postgresql/data/ubec-before-national-seed-20260928.dump`
