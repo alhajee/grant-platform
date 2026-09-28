@@ -784,8 +784,6 @@
 .login-agency strong { font-size:14px; font-weight:600; letter-spacing:-.01em; }
 .login-agency small { font-size:11px; color:rgb(255 255 255 / 68%); }
 .login-hero-copy { max-width: 760px; animation: login-copy-in .8s cubic-bezier(.22,1,.36,1) both; }
-.login-kicker { display:flex; align-items:center; gap:8px; width:fit-content; margin-bottom:24px; padding:8px 12px; border-radius:999px; color:#ffe7a8; background:rgb(241 188 72 / 14%); font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; }
-.login-kicker svg { width:16px; height:16px; }
 .login-hero-copy h1 { max-width:740px; font-size:clamp(42px,5.1vw,76px); font-weight:500; line-height:.98; letter-spacing:-.055em; text-wrap:balance; }
 .login-hero-copy h1 span { color:#f4c85f; }
 .login-hero-copy h1 small { display:block; margin-top:16px; color:rgb(255 255 255 / 72%); font-size:.34em; font-weight:600; line-height:1; letter-spacing:.11em; }
@@ -806,11 +804,19 @@
 .signin-heading { gap:8px; padding-inline:clamp(24px,4vw,38px); }
 .signin-heading [data-slot=card-title] { font-size:clamp(29px,3vw,38px); font-weight:600; line-height:1.1; letter-spacing:-.045em; }
 .signin-heading [data-slot=card-description] { max-width:330px; font-size:14px; line-height:1.55; }
-.signin-eyebrow { display:flex; align-items:center; gap:7px; margin-bottom:12px; color:var(--primary); font-size:12px; font-weight:650; letter-spacing:.07em; text-transform:uppercase; }
-.signin-eyebrow svg { width:16px; height:16px; }
 .signin-card [data-slot=card-content] { padding-inline:clamp(24px,4vw,38px); }
 .form-input-group { min-height:50px; background:rgb(255 255 255 / 78%); }
 .form-input-group [data-slot=input-group-control] { min-height:48px; }
+.form-input-group input:-webkit-autofill,
+.form-input-group input:-webkit-autofill:hover,
+.form-input-group input:-webkit-autofill:focus,
+.form-input-group input:-webkit-autofill:active {
+  -webkit-text-fill-color:var(--foreground);
+  caret-color:var(--foreground);
+  -webkit-box-shadow:0 0 0 1000px #fff inset;
+  box-shadow:0 0 0 1000px #fff inset;
+  transition:background-color 9999s ease-out 0s;
+}
 .signin-button { width:100%; min-height:50px; margin-top:28px; box-shadow:0 12px 26px -14px color-mix(in srgb,var(--primary) 72%,transparent); }
 .signin-footer { justify-content:center; gap:8px; margin-top:2px; color:var(--muted-foreground); font-size:12px; }
 .signin-footer svg { width:14px; height:14px; }
@@ -842,7 +848,6 @@
 @media (max-width:560px) {
   .login-hero { min-height:390px; }
   .login-hero-inner { min-height:390px; gap:24px; padding:22px; }
-  .login-kicker { margin-bottom:16px; }
   .login-hero-copy h1 { font-size:36px; }
   .login-hero-copy > p:last-child { font-size:14px; line-height:1.55; }
   .login-hero-footer { justify-content:flex-end; }

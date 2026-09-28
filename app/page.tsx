@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { EyeIcon, EyeOffIcon, LockKeyholeIcon, MailIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react";
+import { EyeIcon, EyeOffIcon, LockKeyholeIcon, MailIcon } from "lucide-react";
 import { LoginContours } from "@/components/login-artwork";
 import { UbecLogo } from "@/components/ubec-logo";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,6 @@ export default function Home() {
             <span><strong>Universal Basic Education Commission</strong><small>Federal Republic of Nigeria</small></span>
           </div>
           <div className="login-hero-copy">
-            <p className="login-kicker"><SparklesIcon aria-hidden="true" />Planning better education, together</p>
             <h1 id="beapms-title">Basic Education Action Plan <span>Management System</span> <small>(BEAPMS)</small></h1>
             <p>Supporting UBEC and SUBEBs to strengthen financial allocation and management in the basic education sector.</p>
           </div>
@@ -68,7 +67,6 @@ export default function Home() {
         <Card className="signin-card">
           <CardHeader className="signin-heading">
             <div className="login-mobile-brand"><UbecLogo size={46}/><span><strong>BEAPMS Portal</strong><small>Universal Basic Education Commission</small></span></div>
-            <p className="signin-eyebrow"><ShieldCheckIcon aria-hidden="true"/>Secure portal access</p>
             <CardTitle id="sign-in-title">Welcome back</CardTitle>
             <CardDescription>Sign in with your assigned UBEC or SUBEB account.</CardDescription>
           </CardHeader>
