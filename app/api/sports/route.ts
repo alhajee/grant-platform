@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
         WHERE b.state_code = ${state} AND b.plan_id = ${plan.id} AND s.state_code = ${state} ORDER BY s.name, a.id`),
       db.query(`SELECT id, name, lga, level, location FROM schools WHERE state_code = ${state} ORDER BY name`),
     ]);
-    return NextResponse.json({ plan, canEdit: mayEditPillar(workspace.role,workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, schools: schools.rows }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ plan, canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, schools: schools.rows }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Unable to load sports plan", cause);
     return error("Your sports plan could not be loaded. Please try again.", 503);

@@ -13,9 +13,10 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM production-dependencies AS provision
-COPY scripts/provision-production-user.mjs ./provision-production-user.mjs
-COPY scripts/seed-production-users.mjs ./seed-production-users.mjs
-ENTRYPOINT ["node", "provision-production-user.mjs"]
+COPY scripts/provision-production-user.mjs ./scripts/provision-production-user.mjs
+COPY scripts/seed-production-users.mjs ./scripts/seed-production-users.mjs
+COPY lib/nigeria-map.json ./lib/nigeria-map.json
+ENTRYPOINT ["node", "scripts/provision-production-user.mjs"]
 
 FROM node:22-alpine AS runtime
 WORKDIR /app

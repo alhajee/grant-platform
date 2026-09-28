@@ -8,6 +8,7 @@ import { implementedPillars, componentSections, type ImplementedPillar } from '@
 import { canCreateStatePlan } from '@/lib/subeb-access';
 import { planSetupSchema, beapName } from '@/lib/plan-setup';
 import { planFormData, ratDocuments, PlanInputError } from '@/lib/plan-upload';
+import { hasDepartment } from '@/lib/user-departments';
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
         for(const pillar of implementedPillars) {
           const status=reviews.find(r=>r.plan_id===plan.id&&r.pillar===pillar)?.status??'draft';
           const name=componentSections[pillar][0].name;
-          const owns=pillarDepartments[pillar]===workspace.department;
+          const owns=hasDepartment(workspace.departments, pillarDepartments[pillar]);
           if(owns&&workspace.role==='Director'&&status==='director_review') pendingActions.push({label:`Review ${name}`,href:`/beap/review?plan=${plan.id}#review-${pillar}`});
           if(owns&&workspace.role==='Data Entry Staff'&&['draft','changes_requested'].includes(status)) pendingActions.push({label:`${status==='changes_requested'?'Address feedback on':'Complete'} ${name}`,href:`${componentSections[pillar][0].href}?plan=${plan.id}`});
           if(workspace.role==='Director'&&workspace.isBeapChair&&status==='beap_review') pendingActions.push({label:`BEAP Chair review: ${name}`,href:`/beap/review?plan=${plan.id}#review-${pillar}`});

@@ -23,6 +23,7 @@ import { mayEditPillar, pillarReviewLabels, statePlanOpen } from '@/lib/pillar-r
 import { Badge } from '@/components/ui/badge';
 import { PillarIllustration } from '@/components/pillar-illustration';
 import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
+import { hasDepartment } from '@/lib/user-departments';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 export default function ReviewPage() {
@@ -57,7 +58,7 @@ export default function ReviewPage() {
   }, []);
   useEffect(() => { void Promise.resolve().then(() => load()); }, [load]);
   const plan = data?.plan;
-  const editable = data && implementedPillars.some(p => mayEditPillar(data.role,data.department,p,data.plan.status,data.pillarReviews));
+  const editable = data && implementedPillars.some(p => mayEditPillar(data.role,data.departments,p,data.plan.status,data.pillarReviews));
   const available = !loading && !error && selected === 'current';
   const latestFeedback = data?.events.find(e => e.action === 'request_changes');
   const actionReviewStatus = data?.pillarReviews.find(review => review.pillar === scope)?.status;
@@ -90,10 +91,10 @@ export default function ReviewPage() {
           <div className="pillar-card-grid department-review-grid">
             {data.pillarReviews.map(review => {
               const pillar = componentSections[review.pillar][0];
-              const owns = data.department === pillarDepartments[review.pillar];
+              const owns = hasDepartment(data.departments, pillarDepartments[review.pillar]);
               const open = available && statePlanOpen(data.plan.status);
               const staffCanSend = open && owns && data.role==='Data Entry Staff' && ['draft','changes_requested'].includes(review.status);
-              const directorCanReview = open && owns && data.role==='Director' && review.status==='director_review';
+              const directorCanReview = open && owns && data.role==='Director' && !data.isBeapChair && review.status==='director_review';
               const beapChairCanReview = open && data.role==='Director' && data.isBeapChair && review.status==='beap_review';
               const executiveChairmanCanReturn = open && data.role==='Executive Chairman' && review.status==='chairman_ready';
               return <Card key={review.pillar} className="pillar-component-card department-review-card" data-component={review.pillar}>
@@ -124,7 +125,7 @@ export default function ReviewPage() {
               {data.readyForUbec && available ? <Button asChild><a href={planHref('/ubec/review',data.plan.id)}><SendIcon data-icon="inline-start" />Send to UBEC</a></Button> : <Button disabled>Send to UBEC</Button>}
             </div>}
         </section>
-        <div className="review-layout"><PlanReviewContent showPlanReference={false} snapshot={data.snapshot} visiblePillars={data.visiblePillars} tlmEditHref={available && mayEditPillar(data.role, data.department, 'tlm', data.plan.status, data.pillarReviews) ? planHref('/beap/tlm', data.plan.id) : undefined} sbmcEditHref={available && mayEditPillar(data.role, data.department, 'sbmc', data.plan.status, data.pillarReviews) ? planHref('/beap/sbmc', data.plan.id) : undefined} /><Card className="review-history"><CardHeader><CardTitle>Review history</CardTitle></CardHeader><CardContent>{!data.events.length ? <p>No submissions yet.</p> : <ol>{data.events.map(event => <li key={event.id}><strong>{event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action]}</strong><span>Submission {event.submissionNumber} · {event.actorName}</span><span>{event.actorRole} · {date.format(new Date(event.createdAt))}</span>{event.scope !== 'general' && <span>{scopeLabel(event.scope)}</span>}{event.comment && <p className="review-comment">{event.comment}</p>}</li>)}</ol>}</CardContent></Card></div>
+        <div className="review-layout"><PlanReviewContent showPlanReference={false} snapshot={data.snapshot} visiblePillars={data.visiblePillars} tlmEditHref={available && mayEditPillar(data.role, data.departments, 'tlm', data.plan.status, data.pillarReviews) ? planHref('/beap/tlm', data.plan.id) : undefined} sbmcEditHref={available && mayEditPillar(data.role, data.departments, 'sbmc', data.plan.status, data.pillarReviews) ? planHref('/beap/sbmc', data.plan.id) : undefined} /><Card className="review-history"><CardHeader><CardTitle>Review history</CardTitle></CardHeader><CardContent>{!data.events.length ? <p>No submissions yet.</p> : <ol>{data.events.map(event => <li key={event.id}><strong>{event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action]}</strong><span>Submission {event.submissionNumber} · {event.actorName}</span><span>{event.actorRole} · {date.format(new Date(event.createdAt))}</span>{event.scope !== 'general' && <span>{scopeLabel(event.scope)}</span>}{event.comment && <p className="review-comment">{event.comment}</p>}</li>)}</ol>}</CardContent></Card></div>
       </>}
     </main>
     <Dialog open={Boolean(action)} onOpenChange={open => { if (!open && !saving) setAction(null); }}><DialogContent variant="inset-footer" className="sm:max-w-sm" showCloseButton={!saving} onEscapeKeyDown={e => { if (saving) e.preventDefault(); }} onInteractOutside={e => { if (saving) e.preventDefault(); }}><DialogHeader><DialogTitle>{dialogAction === 'submit' ? dialogResubmit ? 'Resubmit to Director' : 'Submit to Director' : dialogAction === 'endorse' ? 'Send to BEAP Chair' : dialogAction === 'forward' ? 'Send to Executive Chairman' : 'Request changes'}</DialogTitle><DialogDescription>{dialogAction === 'submit' ? 'Saved entries in this component will be sent to your department Director. Other departments can continue working.' : dialogAction === 'endorse' ? 'Send this department’s reviewed component to the nominated BEAP Chair for state-level consolidation.' : dialogAction === 'forward' ? data?.beapChairSubmissionMode==='individual_components' ? 'This reviewed component will be sent to the Executive Chairman. Other components will remain with the BEAP Chair until they are sent separately.' : 'All reviewed components will be sent together as one collated SUBEB BEAP to the Executive Chairman for final state-level review before submission to UBEC.' : actionReviewStatus === 'chairman_ready' ? 'Return this component to the BEAP Chair with the changes required by the Executive Chairman.' : actionReviewStatus === 'beap_review' ? 'Return this component to its department Director with the changes required by the BEAP Chair.' : 'Return this component to the department’s Data Entry Staff with the Director’s required changes.'}</DialogDescription></DialogHeader>

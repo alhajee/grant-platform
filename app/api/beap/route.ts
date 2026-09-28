@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
       budget: infrastructure.budget+sports.budget+sbmc.budget+tlm.budget,
     };
     const reviews = await readPillarReviews(db, plan.id);
-    const editablePillars = implementedPillars.filter(p => mayEditPillar(workspace.role,workspace.department,p,plan.status,reviews));
-    return NextResponse.json({ wholeState: canViewWholeStatePlan(workspace), visiblePillars, sbmc, tlm, editablePillars, plan, role: workspace.role, department: workspace.department, canEdit: editablePillars.length > 0, infrastructure, sports, total }, { headers: { "Cache-Control": "no-store" } });
+    const editablePillars = implementedPillars.filter(p => mayEditPillar(workspace.role,workspace.departments ?? workspace.department,p,plan.status,reviews));
+    return NextResponse.json({ wholeState: canViewWholeStatePlan(workspace), visiblePillars, sbmc, tlm, editablePillars, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, canEdit: editablePillars.length > 0, infrastructure, sports, total }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Unable to load BEAP overview", cause);
     return NextResponse.json({ error: "Your annual plan could not be loaded. Please try again." }, { status: 503 });

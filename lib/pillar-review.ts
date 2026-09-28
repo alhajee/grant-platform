@@ -4,6 +4,7 @@ import { canEditPillar } from './subeb-access';
 import type { PlanStatus } from './action-plans';
 import type { Snapshot } from './plan-review';
 import { infrastructureDocumentProblem } from './infrastructure-documents';
+import type { DepartmentAccess } from './user-departments';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'beap_review' | 'chairman_ready';
 export type PillarReview = { pillar: ImplementedPillar; status: PillarReviewStatus };
@@ -15,9 +16,9 @@ export async function readPillarReviews(db: { query<R extends QueryResultRow>(sq
   const rows = (await db.query<PillarReview>('SELECT pillar,status FROM plan_pillar_reviews WHERE plan_id=$1', [planId])).rows;
   return implementedPillars.map(pillar => rows.find(row => row.pillar === pillar) ?? { pillar, status: 'draft' });
 }
-export function mayEditPillar(role: string, department: string | null | undefined, pillar: ImplementedPillar, status: string, reviews: PillarReview[]) {
+export function mayEditPillar(role: string, departments: DepartmentAccess, pillar: ImplementedPillar, status: string, reviews: PillarReview[]) {
   const review = reviews.find(r => r.pillar === pillar)?.status ?? 'draft';
-  return statePlanOpen(status) && canEditPillar(role, department, pillar) &&
+  return statePlanOpen(status) && canEditPillar(role, departments, pillar) &&
     (role === 'Director' ? review === 'director_review' : ['draft','changes_requested'].includes(review));
 }
 export function readyForUbec(reviews: PillarReview[], snapshot: Snapshot) {

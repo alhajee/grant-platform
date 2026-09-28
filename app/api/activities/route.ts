@@ -19,7 +19,7 @@ export async function GET(req:NextRequest){
   const lines=(await db.query('SELECT id,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject" FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
   const schools=workstream==='tlm'?(await db.query('SELECT id,name,lga,level,location FROM schools WHERE state_code=$1 ORDER BY name',[user.stateCode])).rows:[];
   const distribution=workstream==='tlm'?(await db.query('SELECT s.id,s.name,s.lga,s.level,s.location FROM tlm_distribution d JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND s.state_code=$2 ORDER BY s.name',[plan.id,user.stateCode])).rows:[];
-  return NextResponse.json({plan,lines,schools,distribution,canEdit:mayEditPillar(user.role,user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({plan,lines,schools,distribution,canEdit:mayEditPillar(user.role,user.departments ?? user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load this component.',503);}
 }
 export async function POST(req:NextRequest){

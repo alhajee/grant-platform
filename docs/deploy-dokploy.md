@@ -89,6 +89,22 @@ staff after the first Chairman signs in.
 If national review is required immediately, repeat the command with role
 `UBEC Executive Secretary`; its workspace is assigned automatically.
 
+For a cleared demonstration database, the nationwide seed creates four SUBEB
+users for every state and the FCT and uses one shared password for all seeded
+accounts. Run it from the Compose checkout directory after migrations finish:
+
+```sh
+docker compose -f docker-compose.prod.yml --profile tools run --rm \
+  --entrypoint node \
+  -e SEED_SUPER_ADMIN_EMAIL='admin@example.gov.ng' \
+  -e SEED_SUPER_ADMIN_NAME='Portal Administrator' \
+  -e SEED_SHARED_PASSWORD='<the agreed shared password>' \
+  provision scripts/seed-production-users.mjs
+```
+
+The seed refuses to overwrite existing matching accounts. Use it only after the
+intended database reset, not on a populated production database.
+
 ## Data, backups, and operations
 
 - The production initializer excludes the local demo schools and sample projects.

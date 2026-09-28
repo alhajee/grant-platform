@@ -13,6 +13,7 @@ import { implementedPillars } from '@/lib/beap-pillars';
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
 import { aggregateReviewStatus, readPillarReviews, readyForExecutiveChairman, readyForUbec, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
 import { readBeapChairSubmissionMode } from '@/lib/workflow-settings';
+import { hasDepartment, userDepartmentsSql } from '@/lib/user-departments';
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const command = z.object({ action: z.enum(['submit', 'request_changes', 'endorse', 'forward']), version: z.number().int().nonnegative(), comment: z.string().trim().max(5000).default(''), pillar: z.enum(implementedPillars).optional() }).strict();
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
       const visibleEvents = canViewWholeStatePlan(workspace) ? events : events.filter(event => visiblePillars.includes(event.scope));
       const visibleSubmissions = canViewWholeStatePlan(workspace) ? submissions : submissions.filter(submission => visibleEvents.some(event => event.submissionNumber === submission.number));
       if (requested && !visibleSubmissions.some(submission => submission.number === Number(requested))) return error('Submission not found.', 404);
-      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbec(pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbec(pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
     const found = await resolveActionPlan(request, workspace.stateCode);
     if (!found) return error('Action plan not found.', 404);
     return await getPostgres().transaction(async db => {
-      const actor = (await db.query('SELECT role, department, is_beap_chair FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [workspace.userId, workspace.sessionVersion])).rows[0];
+      const actor = (await db.query(`SELECT role, department, ${userDepartmentsSql('users')} AS departments, is_beap_chair FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE`, [workspace.userId, workspace.sessionVersion])).rows[0];
       if (!actor) return error('You do not have permission for this action.', 403);
       const plan = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id = $1 FOR UPDATE`, [found.id])).rows[0];
       if (plan.version !== input.version) return error('This plan has changed. Refresh before continuing.', 409);
@@ -80,22 +81,22 @@ export async function POST(request: NextRequest) {
       let recipientLabel: string;
       let recipients: {id:number}[];
       if (input.action === 'submit') {
-        if (actor.role !== 'Data Entry Staff' || actor.department !== department) return error('Only the assigned Data Entry Staff can send this component to the department Director.', 403);
+        if (actor.role !== 'Data Entry Staff' || !hasDepartment(actor.departments, department)) return error('Only assigned Data Entry Staff can send this component to the department Director.', 403);
         if (!['draft','changes_requested'].includes(current.status)) return error('This action is no longer available for this component.', 409);
         status = 'director_review'; recipientLabel = 'department Director';
-        recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Director' AND department=$2", [workspace.stateCode,department])).rows;
+        recipients = (await db.query("SELECT DISTINCT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND u.active AND u.role='Director' AND NOT u.is_beap_chair AND ud.department=$2", [workspace.stateCode,department])).rows;
       } else if (input.action === 'endorse' && current.status === 'director_review') {
-        if (actor.role !== 'Director' || actor.department !== department) return error('Only this department’s Director can send the component to the BEAP Chair.', 403);
+        if (actor.role !== 'Director' || actor.is_beap_chair || !hasDepartment(actor.departments, department)) return error('Only this department’s assigned Director can send the component to the BEAP Chair.', 403);
         status = 'beap_review'; recipientLabel = 'nominated BEAP Chair';
         recipients = (await db.query('SELECT id FROM users WHERE state_code=$1 AND active AND is_beap_chair', [workspace.stateCode])).rows;
       } else if (input.action === 'request_changes' && current.status === 'director_review') {
-        if (actor.role !== 'Director' || actor.department !== department) return error('Only this department’s Director can return this component to Data Entry Staff.', 403);
+        if (actor.role !== 'Director' || actor.is_beap_chair || !hasDepartment(actor.departments, department)) return error('Only this department’s assigned Director can return this component to Data Entry Staff.', 403);
         status = 'changes_requested'; recipientLabel = 'department Data Entry Staff';
-        recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Data Entry Staff' AND department=$2", [workspace.stateCode,department])).rows;
+        recipients = (await db.query("SELECT DISTINCT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND u.active AND u.role='Data Entry Staff' AND ud.department=$2", [workspace.stateCode,department])).rows;
       } else if (input.action === 'request_changes' && current.status === 'beap_review') {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can return this component to its department Director.', 403);
         status = 'director_review'; recipientLabel = 'department Director';
-        recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Director' AND department=$2", [workspace.stateCode,department])).rows;
+        recipients = (await db.query("SELECT DISTINCT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND u.active AND u.role='Director' AND NOT u.is_beap_chair AND ud.department=$2", [workspace.stateCode,department])).rows;
       } else if (input.action === 'request_changes' && current.status === 'chairman_ready') {
         if (actor.role !== 'Executive Chairman') return error('Only the SUBEB Executive Chairman can return this component to the BEAP Chair.', 403);
         status = 'beap_review'; recipientLabel = 'nominated BEAP Chair';

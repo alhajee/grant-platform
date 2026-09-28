@@ -32,6 +32,7 @@ services:
       - ./db/postgres/021-beap-chair-workflow.sql:/docker-entrypoint-initdb.d/021-beap-chair-workflow.sql:ro
       - ./db/postgres/022-workflow-settings.sql:/docker-entrypoint-initdb.d/022-workflow-settings.sql:ro
       - ./db/postgres/023-global-workflow-setting.sql:/docker-entrypoint-initdb.d/023-global-workflow-setting.sql:ro
+      - ./db/postgres/024-user-departments.sql:/docker-entrypoint-initdb.d/024-user-departments.sql:ro
 
 volumes:
   ubec_postgres_data:

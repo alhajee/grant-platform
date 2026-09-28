@@ -1,92 +1,58 @@
-import { randomBytes } from "node:crypto";
-import { Client } from "pg";
-import { hashSync } from "bcryptjs";
+import { readFile } from 'node:fs/promises';
+import { Client } from 'pg';
+import { hashSync } from 'bcryptjs';
 
 const connectionString = process.env.DATABASE_URL;
-const superAdminEmail = (process.env.SEED_SUPER_ADMIN_EMAIL || "admin@ubec.test").trim().toLowerCase();
-const superAdminName = process.env.SEED_SUPER_ADMIN_NAME?.trim() || "UBEC Super Administrator";
+const superAdminEmail = (process.env.SEED_SUPER_ADMIN_EMAIL || 'admin@ubec.test').trim().toLowerCase();
+const superAdminName = process.env.SEED_SUPER_ADMIN_NAME?.trim() || 'UBEC Super Administrator';
 const sharedPassword = process.env.SEED_SHARED_PASSWORD?.trim();
+if (!connectionString) throw new Error('DATABASE_URL is required.');
+if (!/^\S+@\S+\.\S+$/.test(superAdminEmail)) throw new Error('SEED_SUPER_ADMIN_EMAIL must be a valid email address.');
+if (!sharedPassword) throw new Error('SEED_SHARED_PASSWORD is required so every seeded account keeps the agreed shared password.');
 
-if (!connectionString) throw new Error("DATABASE_URL is required.");
-if (!superAdminEmail || !/^\S+@\S+\.\S+$/.test(superAdminEmail)) {
-  throw new Error("SEED_SUPER_ADMIN_EMAIL must be a valid email address.");
-}
+const subebDepartments = ['physical', 'academic', 'me', 'teachers', 'ict', 'social', 'planning'];
+const ubecDepartments = ['academic', 'administration', 'physical', 'planning', 'special', 'teachers', 'finance', 'audit', 'quality', 'social', 'zonal'];
+const states = JSON.parse(await readFile(new URL('../lib/nigeria-map.json', import.meta.url), 'utf8'));
+if (states.length !== 37) throw new Error(`Expected Nigeria's 36 states and FCT; found ${states.length}.`);
 
-const units = [
-  ["physical", "Physical Planning"],
-  ["academic", "Academic Services"],
-  ["me", "Monitoring & Evaluation"],
-  ["teachers", "Teacher Development"],
-  ["ict", "ICT"],
-  ["social", "Social Mobilisation"],
-  ["planning", "Planning, Research & Statistics"],
-];
-
+const subebName = state => state.code === 'FC' ? 'FCT UBEB' : `${state.name.toUpperCase()} SUBEB`;
+const slug = state => state.name.toLowerCase().replace(/[^a-z0-9]+/g, '.');
 const accounts = [
-  { email: superAdminEmail, name: superAdminName, role: "Super Admin", state: "ADMIN", department: null },
-  { email: "executive.secretary@ubec.test", name: "UBEC Executive Secretary", role: "UBEC Executive Secretary", state: "UBEC", department: null },
-  ...units.map(([department, name]) => ({
-    email: `${department}.reviewer@ubec.test`,
-    name: `${name} Reviewer`,
-    role: "UBEC Department Reviewer",
-    state: "UBEC",
-    department,
-  })),
-  { email: "executive.chairman@yobe.ubec.test", name: "Yobe SUBEB Executive Chairman", role: "Executive Chairman", state: "YO", department: null },
-  ...units.flatMap(([department, name]) => [
-    {
-      email: `${department}.director@yobe.ubec.test`,
-      name: `Director, ${name}`,
-      role: "Director",
-      state: "YO",
-      department,
-      isBeapChair: department === "physical",
-      canCreatePlan: department === "planning",
-    },
-    {
-      email: `${department}.officer@yobe.ubec.test`,
-      name: `${name} Desk Officer`,
-      role: "Data Entry Staff",
-      state: "YO",
-      department,
-    },
-  ]),
+  { email: superAdminEmail, name: superAdminName, role: 'Super Admin', state: 'ADMIN', departments: [] },
+  { email: 'executive.secretary@ubec.test', name: 'UBEC Executive Secretary', role: 'UBEC Executive Secretary', state: 'UBEC', departments: [] },
+  ...ubecDepartments.map(department => ({ email: `${department}.reviewer@ubec.test`, name: `UBEC ${department} Reviewer`, role: 'UBEC Department Reviewer', state: 'UBEC', departments: [department] })),
+  ...states.flatMap(state => {
+    const workspace = subebName(state);
+    const domain = `${slug(state)}.subeb.test`;
+    return [
+      { email: `data.entry@${domain}`, name: `${workspace} Data Entry Officer`, role: 'Data Entry Staff', state: state.code, departments: subebDepartments },
+      { email: `director@${domain}`, name: `${workspace} Director`, role: 'Director', state: state.code, departments: ['academic', ...subebDepartments.filter(value => value !== 'academic')] },
+      { email: `beap.chair@${domain}`, name: `${workspace} BEAP Chair`, role: 'Director', state: state.code, departments: ['physical'], isBeapChair: true, canCreatePlan: true },
+      { email: `executive.chairman@${domain}`, name: `${workspace} Executive Chairman`, role: 'Executive Chairman', state: state.code, departments: [] },
+    ];
+  }),
 ];
 
-const credentials = accounts.map(account => ({
-  ...account,
-  password: sharedPassword || `Ubec-${randomBytes(18).toString("base64url")}!7a`,
-}));
-
+const credentials = accounts.map(account => ({ ...account, password: sharedPassword }));
 const db = new Client({ connectionString, connectionTimeoutMillis: 5000 });
 await db.connect();
 try {
-  await db.query("BEGIN");
+  await db.query('BEGIN');
   await db.query("SELECT pg_advisory_xact_lock(hashtext('production-role-seed'))");
-  const existing = await db.query("SELECT email FROM users WHERE email=ANY($1::text[])", [credentials.map(item => item.email)]);
-  if (existing.rowCount) {
-    throw new Error(`Seed accounts already exist (${existing.rows.map(row => row.email).join(", ")}); no changes were made.`);
-  }
+  const existing = await db.query('SELECT email FROM users WHERE email=ANY($1::text[])', [credentials.map(item => item.email)]);
+  if (existing.rowCount) throw new Error(`Seed accounts already exist (${existing.rows.slice(0, 5).map(row => row.email).join(', ')}${existing.rowCount > 5 ? ', …' : ''}); clear them before running the fresh seed.`);
   for (const account of credentials) {
-    await db.query(
+    const user = await db.query(
       `INSERT INTO users(email,full_name,role,department,state_code,password_hash,active,can_create_plan,is_beap_chair)
-       VALUES($1,$2,$3,$4,$5,$6,TRUE,$7,$8)`,
-      [
-        account.email,
-        account.name,
-        account.role,
-        account.department,
-        account.state,
-        hashSync(account.password, 12),
-        account.canCreatePlan ?? false,
-        account.isBeapChair ?? false,
-      ],
+       VALUES($1,$2,$3,$4,$5,$6,TRUE,$7,$8) RETURNING id`,
+      [account.email, account.name, account.role, account.departments[0] ?? null, account.state, hashSync(account.password, 12), account.canCreatePlan ?? false, account.isBeapChair ?? false],
     );
+    if (account.departments.length) await db.query('INSERT INTO user_departments(user_id,department) SELECT $1,unnest($2::text[])', [user.rows[0].id, account.departments]);
   }
-  await db.query("COMMIT");
-  process.stdout.write(`${JSON.stringify({ generatedAt: new Date().toISOString(), accounts: credentials }, null, 2)}\n`);
+  await db.query('COMMIT');
+  process.stdout.write(`${JSON.stringify({ generatedAt: new Date().toISOString(), stateCount: states.length, subebUserCount: states.length * 4, accounts: credentials }, null, 2)}\n`);
 } catch (error) {
-  await db.query("ROLLBACK").catch(() => undefined);
+  await db.query('ROLLBACK').catch(() => undefined);
   throw error;
 } finally {
   await db.end();

@@ -36,4 +36,4 @@ export type PillarSummary = { lineCount: number; schoolCount: number; budget: nu
 export const subebComponentDepartments = Object.fromEntries(Object.entries(componentSections).map(([id,sections])=>[id,sections[0].department])) as Record<PillarId,string>;
 export const implementedPillars = ['infrastructure', 'sports', 'sbmc', 'tlm'] as const;
 export type ImplementedPillar = typeof implementedPillars[number];
-export type BeapSummary = { wholeState: boolean; visiblePillars: ImplementedPillar[]; plan: import("./action-plans").ActionPlan; role: string; department: string | null; canEdit: boolean; editablePillars: ImplementedPillar[]; infrastructure: PillarSummary; sports: PillarSummary; sbmc: PillarSummary; tlm: PillarSummary; total: PillarSummary };
+export type BeapSummary = { wholeState: boolean; visiblePillars: ImplementedPillar[]; plan: import("./action-plans").ActionPlan; role: string; department: string | null; departments: string[]; canEdit: boolean; editablePillars: ImplementedPillar[]; infrastructure: PillarSummary; sports: PillarSummary; sbmc: PillarSummary; tlm: PillarSummary; total: PillarSummary };

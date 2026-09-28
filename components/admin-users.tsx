@@ -20,15 +20,16 @@ import { subebDisplayName } from '@/lib/state-names';
 import { subebDepartmentName, subebDepartments } from '@/lib/subeb-departments';
 import { departmentName, departments as ubecDepartments } from '@/lib/ubec';
 import { toast } from 'sonner';
+import { DepartmentCheckboxes } from '@/components/department-checkboxes';
 
-export type AdminManagedUser = { id:number; name:string; email:string; role:string; department:string|null; stateCode:string; active:boolean; canCreatePlan:boolean; isBeapChair:boolean };
+export type AdminManagedUser = { id:number; name:string; email:string; role:string; department:string|null; departments:string[]; stateCode:string; active:boolean; canCreatePlan:boolean; isBeapChair:boolean };
 type Form = Omit<AdminManagedUser, 'id'>;
 const helper = createColumnHelper<DataTableFeatures, AdminManagedUser>();
-const blank = (stateCode:string):Form => ({ name:'', email:'', role:stateCode === 'UBEC' ? 'UBEC Department Reviewer' : 'Data Entry Staff', department:'', stateCode, active:true, canCreatePlan:false, isBeapChair:false });
+const blank = (stateCode:string):Form => ({ name:'', email:'', role:stateCode === 'UBEC' ? 'UBEC Department Reviewer' : 'Data Entry Staff', department:'', departments:[], stateCode, active:true, canCreatePlan:false, isBeapChair:false });
 
 const workspaceName = (stateCode:string) => stateCode === 'UBEC' ? 'UBEC' : subebDisplayName(stateCode);
 const roleNeedsDepartment = (role:string) => ['Data Entry Staff','Director','UBEC Department Reviewer'].includes(role);
-const departmentLabel = (user:AdminManagedUser) => user.department ? (user.stateCode === 'UBEC' ? departmentName(user.department) : subebDepartmentName(user.department)) : '—';
+const departmentLabel = (user:AdminManagedUser) => user.stateCode !== 'UBEC' && user.departments?.length === subebDepartments.length ? 'All departments' : user.departments?.length ? user.departments.map(value => user.stateCode === 'UBEC' ? departmentName(value) : subebDepartmentName(value)).join(', ') : '—';
 
 export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUser[];busy:number|null;onSwitch:(id:number)=>Promise<void>|void;onChanged:()=>Promise<void>|void}) {
   const workspaces = useMemo(() => [...new Set(users.map(user=>user.stateCode))].sort((a,b)=>a === 'UBEC' ? -1 : b === 'UBEC' ? 1 : workspaceName(a).localeCompare(workspaceName(b))), [users]);
@@ -42,18 +43,18 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
 
   const open = useCallback((user:AdminManagedUser|'new') => {
     setEditing(user);
-    setForm(user === 'new' ? blank(initialWorkspace) : {...user,department:user.department ?? ''});
+    setForm(user === 'new' ? blank(initialWorkspace) : {...user,department:user.department ?? '',departments:user.departments ?? (user.department ? [user.department] : [])});
     setFormError('');
   },[initialWorkspace]);
   const changeWorkspace = (stateCode:string) => setForm(blank(stateCode));
-  const changeRole = (role:string) => setForm(current=>({...current,role,department:'',isBeapChair:false,canCreatePlan:false}));
+  const changeRole = (role:string) => setForm(current=>({...current,role,department:'',departments:[],isBeapChair:false,canCreatePlan:false}));
 
   async function save(passwordReset=false) {
     if (pending.current || (!editing && !reset)) return;
     pending.current=true; setSaving(true); setFormError('');
     const email = passwordReset ? reset!.email : form.email;
     try {
-      const body = passwordReset ? {id:reset!.id,action:'reset_password'} : {...form,department:form.department || null,...(editing === 'new' ? {} : {id:(editing as AdminManagedUser).id})};
+      const body = passwordReset ? {id:reset!.id,action:'reset_password'} : {...form,department:form.departments[0] || null,...(editing === 'new' ? {} : {id:(editing as AdminManagedUser).id})};
       const response = await fetch('/api/admin/users',{method:editing === 'new' && !passwordReset ? 'POST' : 'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const result = await response.json() as {error?:string;password?:string};
       if (!response.ok) throw Error(result.error || 'Unable to save this user.');
@@ -84,12 +85,12 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
       <Field><FieldLabel htmlFor="admin-user-name">Full name</FieldLabel><Input id="admin-user-name" required minLength={2} maxLength={120} disabled={saving} value={form.name} onChange={event=>setForm({...form,name:event.target.value})}/></Field>
       <Field><FieldLabel htmlFor="admin-user-email">Email address</FieldLabel><Input id="admin-user-email" type="email" required disabled={saving||editing!=='new'} value={form.email} onChange={event=>setForm({...form,email:event.target.value})}/></Field>
       <Field><FieldLabel htmlFor="admin-user-role">Role</FieldLabel><NativeSelect id="admin-user-role" disabled={saving} value={form.role} onChange={event=>changeRole(event.target.value)}>{isUbec?<><NativeSelectOption value="UBEC Department Reviewer">UBEC Department Reviewer</NativeSelectOption><NativeSelectOption value="UBEC Executive Secretary">UBEC Executive Secretary</NativeSelectOption></>:<><NativeSelectOption value="Data Entry Staff">Data Entry Staff</NativeSelectOption><NativeSelectOption value="Director">Director</NativeSelectOption><NativeSelectOption value="Executive Chairman">Executive Chairman</NativeSelectOption></>}</NativeSelect></Field>
-      {roleNeedsDepartment(form.role)&&<Field><FieldLabel htmlFor="admin-user-department">Department</FieldLabel><NativeSelect id="admin-user-department" required disabled={saving} value={form.department??''} onChange={event=>setForm({...form,department:event.target.value})}><NativeSelectOption value="" disabled>Select department</NativeSelectOption>{departments.map(item=><NativeSelectOption key={item.id} value={item.id}>{item.name}</NativeSelectOption>)}</NativeSelect></Field>}
+      {roleNeedsDepartment(form.role) && (isUbec ? <Field><FieldLabel htmlFor="admin-user-department">Department</FieldLabel><NativeSelect id="admin-user-department" required disabled={saving} value={form.departments[0]??''} onChange={event=>setForm({...form,department:event.target.value,departments:[event.target.value]})}><NativeSelectOption value="" disabled>Select department</NativeSelectOption>{departments.map(item=><NativeSelectOption key={item.id} value={item.id}>{item.name}</NativeSelectOption>)}</NativeSelect></Field> : <DepartmentCheckboxes departments={departments} selected={form.departments} disabled={saving} onChange={values=>setForm({...form,departments:values,department:values[0]??''})}/>)}
       <Field><FieldLabel htmlFor="admin-user-active">Account access</FieldLabel><NativeSelect id="admin-user-active" disabled={saving} value={String(form.active)} onChange={event=>setForm({...form,active:event.target.value==='true'})}><NativeSelectOption value="true">Active</NativeSelectOption><NativeSelectOption value="false">Inactive</NativeSelectOption></NativeSelect></Field>
       {!isUbec&&<Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="admin-user-create-plan">Allow creating action plans</FieldLabel><Switch id="admin-user-create-plan" disabled={saving||form.isBeapChair} checked={form.isBeapChair||form.canCreatePlan} onCheckedChange={canCreatePlan=>setForm({...form,canCreatePlan})}/></Field>}
       {!isUbec&&form.role==='Director'&&<Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="admin-user-beap-chair">Appoint as SUBEB BEAP Chair</FieldLabel><Switch id="admin-user-beap-chair" disabled={saving} checked={form.isBeapChair} onCheckedChange={isBeapChair=>setForm({...form,isBeapChair,canCreatePlan:isBeapChair||form.canCreatePlan})}/></Field>}
       {formError&&<FieldError role="alert">{formError}</FieldError>}
-    </FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={()=>setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving}>{saving&&<Spinner data-icon="inline-start"/>}Save user</Button></DialogFooter></form></DialogContent></Dialog>
+    </FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={()=>setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving||(roleNeedsDepartment(form.role)&&form.departments.length===0)}>{saving&&<Spinner data-icon="inline-start"/>}Save user</Button></DialogFooter></form></DialogContent></Dialog>
     <Dialog open={Boolean(reset)} onOpenChange={openState=>{if(!openState&&!saving)setReset(null);}}><DialogContent showCloseButton={!saving}><DialogHeader><DialogTitle>Reset password?</DialogTitle><DialogDescription>{reset?.name} will be signed out. A new password will be shown once for secure sharing.</DialogDescription></DialogHeader>{formError&&<Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}<DialogFooter><Button variant="outline" disabled={saving} onClick={()=>setReset(null)}>Cancel</Button><Button disabled={saving} onClick={()=>void save(true)}>{saving&&<Spinner data-icon="inline-start"/>}Reset password</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={Boolean(credentials)} onOpenChange={openState=>{if(!openState)setCredentials(null);}}><DialogContent><DialogHeader><DialogTitle>Login details</DialogTitle><DialogDescription>Copy and share these details securely. The password will not be shown again.</DialogDescription></DialogHeader><FieldGroup><Field><FieldLabel htmlFor="admin-credential-email">Email</FieldLabel><Input id="admin-credential-email" readOnly value={credentials?.email??''}/></Field><Field><FieldLabel htmlFor="admin-credential-password">Password</FieldLabel><Input id="admin-credential-password" readOnly value={credentials?.password??''}/></Field></FieldGroup><DialogFooter><Button onClick={()=>setCredentials(null)}>Done</Button></DialogFooter></DialogContent></Dialog>
   </div>;

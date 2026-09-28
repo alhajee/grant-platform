@@ -35,6 +35,10 @@ Flow: department staff send each pillar to their department Director → the Dir
 
 ## SUBEB roles and user management
 
+Migration `024-user-departments.sql` adds multi-department assignments. Data Entry Staff and Directors may be assigned one, several, or all SUBEB departments from the user interface; component visibility, editing, submission, review routing, and Director management permissions all use the complete assignment. A nominated BEAP Chair remains a Physical Planning Director but is kept out of the ordinary department-Director recipient path when a separate assigned Director exists.
+
+For a fresh nationwide demo, `scripts/seed-production-users.mjs` creates four accounts for each of Nigeria's 36 states and the FCT: one all-department Data Entry Officer, one all-department Director, one Physical Planning Director nominated as BEAP Chair, and one Executive Chairman. It also creates the Super Admin and UBEC review accounts. Set `SEED_SHARED_PASSWORD` to the agreed shared password; the script requires it and uses it for every generated account.
+
 Apply migrations 007, 008 and `db/postgres/009-plan-creation-permission.sql` in order (fresh Docker volumes apply them automatically). Migration 008 adds independent pillar review states and permits one active Director per department per state. Existing Directors without a department remain unassigned until the Chairman explicitly assigns one. Legacy state-level submissions require department review again; plans already with UBEC and historical submissions are retained. Migration 009 defaults delegated plan creation to false. The Executive Chairman can always create plans and can grant/revoke creation for their state users in Users. Delegation does not change pillar editing or review permissions and cannot be passed on by Directors. Permission changes are audited and invalidate the target's existing session.
 
 Run `node --env-file=.env scripts/test-plan-creation-permission.mjs` against the local running preview to verify plan-creation authorization. It removes only its own isolated test accounts and plans.

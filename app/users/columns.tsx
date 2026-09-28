@@ -12,12 +12,17 @@ const departments = [...subebDepartments,...ubecDepartments];
 import { canManageRole } from '@/lib/subeb-access';
 import { DataTableColumnHeader as SortHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
+import { departmentsContain } from '@/lib/user-departments';
 
-export type User = { id: number; name: string; email: string; role: string; department: string | null; active: boolean; canCreatePlan: boolean; isBeapChair: boolean };
+export type User = { id: number; name: string; email: string; role: string; department: string | null; departments: string[]; active: boolean; canCreatePlan: boolean; isBeapChair: boolean };
 const helper = createColumnHelper<DataTableFeatures, User>();
-export const departmentLabel = (user: User) => user.role === 'Executive Chairman' ? 'Whole state' : departments.find(d => d.id === user.department)?.name ?? '';
+export const departmentLabel = (user: User) => {
+  if (user.role === 'Executive Chairman') return 'Whole state';
+  const assigned = user.departments ?? (user.department ? [user.department] : []);
+  return assigned.length === subebDepartments.length ? 'All departments' : assigned.map(value => departments.find(d => d.id === value)?.name ?? value).join(', ');
+};
 
-export function userColumns(actorId: number, actorRole: string, actorDepartment: string | null, onEdit: (user: User) => void, onReset: (user: User) => void) {
+export function userColumns(actorId: number, actorRole: string, actorDepartments: string[], onEdit: (user: User) => void, onReset: (user: User) => void) {
   return helper.columns([
     helper.accessor('name', {
       header: ({ column }) => <SortHeader column={column} title="User" />,
@@ -65,7 +70,7 @@ export function userColumns(actorId: number, actorRole: string, actorDepartment:
       cell: ({ row }) => {
         const user = row.original;
         return <div className="flex justify-end">
-          {user.id !== actorId && canManageRole(actorRole, user.role) && (actorRole !== 'Director' || Boolean(actorDepartment) && actorDepartment === user.department) ?
+          {user.id !== actorId && canManageRole(actorRole, user.role) && (actorRole !== 'Director' || departmentsContain(actorDepartments, user.departments)) ?
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Actions for ${user.name}`}><MoreHorizontalIcon /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end"><DropdownMenuGroup>

@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PlanStatusBadge } from '@/components/plan-status';
 import { beapComponents, strategicPillars, componentSections, type BeapSummary, type PillarId, type PillarSummary } from "@/lib/beap-pillars";
 import type { LocalUser } from "@/lib/local-session";
+import { hasDepartment } from '@/lib/user-departments';
 
 const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pillarDescriptions: Record<string, string> = { quality: 'Better teaching. Richer learning.', access: 'Welcoming schools. Stronger communities.', system: 'Better data. Smarter decisions.' };
@@ -51,7 +52,7 @@ export default function BeapPage() {
   const split = infrastructureSplit(allocation);
   const pillarSummaries: Partial<Record<PillarId, PillarSummary>> = summary ?? {};
 
-  const canSeeSection = (_id: PillarId, department: string) => !!summary && (summary.wholeState || (['Data Entry Staff','Director'].includes(summary.role) && summary.department === department));
+  const canSeeSection = (_id: PillarId, department: string) => !!summary && (summary.wholeState || (['Data Entry Staff','Director'].includes(summary.role) && hasDepartment(summary.departments, department)));
   const visiblePillars = strategicPillars.map(p => ({...p, components:p.components.filter(id=>componentSections[id].some(section=>canSeeSection(id,section.department)))})).filter(p=>p.components.length);
 
   return (
