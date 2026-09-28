@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { toast } from "sonner";
-import { EyeIcon, EyeOffIcon, LockKeyholeIcon, MailIcon } from "lucide-react";
+import { ExternalLinkIcon, EyeIcon, EyeOffIcon, LockKeyholeIcon, MailIcon } from "lucide-react";
 import { LoginContours } from "@/components/login-artwork";
 import { UbecLogo } from "@/components/ubec-logo";
 import { Button } from "@/components/ui/button";
@@ -45,10 +45,11 @@ export default function Home() {
         </div>
         <div className="login-hero-sheen" aria-hidden="true" />
         <div className="login-hero-inner">
-          <div className="login-agency">
+          <a className="login-agency" href="https://hope-gov.ubec.gov.ng/" target="_blank" rel="noreferrer" aria-label="Visit the UBEC HOPE website (opens in a new tab)">
             <UbecLogo size={58} />
             <span><strong>Universal Basic Education Commission</strong><small>Federal Republic of Nigeria</small></span>
-          </div>
+            <ExternalLinkIcon className="login-agency-link-icon" aria-hidden="true" />
+          </a>
           <div className="login-hero-copy">
             <h1 id="beapms-title">Basic Education Action Plan <span>Management System</span> <small>(BEAPMS)</small></h1>
             <p>Supporting UBEC and SUBEBs to strengthen financial allocation and management in the basic education sector.</p>
