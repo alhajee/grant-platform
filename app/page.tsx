@@ -51,9 +51,7 @@ export default function Home() {
             <h1 id="beapms-title">Basic Education Action Plan <span>Management System</span> <small>(BEAPMS)</small></h1>
             <p>Supporting UBEC and SUBEBs to strengthen financial allocation and management in the basic education sector.</p>
           </div>
-          <div className="login-hero-footer">
-            <p>One coordinated workspace for accountable basic education planning.</p>
-          </div>
+          <div className="login-hero-footer" aria-hidden="true" />
         </div>
       </section>
 
