@@ -77,11 +77,13 @@ export async function POST(request: NextRequest) {
     return await getPostgres().transaction(async db => {
     const actor = (await db.query('SELECT role,can_create_plan,is_beap_chair FROM users WHERE id=$1 AND active AND session_version=$2 AND state_code=$3 FOR SHARE', [workspace.userId,workspace.sessionVersion,workspace.stateCode])).rows[0];
     if (!actor || !canCreateStatePlan(actor.role, actor.can_create_plan, actor.is_beap_chair)) return NextResponse.json({ error:'Only the Executive Chairman or a staff member they authorize can create an action plan.' },{status:403});
+    const fundingPolicy = (await db.query('SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1 FOR SHARE')).rows[0];
+    if (!fundingPolicy) return NextResponse.json({ error:'Funding allocations have not been configured. Ask the UBEC Executive Secretary or administrator to configure them before creating a plan.' },{status:409});
     await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`plan-period:${workspace.stateCode}:${planningYear}`]);
     const overlap = (await db.query('SELECT quarter FROM plan_quarters WHERE state_code=$1 AND planning_year=$2 AND quarter=ANY($3::int[]) ORDER BY quarter',[workspace.stateCode,planningYear,quarters])).rows;
     if(overlap.length) return NextResponse.json({error:`${overlap.map(r=>`Q${r.quarter}`).join(', ')} already belongs to a ${planningYear} plan. Choose other quarters or open the existing plan.`},{status:409});
     const name=beapName(stateDisplayName(workspace.stateCode),planningYear,quarters);
-    const result = await db.query(`INSERT INTO action_plans (state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,beap_name,created_by,funding_policy_id) VALUES ($1,$2,$2,$3,$4,$5,$6,$7,$8,(SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1)) RETURNING id`, [workspace.stateCode,planningYear,implementationYear,quarters,stateLodgment,otherFunding,name,workspace.userId]);
+    const result = await db.query(`INSERT INTO action_plans (state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,beap_name,created_by,funding_policy_id) VALUES ($1,$2,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`, [workspace.stateCode,planningYear,implementationYear,quarters,stateLodgment,otherFunding,name,workspace.userId,fundingPolicy.id]);
     const id=result.rows[0].id;
     for(const quarter of quarters) await db.query('INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,$3,$4)',[id,workspace.stateCode,planningYear,quarter]);
     for(const file of files) await db.query("INSERT INTO plan_documents(id,plan_id,name,media_type,content,size) VALUES($1,$2,$3,$4,decode($5,'hex'),$6)",[file.id,id,file.name,file.mediaType,file.content.toString('hex'),file.size]);

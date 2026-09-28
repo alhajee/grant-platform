@@ -12,6 +12,10 @@ if (!sharedPassword) throw new Error('SEED_SHARED_PASSWORD is required so every 
 
 const subebDepartments = ['physical', 'academic', 'me', 'teachers', 'ict', 'social', 'planning'];
 const ubecDepartments = ['academic', 'administration', 'physical', 'planning', 'special', 'teachers', 'finance', 'audit', 'quality', 'social', 'zonal'];
+const baselineAllocation = {
+  shares: { infrastructure: 7500, quality: 500, teachers: 500, sbmc: 500, sports: 200, monitoring: 200, curriculum: 200, planning: 200, gscci: 200 },
+  tlmWithinInfrastructure: 2000,
+};
 const states = JSON.parse(await readFile(new URL('../lib/nigeria-map.json', import.meta.url), 'utf8'));
 if (states.length !== 37) throw new Error(`Expected Nigeria's 36 states and FCT; found ${states.length}.`);
 
@@ -49,6 +53,13 @@ try {
     );
     if (account.departments.length) await db.query('INSERT INTO user_departments(user_id,department) SELECT $1,unnest($2::text[])', [user.rows[0].id, account.departments]);
   }
+  // A fresh or truncated demo database must retain the policy required by new
+  // plans. The insert is idempotent and never replaces an administrator's
+  // existing allocation history.
+  await db.query(
+    'INSERT INTO funding_policies(allocation,actor_name) SELECT $1::jsonb,$2 WHERE NOT EXISTS(SELECT 1 FROM funding_policies)',
+    [JSON.stringify(baselineAllocation), 'Initial allocation'],
+  );
   await db.query('COMMIT');
   process.stdout.write(`${JSON.stringify({ generatedAt: new Date().toISOString(), stateCount: states.length, subebUserCount: states.length * 4, accounts: credentials }, null, 2)}\n`);
 } catch (error) {
