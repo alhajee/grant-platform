@@ -9,7 +9,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectI
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import type { Snapshot } from '@/lib/plan-review';
-import { ActivityReviewContent } from '@/components/activity-review-content';
+import { ActivityReviewContent, EditComponentButton } from '@/components/activity-review-content';
 import { InfrastructurePackageDetails, InfrastructureDocumentLinks } from '@/components/infrastructure-package-details';
 import { PlanSetupSummary } from '@/components/plan-setup-summary';
 
@@ -28,7 +28,7 @@ function ReviewToolbar({ label, view, onChange, filters, filterLabel }: { label:
   </div>;
 }
 
-export function PlanReviewContent({ snapshot, sbmcEditHref, tlmEditHref, showPlanReference = true, visiblePillars = ['infrastructure', 'sports', 'sbmc', 'tlm'] }: { snapshot: Snapshot; sbmcEditHref?: string; tlmEditHref?: string; showPlanReference?: boolean; visiblePillars?: readonly string[] }) {
+export function PlanReviewContent({ snapshot, infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, showPlanReference = true, visiblePillars = ['infrastructure', 'sports', 'sbmc', 'tlm'] }: { snapshot: Snapshot; infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; showPlanReference?: boolean; visiblePillars?: readonly string[] }) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [infrastructureView, setInfrastructureView] = useState(initialView);
   const [sportsView, setSportsView] = useState(initialView);
@@ -41,7 +41,7 @@ export function PlanReviewContent({ snapshot, sbmcEditHref, tlmEditHref, showPla
   return <div className="review-sections">
     {showPlanReference && snapshot.setup && <PlanSetupSummary setup={snapshot.setup} compact />}
     {visiblePillars.includes('infrastructure') && <Card id="review-infrastructure" className="review-table-card">
-      <CardHeader><CardTitle><Building2 aria-hidden="true" />Infrastructure <Badge variant="secondary">{snapshot.infrastructure.length}</Badge></CardTitle><CardDescription>Project lines</CardDescription></CardHeader>
+      <CardHeader><CardTitle><Building2 aria-hidden="true" />Infrastructure <Badge variant="secondary">{snapshot.infrastructure.length}</Badge></CardTitle><div className="flex items-center gap-3"><CardDescription>Project lines</CardDescription>{infrastructureEditHref && <EditComponentButton href={infrastructureEditHref} label="Infrastructure" />}</div></CardHeader>
       <ReviewToolbar label="projects" view={infrastructureView} onChange={setInfrastructureView} filters={[...new Set(snapshot.infrastructure.map(line => line.school.lga))].sort()} filterLabel="LGAs" />
       <Table className="review-data-table" aria-label="Infrastructure projects">
         <TableHeader><TableRow><TableHead><span className="sr-only">Details</span></TableHead><TableHead><School />School</TableHead><TableHead><Building2 />Project</TableHead><TableHead><Clock3 />Duration</TableHead><TableHead className="review-number"><Hash />Qty.</TableHead><TableHead className="review-number"><Banknote />Unit cost</TableHead><TableHead className="review-number"><Banknote />Amount</TableHead></TableRow></TableHeader>
@@ -64,7 +64,7 @@ export function PlanReviewContent({ snapshot, sbmcEditHref, tlmEditHref, showPla
     </Card>}
     {!!snapshot.infrastructureDocuments?.length && <Card><CardHeader><CardTitle>Infrastructure technical dossier</CardTitle></CardHeader><div className="px-6"><InfrastructureDocumentLinks documents={snapshot.infrastructureDocuments}/></div></Card>}
     {visiblePillars.includes('sports') && <Card id="review-sports" className="review-table-card">
-      <CardHeader><CardTitle><Trophy aria-hidden="true" />Sports activities <Badge variant="secondary">{snapshot.sports.length}</Badge></CardTitle><CardDescription>Budget items</CardDescription></CardHeader>
+      <CardHeader><CardTitle><Trophy aria-hidden="true" />Sports activities <Badge variant="secondary">{snapshot.sports.length}</Badge></CardTitle><div className="flex items-center gap-3"><CardDescription>Budget items</CardDescription>{sportsEditHref && <EditComponentButton href={sportsEditHref} label="Sports activities" />}</div></CardHeader>
       <ReviewToolbar label="budget items" view={sportsView} onChange={setSportsView} filters={[...new Set(snapshot.sports.map(line => line.section))].sort()} filterLabel="sections" />
       <Table className="review-data-table" aria-label="Sports budget items">
         <TableHeader><TableRow><TableHead><span className="sr-only">Details</span></TableHead><TableHead><Trophy />Budget item</TableHead><TableHead><Tag />Section</TableHead><TableHead><Tag />Allowable activity</TableHead><TableHead className="review-number"><Hash />Qty.</TableHead><TableHead className="review-number"><Banknote />Unit cost</TableHead><TableHead className="review-number"><Banknote />Amount</TableHead></TableRow></TableHeader>
