@@ -1,0 +1,173 @@
+/* Plan workbook: an Excel-inspired, read-only grid with sheet tabs (see components/plan-workbook). */
+.plan-workbook { --wb-comment: #f29900; --wb-comment-tint: #fef7e0; --wb-comment-strong: #fde9b6; --wb-comment-ink: #8a5300;
+  --wb-gutter-bg: color-mix(in srgb, var(--muted) 85%, var(--background)); --wb-grid-line: color-mix(in srgb, var(--border) 80%, transparent); --wb-select: color-mix(in srgb, var(--primary) 9%, var(--background)); --wb-select-edge: var(--primary);
+  position: relative; min-width: 0; gap: 0; padding: 0; overflow: hidden; overflow: clip; border-radius: 12px; box-shadow: none; scroll-margin-top: 24px; }
+.plan-workbook-anchor { position: absolute; top: 0; left: 0; width: 0; height: 0; scroll-margin-top: 24px; }
+.plan-workbook-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; padding: 16px 20px 12px; }
+.plan-workbook-heading h2 { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 600; }
+.plan-workbook-heading h2 > svg { width: 18px; height: 18px; color: var(--primary); }
+.plan-workbook-heading p { font-size: 13px; color: var(--muted-foreground); }
+.plan-workbook-tabs-scroll { padding: 0 20px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.plan-workbook .plan-workbook-tabs { min-width: max-content; height: 44px; gap: 6px; }
+.plan-workbook .plan-workbook-tabs [data-slot=tabs-trigger] { height: 39px; min-width: 0; padding-inline: 14px; gap: 8px; font-size: 13px; }
+.plan-workbook .plan-workbook-tabs [data-slot=tabs-trigger] > svg { width: 15px; height: 15px; }
+.plan-workbook-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted-foreground); background: var(--background); border: 1px solid var(--border); }
+.plan-workbook-tabs [data-state=active] .plan-workbook-count { color: var(--primary); background: var(--primary-foreground); border-color: transparent; }
+.plan-workbook-panel { min-width: 0; }
+.plan-workbook-panel:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.wb-sheet { display: flex; flex-direction: column; min-width: 0; }
+.wb-toolbar .wb-toolbar-filters, .wb-toolbar .wb-toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.wb-toolbar .wb-toolbar-filters { flex: 1 1 280px; min-width: 0; }
+
+/* Grid: scrolls inside the card; sticky header, frozen first column, sticky totals. */
+.wb-scroll { position: relative; max-height: min(68vh, 640px); overflow: auto; overscroll-behavior-x: contain; border-bottom: 1px solid var(--border); background: var(--background); scrollbar-width: thin; }
+.wb-grid { table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 13px; line-height: 1.3; }
+.wb-grid th, .wb-grid td { height: 34px; padding: 0 10px; border-right: 1px solid var(--wb-grid-line); border-bottom: 1px solid var(--wb-grid-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; vertical-align: middle; background: var(--background); }
+.wb-grid .wb-number { text-align: right; font-variant-numeric: tabular-nums; }
+.wb-grid thead th { position: sticky; top: 0; z-index: 3; height: 38px; padding: 0 4px 0 10px; font-weight: 500; color: var(--foreground); background: var(--wb-gutter-bg); border-bottom-color: var(--border); overflow: visible; }
+.wb-grid tfoot td, .wb-grid tfoot th { position: sticky; bottom: 0; z-index: 3; height: 38px; font-weight: 500; background: var(--wb-gutter-bg); border-top: 1px solid var(--border); border-bottom: 0; }
+.wb-grid .wb-frozen { position: sticky; z-index: 2; box-shadow: 1px 0 0 var(--border), 4px 0 8px -6px rgb(0 0 0 / 18%); }
+.wb-grid thead .wb-frozen, .wb-grid tfoot .wb-frozen { z-index: 4; }
+.wb-grid .wb-gutter, .wb-grid .wb-corner { position: sticky; left: 0; z-index: 2; padding: 0 6px; text-align: right; font-weight: 400; font-size: 12px; color: var(--muted-foreground); background: var(--wb-gutter-bg); font-variant-numeric: tabular-nums; user-select: none; cursor: pointer; }
+.wb-grid thead .wb-corner, .wb-grid tfoot .wb-gutter { z-index: 5; }
+.wb-grid .wb-corner button { position: absolute; inset: 0; width: 100%; cursor: pointer; background: linear-gradient(135deg, transparent 62%, color-mix(in srgb, var(--muted-foreground) 45%, transparent) 62% 72%, transparent 72%); }
+.wb-gutter-inner { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.wb-gutter-inner > span { margin-left: auto; }
+.wb-expand { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 6px; color: var(--foreground); cursor: pointer; }
+.wb-expand:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.wb-expand svg { width: 15px; height: 15px; }
+.wb-grid tbody tr:not(.has-row-comment):hover > td:not(.is-selected):not(.has-comment) { background: color-mix(in srgb, var(--primary) 3%, var(--background)); }
+.wb-grid tbody td { cursor: cell; user-select: none; }
+.wb-grid tbody td.is-selected { background: var(--wb-select); }
+.wb-grid tbody td.edge-t { box-shadow: inset 0 2px 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-b { box-shadow: inset 0 -2px 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-l { box-shadow: inset 2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-r { box-shadow: inset -2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-t.edge-l { box-shadow: inset 0 2px 0 var(--wb-select-edge), inset 2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-t.edge-r { box-shadow: inset 0 2px 0 var(--wb-select-edge), inset -2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-b.edge-l { box-shadow: inset 0 -2px 0 var(--wb-select-edge), inset 2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-b.edge-r { box-shadow: inset 0 -2px 0 var(--wb-select-edge), inset -2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-t.edge-b { box-shadow: inset 0 2px 0 var(--wb-select-edge), inset 0 -2px 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-l.edge-r { box-shadow: inset 2px 0 0 var(--wb-select-edge), inset -2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-t.edge-b.edge-l { box-shadow: inset 0 2px 0 var(--wb-select-edge), inset 0 -2px 0 var(--wb-select-edge), inset 2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-t.edge-b.edge-r { box-shadow: inset 0 2px 0 var(--wb-select-edge), inset 0 -2px 0 var(--wb-select-edge), inset -2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-t.edge-l.edge-r { box-shadow: inset 0 2px 0 var(--wb-select-edge), inset 2px 0 0 var(--wb-select-edge), inset -2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-b.edge-l.edge-r { box-shadow: inset 0 -2px 0 var(--wb-select-edge), inset 2px 0 0 var(--wb-select-edge), inset -2px 0 0 var(--wb-select-edge); }
+.wb-grid tbody td.edge-t.edge-b.edge-l.edge-r { box-shadow: inset 0 0 0 2px var(--wb-select-edge); }
+.wb-grid tbody td.is-active { background: var(--background); }
+.wb-grid tbody td:focus { outline: none; }
+.wb-grid tbody td:focus-visible, .wb-scroll:has(td:focus-visible) td.is-active { outline: 2px solid var(--ring); outline-offset: -2px; }
+.wb-blank { color: color-mix(in srgb, var(--muted-foreground) 55%, transparent); }
+.wb-empty { height: 96px !important; text-align: center !important; color: var(--muted-foreground); white-space: normal !important; cursor: default !important; }
+.wb-total-count { margin-left: 6px; font-weight: 400; color: var(--muted-foreground); }
+
+/* Header: sort button, filter menu trigger and a draggable resize edge. */
+.wb-head { display: flex; align-items: center; gap: 2px; min-width: 0; height: 100%; }
+.wb-number .wb-head { flex-direction: row-reverse; }
+.wb-sort { display: inline-flex; align-items: center; gap: 4px; min-width: 0; flex: 1 1 auto; height: 28px; padding: 0 2px; border-radius: 6px; font: inherit; text-align: inherit; cursor: pointer; }
+.wb-number .wb-sort { justify-content: flex-end; }
+.wb-sort > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-sort > svg { flex-shrink: 0; width: 13px; height: 13px; color: var(--primary); }
+.wb-sort:focus-visible, .wb-resizer:focus-visible, .wb-filter-trigger:focus-visible, .wb-corner button:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.wb-filter-trigger { flex-shrink: 0; color: var(--muted-foreground); }
+.wb-filter-trigger[data-active] { color: var(--primary-foreground); background: var(--primary); }
+.wb-resizer { position: absolute; top: 0; right: -4px; z-index: 1; width: 8px; height: 100%; cursor: col-resize; touch-action: none; }
+.wb-resizer::after { content: ""; position: absolute; top: 20%; bottom: 20%; left: 3px; width: 2px; border-radius: 2px; background: transparent; }
+.wb-resizer:hover::after, .wb-resizer[data-resizing]::after { background: var(--primary); top: 0; bottom: 0; }
+.wb-filter-menu { max-height: min(60vh, 420px); min-width: 220px; }
+.wb-filter-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-filter-count { margin-left: 12px; font-size: 12px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+
+/* Expanded rows keep their content in the visible viewport while the grid scrolls sideways. */
+.wb-grid tr.wb-detail > td { height: auto; padding: 0; white-space: normal; overflow: visible; background: var(--muted); cursor: default; user-select: text; }
+.wb-detail-inner { position: sticky; left: 0; box-sizing: border-box; width: var(--wb-viewport, 100%); max-width: var(--wb-viewport, 100%); padding: 14px 16px 16px; }
+.wb-grid tr[data-open] > th, .wb-grid tr[data-open] > td { border-bottom-color: var(--border); }
+
+/* Excel-style status bar. */
+.wb-status { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px; min-height: 36px; padding: 6px 20px; font-size: 12px; color: var(--muted-foreground); background: var(--wb-gutter-bg); }
+.wb-status-hint { flex: 1 1 auto; }
+.wb-status-stats { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-left: auto; }
+.wb-status-stats strong { font-weight: 600; color: var(--foreground); font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) {
+  .plan-workbook-heading { padding: 14px 12px 10px; }
+  .plan-workbook-tabs-scroll { padding: 0 12px; }
+  .wb-scroll { max-height: 62vh; }
+  .wb-status { padding: 6px 12px; }
+  .wb-status-hint { display: none; }
+  .wb-status-stats { margin-left: 0; }
+}
+@media (hover: none) { .wb-resizer { right: -8px; width: 16px; } }
+.wb-cell-menu { min-width: 240px; }
+.wb-cell-menu-label { max-width: 300px; overflow: hidden; color: var(--muted-foreground); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.wb-cell-menu-label span { color: var(--foreground); }
+
+/* Review comments (Google Sheets look): orange corner marker and a soft tint on open threads only. */
+.dark .plan-workbook { --wb-comment: #fbbc04; --wb-comment-tint: color-mix(in srgb, #fbbc04 14%, var(--background)); --wb-comment-strong: color-mix(in srgb, #fbbc04 28%, var(--background)); --wb-comment-ink: #fdd663; }
+.wb-grid tbody td.has-comment:not(.wb-frozen) { position: relative; }
+.wb-grid tbody td.has-comment, .wb-grid tbody tr.has-row-comment > td, .wb-grid tbody td.has-comment.is-active { background: var(--wb-comment-tint); }
+.wb-grid tbody td.has-comment.is-selected:not(.is-active) { background: color-mix(in srgb, var(--wb-comment-tint) 55%, var(--wb-select)); }
+.wb-grid tbody td.has-comment:hover, .wb-grid tbody tr.has-row-comment:hover > td { background: color-mix(in srgb, var(--wb-comment) 16%, var(--background)); }
+.wb-grid tbody td.has-comment::after, .wb-grid tbody th.wb-gutter.has-comment::after { content: ""; position: absolute; top: 0; right: 0; width: 0; height: 0; border-style: solid; border-width: 0 9px 9px 0; border-color: transparent var(--wb-comment) transparent transparent; pointer-events: none; }
+.wb-grid tbody th.wb-gutter.has-comment { color: var(--wb-comment-ink); font-weight: 600; background: color-mix(in srgb, var(--wb-comment) 18%, var(--wb-gutter-bg)); }
+.wb-grid tbody td.comment-open, .wb-grid tbody tr.row-comment-open > td { background: var(--wb-comment-strong) !important; }
+.wb-grid tbody td.comment-open { box-shadow: inset 0 0 0 2px var(--wb-comment) !important; }
+.wb-grid tbody tr.row-comment-open > td { box-shadow: inset 0 2px 0 var(--wb-comment), inset 0 -2px 0 var(--wb-comment); }
+.wb-thread-popover { width: min(340px, calc(100vw - 24px)); padding: 0; overflow: hidden; }
+.wb-thread { display: flex; flex-direction: column; font-size: 13px; }
+.wb-thread-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px 8px; border-bottom: 1px solid var(--border); border-top: 3px solid var(--wb-comment, #f29900); }
+.wb-thread[data-resolved] .wb-thread-head { border-top-color: var(--border); }
+.wb-thread-target { flex: 1; min-width: 0; font-size: 12px; font-weight: 500; color: var(--muted-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-thread-note { margin: 8px 12px 0; font-size: 12px; color: var(--muted-foreground); }
+.wb-thread-list { display: flex; flex-direction: column; gap: 12px; max-height: min(46vh, 360px); overflow-y: auto; padding: 12px; }
+.wb-comment { display: flex; gap: 10px; }
+.wb-comment-avatar { flex: 0 0 28px; height: 28px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--primary-foreground); background: var(--primary); }
+.wb-comment-main { min-width: 0; flex: 1; }
+.wb-comment-meta { display: flex; flex-direction: column; line-height: 1.3; }
+.wb-comment-meta strong { font-weight: 600; font-size: 13px; }
+.wb-comment-meta span { font-size: 11.5px; color: var(--muted-foreground); }
+.wb-comment-body { margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.wb-thread-form { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--border); }
+.wb-thread-form textarea { min-height: 56px; font-size: 13px; resize: vertical; }
+.wb-thread-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.wb-thread-limit { margin-right: auto; font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.wb-thread > .wb-thread-note:last-child { margin-bottom: 12px; }
+.wb-comment-preview { position: fixed; z-index: 70; display: flex; flex-direction: column; gap: 2px; width: 280px; padding: 8px 10px; border: 1px solid var(--border); border-left: 3px solid #f29900; border-radius: 8px; font-size: 12px; line-height: 1.4; color: var(--popover-foreground); background: var(--popover); box-shadow: 0 8px 24px -8px rgb(0 0 0 / 25%); pointer-events: none; }
+.wb-comment-preview span { overflow-wrap: anywhere; }
+.wb-comment-preview em { font-style: normal; color: var(--muted-foreground); }
+.plan-workbook-comments { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--wb-comment-ink); background: color-mix(in srgb, var(--wb-comment) 18%, var(--background)); }
+.plan-workbook .plan-workbook-tabs [data-slot=tabs-trigger] > .plan-workbook-comments svg { width: 12px; height: 12px; }
+.wb-comments-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; margin-left: 2px; padding: 0 6px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; background: var(--wb-comment); }
+.wb-comments-panel { gap: 0; }
+.wb-comments-filter { padding: 0 16px 12px; border-bottom: 1px solid var(--border); }
+.wb-comments-list { display: flex; flex-direction: column; overflow-y: auto; }
+.wb-comments-list > li { border-bottom: 1px solid var(--border); }
+.wb-comments-item { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 12px 16px; text-align: left; cursor: pointer; }
+.wb-comments-item:hover { background: var(--muted); }
+.wb-comments-item:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.wb-comments-target { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
+.wb-comments-body { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; line-height: 1.45; }
+.wb-comments-meta { font-size: 12px; color: var(--muted-foreground); }
+.wb-comments-inline { margin: 0 12px 12px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.wb-comments-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 40px 24px; text-align: center; font-size: 13px; color: var(--muted-foreground); }
+.wb-comments-empty svg { width: 28px; height: 28px; opacity: .6; }
+
+/* Full-screen workbook: the same element becomes a fixed floating sheet above a dimmed backdrop. */
+.plan-workbook-heading-end { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.plan-workbook-expand { margin: -6px -8px -6px 0; color: var(--muted-foreground); }
+.plan-workbook-title-sep { margin: 0 -2px; color: var(--muted-foreground); font-weight: 400; }
+.plan-workbook-kbd { margin-left: 6px; padding: 0 5px; border-radius: 4px; font: 500 11px/16px ui-monospace, monospace; background: rgb(255 255 255 / 18%); }
+.plan-workbook-backdrop { position: fixed; inset: 0; z-index: 44; background: rgb(8 20 18 / 40%); backdrop-filter: blur(3px); animation: wb-fade 160ms ease-out; }
+.plan-workbook[data-expanded] { position: fixed; inset: 16px; z-index: 45; display: flex; flex-direction: column; border-radius: 14px; box-shadow: 0 30px 80px -20px rgb(0 0 0 / 45%), 0 0 0 1px rgb(0 0 0 / 6%); animation: wb-rise 180ms cubic-bezier(.23,1,.32,1); }
+.plan-workbook[data-expanded] .plan-workbook-heading { align-items: center; padding: 12px 16px 8px 20px; border-bottom: 0; }
+.plan-workbook[data-expanded] .plan-workbook-tabs-root { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.plan-workbook[data-expanded] .plan-workbook-panel:not([hidden]) { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.plan-workbook[data-expanded] .wb-sheet { flex: 1 1 auto; min-height: 0; }
+.plan-workbook[data-expanded] .wb-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
+@keyframes wb-fade { from { opacity: 0; } }
+@keyframes wb-rise { from { opacity: 0; transform: scale(.985); } }
+@media (prefers-reduced-motion: reduce) { .plan-workbook-backdrop, .plan-workbook[data-expanded] { animation: none; } }
+@media (max-width: 600px) {
+  .plan-workbook[data-expanded] { inset: 0; border-radius: 0; box-shadow: none; }
+  .plan-workbook[data-expanded] .plan-workbook-heading { padding: 10px 12px 6px; }
+  .plan-workbook[data-expanded] .plan-workbook-heading h2 { font-size: 14px; }
+}

@@ -109,7 +109,11 @@ export async function POST(request: NextRequest) {
       } else {
         return error('This action is no longer available for this component.', 409);
       }
-      if ((input.action === 'request_changes' || current.status === 'changes_requested') && !input.comment) return error('Describe the required changes or how the feedback was addressed.');
+      // Open cell/row comments travel with a change request, so the general note becomes optional.
+      const openComments = input.action === 'request_changes' ? Number((await db.query("SELECT COUNT(*)::int AS n FROM plan_comments WHERE plan_id=$1 AND pillar=$2 AND parent_id IS NULL AND resolved_at IS NULL", [plan.id,input.pillar])).rows[0].n) : 0;
+      if (input.action === 'request_changes' && !input.comment && !openComments) return error('Describe the required changes, or leave comments on specific cells or rows before requesting changes.');
+      if (input.action !== 'request_changes' && current.status === 'changes_requested' && !input.comment) return error('Describe the required changes or how the feedback was addressed.');
+      const eventComment = input.comment || (openComments ? `${openComments} ${openComments === 1 ? 'comment' : 'comments'} on specific cells` : '');
       if (!recipients.length) return error(`No active ${recipientLabel} is configured for this state.`, 409);
       if(input.action!=='request_changes' && input.pillar==='sbmc') {
         const problem=sbmcBudgetProblem((snapshot.sbmc??[]).reduce((sum,line)=>sum+budgetKobo(line.unit_cost)*BigInt(line.quantity),BigInt(0)),plan,true);
@@ -124,7 +128,7 @@ export async function POST(request: NextRequest) {
       await db.query('INSERT INTO plan_submissions(plan_id,number,snapshot) VALUES($1,$2,$3::jsonb)', [plan.id,number,JSON.stringify(snapshot)]);
       const nextStatus = aggregateReviewStatus(reviews.map(r => r.pillar === input.pillar ? {...r,status} : r));
       await db.query('UPDATE action_plans SET status=$1,submission_number=$2,version=version+1,workflow_updated_at=NOW() WHERE id=$3', [nextStatus,number,plan.id]);
-      const event = (await db.query('INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id', [plan.id,number,input.action,workspace.name,workspace.email,actor.role,input.comment,input.pillar])).rows[0];
+      const event = (await db.query('INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id', [plan.id,number,input.action,workspace.name,workspace.email,actor.role,eventComment,input.pillar])).rows[0];
       for (const recipient of recipients) await db.query('INSERT INTO plan_notifications(plan_id,user_id,event_id) VALUES($1,$2,$3)', [plan.id,recipient.id,event.id]);
       return NextResponse.json({ status: nextStatus });
     });

@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftIcon, MessageSquareIcon, SendIcon, HistoryIcon } from 'lucide-react';
+import { ArrowLeftIcon, MessageSquareIcon, MessageSquareTextIcon, SendIcon, HistoryIcon } from 'lucide-react';
 import { SubebHeader } from '@/components/subeb-header';
 import { PlanStatusBadge } from '@/components/plan-status';
 import { PlanReviewContent } from '@/components/plan-review-content';
@@ -24,6 +24,9 @@ import { Badge } from '@/components/ui/badge';
 import { PillarIllustration } from '@/components/pillar-illustration';
 import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
 import { hasDepartment } from '@/lib/user-departments';
+import { usePlanComments } from '@/components/plan-workbook/comments-context';
+
+const commentCount = (n: number) => `${n} open ${n === 1 ? 'comment' : 'comments'}`;
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 export default function ReviewPage() {
@@ -58,11 +61,23 @@ export default function ReviewPage() {
   }, []);
   useEffect(() => { void Promise.resolve().then(() => load()); }, [load]);
   const plan = data?.plan;
+  // Comments belong to the current working plan only; saved submissions hide them.
+  const comments = usePlanComments(data?.plan.id, !!data && !error && selected === 'current', data?.plan.version);
+  const dialogThreads = comments?.threads.filter(t => !t.resolvedAt && (scope === 'general' || t.pillar === scope)) ?? [];
+  const noteOptional = dialogAction === 'request_changes' && dialogThreads.length > 0;
   const editable = data && implementedPillars.some(p => mayEditPillar(data.role,data.departments,p,data.plan.status,data.pillarReviews));
   const available = !loading && !error && selected === 'current';
   const latestFeedback = data?.events.find(e => e.action === 'request_changes');
   const actionReviewStatus = data?.pillarReviews.find(review => review.pillar === scope)?.status;
   const openAction = (value: ReviewAction, pillar?: ImplementedPillar) => { setDialogResubmit(pillar ? data?.pillarReviews.find(r=>r.pillar===pillar)?.status === 'changes_requested' : false); setDialogAction(value); setAction(value); setComment(''); setScope(pillar ?? 'general'); setFormError(''); };
+  // Request changes lives in each sheet's toolbar, for whoever currently holds that component.
+  const canRequestChanges = (review: { pillar: ImplementedPillar; status: string }) => {
+    if (!data || !available || !statePlanOpen(data.plan.status)) return false;
+    if (data.role === 'Director' && !data.isBeapChair) return review.status === 'director_review' && hasDepartment(data.departments, pillarDepartments[review.pillar]);
+    if (data.role === 'Director' && data.isBeapChair) return review.status === 'beap_review';
+    return data.role === 'Executive Chairman' && review.status === 'chairman_ready';
+  };
+  const requestChangesHandlers = Object.fromEntries((data?.pillarReviews ?? []).filter(canRequestChanges).map(review => [review.pillar, () => openAction('request_changes', review.pillar)]));
   async function confirm() {
     if (!action || !data || pending.current) return;
     pending.current = true; setSaving(true); setFormError('');
@@ -96,7 +111,6 @@ export default function ReviewPage() {
               const staffCanSend = open && owns && data.role==='Data Entry Staff' && ['draft','changes_requested'].includes(review.status);
               const directorCanReview = open && owns && data.role==='Director' && !data.isBeapChair && review.status==='director_review';
               const beapChairCanReview = open && data.role==='Director' && data.isBeapChair && review.status==='beap_review';
-              const executiveChairmanCanReturn = open && data.role==='Executive Chairman' && review.status==='chairman_ready';
               return <Card key={review.pillar} className="pillar-component-card department-review-card" data-component={review.pillar}>
                 <CardHeader>
                   <div className="pillar-card-artwork">{review.pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={review.pillar} standalone />}</div>
@@ -104,10 +118,10 @@ export default function ReviewPage() {
                   <p className="pillar-department">{departmentName(pillarDepartments[review.pillar])}</p>
                 </CardHeader>
                 <CardContent>
-                  <Badge variant="secondary">{pillarReviewLabels[review.status]}</Badge>
+                  <div className="department-review-status"><Badge variant="secondary">{pillarReviewLabels[review.status]}</Badge>
+                  {!!comments?.openCount(review.pillar) && <a className="review-open-comments" href={`#review-${review.pillar}`}><MessageSquareTextIcon aria-hidden="true" />{commentCount(comments.openCount(review.pillar))}</a>}</div>
                   <div className="department-review-actions">
                   {directorCanReview && <Button asChild variant="outline" size="sm"><a href={planHref(pillar.href!,data.plan.id)}>Edit component</a></Button>}
-                  {(directorCanReview || beapChairCanReview || executiveChairmanCanReturn) && <Button variant="outline" size="sm" onClick={()=>openAction('request_changes',review.pillar)}>Request changes</Button>}
                   {staffCanSend && <Button size="sm" disabled={!data.snapshot[review.pillar]?.length || (review.pillar==='tlm'&&!data.snapshot.tlmDistribution?.length)} onClick={()=>openAction('submit',review.pillar)}>Send to Director</Button>}
                   {directorCanReview && <Button size="sm" onClick={()=>openAction('endorse',review.pillar)}>Send to BEAP Chair</Button>}
                   {beapChairCanReview && data.beapChairSubmissionMode==='individual_components' && <Button size="sm" onClick={()=>openAction('forward',review.pillar)}>Send to Executive Chairman</Button>}
@@ -118,19 +132,21 @@ export default function ReviewPage() {
           </div>
             {data.role==='Director' && data.isBeapChair && statePlanOpen(data.plan.status) && <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               {data.beapChairSubmissionMode==='complete_plan' ? <><div className="flex flex-col gap-1"><p className="text-sm font-medium">Collate all department components into the complete SUBEB BEAP.</p><p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>['beap_review','chairman_ready'].includes(r.status)).length} of {implementedPillars.length} components reviewed by Directors. All components are sent together in one submission.</p></div>
-              <Button disabled={!data.readyForExecutiveChairman || !available} onClick={()=>openAction('forward')}><SendIcon data-icon="inline-start" />Send to Executive Chairman</Button></> : <div className="flex flex-col gap-1"><p className="text-sm font-medium">Send reviewed components individually.</p><p className="text-sm text-muted-foreground">Use the button on each component when it is ready. {data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components have been sent to the Executive Chairman.</p></div>}
+              <Button disabled={!data.readyForExecutiveChairman || !available} onClick={()=>openAction('forward')}><SendIcon data-icon="inline-start" />Send to Executive Chairman</Button></> : <div className="flex flex-col gap-1"><p className="text-sm font-medium">Send reviewed components individually.</p><p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components have been sent to the Executive Chairman.</p></div>}
             </div>}
             {data.role==='Executive Chairman' && statePlanOpen(data.plan.status) && <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components ready{data.ubecSubmissionMode==='reviewed_components'?'. Only ready components are sent to UBEC.':''}</p>
               {data.readyForUbec && available ? <Button asChild><a href={planHref('/ubec/review',data.plan.id)}><SendIcon data-icon="inline-start" />Send to UBEC</a></Button> : <Button disabled>Send to UBEC</Button>}
             </div>}
         </section>
-        <div className="review-layout"><PlanReviewContent showPlanReference={false} snapshot={data.snapshot} visiblePillars={data.visiblePillars} infrastructureEditHref={available && mayEditPillar(data.role, data.departments, 'infrastructure', data.plan.status, data.pillarReviews) ? planHref('/beap/infrastructure', data.plan.id) : undefined} sportsEditHref={available && mayEditPillar(data.role, data.departments, 'sports', data.plan.status, data.pillarReviews) ? planHref('/beap/sports', data.plan.id) : undefined} tlmEditHref={available && mayEditPillar(data.role, data.departments, 'tlm', data.plan.status, data.pillarReviews) ? planHref('/beap/tlm', data.plan.id) : undefined} sbmcEditHref={available && mayEditPillar(data.role, data.departments, 'sbmc', data.plan.status, data.pillarReviews) ? planHref('/beap/sbmc', data.plan.id) : undefined} /><Card className="review-history"><CardHeader><CardTitle>Review history</CardTitle></CardHeader><CardContent>{!data.events.length ? <p>No submissions yet.</p> : <ol>{data.events.map(event => <li key={event.id}><strong>{event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action]}</strong><span>Submission {event.submissionNumber} · {event.actorName}</span><span>{event.actorRole} · {date.format(new Date(event.createdAt))}</span>{event.scope !== 'general' && <span>{scopeLabel(event.scope)}</span>}{event.comment && <p className="review-comment">{event.comment}</p>}</li>)}</ol>}</CardContent></Card></div>
+        <div className="review-layout"><PlanReviewContent showPlanReference={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} infrastructureEditHref={available && mayEditPillar(data.role, data.departments, 'infrastructure', data.plan.status, data.pillarReviews) ? planHref('/beap/infrastructure', data.plan.id) : undefined} sportsEditHref={available && mayEditPillar(data.role, data.departments, 'sports', data.plan.status, data.pillarReviews) ? planHref('/beap/sports', data.plan.id) : undefined} tlmEditHref={available && mayEditPillar(data.role, data.departments, 'tlm', data.plan.status, data.pillarReviews) ? planHref('/beap/tlm', data.plan.id) : undefined} sbmcEditHref={available && mayEditPillar(data.role, data.departments, 'sbmc', data.plan.status, data.pillarReviews) ? planHref('/beap/sbmc', data.plan.id) : undefined} /><Card className="review-history"><CardHeader><CardTitle>Review history</CardTitle></CardHeader><CardContent>{!data.events.length ? <p>No submissions yet.</p> : <ol>{data.events.map(event => <li key={event.id}><strong>{event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action]}</strong><span>Submission {event.submissionNumber} · {event.actorName}</span><span>{event.actorRole} · {date.format(new Date(event.createdAt))}</span>{event.scope !== 'general' && <span>{scopeLabel(event.scope)}</span>}{event.comment && <p className="review-comment">{event.comment}</p>}</li>)}</ol>}</CardContent></Card></div>
       </>}
     </main>
     <Dialog open={Boolean(action)} onOpenChange={open => { if (!open && !saving) setAction(null); }}><DialogContent variant="inset-footer" className="sm:max-w-sm" showCloseButton={!saving} onEscapeKeyDown={e => { if (saving) e.preventDefault(); }} onInteractOutside={e => { if (saving) e.preventDefault(); }}><DialogHeader><DialogTitle>{dialogAction === 'submit' ? dialogResubmit ? 'Resubmit to Director' : 'Submit to Director' : dialogAction === 'endorse' ? 'Send to BEAP Chair' : dialogAction === 'forward' ? 'Send to Executive Chairman' : 'Request changes'}</DialogTitle><DialogDescription>{dialogAction === 'submit' ? 'Saved entries in this component will be sent to your department Director. Other departments can continue working.' : dialogAction === 'endorse' ? 'Send this department’s reviewed component to the nominated BEAP Chair for state-level consolidation.' : dialogAction === 'forward' ? data?.beapChairSubmissionMode==='individual_components' ? 'This reviewed component will be sent to the Executive Chairman. Other components will remain with the BEAP Chair until they are sent separately.' : 'All reviewed components will be sent together as one collated SUBEB BEAP to the Executive Chairman for final state-level review before submission to UBEC.' : actionReviewStatus === 'chairman_ready' ? 'Return this component to the BEAP Chair with the changes required by the Executive Chairman.' : actionReviewStatus === 'beap_review' ? 'Return this component to its department Director with the changes required by the BEAP Chair.' : 'Return this component to the department’s Data Entry Staff with the Director’s required changes.'}</DialogDescription></DialogHeader>
       <form onSubmit={e => { e.preventDefault(); void confirm(); }}><FieldGroup className="px-4 pb-5">
-        <Field data-invalid={Boolean(formError)}><FieldLabel htmlFor="review-comment">{dialogAction === 'request_changes' ? 'Required changes' : dialogAction === 'submit' && dialogResubmit ? 'Changes made' : 'Comment (optional)'}</FieldLabel><Textarea id="review-comment" value={comment} onChange={e => setComment(e.target.value)} disabled={saving} required={dialogAction === 'request_changes' || (dialogAction === 'submit' && dialogResubmit)} maxLength={5000} aria-invalid={Boolean(formError)} />{formError && <FieldError>{formError}</FieldError>}</Field></FieldGroup><DialogFooter><DialogClose asChild><Button variant="outline" type="button" disabled={saving}>Cancel</Button></DialogClose><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{dialogAction === 'submit' ? 'Submit to Director' : dialogAction === 'endorse' ? 'Send to BEAP Chair' : dialogAction === 'forward' ? 'Send to Executive Chairman' : 'Send feedback'}</Button></DialogFooter></form>
+        {dialogThreads.length > 0 && <div className="review-dialog-comments" data-action={dialogAction}><p>{dialogAction === 'request_changes' ? `${commentCount(dialogThreads.length)} will be sent with this request:` : `${commentCount(dialogThreads.length)} on ${scope === 'general' ? 'this plan are' : 'this component are'} not resolved yet.`}</p>
+          {dialogAction === 'request_changes' && <ul aria-label="Open comments">{dialogThreads.map(t => <li key={t.id}><strong>{t.targetLabel}</strong><span>{t.body}</span></li>)}</ul>}</div>}
+        <Field data-invalid={Boolean(formError)}><FieldLabel htmlFor="review-comment">{noteOptional ? 'Note (optional)' : dialogAction === 'request_changes' ? 'Required changes' : dialogAction === 'submit' && dialogResubmit ? 'Changes made' : 'Comment (optional)'}</FieldLabel><Textarea id="review-comment" value={comment} onChange={e => setComment(e.target.value)} disabled={saving} required={(dialogAction === 'request_changes' && !noteOptional) || (dialogAction === 'submit' && dialogResubmit)} maxLength={5000} aria-invalid={Boolean(formError)} />{formError && <FieldError>{formError}</FieldError>}</Field></FieldGroup><DialogFooter><DialogClose asChild><Button variant="outline" type="button" disabled={saving}>Cancel</Button></DialogClose><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{dialogAction === 'submit' ? 'Submit to Director' : dialogAction === 'endorse' ? 'Send to BEAP Chair' : dialogAction === 'forward' ? 'Send to Executive Chairman' : 'Send feedback'}</Button></DialogFooter></form>
     </DialogContent></Dialog>
   </div>;
 }

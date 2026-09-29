@@ -82,6 +82,23 @@ These settings apply across every SUBEB, not per state. The implementation lives
 
 Only Infrastructure and Sports are currently treated as implemented blocking components. The other seven pillars are visible but not complete editors yet.
 
+## Plan workbook comments (migration 028)
+
+Google-Sheets-style review comments on cells and whole rows of the review-page plan workbook. State review chain only; UBEC comments are a later feature.
+
+- Table `plan_comments` (`db/postgres/028-plan-comments.sql`): root comments (`parent_id` NULL) target `(sheet, row_ref, column_id)`; `column_id` NULL is a row comment; replies copy the root's target. `pillar` is the owning component (the `distribution` sheet belongs to `tlm`). `target_label` and `submission_number` are snapshots taken at creation. One open thread per cell/row (partial unique index). Rows cascade with the plan; `TRUNCATE users CASCADE` would also clear this table.
+- `row_ref` is the workbook `row.id`, which is the durable database id: infrastructure = negative `infrastructure_packages.id`, sports = `sports_budget_lines.id`, SBMC/TLM = `activity_plan_lines.id`, distribution = `schools.id`. All editors update these rows in place. Threads whose row or column no longer exists are returned with `orphaned: true` and shown as "No longer in the plan" in the comments panel.
+- Rules (`lib/plan-comments.ts`, `app/api/plans/comments/route.ts`):
+  - start a thread: only the current holder: the department Director (not the BEAP Chair) at `director_review`, the BEAP Chair at `beap_review`, the Executive Chairman at `chairman_ready`;
+  - reply: anyone who can view the component (`canViewComponent`); resolved threads must be reopened first;
+  - resolve: that department's Data Entry Staff, the comment's author, or the current holder;
+  - reopen: Directors, the BEAP Chair and the Executive Chairman who can view the component;
+  - every write requires the same origin, a state role, and an open plan (`statePlanOpen`, otherwise 409). UBEC roles get 403 and UBEC APIs never read `plan_comments`.
+- `request_changes` (`app/api/plans/review/route.ts`): the note is optional when the component has open root comments; the event comment then reads "N comments on specific cells". Without open comments the note stays required.
+- UI: `components/plan-workbook/comments-context.tsx` (loading and actions), `comment-layer.tsx` (popover and hover preview), `comment-thread.tsx`, `comments-panel.tsx`; markers in `sheet-grid.tsx`, menu items in `cell-menu.tsx` (Ctrl/Cmd+Alt+M). The review page passes `comments` to `PlanReviewContent` only for the current working plan; the UBEC page passes none, so no comment UI renders there. Column ids/headers in `lib/plan-comments.ts` mirror `sheets.tsx`; `scripts/test-plan-comments.mjs` checks they stay in sync.
+- The workbook also has a full-screen mode (`use-expanded.ts`, Expand button or `F`, Esc exits): the same element becomes a fixed overlay (z-index 45, below the z-50 Radix portals).
+- Test: `node scripts/test-plan-comments.mjs [baseUrl]` (default `http://127.0.0.1:5174`) creates throwaway states, users and a plan, then removes them.
+
 ## Roles and department access
 
 - Data Entry Staff and ordinary Directors can have one, several, or all departments.
