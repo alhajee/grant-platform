@@ -20,3 +20,10 @@ export function subebDisplayName(stateCode: string) {
   if (code === "FC" || code === "FCT" || code === "FEDERAL CAPITAL TERRITORY") return "FCT UBEB";
   return `${(stateNames[code] ?? value.replace(/\s+State$/i, '')).toUpperCase()} SUBEB`;
 }
+
+/** State codes whose display name contains the search text, e.g. "kano" -> ["KN"]. */
+export function stateCodesMatching(search: string) {
+  const needle = search.trim().toLowerCase();
+  if (!needle) return [];
+  return [...Object.keys(stateNames), "FC"].filter(code => stateDisplayName(code).toLowerCase().includes(needle));
+}

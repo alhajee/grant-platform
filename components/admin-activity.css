@@ -1,0 +1,8 @@
+/* Activity tab (Super Admin): impersonation sessions table and write-attempt sheet. */
+.admin-activity { min-width: 0; }
+.admin-activity-status [data-slot=toggle-group-item][data-state=on] { color: var(--primary-foreground); background: var(--primary); border-color: var(--primary); }
+.admin-activity-path { word-break: break-all; white-space: normal; }
+@media (max-width: 640px) {
+  .admin-activity-status { width: 100%; }
+  .admin-activity-status [data-slot=toggle-group-item] { flex: 1 1 0; }
+}
