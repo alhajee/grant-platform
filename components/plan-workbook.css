@@ -171,3 +171,25 @@
   .plan-workbook[data-expanded] .plan-workbook-heading { padding: 10px 12px 6px; }
   .plan-workbook[data-expanded] .plan-workbook-heading h2 { font-size: 14px; }
 }
+
+/* UBEC threads shared with the SUBEB (migration 029): blue markers and a "UBEC" tag on the state workbook. */
+.plan-workbook { --wb-ubec: #1a73e8; --wb-ubec-tint: #e8f0fe; --wb-ubec-strong: #d2e3fc; --wb-ubec-ink: #174ea6; }
+.dark .plan-workbook { --wb-ubec: #8ab4f8; --wb-ubec-tint: color-mix(in srgb, #8ab4f8 14%, var(--background)); --wb-ubec-strong: color-mix(in srgb, #8ab4f8 28%, var(--background)); --wb-ubec-ink: #aecbfa; }
+.wb-grid tbody td.has-ubec-comment, .wb-grid tbody tr:has(> th.has-ubec-comment) > td { background: var(--wb-ubec-tint); }
+.wb-grid tbody td.has-ubec-comment.is-selected:not(.is-active) { background: color-mix(in srgb, var(--wb-ubec-tint) 55%, var(--wb-select)); }
+.wb-grid tbody td.has-ubec-comment:hover, .wb-grid tbody tr:has(> th.has-ubec-comment):hover > td { background: color-mix(in srgb, var(--wb-ubec) 14%, var(--background)); }
+.wb-grid tbody td.has-ubec-comment::after, .wb-grid tbody th.wb-gutter.has-ubec-comment::after { border-color: transparent var(--wb-ubec) transparent transparent; }
+.wb-grid tbody th.wb-gutter.has-ubec-comment { color: var(--wb-ubec-ink); background: color-mix(in srgb, var(--wb-ubec) 16%, var(--wb-gutter-bg)); }
+.wb-grid tbody td.has-ubec-comment.comment-open, .wb-grid tbody tr.row-comment-open:has(> th.has-ubec-comment) > td { background: var(--wb-ubec-strong) !important; }
+.wb-grid tbody td.has-ubec-comment.comment-open { box-shadow: inset 0 0 0 2px var(--wb-ubec) !important; }
+.wb-thread-stack { display: flex; flex-direction: column; max-height: min(80vh, 680px); overflow-y: auto; }
+.wb-thread-stack > .wb-thread + .wb-thread { border-top: 1px solid var(--border); }
+.wb-thread[data-ubec] .wb-thread-head { border-top-color: #1a73e8; }
+.wb-thread[data-ubec][data-resolved] .wb-thread-head { border-top-color: var(--border); }
+.wb-scope-badge { flex: none; height: 18px; padding: 0 6px; font-size: 11px; line-height: 1; }
+.wb-ubec-badge { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: #fff; background: #1a73e8; border-color: transparent; }
+.wb-shared-badge { color: #174ea6; background: #e8f0fe; border-color: transparent; }
+.wb-thread-head [data-slot=badge] { flex: none; }
+.wb-comments-item[data-ubec] { box-shadow: inset 3px 0 0 #1a73e8; }
+.wb-comments-sources { margin-top: 8px; }
+.plan-workbook-ubec-count { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .02em; font-variant-numeric: tabular-nums; color: var(--wb-ubec-ink); background: color-mix(in srgb, var(--wb-ubec) 16%, var(--background)); }

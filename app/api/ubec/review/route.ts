@@ -9,8 +9,10 @@ import type { Snapshot } from '@/lib/plan-review';
 import { readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot } from '@/lib/pillar-review';
 import { readUbecSubmissionMode } from '@/lib/workflow-settings';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
+import { shareCommentIdsSchema } from '@/lib/plan-comments';
+import { shareableThreadIds } from '@/lib/ubec-comments';
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
-const command = z.object({ action: z.enum(['submit','assign','feedback','return','approve']), version: z.number().int().nonnegative(), roundId: z.number().int().positive().optional(), comment: z.string().trim().max(5000).default(''), assignments: z.array(z.object({ pillar: z.enum(['infrastructure','sports','sbmc','tlm']), department: z.string() }).strict()).max(44).optional(), assignmentId: z.number().int().positive().optional(), recommendation: z.enum(['endorse','changes']).optional() }).strict();
+const command = z.object({ action: z.enum(['submit','assign','feedback','return','approve']), version: z.number().int().nonnegative(), roundId: z.number().int().positive().optional(), comment: z.string().trim().max(5000).default(''), assignments: z.array(z.object({ pillar: z.enum(['infrastructure','sports','sbmc','tlm']), department: z.string() }).strict()).max(44).optional(), assignmentId: z.number().int().positive().optional(), recommendation: z.enum(['endorse','changes']).optional(), shareCommentIds: shareCommentIdsSchema.optional() }).strict();
 
 export async function GET(request: NextRequest) {
   try {
@@ -48,6 +50,7 @@ export async function POST(request: NextRequest) {
     const parsed = command.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return error('Invalid review request.');
     const input = parsed.data, id = request.nextUrl.searchParams.get('plan');
+    if (input.shareCommentIds && input.action !== 'return') return error('Comments can only be shared with the SUBEB when returning the plan.');
     if (!id || !/^[1-9]\d*$/.test(id)) return error('Choose a valid plan.');
     return await getPostgres().transaction(async db => {
       const user = (await db.query('SELECT id,role,department,state_code,full_name,email FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
@@ -93,6 +96,13 @@ export async function POST(request: NextRequest) {
         } else {
           if (!input.comment) return error('Enter the decision and consolidated feedback.');
           if (input.action === 'approve' && (activePillars(round.snapshot).some(p => !assignments.some(a => a.pillar === p)) || assignments.some(a => !a.completed_at))) return error('All assigned departments must finish reviewing before approval.', 409);
+          // Only the UBEC threads the ES ticked on return reach the state; approval never shares any.
+          const share = input.shareCommentIds ?? [];
+          if (share.length) {
+            const open = await shareableThreadIds(db, plan.id, round);
+            if (share.some(commentId => !open.has(commentId))) return error('Some selected comments are no longer open on this submission. Refresh and try again.');
+            await db.query('UPDATE plan_comments SET shared_at=NOW(), shared_by_name=$1 WHERE id=ANY($2::bigint[])', [user.full_name, share]);
+          }
           await db.query('UPDATE ubec_rounds SET status=$1,decision=$2,decided_at=NOW() WHERE id=$3', [input.action === 'approve' ? 'approved' : 'returned', input.comment, round.id]);
           status = input.action === 'approve' ? 'ubec_approved' : 'changes_requested';
           if (input.action === 'return') await db.query("UPDATE plan_pillar_reviews SET status='changes_requested',updated_at=NOW() WHERE plan_id=$1", [id]);

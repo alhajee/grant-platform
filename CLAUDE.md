@@ -84,7 +84,7 @@ Only Infrastructure and Sports are currently treated as implemented blocking com
 
 ## Plan workbook comments (migration 028)
 
-Google-Sheets-style review comments on cells and whole rows of the review-page plan workbook. State review chain only; UBEC comments are a later feature.
+Google-Sheets-style review comments on cells and whole rows of the review-page plan workbook. These are the state review chain's (`scope = 'state'`) rules; UBEC comments share the table and UI, see the next section.
 
 - Table `plan_comments` (`db/postgres/028-plan-comments.sql`): root comments (`parent_id` NULL) target `(sheet, row_ref, column_id)`; `column_id` NULL is a row comment; replies copy the root's target. `pillar` is the owning component (the `distribution` sheet belongs to `tlm`). `target_label` and `submission_number` are snapshots taken at creation. One open thread per cell/row (partial unique index). Rows cascade with the plan; `TRUNCATE users CASCADE` would also clear this table.
 - `row_ref` is the workbook `row.id`, which is the durable database id: infrastructure = negative `infrastructure_packages.id`, sports = `sports_budget_lines.id`, SBMC/TLM = `activity_plan_lines.id`, distribution = `schools.id`. All editors update these rows in place. Threads whose row or column no longer exists are returned with `orphaned: true` and shown as "No longer in the plan" in the comments panel.
@@ -93,11 +93,26 @@ Google-Sheets-style review comments on cells and whole rows of the review-page p
   - reply: anyone who can view the component (`canViewComponent`); resolved threads must be reopened first;
   - resolve: that department's Data Entry Staff, the comment's author, or the current holder;
   - reopen: Directors, the BEAP Chair and the Executive Chairman who can view the component;
-  - every write requires the same origin, a state role, and an open plan (`statePlanOpen`, otherwise 409). UBEC roles get 403 and UBEC APIs never read `plan_comments`.
-- `request_changes` (`app/api/plans/review/route.ts`): the note is optional when the component has open root comments; the event comment then reads "N comments on specific cells". Without open comments the note stays required.
-- UI: `components/plan-workbook/comments-context.tsx` (loading and actions), `comment-layer.tsx` (popover and hover preview), `comment-thread.tsx`, `comments-panel.tsx`; markers in `sheet-grid.tsx`, menu items in `cell-menu.tsx` (Ctrl/Cmd+Alt+M). The review page passes `comments` to `PlanReviewContent` only for the current working plan; the UBEC page passes none, so no comment UI renders there. Column ids/headers in `lib/plan-comments.ts` mirror `sheets.tsx`; `scripts/test-plan-comments.mjs` checks they stay in sync.
+  - every write requires the same origin, a state role, and an open plan (`statePlanOpen`, otherwise 409). UBEC roles get 403 from this API, and UBEC never sees `scope = 'state'` threads.
+- `request_changes` (`app/api/plans/review/route.ts`): the note is optional when the component has open state root comments (shared UBEC threads do not count); the event comment then reads "N comments on specific cells". Without open comments the note stays required.
+- UI: `components/plan-workbook/comments-context.tsx` (loading and actions), `comment-layer.tsx` (popover and hover preview), `comment-thread.tsx`, `comments-panel.tsx`; markers in `sheet-grid.tsx`, menu items in `cell-menu.tsx` (Ctrl/Cmd+Alt+M). The review page passes `comments` to `PlanReviewContent` only for the current working plan; the UBEC page passes its own UBEC-scope controller (`usePlanComments(..., { scope: 'ubec', roundId })`). Column ids/headers in `lib/plan-comments.ts` mirror `sheets.tsx`; `scripts/test-plan-comments.mjs` checks they stay in sync.
 - The workbook also has a full-screen mode (`use-expanded.ts`, Expand button or `F`, Esc exits): the same element becomes a fixed overlay (z-index 45, below the z-50 Radix portals).
 - Test: `node scripts/test-plan-comments.mjs [baseUrl]` (default `http://127.0.0.1:5174`) creates throwaway states, users and a plan, then removes them.
+
+## UBEC comments (migration 029)
+
+UBEC reviewers and the UBEC ES comment on the submitted round's snapshot with the same workbook UI (markers, right-click Comment / Comment on row, Ctrl/Cmd+Alt+M, popovers, panel, tab counts). Threads are internal to UBEC until the ES shares them on return.
+
+- Schema (`db/postgres/029-ubec-plan-comments.sql`): `plan_comments.scope` (`state` | `ubec`, existing rows `state`), `ubec_round_id` (required for, and only for, `ubec`; FK to `ubec_rounds`, cascades), `shared_at` / `shared_by_name` (UBEC root comments only). One open thread per cell/row per scope and UBEC round (`plan_comments_one_open_thread_scope_idx`). Replies copy the root's scope and round.
+- UBEC API `app/api/ubec/comments/route.ts` (GET/POST/PATCH, `?plan=` and optional `&round=`), helpers in `lib/ubec-comments.ts`, rules in `lib/plan-comments.ts` (`ubecAbilities`, `sharedUbecAbilities`):
+  - UBEC ES: start, reply, resolve and reopen on every populated component of the round. Department Reviewer: the same, only on components assigned to their department in that round (they see nothing else, including other rounds without an assignment).
+  - Visibility on round R: the ES sees all UBEC threads written on R; a reviewer sees every UBEC thread (ES and other reviewers) on their assigned components. Threads shared on an earlier round carry forward into later rounds with the state's replies; unshared threads stay on the round they were written on. Nothing written after a closed round's decision is shown on that round.
+  - Writes: same origin, user re-read from the DB, UBEC role, the plan's latest round with status `received`/`reviewing` (otherwise 409, also for any `&round=` historical view). Row and column refs are validated against the round snapshot. Nobody at UBEC ever sees `scope = 'state'` threads.
+- Sharing: the ES return dialog lists the round's open UBEC threads, all ticked by default (`components/ubec-share-comments.tsx`). `return` accepts `shareCommentIds` (validated to be open UBEC root threads visible on that round, else 400) and sets `shared_at`/`shared_by_name` in the same transaction. `shareCommentIds` with any other action is 400; approval never shares. Re-ticking a carried thread refreshes `shared_at`.
+- State side (`app/api/plans/comments/route.ts`): GET returns state threads plus shared UBEC threads only, with UBEC replies written up to `shared_at` and all SUBEB replies (`readStateVisibleRows`). Unshared threads, and UBEC replies after the share time, never leave UBEC. On shared threads anyone who can view the component replies; that department's Data Entry Staff and the reviewer holding the component resolve; nobody at the state starts or reopens UBEC threads (403). Writes still need an open plan (409 while with UBEC or after approval). Response field `otherAbilities` carries the UBEC-thread abilities.
+- When UBEC sees SUBEB replies: once the plan is resubmitted. A returned round's view is cut off at its decision time, so replies and resolutions made while the state revises appear on the next round.
+- UI: SUBEB workbook shows UBEC threads with blue markers, a "UBEC" badge (thread and panel), an All / SUBEB / UBEC panel filter, "UBEC n" tab chips and "n UBEC comments" on component cards; the send and request-changes dialogs mention open UBEC comments. The UBEC workbook tags threads "Shared" or "Internal". A cell can hold one state and one UBEC open thread; its popover stacks them.
+- Test: `node scripts/test-ubec-comments.mjs [baseUrl]` (throwaway states, users and plan; cleans up).
 
 ## Roles and department access
 

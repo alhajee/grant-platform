@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         return error('This action is no longer available for this component.', 409);
       }
       // Open cell/row comments travel with a change request, so the general note becomes optional.
-      const openComments = input.action === 'request_changes' ? Number((await db.query("SELECT COUNT(*)::int AS n FROM plan_comments WHERE plan_id=$1 AND pillar=$2 AND parent_id IS NULL AND resolved_at IS NULL", [plan.id,input.pillar])).rows[0].n) : 0;
+      const openComments = input.action === 'request_changes' ? Number((await db.query("SELECT COUNT(*)::int AS n FROM plan_comments WHERE plan_id=$1 AND pillar=$2 AND scope='state' AND parent_id IS NULL AND resolved_at IS NULL", [plan.id,input.pillar])).rows[0].n) : 0;
       if (input.action === 'request_changes' && !input.comment && !openComments) return error('Describe the required changes, or leave comments on specific cells or rows before requesting changes.');
       if (input.action !== 'request_changes' && current.status === 'changes_requested' && !input.comment) return error('Describe the required changes or how the feedback was addressed.');
       const eventComment = input.comment || (openComments ? `${openComments} ${openComments === 1 ? 'comment' : 'comments'} on specific cells` : '');

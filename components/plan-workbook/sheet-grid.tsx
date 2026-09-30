@@ -44,11 +44,14 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
   const commentState = (rowId: string, columnId: string | null) => !comments ? null : comments.open.has(`${rowId}:${columnId ?? ''}`) ? 'open' as const : comments.can.start ? 'new' as const : null;
   function openComment(rowId: string, columnId: string | null) {
     if (!comments) return;
-    const thread = comments.open.get(`${rowId}:${columnId ?? ''}`);
-    if (!thread && !comments.can.start) { toast.info(comments.controller.readOnly ? 'Comments are read-only for this plan.' : 'Only the reviewer currently holding this component can start comments.'); return; }
+    const open = comments.open.has(`${rowId}:${columnId ?? ''}`);
+    if (!open && !comments.can.start) { toast.info(comments.controller.startHint); return; }
     if (columnId) table.setFocusedCell(rowId, columnId);
-    comments.controller.setActive({ sheet: sheet.key, rowRef: rowId, columnId, threadId: thread?.id ?? null });
+    // threadId null: the popover shows every open thread on the cell (a SUBEB and a UBEC one can share a cell).
+    comments.controller.setActive({ sheet: sheet.key, rowRef: rowId, columnId, threadId: null });
   }
+  /** On the SUBEB workbook, cells whose open thread came from UBEC get their own marker colour. */
+  const fromUbec = (key: string) => comments?.controller.scope === 'state' && !!comments.open.get(key)?.some(t => t.scope === 'ubec');
 
   // Keep the viewport width available to full-width detail rows inside the horizontally scrolling grid.
   useLayoutEffect(() => {
@@ -82,6 +85,8 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
       setTimeout(() => { if (!copied.current) { const text = onCopy(); if (text !== null) void navigator.clipboard?.writeText(text).catch(() => {}); } }, 0);
     } });
   }
+  // Row selection moves focus to the row's first cell on the next frame; a row thread opened from the
+  // gutter waits for that (see the gutter onClick), or the focus move would dismiss its popover.
   function selectRow(event: MouseEvent, rowId: string) {
     if (event.button !== 0 || !columns.length) return;
     const first = columns[0].id, last = columns[columns.length - 1].id;
@@ -145,11 +150,11 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
         {rows.map((row, r) => {
           const open = !!expanded[row.id] && !!row.original.expandable;
           const label = String(row.original.values[columns[0]?.id] ?? row.id);
-          const rowThread = comments?.open.get(`${row.id}:`);
+          const rowThread = comments?.open.get(`${row.id}:`)?.[0], rowUbec = fromUbec(`${row.id}:`);
           return <Fragment key={row.id}>
             <tr role="row" aria-rowindex={ariaRows[r]} data-open={open || undefined} className={cn(rowThread && 'has-row-comment', activeComment === `${row.id}:` && 'row-comment-open')}>
-              <th role="rowheader" aria-colindex={1} className={cn('wb-gutter', rowThread && 'has-comment')} data-row-key={row.id} data-comment-id={rowThread?.id} aria-label={rowThread ? `Row ${r + 1}, has comment` : undefined}
-                onMouseDown={event => selectRow(event, row.id)} onClick={() => { if (rowThread) openComment(row.id, null); }} onContextMenu={() => { if (columns[0]) openMenu(row.original, columns[0].id, !!row.getVisibleCells()[0]?.getIsSelected()); }}>
+              <th role="rowheader" aria-colindex={1} className={cn('wb-gutter', rowThread && 'has-comment', rowUbec && 'has-ubec-comment')} data-row-key={row.id} data-comment-id={rowThread?.id} aria-label={rowThread ? `Row ${r + 1}, has ${rowUbec ? 'UBEC ' : ''}comment` : undefined}
+                onMouseDown={event => selectRow(event, row.id)} onClick={() => { if (rowThread) requestAnimationFrame(() => openComment(row.id, null)); }} onContextMenu={() => { if (columns[0]) openMenu(row.original, columns[0].id, !!row.getVisibleCells()[0]?.getIsSelected()); }}>
                 <div className="wb-gutter-inner">{row.original.expandable && <button type="button" tabIndex={-1} className="wb-expand" aria-expanded={open} aria-controls={`wb-${sheet.key}-${row.id}-details`} aria-label={`${open ? 'Hide' : 'Show'} details for ${label}`} onMouseDown={event => event.stopPropagation()} onClick={() => onToggle(row.id)}>{open ? <ChevronDown /> : <ChevronRight />}</button>}
                 <span>{r + 1}</span></div>
               </th>
@@ -157,14 +162,14 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
                 const spec = specs.get(cell.column.id)!, value = row.original.values[spec.id], selected = cell.getIsSelected();
                 const edges = selected ? cell.getSelectionEdges() : null, key = `${row.id}:${cell.column.id}`;
                 const text = formatCell(spec.kind, value);
-                const thread = comments?.open.get(key);
+                const thread = comments?.open.get(key)?.[0], ubec = fromUbec(key);
                 return <td key={cell.id} role="gridcell" aria-colindex={c + 2} aria-selected={selected} data-cell-key={key} data-row-index={r} data-col-index={c} data-comment-id={thread?.id}
                   tabIndex={hasFocusedCell ? cell.getTabIndex() : r === 0 && c === 0 ? 0 : -1}
-                  className={cn(c === 0 && 'wb-frozen', isNumeric(spec.kind) && 'wb-number', selected && 'is-selected', key === anchorKey && 'is-active', edges?.top && 'edge-t', edges?.bottom && 'edge-b', edges?.left && 'edge-l', edges?.right && 'edge-r', thread && 'has-comment', activeComment === key && 'comment-open')}
+                  className={cn(c === 0 && 'wb-frozen', isNumeric(spec.kind) && 'wb-number', selected && 'is-selected', key === anchorKey && 'is-active', edges?.top && 'edge-t', edges?.bottom && 'edge-b', edges?.left && 'edge-l', edges?.right && 'edge-r', thread && 'has-comment', ubec && 'has-ubec-comment', activeComment === key && 'comment-open')}
                   style={c === 0 ? { left: GUTTER_WIDTH } : undefined} title={spec.kind === 'text' && text.length > 18 ? text : undefined}
                   onMouseDown={event => { if (event.button === 0) cell.getSelectionStartHandler()(event); }} onMouseEnter={cell.getSelectionExtendHandler()}
                   onContextMenu={() => openMenu(row.original, cell.column.id, selected)} onClick={event => { if (thread && !event.shiftKey && !event.ctrlKey && !event.metaKey) openComment(row.id, cell.column.id); }}
-                  onFocus={() => { if (!table.store.state.cellSelection.length) table.setFocusedCell(row.id, cell.column.id); }}>{text || <span className="wb-blank" aria-label="Blank">—</span>}{thread && <span className="sr-only">, has comment</span>}</td>;
+                  onFocus={() => { if (!table.store.state.cellSelection.length) table.setFocusedCell(row.id, cell.column.id); }}>{text || <span className="wb-blank" aria-label="Blank">—</span>}{thread && <span className="sr-only">, has {ubec ? 'UBEC ' : ''}comment</span>}</td>;
               })}
             </tr>
             {open && <tr role="row" aria-rowindex={detailIndex.get(row.id)} className="wb-detail" id={`wb-${sheet.key}-${row.id}-details`}><td role="gridcell" aria-colindex={1} colSpan={colCount}><div className="wb-detail-inner review-row-details">{sheet.detail?.(row.id)}</div></td></tr>}

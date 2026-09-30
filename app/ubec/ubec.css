@@ -56,7 +56,10 @@
   .national-header-account { position: absolute; right: 0; top: 0; }
   .national-header-account .account-trigger { min-height: 50px; }
   .national-header-nav { padding: 4px; gap: 0; background: color-mix(in srgb,var(--background) 64%,transparent); border: 1px solid var(--background); border-radius: 999px; }
-  .national-header-nav a { flex: 1; padding-inline: 8px; min-height: 40px; }
+  .national-header-nav a { flex: 1 0 auto; padding-inline: 8px; min-height: 40px; }
+  /* Five links do not fit a phone: scroll them inside the capsule instead of widening the page. */
+  .national-header-nav { overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+  .national-header-nav::-webkit-scrollbar { display: none; }
 }
 @media(max-width:360px) { .national-horizontal-shell { padding-inline: 10px; } .national-header-nav a { padding-inline: 6px; font-size: 13px; } }
 .national-page-title { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin: 0 0 24px; }
@@ -409,3 +412,17 @@
   .national-map-card .map-headline-value { font-size: 32px; }
   .national-map-card .map-status-list > div { min-height: 24px; }
 }
+/* Return dialog: which UBEC comments are sent to the SUBEB (components/ubec-share-comments.tsx). */
+.ubec-share-comments { gap: 8px; min-width: 0; min-inline-size: 0; }
+.ubec-share-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.ubec-share-head legend { margin-bottom: 0; }
+.ubec-share-head [data-slot=button] { height: auto; padding: 0; }
+.ubec-share-list { display: flex; flex-direction: column; gap: 6px; max-height: min(300px, 40vh); overflow-y: auto; padding: 1px; min-width: 0; }
+.ubec-share-list li { display: flex; align-items: flex-start; gap: 10px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.ubec-share-list li[data-checked] { border-color: #f5c26b; background: #fef7e0; }
+.ubec-share-list li [data-slot=checkbox] { margin-top: 2px; }
+.ubec-share-list label { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; font-size: 13px; cursor: pointer; }
+.ubec-share-list strong { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; overflow-wrap: anywhere; font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
+.ubec-share-list span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; line-height: 1.4; }
+.ubec-share-list small { font-size: 11.5px; color: var(--muted-foreground); }
+.ubec-dialog-note { padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.45; color: var(--muted-foreground); background: var(--muted); }

@@ -43,7 +43,11 @@ export function CommentLayer({ sheet, comments, scrollRef, labelFor }: { sheet: 
     return () => { hide(); element.removeEventListener('pointerover', over); element.removeEventListener('focusin', focus); element.removeEventListener('pointerleave', hide); element.removeEventListener('focusout', hide); element.removeEventListener('scroll', hide); };
   }, [scrollRef]);
 
-  const thread = active ? (active.threadId ? comments.threads.find(t => t.id === active.threadId) : undefined) ?? comments.open.get(threadKey(active)) ?? null : null;
+  // From the panel: that one thread. From the cell: every open thread on it (own scope first), plus a composer
+  // when the viewer may start one and has no open thread of their own there yet.
+  const chosen = active?.threadId ? comments.threads.find(t => t.id === active.threadId) : undefined;
+  const list = active ? chosen ? [chosen] : comments.open.get(threadKey(active)) ?? [] : [];
+  const composer = !!active && !chosen && (!list.length || (comments.can.start && !list.some(t => t.scope === controller.scope)));
   // Phones: open below the cell so the thread can shift fully into view.
   const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 600px)').matches;
   const previewThread = preview && !anchor ? comments.threads.find(t => t.id === preview.id) : undefined;
@@ -57,11 +61,14 @@ export function CommentLayer({ sheet, comments, scrollRef, labelFor }: { sheet: 
       {anchor && <PopoverAnchor virtualRef={{ current: anchor }} />}
       {active && anchor && <PopoverContent side={narrow ? 'bottom' : 'right'} align="start" sideOffset={narrow ? 4 : 6} collisionPadding={12} className="wb-thread-popover" aria-label={`Comments on ${labelFor(active.rowRef, active.columnId)}`}
         onCloseAutoFocus={event => event.preventDefault()} onPointerDownOutside={() => { clickedAway.current = true; }}>
-        <CommentThread key={`${threadKey(active)}:${thread?.id ?? 'new'}`} controller={controller} thread={thread} target={active} label={thread?.targetLabel ?? labelFor(active.rowRef, active.columnId)} onClose={close} />
+        <div className="wb-thread-stack">
+          {list.map((thread, index) => <CommentThread key={`${threadKey(active)}:${thread.id}`} controller={controller} thread={thread} target={active} label={thread.targetLabel} onClose={close} autoFocus={index === 0} />)}
+          {composer && <CommentThread key={`${threadKey(active)}:new`} controller={controller} thread={null} target={active} label={labelFor(active.rowRef, active.columnId)} onClose={close} autoFocus={!list.length} />}
+        </div>
       </PopoverContent>}
     </Popover>
     {previewThread && preview && typeof document !== 'undefined' && createPortal(<div role="tooltip" className="wb-comment-preview" style={{ top: Math.max(8, preview.rect.top), left: Math.min(window.innerWidth - 288, preview.rect.right + 6) }}>
-      <strong>{previewThread.authorName}</strong><span>{previewThread.body.length > 140 ? `${previewThread.body.slice(0, 139)}…` : previewThread.body}</span>
+      <strong>{previewThread.scope === 'ubec' && controller.scope === 'state' ? `UBEC · ${previewThread.authorName}` : previewThread.authorName}</strong><span>{previewThread.body.length > 140 ? `${previewThread.body.slice(0, 139)}…` : previewThread.body}</span>
       {previewThread.replies.length > 0 && <em>{previewThread.replies.length} {previewThread.replies.length === 1 ? 'reply' : 'replies'}</em>}
     </div>, document.body)}
   </>;

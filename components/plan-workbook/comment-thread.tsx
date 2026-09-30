@@ -2,6 +2,7 @@
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { CheckIcon, RotateCcwIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/spinner';
 import { commentBodyLimit, sheetPillar, type PlanCommentReply, type PlanCommentThread } from '@/lib/plan-comments';
@@ -27,11 +28,21 @@ function Entry({ comment }: { comment: PlanCommentReply }) {
   </li>;
 }
 
+/**
+ * Where a thread comes from. SUBEB users see a "UBEC" tag on UBEC threads; UBEC users see whether the
+ * ES shared the thread with the SUBEB or it is still internal to UBEC.
+ */
+export function ScopeBadge({ thread, viewer }: { thread: PlanCommentThread; viewer: CommentsController['scope'] }) {
+  if (thread.scope !== 'ubec') return null;
+  if (viewer === 'state') return <Badge className="wb-scope-badge wb-ubec-badge" title={thread.roundNumber ? `From the UBEC review of submission ${thread.roundNumber}` : 'From the UBEC review'}>UBEC</Badge>;
+  return thread.sharedAt ? <Badge variant="secondary" className="wb-scope-badge wb-shared-badge" title={`Shared with the SUBEB${thread.sharedByName ? ` by ${thread.sharedByName}` : ''}`}>Shared</Badge> : <Badge variant="outline" className="wb-scope-badge" title="Only UBEC can see this comment">Internal</Badge>;
+}
+
 /** A thread (root comment, replies, reply box, Resolve/Reopen), or a composer when thread is null. */
 export function CommentThread({ controller, thread, target, label, onClose, autoFocus = true }: { controller: CommentsController; thread: PlanCommentThread | null; target: CommentTarget; label: string; onClose?: () => void; autoFocus?: boolean }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState<'send' | 'status' | null>(null);
-  const can = controller.abilities(thread?.pillar ?? sheetPillar[target.sheet]);
+  const can = controller.abilities(thread?.pillar ?? sheetPillar[target.sheet], thread?.scope);
   const resolved = !!thread?.resolvedAt;
   const mayWrite = thread ? can.reply && !resolved : can.start;
   const mayResolve = !!thread && !resolved && (can.resolveAny || (thread.mine && can.reply));
@@ -52,9 +63,10 @@ export function CommentThread({ controller, thread, target, label, onClose, auto
     if (ok && !resolved) onClose?.();
   }
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void submit(); } };
-  return <div className="wb-thread" data-resolved={resolved || undefined}>
+  return <div className="wb-thread" data-resolved={resolved || undefined} data-ubec={(thread?.scope === 'ubec' && controller.scope === 'state') || undefined}>
     <div className="wb-thread-head">
       <p className="wb-thread-target" title={label}>{label}</p>
+      {thread && <ScopeBadge thread={thread} viewer={controller.scope} />}
       {mayResolve && <Button size="xs" variant="outline" className="rounded-full" disabled={!!busy} onClick={() => void toggle()}>{busy === 'status' ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}Resolve</Button>}
       {mayReopen && <Button size="xs" variant="outline" className="rounded-full" disabled={!!busy} onClick={() => void toggle()}>{busy === 'status' ? <Spinner data-icon="inline-start" /> : <RotateCcwIcon data-icon="inline-start" />}Reopen</Button>}
     </div>
@@ -69,6 +81,7 @@ export function CommentThread({ controller, thread, target, label, onClose, auto
         <Button type="submit" size="sm" disabled={!text.trim() || busy === 'send'}>{busy === 'send' && <Spinner data-icon="inline-start" />}{thread ? 'Reply' : 'Comment'}</Button>
       </div>
     </form>}
-    {!thread && !can.start && <p className="wb-thread-note">Only the reviewer currently holding this component can start comments.</p>}
+    {!thread && !can.start && <p className="wb-thread-note">{controller.startHint}</p>}
+    {thread?.scope === 'ubec' && controller.scope === 'state' && !controller.readOnly && resolved && <p className="wb-thread-note">Only UBEC can reopen a UBEC comment.</p>}
   </div>;
 }

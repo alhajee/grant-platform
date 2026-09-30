@@ -27,6 +27,7 @@ import { hasDepartment } from '@/lib/user-departments';
 import { usePlanComments } from '@/components/plan-workbook/comments-context';
 
 const commentCount = (n: number) => `${n} open ${n === 1 ? 'comment' : 'comments'}`;
+const ubecCount = (n: number) => `${n} UBEC ${n === 1 ? 'comment' : 'comments'}`;
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 export default function ReviewPage() {
@@ -63,7 +64,9 @@ export default function ReviewPage() {
   const plan = data?.plan;
   // Comments belong to the current working plan only; saved submissions hide them.
   const comments = usePlanComments(data?.plan.id, !!data && !error && selected === 'current', data?.plan.version);
-  const dialogThreads = comments?.threads.filter(t => !t.resolvedAt && (scope === 'general' || t.pillar === scope)) ?? [];
+  const dialogOpen = comments?.threads.filter(t => !t.resolvedAt && (scope === 'general' || t.pillar === scope)) ?? [];
+  // State comments travel with a change request; shared UBEC comments are only mentioned.
+  const dialogThreads = dialogOpen.filter(t => t.scope === 'state'), dialogUbec = dialogOpen.filter(t => t.scope === 'ubec');
   const noteOptional = dialogAction === 'request_changes' && dialogThreads.length > 0;
   const editable = data && implementedPillars.some(p => mayEditPillar(data.role,data.departments,p,data.plan.status,data.pillarReviews));
   const available = !loading && !error && selected === 'current';
@@ -119,7 +122,8 @@ export default function ReviewPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="department-review-status"><Badge variant="secondary">{pillarReviewLabels[review.status]}</Badge>
-                  {!!comments?.openCount(review.pillar) && <a className="review-open-comments" href={`#review-${review.pillar}`}><MessageSquareTextIcon aria-hidden="true" />{commentCount(comments.openCount(review.pillar))}</a>}</div>
+                  {!!comments?.openCount(review.pillar) && <a className="review-open-comments" href={`#review-${review.pillar}`}><MessageSquareTextIcon aria-hidden="true" />{commentCount(comments.openCount(review.pillar))}</a>}
+                  {!!comments?.openCount(review.pillar, 'ubec') && <a className="review-open-comments review-ubec-comments" href={`#review-${review.pillar}`} title="Open comments shared by UBEC"><MessageSquareTextIcon aria-hidden="true" />{ubecCount(comments.openCount(review.pillar, 'ubec'))}</a>}</div>
                   <div className="department-review-actions">
                   {directorCanReview && <Button asChild variant="outline" size="sm"><a href={planHref(pillar.href!,data.plan.id)}>Edit component</a></Button>}
                   {staffCanSend && <Button size="sm" disabled={!data.snapshot[review.pillar]?.length || (review.pillar==='tlm'&&!data.snapshot.tlmDistribution?.length)} onClick={()=>openAction('submit',review.pillar)}>Send to Director</Button>}
@@ -146,6 +150,7 @@ export default function ReviewPage() {
       <form onSubmit={e => { e.preventDefault(); void confirm(); }}><FieldGroup className="px-4 pb-5">
         {dialogThreads.length > 0 && <div className="review-dialog-comments" data-action={dialogAction}><p>{dialogAction === 'request_changes' ? `${commentCount(dialogThreads.length)} will be sent with this request:` : `${commentCount(dialogThreads.length)} on ${scope === 'general' ? 'this plan are' : 'this component are'} not resolved yet.`}</p>
           {dialogAction === 'request_changes' && <ul aria-label="Open comments">{dialogThreads.map(t => <li key={t.id}><strong>{t.targetLabel}</strong><span>{t.body}</span></li>)}</ul>}</div>}
+        {dialogUbec.length > 0 && <p className="review-dialog-ubec">{ubecCount(dialogUbec.length)} from UBEC {dialogUbec.length === 1 ? 'is' : 'are'} still open on {scope === 'general' ? 'this plan' : 'this component'}. {dialogAction === 'request_changes' ? 'They stay on the plan for Data Entry Staff to answer.' : 'Reply to or resolve them before the plan goes back to UBEC; UBEC sees your replies once it is resubmitted.'}</p>}
         <Field data-invalid={Boolean(formError)}><FieldLabel htmlFor="review-comment">{noteOptional ? 'Note (optional)' : dialogAction === 'request_changes' ? 'Required changes' : dialogAction === 'submit' && dialogResubmit ? 'Changes made' : 'Comment (optional)'}</FieldLabel><Textarea id="review-comment" value={comment} onChange={e => setComment(e.target.value)} disabled={saving} required={(dialogAction === 'request_changes' && !noteOptional) || (dialogAction === 'submit' && dialogResubmit)} maxLength={5000} aria-invalid={Boolean(formError)} />{formError && <FieldError>{formError}</FieldError>}</Field></FieldGroup><DialogFooter><DialogClose asChild><Button variant="outline" type="button" disabled={saving}>Cancel</Button></DialogClose><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{dialogAction === 'submit' ? 'Submit to Director' : dialogAction === 'endorse' ? 'Send to BEAP Chair' : dialogAction === 'forward' ? 'Send to Executive Chairman' : 'Send feedback'}</Button></DialogFooter></form>
     </DialogContent></Dialog>
   </div>;

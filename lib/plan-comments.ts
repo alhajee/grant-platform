@@ -7,13 +7,19 @@ import type { Snapshot } from './plan-review';
 
 // Google-Sheets-style review comments on the plan workbook (migration 028).
 // A thread is a root comment on one cell (column_id set) or a whole row (column_id NULL);
-// replies share the root's target. Only the state review chain uses them for now.
+// replies share the root's target. scope 'state' threads belong to the SUBEB review chain; scope 'ubec'
+// threads are written at UBEC on a submitted round and reach the state only when the UBEC ES shares them
+// on return (migration 029, lib/ubec-comments.ts).
 
 export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution'] as const;
 export type CommentSheet = typeof commentSheets[number];
 /** The component each sheet belongs to; the TLM distribution list is part of TLM. */
 export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm' };
 export const commentBodyLimit = 2000;
+export const commentScopes = ['state', 'ubec'] as const;
+export type CommentScope = typeof commentScopes[number];
+/** Authors of UBEC comments; everyone else writing on a UBEC thread is a SUBEB user replying to it. */
+export const ubecAuthorRoles = ['UBEC Executive Secretary', 'UBEC Department Reviewer'] as const;
 
 // Column ids and headers mirror components/plan-workbook/sheets.tsx (scripts/test-plan-comments.mjs checks they stay in sync).
 const activityColumns = { activity: 'Allowable activity', description: 'Description' };
@@ -62,6 +68,21 @@ export function commentAbilities(user: Viewer, pillar: ImplementedPillar, status
   const staff = user.role === 'Data Entry Staff' && hasDepartment(departments(user), pillarDepartments[pillar]);
   return { start: holder, reply: view, resolveAny: view && (staff || holder), reopen: view && isStateReviewer(user) };
 }
+/**
+ * What a SUBEB user may do on a UBEC thread the UBEC ES has shared: anyone who can view the component
+ * replies; that department's Data Entry Staff and the reviewer holding the component resolve; nobody at
+ * the state starts or reopens UBEC threads (the plan must also be open).
+ */
+export function sharedUbecAbilities(user: Viewer, pillar: ImplementedPillar, status: string): CommentAbilities {
+  const own = commentAbilities(user, pillar, status);
+  const staff = user.role === 'Data Entry Staff' && hasDepartment(departments(user), pillarDepartments[pillar]);
+  return { start: false, reply: own.reply, resolveAny: own.reply && (staff || own.start), reopen: false };
+}
+/** UBEC abilities on one component of an open round: the ES on every component, a reviewer on the ones assigned to their department. */
+export function ubecAbilities(assigned: boolean, open: boolean): CommentAbilities {
+  const can = assigned && open;
+  return { start: can, reply: can, resolveAny: can, reopen: can };
+}
 export const displayRole = (role: string, isBeapChair?: boolean) => role === 'Director' && isBeapChair ? 'BEAP Chair' : role;
 
 const body = z.string().trim().min(1, 'Write a comment first.').max(commentBodyLimit, `Keep comments to ${commentBodyLimit.toLocaleString()} characters or fewer.`);
@@ -70,11 +91,21 @@ export const createCommentSchema = z.union([
   z.object({ parentId: z.number().int().positive(), body }).strict(),
 ]);
 export const updateCommentSchema = z.object({ id: z.number().int().positive(), action: z.enum(['resolve', 'reopen']) }).strict();
+/** UBEC threads the ES ticks in the return dialog (app/api/ubec/review/route.ts). */
+export const shareCommentIdsSchema = z.array(z.number().int().positive()).max(500).refine(ids => new Set(ids).size === ids.length, 'Choose each comment once.');
 
 export type PlanCommentReply = { id: number; body: string; authorName: string; authorRole: string; createdAt: string; mine: boolean };
 export type PlanCommentThread = PlanCommentReply & {
   pillar: ImplementedPillar; sheet: CommentSheet; rowRef: string; columnId: string | null; targetLabel: string; submissionNumber: number;
   resolvedAt: string | null; resolvedByName: string | null; orphaned: boolean; replies: PlanCommentReply[];
+  scope: CommentScope;
+  /** UBEC threads only: whether (and by whom) the ES shared it with the SUBEB, and the UBEC submission it was written on. */
+  sharedAt?: string | null; sharedByName?: string | null; roundNumber?: number;
 };
-export type PlanCommentsResponse = { threads: PlanCommentThread[]; locked: boolean; abilities: Partial<Record<ImplementedPillar, CommentAbilities>> };
+export type PlanCommentsResponse = {
+  threads: PlanCommentThread[]; locked: boolean; abilities: Partial<Record<ImplementedPillar, CommentAbilities>>;
+  /** Abilities on the other scope's threads (state view: shared UBEC threads). */
+  otherAbilities?: Partial<Record<ImplementedPillar, CommentAbilities>>;
+  scope?: CommentScope;
+};
 export const threadKey = (thread: { rowRef: string; columnId: string | null }) => `${thread.rowRef}:${thread.columnId ?? ''}`;
