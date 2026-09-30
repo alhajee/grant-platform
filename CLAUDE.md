@@ -114,6 +114,15 @@ UBEC reviewers and the UBEC ES comment on the submitted round's snapshot with th
 - UI: SUBEB workbook shows UBEC threads with blue markers, a "UBEC" badge (thread and panel), an All / SUBEB / UBEC panel filter, "UBEC n" tab chips and "n UBEC comments" on component cards; the send and request-changes dialogs mention open UBEC comments. The UBEC workbook tags threads "Shared" or "Internal". A cell can hold one state and one UBEC open thread; its popover stacks them.
 - Test: `node scripts/test-ubec-comments.mjs [baseUrl]` (throwaway states, users and plan; cleans up).
 
+## Notification bell (migration 031)
+
+A bell sits left of the account pill in `SubebHeader` and `UbecShell` (not the Super Admin header). It replaced the dashboard "Plan updates" alert and "Needs your attention" card.
+
+- `plan_notifications` rows point at exactly one source: `event_id` (state review event) or `ubec_event_id` (UBEC event, cascades), enforced by `plan_notifications_one_source`. UBEC events notify the ES on `submit` and `feedback`, and the assigned department's reviewers on `assign` (`app/api/ubec/review/route.ts`). State recipients are unchanged.
+- API `app/api/notifications/route.ts`: GET returns the newest 30 notifications, `unreadCount` and `todos` (state roles only, from `lib/pending-actions.ts`, which `/api/plans` also uses for `pendingActions`). PATCH `{ ids }` or `{ all: true }` marks the caller's own notifications read (same origin required). Opening a plan's review still marks that plan's notifications read via `POST /api/plans/notifications`.
+- UI: `components/notifications/` (`notification-bell.tsx`, `use-notifications.ts`, `notifications.css`); wording in `lib/notifications.ts`. It polls every 30 s and on focus, shows unread count in the tab title, and raises browser notifications for new arrivals while the window is unfocused, once the user clicks "Turn on". One tab alerts per notification (localStorage `beapms:notifications:alerted-through`).
+- Test: `node scripts/test-notifications.mjs [baseUrl]` (throwaway states, users and plan; cleans up).
+
 ## Roles and department access
 
 - Data Entry Staff and ordinary Directors can have one, several, or all departments.

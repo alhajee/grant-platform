@@ -35,6 +35,8 @@
 .national-header-nav a { display: flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 18px; border: 1px solid transparent; border-radius: 999px; font-size: 14px; color: var(--muted-foreground); white-space: nowrap; }
 .national-header-nav a[aria-current] { background: var(--background); border-color: var(--border); color: var(--foreground); font-weight: 500; box-shadow: 0 3px 8px #2927350d, 0 1px 2px #29273508; }
 .national-header a:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.national-header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.national-header-actions .notification-bell { background: var(--workspace-surface, color-mix(in srgb,var(--background) 72%,transparent)); border-color: var(--workspace-edge, var(--background)); box-shadow: var(--workspace-shadow, none); }
 .national-header-account { flex-shrink: 0; border: 1px solid var(--background); border-radius: 999px; background: color-mix(in srgb,var(--background) 72%,transparent); }
 .national-header-account .account-trigger { min-height: 54px; border-radius: 999px; padding: 5px 14px 5px 6px; gap: 10px; }
 .national-header-account .account-avatar { order: -1; }
@@ -52,8 +54,8 @@
   .national-horizontal-shell { padding: 14px 16px 0; }
   .national-header { position: relative; display: block; margin-bottom: 20px; }
   .national-navigation-capsule { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 0; border: 0; background: transparent; border-radius: 0; }
-  .national-header-brand { min-height: 52px; padding-right: 90px; }
-  .national-header-account { position: absolute; right: 0; top: 0; }
+  .national-header-brand { min-height: 52px; padding-right: 150px; }
+  .national-header-actions { position: absolute; right: 0; top: 0; gap: 8px; }
   .national-header-account .account-trigger { min-height: 50px; }
   .national-header-nav { padding: 4px; gap: 0; background: color-mix(in srgb,var(--background) 64%,transparent); border: 1px solid var(--background); border-radius: 999px; }
   .national-header-nav a { flex: 1 0 auto; padding-inline: 8px; min-height: 40px; }

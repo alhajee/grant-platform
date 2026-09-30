@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { UbecLogo } from './ubec-logo';
 import { AccountMenu } from './workspace-account-menu';
+import { NotificationBell } from './notifications/notification-bell';
 import type { LocalUser } from '@/lib/local-session';
 import { canManageStateUsers } from '@/lib/subeb-access';
 
@@ -37,6 +38,9 @@ export function SubebHeader({ user, plan = false, users = false }: { user?: Loca
         {canManageStateUsers((user === undefined ? sessionUser : user)?.role) && <a href="/users" aria-current={users ? 'page' : undefined}>Users</a>}
       </nav>
     </div>
-    <div className="subeb-header-account"><AccountMenu user={user === undefined ? sessionUser : user} /></div>
+    <div className="subeb-header-actions">
+      <NotificationBell />
+      <div className="subeb-header-account"><AccountMenu user={user === undefined ? sessionUser : user} /></div>
+    </div>
   </header>;
 }

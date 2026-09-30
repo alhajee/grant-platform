@@ -112,7 +112,10 @@ export async function POST(request: NextRequest) {
         }
       }
       await db.query('UPDATE action_plans SET status=$1,version=version+1,workflow_updated_at=NOW() WHERE id=$2', [status, id]);
-      await db.query('INSERT INTO ubec_events(round_id,plan_id,action,actor,actor_id,comment) VALUES($1,$2,$3,$4,$5,$6)', [round.id, id, input.action, user.full_name, user.id, input.action === 'assign' ? input.assignments!.map(a => `${a.pillar}: ${a.department}`).join('; ') : input.comment]);
+      const ubecEvent = (await db.query('INSERT INTO ubec_events(round_id,plan_id,action,actor,actor_id,comment) VALUES($1,$2,$3,$4,$5,$6) RETURNING id', [round.id, id, input.action, user.full_name, user.id, input.action === 'assign' ? input.assignments!.map(a => `${a.pillar}: ${a.department}`).join('; ') : input.comment])).rows[0];
+      // Bell notifications for national users: the ES hears about submissions and finished department reviews, reviewers about new assignments.
+      if (input.action === 'submit' || input.action === 'feedback') await db.query("INSERT INTO plan_notifications(plan_id,user_id,ubec_event_id) SELECT $1,id,$2 FROM users WHERE active AND role='UBEC Executive Secretary' ON CONFLICT DO NOTHING", [id, ubecEvent.id]);
+      if (input.action === 'assign') await db.query("INSERT INTO plan_notifications(plan_id,user_id,ubec_event_id) SELECT $1,id,$2 FROM users WHERE active AND role='UBEC Department Reviewer' AND department=ANY($3::text[]) ON CONFLICT DO NOTHING", [id, ubecEvent.id, [...new Set(input.assignments!.map(a => a.department))]]);
       return NextResponse.json({ status });
     });
   } catch (cause) { console.error(cause); return error('Unable to save this action. Refresh and try again.', 503); }

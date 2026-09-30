@@ -3,12 +3,10 @@ import { getPostgres } from "@/lib/postgres";
 import { getWorkspaceState } from "@/lib/workspace-state";
 import { planFields, planSetupFields } from "@/lib/plan-workspace";
 import { stateDisplayName } from "@/lib/state-names";
-import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
-import { implementedPillars, componentSections, type ImplementedPillar } from '@/lib/beap-pillars';
+import { pendingActionsFor, type PillarReviewRow } from '@/lib/pending-actions';
 import { canCreateStatePlan } from '@/lib/subeb-access';
 import { planSetupSchema, beapName } from '@/lib/plan-setup';
 import { planFormData, ratDocuments, PlanInputError } from '@/lib/plan-upload';
-import { hasDepartment } from '@/lib/user-departments';
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,20 +40,9 @@ export async function GET(request: NextRequest) {
       UNION SELECT d.school_id FROM tlm_distribution d JOIN action_plans p ON p.id=d.plan_id JOIN schools s ON s.id=d.school_id WHERE p.state_code=$1 AND s.state_code=$1
       ) targeted_schools`, [workspace.stateCode]),
     ]);
-    const reviews = (await db.query<{plan_id:number;pillar:ImplementedPillar;status:string}>('SELECT r.plan_id,r.pillar,r.status FROM plan_pillar_reviews r JOIN action_plans p ON p.id=r.plan_id WHERE p.state_code=$1', [workspace.stateCode])).rows;
+    const reviews = (await db.query<PillarReviewRow>('SELECT r.plan_id,r.pillar,r.status FROM plan_pillar_reviews r JOIN action_plans p ON p.id=r.plan_id WHERE p.state_code=$1', [workspace.stateCode])).rows;
     const plans = result.rows.map(plan => {
-      const pendingActions: {label:string;href:string}[]=[];
-      if(!['submitted_ubec','ubec_review','ubec_approved'].includes(plan.status)) {
-        for(const pillar of implementedPillars) {
-          const status=reviews.find(r=>r.plan_id===plan.id&&r.pillar===pillar)?.status??'draft';
-          const name=componentSections[pillar][0].name;
-          const owns=hasDepartment(workspace.departments, pillarDepartments[pillar]);
-          if(owns&&workspace.role==='Director'&&status==='director_review') pendingActions.push({label:`Review ${name}`,href:`/beap/review?plan=${plan.id}#review-${pillar}`});
-          if(owns&&workspace.role==='Data Entry Staff'&&['draft','changes_requested'].includes(status)) pendingActions.push({label:`${status==='changes_requested'?'Address feedback on':'Complete'} ${name}`,href:`${componentSections[pillar][0].href}?plan=${plan.id}`});
-          if(workspace.role==='Director'&&workspace.isBeapChair&&status==='beap_review') pendingActions.push({label:`BEAP Chair review: ${name}`,href:`/beap/review?plan=${plan.id}#review-${pillar}`});
-        }
-        if(workspace.role==='Executive Chairman'&&implementedPillars.some(p=>reviews.some(r=>r.plan_id===plan.id&&r.pillar===p&&r.status==='chairman_ready'))) pendingActions.push({label:implementedPillars.every(p=>reviews.some(r=>r.plan_id===plan.id&&r.pillar===p&&r.status==='chairman_ready'))?'Executive review and send to UBEC':'Review components from BEAP Chair',href:`/beap/review?plan=${plan.id}`});
-      }
+      const pendingActions = pendingActionsFor(workspace, plan as { id: number; status: string }, reviews);
       return {...plan,pendingActions,pendingReview:pendingActions.length>0&&workspace.role!=='Data Entry Staff'};
     });
     return NextResponse.json({ plans, targetedSchools: targets.rows[0].count, stateName: stateDisplayName(workspace.stateCode), role: workspace.role, canCreatePlan: canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair) }, { headers: { "Cache-Control": "no-store" } });

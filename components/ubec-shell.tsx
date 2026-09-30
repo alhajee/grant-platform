@@ -2,6 +2,7 @@
 import { useSyncExternalStore } from 'react';
 import { UbecLogo } from './ubec-logo';
 import { AccountMenu } from './workspace-account-menu';
+import { NotificationBell } from './notifications/notification-bell';
 
 function subscribeToHash(callback: () => void) {
   window.addEventListener('hashchange', callback);
@@ -36,8 +37,11 @@ export function UbecShell({ children, user, review = false, allocations = false 
             {user?.role==='UBEC Executive Secretary' && <a href="/ubec/allocations" aria-current={allocations?'page':undefined}>Allocations</a>}
           </nav>
         </div>
-        <div className="national-header-account">
-          <AccountMenu user={user ? { ...user, email: '' } : null} />
+        <div className="national-header-actions">
+          <NotificationBell />
+          <div className="national-header-account">
+            <AccountMenu user={user ? { ...user, email: '' } : null} />
+          </div>
         </div>
       </header>
       <main className="national-main">{children}</main>

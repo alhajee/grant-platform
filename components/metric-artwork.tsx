@@ -7,18 +7,6 @@ function Artwork({ children }: { children: ReactNode }) {
   </svg>;
 }
 
-export function ReviewArtwork() {
-  return <Artwork>
-    <path d="m17 22 33-7 10 43-33 7Z" fill="#9caf8d" />
-    <rect x="23" y="14" width="34" height="47" rx="5" fill="#fffbed" stroke="#bccbb0" />
-    <rect x="32" y="11" width="16" height="8" rx="3" fill="#719580" />
-    <path d="M31 29h18M31 37h14M31 45h10" stroke="#a5b794" strokeWidth="3" strokeLinecap="round" />
-    <circle cx="56" cy="52" r="13" fill="#315e55" />
-    <circle cx="56" cy="52" r="9" stroke="#a8c5ae" strokeWidth="1.5" />
-    <path d="M56 46v6l4 3" stroke="#fffbed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-  </Artwork>;
-}
-
 export function BudgetArtwork() {
   return <Artwork>
     <path d="m13 29 39-12 16 9-39 13Z" fill="#a8c5ae" />

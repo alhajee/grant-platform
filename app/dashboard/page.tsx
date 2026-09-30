@@ -3,13 +3,12 @@ import "./dashboard.css";
 
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRightIcon, ArrowUpRightIcon, CalendarDaysIcon, CircleCheckIcon, FileTextIcon, PlusIcon, SearchIcon } from "lucide-react";
-import { BudgetArtwork, PlansArtwork, SchoolsArtwork, ReviewArtwork } from "@/components/metric-artwork";
+import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
 import { CreatePlanDialog } from "@/components/create-plan-dialog";
 import { SubebHeader } from "@/components/subeb-header";
 import { DashboardArtwork } from "@/components/dashboard-artwork";
 import { Button } from "@/components/ui/button";
 import { PlanStatusBadge } from '@/components/plan-status';
-import { PlanNotifications } from '@/components/plan-notifications';
 import { emptyInvestmentFilters, investmentFilterCount, InvestmentFilter, type InvestmentArea } from '@/components/investment-filter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -74,7 +73,6 @@ export default function DashboardPage() {
       && (!investmentFilters.hasBudgetLines || plan.lineCount > 0)
       && (!investmentFilters.hasSchools || plan.schoolCount > 0);
   });
-  const actionQueue = dashboardPlans.flatMap(plan=>(plan.pendingActions??[]).map(action=>({...action,plan})));
   const totalFunding = dashboardPlans.reduce((sum, plan) => sum + Number(plan.fundingTotal ?? 0), 0);
   const dashboardSchoolCount = activeInvestmentFilters ? new Set(dashboardPlans.flatMap(plan => plan.schoolIds ?? [])).size : targetedSchools;
   const latest = dashboardPlans[0];
@@ -117,7 +115,6 @@ export default function DashboardPage() {
 
       {error && <Alert variant="destructive"><AlertTitle>Dashboard unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => { setLoading(true); void load(); }}>Try again</Button></AlertDescription></Alert>}
 
-      {!unavailable && <PlanNotifications />}
       {isOfficer && !user?.department && <Alert className="mb-6"><AlertTitle>Department assignment needed</AlertTitle><AlertDescription>Your Director or Executive Chairman can assign your department in Users. Until then, you can view saved plans but cannot edit or submit them.</AlertDescription></Alert>}
       <div className="dashboard-body">
         <section className="dashboard-plans" id="action-plans" aria-labelledby="plans-title">
@@ -139,10 +136,6 @@ export default function DashboardPage() {
             <div className="allocation-donut" role="img" aria-label={unavailable ? "Budget breakdown unavailable" : selectedAreas.map(area => `${areaDetails[area].label} ${money.format(areaAmounts[area])}`).join("; ")} style={{ background: unavailable ? "var(--muted)" : investmentGradient }}><div><span>{unavailable ? "—" : compactMoney.format(investmentTotal)}</span><small>{activeInvestmentFilters ? "Filtered proposed" : "Total proposed"}</small></div></div>
             <div className="allocation-legend">{selectedAreas.map(area => <div key={area}><span><i style={{ background: areaDetails[area].color }} />{areaDetails[area].label}</span><strong>{unavailable ? "—" : compactMoney.format(areaAmounts[area])}</strong></div>)}</div>
           </CardContent></Card>
-          {!unavailable && actionQueue.length > 0 && <Card className="review-queue">
-            <CardHeader><div className="review-queue-heading"><ReviewArtwork /><div><CardTitle>Needs your attention</CardTitle><CardDescription>{actionQueue.length} {actionQueue.length === 1 ? 'item' : 'items'} waiting for you</CardDescription></div></div></CardHeader>
-            <CardContent><div className="review-queue-list">{actionQueue.map(action => <div className="review-queue-row" key={action.href}><div><p className="font-medium">{action.label}</p><p className="text-sm text-muted-foreground">{planPeriod(action.plan)} action plan</p></div><Button asChild variant="outline" size="sm"><a href={action.href}>Open<ArrowUpRightIcon data-icon="inline-end" /></a></Button></div>)}</div></CardContent>
-          </Card>}
           <div className="dashboard-next"><span className="next-icon"><CircleCheckIcon /></span><h3>{latest ? "Progress saved" : "One workspace. Three pillars."}</h3><p>{latest ? `Your ${planPeriod(latest)} plan is saved. Return to your pillars whenever you're ready.` : "Bring your education priorities together, one pillar at a time."}</p>{latest && !unavailable && <Button asChild variant="link"><a href={planHref("/beap", latest.id)}>Back to your plan<ArrowRightIcon /></a></Button>}</div>
           </div>
         </aside>

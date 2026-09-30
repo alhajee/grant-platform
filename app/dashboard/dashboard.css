@@ -1,28 +1,3 @@
-.dashboard-page .review-queue {
-  --card: var(--attention);
-  --card-foreground: var(--attention-foreground);
-  --muted-foreground: #53634f;
-  --border: color-mix(in srgb, var(--attention-foreground) 9%, var(--attention));
-  background: linear-gradient(125deg, #edf1e4, #dce7ce);
-  border: 1px solid #ffffffb3;
-  border-radius: 24px;
-  box-shadow: inset 0 1px 0 #fff, 0 4px 14px #30443806;
-  gap: 16px;
-  padding-block: 20px;
-}
-.review-queue-heading { display: flex; align-items: center; gap: 12px; }
-.review-queue-heading .metric-artwork { width: 64px; height: 64px; flex: 0 0 64px; }
-.review-queue-heading [data-slot=card-description] { margin-top: 5px; }
-.review-queue-list { display: flex; flex-direction: column; gap: 8px; }
-.review-queue-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; background: #ffffff70; border-radius: 14px; }
-.review-queue-row > div { min-width: 0; overflow-wrap: anywhere; }
-.review-queue-row [data-slot=button] { flex-shrink: 0; }
-.dashboard-aside .review-queue { gap: 12px; padding-block: 16px; border-radius: 18px; }
-.dashboard-aside .review-queue > [data-slot=card-header], .dashboard-aside .review-queue > [data-slot=card-content] { padding-inline: 16px; }
-.dashboard-aside .review-queue-heading { gap: 10px; }
-.dashboard-aside .review-queue-heading .metric-artwork { width: 42px; height: 42px; flex-basis: 42px; }
-.dashboard-aside .review-queue-row { padding: 12px; gap: 10px; }
-.dashboard-aside .review-queue-row > div { flex: 1 1 130px; }
 .dashboard-nav { max-width: 1328px; margin: auto; height: 68px; padding: 0 40px; display: flex; align-items: center; gap: 64px; }
 .dashboard-nav nav { display: flex; gap: 30px; height: 100%; align-items: center; }
 .dashboard-nav nav a { display: flex; height: 100%; align-items: center; color: var(--muted-foreground); font-size: 14px; border-bottom: 2px solid transparent; }
