@@ -57,7 +57,6 @@ export function InvestmentFilter({ plans, value, onChange }: { plans: PlanOvervi
       <SheetHeader className="investment-filter-header">
         <span className="min-w-0"><span className="flex items-center gap-2"><SheetTitle id="investment-filter-title">Filter dashboard</SheetTitle>{count > 0 && <Badge>{count} active</Badge>}</span><SheetDescription>Combine options to refine the plans and budget breakdown.</SheetDescription></span>
       </SheetHeader>
-      <Separator />
       <ScrollArea className="investment-filter-scroll">
         <Accordion type="multiple" defaultValue={["period", "details"]} className="investment-filter-accordion">
           <AccordionItem value="period">

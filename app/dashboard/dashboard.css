@@ -76,7 +76,7 @@
 .dashboard-aside-content { grid-row: 2; display: flex; flex-direction: column; gap: 20px; }
 .budget-allocation { border-radius: 14px; box-shadow: none; gap: 20px; }
 .investment-filter-sheet { width: min(480px, 100vw); max-width: none; gap: 0; overflow: hidden; box-shadow: -24px 0 70px -38px color-mix(in srgb, var(--foreground) 45%, transparent); }
-.investment-filter-header { display: block; padding: 20px 58px 20px 20px; background: color-mix(in srgb, var(--primary) 7%, var(--background)); }
+.investment-filter-header { display: block; padding: 20px 58px 8px 20px; }
 .investment-filter-header [data-slot=sheet-title] { font-size: 17px; letter-spacing: -.02em; }
 .investment-filter-header [data-slot=sheet-description] { margin-top: 4px; font-size: 13px; line-height: 1.45; }
 .investment-filter-header [data-slot=badge] { flex: none; }
