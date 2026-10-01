@@ -133,11 +133,10 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                   {occupied.size < 4 && <Button type="button" variant="ghost" size="sm" className="quarter-select-all" disabled={saving} onClick={() => setQuarters(quarters.length === 4 - occupied.size ? [] : [1,2,3,4].filter(q => !occupied.has(q)).map(String))}>{quarters.length > 0 && quarters.length === 4 - occupied.size ? 'Clear' : occupied.size ? 'Select available' : 'Select all'}</Button>}
                 </div>
                 <ToggleGroup type="multiple" variant="outline" spacing={2} value={quarters} onValueChange={value => setQuarters(value.sort())} aria-labelledby="quarters-label" aria-describedby="quarter-guidance" aria-required="true" aria-invalid={!!errors.quarters} className="plan-quarter-grid" disabled={saving}>
-                  {['Jan – Mar', 'Apr – Jun', 'Jul – Sep', 'Oct – Dec'].map((months, index) => {
-                    const q = index + 1; const taken = occupied.has(q); const selected = quarters.includes(String(q));
-                    return <ToggleGroupItem key={q} value={String(q)} className="plan-quarter" disabled={taken} aria-label={`Quarter ${q}, ${months}${taken ? ', already assigned' : ''}`}>
+                  {[1, 2, 3, 4].map(q => {
+                    const taken = occupied.has(q); const selected = quarters.includes(String(q));
+                    return <ToggleGroupItem key={q} value={String(q)} className="plan-quarter" disabled={taken} aria-label={`Quarter ${q}${taken ? ', already assigned' : ''}`}>
                       <span className="quarter-top"><span className="quarter-number">Q{q}</span><span className="quarter-indicator">{taken ? <LockKeyholeIcon /> : selected ? <CheckIcon /> : null}</span></span>
-                      <span className="quarter-months">{months}</span>
                     </ToggleGroupItem>;
                   })}
                 </ToggleGroup>
