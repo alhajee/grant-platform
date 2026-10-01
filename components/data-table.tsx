@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { features, type DataTableFeatures } from './data-table-features';
 import { DataTableFacetedFilter, type DataTableFacet } from './data-table-faceted-filter';
+import { useSessionState } from './use-session-state';
 
 /** Server-side mode: the parent fetches one page at a time and owns paging, sorting and search. */
 export type DataTableServer = {
@@ -28,7 +29,7 @@ export type DataTableServer = {
 
 const resolve = <T,>(updater: Updater<T>, current: T): T => typeof updater === 'function' ? (updater as (old: T) => T)(current) : updater;
 
-export function DataTable<TData extends { id: string | number }>({ data, columns, searchColumn = 'name', searchPlaceholder = 'Search…', itemLabel = 'records', columnLabels = {}, server, toolbar, facets = [], filters, empty }: {
+export function DataTable<TData extends { id: string | number }>({ data, columns, searchColumn = 'name', searchPlaceholder = 'Search…', itemLabel = 'records', columnLabels = {}, server, toolbar, facets = [], filters, persistKey, empty }: {
   data: TData[];
   columns: ColumnDef<DataTableFeatures, TData>[];
   searchColumn?: string;
@@ -41,11 +42,13 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
   facets?: DataTableFacet[];
   /** Filters the parent controls (server mode), shown next to the search box. */
   filters?: ReactNode;
+  /** Remember search and filters (client mode) for the browser-tab session under this key. */
+  persistKey?: string;
   empty?: ReactNode;
 }) {
   const id = useId();
   const [localSorting, setLocalSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnFilters, setColumnFilters] = useSessionState<ColumnFiltersState>(persistKey && !server ? `${persistKey}:filters` : undefined, []);
   const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>({});
   const [localPagination, setLocalPagination] = useState({ pageIndex: 0, pageSize: 10 });
   const sorting = server?.sorting ?? localSorting;

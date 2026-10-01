@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DataTableFacetedFilter } from '@/components/data-table-faceted-filter';
+import { useSessionState } from '@/components/use-session-state';
 import { activityPageSizes, defaultActivityPageSize, type ActivityFacets, type ActivitySession, type ActivitySort, type ActivityStatus, type Paged, type SessionStatus } from '@/lib/admin-activity';
 import { stateDisplayName } from '@/lib/state-names';
 import './admin-activity.css';
@@ -31,8 +32,8 @@ function StatusBadge({ status }: { status: ActivitySession['status'] }) {
 export function AdminActivity() {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: defaultActivityPageSize });
   const [sorting, setSorting] = useState<SortingState>(defaultSorting);
-  const [statuses, setStatuses] = useState<string[]>([]), [admins, setAdmins] = useState<string[]>([]);
-  const [search, setSearch] = useState(''), [q, setQ] = useState('');
+  const [statuses, setStatuses] = useSessionState<string[]>('admin-activity:status', []), [admins, setAdmins] = useSessionState<string[]>('admin-activity:admin', []);
+  const [search, setSearch] = useSessionState('admin-activity:search', ''), [q, setQ] = useState(() => search.trim());
   const [attempt, setAttempt] = useState(0), [loaded, setLoaded] = useState<Loaded | null>(null);
   const [now, setNow] = useState(Date.now);
   const [viewing, setViewing] = useState<ActivitySession | null>(null), [sheetOpen, setSheetOpen] = useState(false);
@@ -73,7 +74,7 @@ export function AdminActivity() {
   const adminFacet = (facets?.admins ?? []).map(item => ({ value: String(item.id), label: item.name, count: item.count }));
   const setFilter = (set: (values: string[]) => void) => (values: string[]) => { set(values); setPagination(state => ({ ...state, pageIndex: 0 })); };
   const retry = useCallback(() => setAttempt(value => value + 1), []);
-  const clearFilters = useCallback(() => { setSearch(''); setQ(''); setStatuses([]); setAdmins([]); setPagination(value => ({ ...value, pageIndex: 0 })); }, []);
+  const clearFilters = useCallback(() => { setSearch(''); setQ(''); setStatuses([]); setAdmins([]); setPagination(value => ({ ...value, pageIndex: 0 })); }, [setSearch, setStatuses, setAdmins]);
   const view = useCallback((session: ActivitySession) => { setViewing(session); setSheetOpen(true); }, []);
   const copyId = useCallback((id: string) => { void navigator.clipboard.writeText(id).then(() => toast.success('Session ID copied'), () => toast.error('Unable to copy the session ID.')); }, []);
 
