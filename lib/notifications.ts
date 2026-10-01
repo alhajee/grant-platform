@@ -5,7 +5,7 @@ import type { PendingAction } from './pending-actions';
 
 export type NotificationSource = 'state' | 'ubec';
 export type NotificationItem = {
-  id: number; planId: number; source: NotificationSource; action: string; scope: string | null;
+  id: number; planId: number; eventId: number | null; source: NotificationSource; action: string; scope: string | null;
   actorName: string; actorRole: string; comment: string; stateCode: string;
   startYear: number; endYear: number; fundingQuarters: number[] | null; createdAt: string; readAt: string | null;
 };
@@ -18,6 +18,8 @@ export type NotificationMessage = { actor: string; verb: string; target: string;
 type Wording = Pick<NotificationMessage, 'verb' | 'target' | 'suffix' | 'kind'>;
 
 export const NOTIFICATION_PAGE_SIZE = 30;
+/** Element id of a review event in the review page's history, used as a link target. */
+export const reviewEventAnchor = (eventId: number) => `#review-event-${eventId}`;
 
 const componentName = (scope: string | null) => scope && scope in componentSections ? componentSections[scope as PillarId][0].name : null;
 const planName = (item: Pick<NotificationItem, 'startYear' | 'endYear' | 'fundingQuarters'>) => `${planPeriod(item)} BEAP`;
@@ -50,7 +52,8 @@ export function describeNotification(item: NotificationItem): NotificationMessag
     const state = subebDisplayName(item.stateCode);
     return { ...ubecWording(item), actor: item.action === 'submit' ? state : item.actorName, context: `${state} · ${planName(item)}`, href: `/ubec/review?plan=${item.planId}` };
   }
-  const anchor = componentName(item.scope) ? `#review-${item.scope}` : '';
+  // A note lands on its entry in the review page's history; otherwise open the component's sheet.
+  const anchor = item.comment && item.eventId ? reviewEventAnchor(item.eventId) : componentName(item.scope) ? `#review-${item.scope}` : '';
   return { ...stateWording(item), actor: item.actorName, context: planName(item), href: `/beap/review?plan=${item.planId}${anchor}` };
 }
 

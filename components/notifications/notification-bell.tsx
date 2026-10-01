@@ -85,8 +85,8 @@ function EmptyState({ icon: Icon, title, text }: { icon: typeof InboxIcon; title
 }
 
 function AlertSetting({ permission, onEnable }: { permission: AlertPermission; onEnable: () => void }) {
-  if (permission === 'unsupported') return null;
-  if (permission === 'granted') return <span className="notification-alert-state"><BellRingIcon aria-hidden="true" />Desktop alerts on</span>;
+  // Nothing to show once alerts are on (or impossible): the footer only carries actions.
+  if (permission === 'unsupported' || permission === 'granted') return null;
   if (permission === 'denied') return <span className="notification-alert-state" title="Allow notifications for this site in your browser settings to get desktop alerts."><BellOffIcon aria-hidden="true" />Desktop alerts blocked</span>;
   return <Button variant="ghost" size="sm" className="notification-footer-action" onClick={onEnable} title="Get an alert when something new arrives, even while this window is minimised."><BellRingIcon />Turn on desktop alerts</Button>;
 }
@@ -140,7 +140,7 @@ export function NotificationBell() {
       <Separator />
       {/* shadcn scroll-fade-b (as in MessageScroller): the last rows fade out until the list is scrolled to the end. */}
       <div className="notification-scroll scroll-fade-b scroll-fade-b-16 overflow-y-auto overscroll-contain">{body()}</div>
-      {(unread > 0 || permission !== 'unsupported') && <>
+      {(unread > 0 || permission === 'default' || permission === 'denied') && <>
         <Separator />
         <div className="notification-footer">
           {unread > 0 && <Button variant="ghost" size="sm" className="notification-footer-action notification-mark-all" onClick={() => void markRead('all')}><CheckCheckIcon />Mark all as read</Button>}

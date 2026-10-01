@@ -486,6 +486,11 @@
 .review-history li { display: flex; flex-direction: column; gap: 6px; font-size: 14px; overflow-wrap: anywhere; }
 .review-history li > span { color: var(--muted-foreground); }
 .review-history li > strong { font-weight: 600; }
+/* Reached from a notification: flash the history entry the link points at. */
+.review-history li { scroll-margin-block: 96px; border-radius: 12px; }
+.review-history li:target { animation: review-event-flash 2.4s ease-out 1; }
+@keyframes review-event-flash { 0%, 35% { background: var(--accent); box-shadow: 0 0 0 10px var(--accent); } 100% { background: transparent; box-shadow: 0 0 0 10px transparent; } }
+@media (prefers-reduced-motion: reduce) { .review-history li:target { animation: none; background: var(--accent); box-shadow: 0 0 0 10px var(--accent); } }
 .review-version { max-width: 100%; }
 .review-version [data-slot=select-trigger] { min-width: 0; max-width: 100%; }
 @media (max-width: 900px) { .review-layout { grid-template-columns: 1fr; } }

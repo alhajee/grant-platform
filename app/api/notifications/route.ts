@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     if (!workspace) return error('Sign in to continue.', 401);
     const db = getPostgres();
     const [items, unread, todos] = await Promise.all([
-      db.query<NotificationItem>(`SELECT n.id, n.plan_id AS "planId", CASE WHEN n.ubec_event_id IS NULL THEN 'state' ELSE 'ubec' END AS source,
+      db.query<NotificationItem>(`SELECT n.id, n.plan_id AS "planId", n.event_id AS "eventId", CASE WHEN n.ubec_event_id IS NULL THEN 'state' ELSE 'ubec' END AS source,
           COALESCE(e.action, u.action) AS action, e.scope, COALESCE(e.actor_name, u.actor) AS "actorName", COALESCE(e.actor_role, actor.role, '') AS "actorRole",
           COALESCE(e.comment, u.comment, '') AS comment, p.state_code AS "stateCode", p.start_year AS "startYear", p.end_year AS "endYear",
           p.funding_quarters AS "fundingQuarters", n.created_at AS "createdAt", n.read_at AS "readAt"

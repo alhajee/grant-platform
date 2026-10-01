@@ -114,9 +114,11 @@ try {
   ubec = ok(await api('es', ubecPath));
   ok(await api('es', ubecPath, { action: 'return', version: ubec.plan.version, roundId: ubec.round.id, comment: 'Please attach quotations.' }));
   for (const who of ['des', 'dir', 'ec']) assert.ok((await mine(who)).some(n => n.source === 'state' && n.action === 'request_changes' && n.actorRole === 'UBEC Executive Secretary'), who);
+  const returned = (await mine('dir')).find(n => n.action === 'request_changes');
+  assert.ok(Number.isInteger(returned.eventId) && returned.comment === 'Please attach quotations.', 'the return note carries its review event id for the history link');
   ok(await markRead('es', { all: true }));
   assert.ok((await mine('es')).every(n => n.readAt));
-  step('UBEC return notifies the state team; the ES can mark all as read');
+  step('UBEC return notifies the state team with the note and its review event id; the ES can mark all as read');
 
   console.log(`\nPASS: ${passed} notification checks.`);
 } finally {
