@@ -14,6 +14,14 @@
 @keyframes notification-pulse { 0% { box-shadow: 0 0 0 2px #fff, 0 0 0 2px #d9480f66; } 70%,100% { box-shadow: 0 0 0 2px #fff, 0 0 0 10px #d9480f00; } }
 @media (prefers-reduced-motion: reduce) { .notification-bell[data-attention] .notification-bell-icon, .notification-bell[data-active] .notification-badge { animation: none; } }
 
+/* Opening: the panel springs out of the bell (Radix sets the transform origin) and sharpens from a blur; rows then cascade in. */
+.notification-panel[data-state=open] { animation: notification-panel-in 420ms cubic-bezier(.18,.9,.22,1.12) both; }
+.notification-panel[data-state=open] .notification-reveal { animation: notification-row-in 380ms cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(110ms + var(--reveal-index, 0) * 40ms); }
+@keyframes notification-panel-in { from { opacity: 0; transform: translateY(-10px) scale(.86); filter: blur(8px); } 60% { opacity: 1; filter: blur(0); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes notification-row-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .notification-panel[data-state=open], .notification-panel[data-state=open] .notification-reveal { animation: notification-fade-in 160ms ease-out both; } }
+@keyframes notification-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
 /* Panel: one title size, 14px body, 12px detail; bold only for people and the thing acted on. */
 .notification-panel { --notification-accent: #1f9d63; --notification-line: #f0ede6; width: min(420px, calc(100vw - 24px)); padding: 0; border-radius: 22px; border-color: #ebe6dc; box-shadow: 0 28px 64px -20px rgb(32 33 36 / 30%), 0 4px 14px rgb(32 33 36 / 6%); overflow: hidden; font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
 .notification-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 16px 14px 22px; }

@@ -1,6 +1,6 @@
 "use client";
 import "./notifications.css";
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { ArrowRightIcon, BellIcon, BellOffIcon, BellRingIcon, CheckCheckIcon, CheckIcon, ClipboardCheckIcon, InboxIcon, MessageSquareTextIcon, RotateCcwIcon, SendIcon, UserPlusIcon } from 'lucide-react';
 import { Avatar, AvatarBadge, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,8 @@ import { describeNotification, groupByPlan, timeAgo, type NotificationItem, type
 import { useNotifications, type AlertPermission } from './use-notifications';
 
 type View = 'all' | 'unread' | 'todo';
+
+const HOVER_OPEN_MS = 600;
 
 // Seeded accounts are named "<STATE> SUBEB Director", so initials come from the part after the body name.
 function initials(name: string) {
@@ -65,11 +67,14 @@ function TodoRow({ todo }: { todo: NotificationTodo }) {
 }
 
 function Grouped<T extends { planId: number }>({ items, context, render }: { items: T[]; context: (item: T) => string; render: (item: T) => ReactNode }) {
-  return groupByPlan(items, context).map((group, index) => <Fragment key={group.key}>
+  const groups = groupByPlan(items, context);
+  // Position across all groups, so rows reveal one after another as the panel opens.
+  const offsets = groups.map((_, index) => groups.slice(0, index).reduce((sum, group) => sum + group.items.length, 0));
+  return groups.map((group, index) => <Fragment key={group.key}>
     {index > 0 && <Separator />}
     <section aria-label={group.context}>
       <h3 className="notification-group-title">{group.context}</h3>
-      <ItemGroup>{group.items.map((item, row) => <Fragment key={row}>{row > 0 && <ItemSeparator className="notification-row-separator" />}{render(item)}</Fragment>)}</ItemGroup>
+      <ItemGroup>{group.items.map((item, row) => <Fragment key={row}>{row > 0 && <ItemSeparator className="notification-row-separator" />}<div className="notification-reveal" style={{ '--reveal-index': Math.min(offsets[index] + row, 8) } as CSSProperties}>{render(item)}</div></Fragment>)}</ItemGroup>
     </section>
   </Fragment>);
 }
@@ -103,10 +108,22 @@ export function NotificationBell() {
   const shown = (feed?.notifications ?? []).filter(item => activeView !== 'unread' || !item.readAt);
   const label = unread ? `Notifications, ${unread} unread` : todos.length ? `Notifications, ${todos.length} waiting for you` : 'Notifications';
 
+  const hoverTimer = useRef<number | null>(null);
+  const hoverOpenedAt = useRef(0);
   function onOpenChange(next: boolean) {
     setOpen(next);
     if (next) { setView(null); void reload(); }
   }
+  function cancelHover() { if (hoverTimer.current !== null) { window.clearTimeout(hoverTimer.current); hoverTimer.current = null; } }
+  // Resting the mouse on the bell opens the panel; touch and pen still need a tap.
+  function startHover(event: PointerEvent<HTMLButtonElement>) {
+    if (event.pointerType !== 'mouse' || open) return;
+    cancelHover();
+    hoverTimer.current = window.setTimeout(() => { hoverTimer.current = null; hoverOpenedAt.current = Date.now(); onOpenChange(true); }, HOVER_OPEN_MS);
+  }
+  // A click that lands just after the hover opened the panel would otherwise close it straight away.
+  function onTriggerClick(event: MouseEvent<HTMLButtonElement>) { if (Date.now() - hoverOpenedAt.current < 900) event.preventDefault(); }
+  useEffect(() => cancelHover, []);
   function openItem(item: NotificationItem) { if (!item.readAt) void markRead([item.id]); }
 
   function body() {
@@ -124,7 +141,7 @@ export function NotificationBell() {
 
   return <Popover open={open} onOpenChange={onOpenChange}>
     <PopoverTrigger asChild>
-      <Button variant="ghost" size="icon" className="notification-bell" aria-label={label} data-active={unread > 0 || undefined} data-attention={unread > 0 || todos.length > 0 || undefined}>
+      <Button variant="ghost" size="icon" className="notification-bell" onPointerEnter={startHover} onPointerLeave={cancelHover} onClick={onTriggerClick} aria-label={label} data-active={unread > 0 || undefined} data-attention={unread > 0 || todos.length > 0 || undefined}>
         {/* Remounting on each new arrival restarts the swing immediately. */}
         <BellIcon key={ringing} className="notification-bell-icon" aria-hidden="true" />
         {unread > 0 ? <Badge className="notification-badge" aria-hidden="true">{countLabel(unread)}</Badge> : todos.length > 0 && <span className="notification-dot" aria-hidden="true" />}
