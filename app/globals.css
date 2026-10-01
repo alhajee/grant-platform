@@ -333,7 +333,7 @@
 .schedule-total strong { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .preview-loading { display: flex; flex-direction: column; gap: 12px; }
 .mobile-workspace { height: 100%; min-height: 0; gap: 0; }
-.mobile-tabs { padding: 12px 20px; border-bottom: 1px solid var(--border); }
+.mobile-tabs { padding: 12px 20px; }
 .mobile-pane { min-height: 0; overflow: hidden; }
 
 @container (max-width: 480px) {
@@ -374,7 +374,7 @@
 /* The pillar overview is the starting point for the annual action plan. */
 /* Sports shares the infrastructure editor, with a compact two-part workflow. */
 .sports-workspace { flex: 1; min-height: 0; gap: 0; }
-.sports-view-tabs { flex-shrink: 0; padding: 12px 28px; border-bottom: 1px solid var(--border); }
+.sports-view-tabs { flex-shrink: 0; padding: 12px 28px; }
 .sports-view-content { display: flex; min-height: 0; }
 .sports-main { display: flex; }
 .sports-main > .mobile-workspace { flex: 1; width: 100%; min-width: 0; }
@@ -419,7 +419,8 @@
 
 .beap-page { min-height: 100dvh; }
 .review-entry { display: flex; justify-content: flex-end; margin: -4px 0 24px; }
-.review-page-summary { padding: 0 0 12px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+.review-page-summary { padding: 0 0 12px; }
+.review-page-summary-separator { margin-bottom: 14px; }
 .review-back { margin: 0 0 2px -8px; }
 .review-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 0; }
 .review-heading [data-slot=badge] { font-size: 14px; padding: 4px 10px; }
@@ -472,7 +473,6 @@
 @media (max-width: 600px) { .review-table-search { max-width: none; } .review-table-toolbar { padding: 12px; } .review-table-card > [data-slot=card-header] { padding: 14px 12px; } }
 .review-sections { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
 .review-sections > [data-slot=card] { scroll-margin-top: 24px; }
-.review-project + .review-project { border-top: 1px solid var(--border); padding-top: 24px; margin-top: 24px; }
 .review-project h3 { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
 .review-project h4 { font-weight: 500; font-size: 14px; margin-top: 16px; }
 .review-project > p { font-size: 14px; color: var(--muted-foreground); margin-top: 6px; overflow-wrap: anywhere; }
@@ -542,13 +542,17 @@
 .plan-kpi dt { font-size: 12px; color: var(--muted-foreground); margin-bottom: 7px; }
 .plan-kpi dd { font-size: clamp(18px,1.7vw,24px); line-height: 1.25; font-weight: 650; color: var(--primary); letter-spacing: -.6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .plan-details-disclosure { padding-bottom: 2px; }
-.plan-details-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; padding: 11px 14px; border-radius: 14px; background: color-mix(in srgb,var(--accent) 68%,var(--card)); box-shadow: 0 6px 18px -16px rgb(0 50 40 / 30%); font-size: 13px; font-weight: 550; list-style: none; }
-.plan-details-disclosure > summary::-webkit-details-marker { display: none; }
+.plan-details-disclosure > [data-slot=collapsible-trigger] { width: 100%; border: 0; color: inherit; text-align: left; display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; padding: 11px 14px; border-radius: 14px; background: color-mix(in srgb,var(--accent) 68%,var(--card)); box-shadow: 0 6px 18px -16px rgb(0 50 40 / 30%); font-size: 13px; font-weight: 550; }
+.plan-details-disclosure > [data-slot=collapsible-trigger]:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .plan-details-summary-label { display: inline-flex; align-items: center; gap: 9px; }
 .plan-details-summary-label > svg { width: 16px; height: 16px; color: var(--primary); transition: transform 180ms cubic-bezier(.23,1,.32,1); }
-.plan-details-disclosure > summary > span:last-child { color: var(--muted-foreground); font-weight: 400; }
-.plan-details-disclosure[open] > summary { margin-bottom: 12px; }
-.plan-details-disclosure[open] .plan-details-summary-label > svg { transform: rotate(180deg); }
+.plan-details-disclosure > [data-slot=collapsible-trigger] > span:last-child { color: var(--muted-foreground); font-weight: 400; }
+.plan-details-disclosure[data-state=open] > [data-slot=collapsible-trigger] { margin-bottom: 12px; }
+.plan-details-disclosure[data-state=open] .plan-details-summary-label > svg { transform: rotate(180deg); }
+/* Infrastructure package: the whole-school audit table is collapsed by default. */
+.package-audit-trigger { margin-left: -10px; font-weight: 500; }
+.package-audit-trigger svg { transition: transform 180ms cubic-bezier(.23,1,.32,1); }
+.package-audit[data-state=open] .package-audit-trigger svg { transform: rotate(180deg); }
 .pillar-component-card[data-slot="card"] { transition: transform 180ms ease-out, box-shadow 180ms ease-out, border-color 180ms ease-out; }
 .pillar-component-card .pillar-card-artwork { transition: transform 180ms ease-out; }
 .pillar-component-card[data-available="true"]:focus-within { outline: 2px solid var(--primary); outline-offset: 3px; box-shadow: 0 12px 28px -12px rgb(0 50 40 / 22%); }
@@ -558,7 +562,7 @@
 }
 @media (prefers-reduced-motion:reduce) { .pillar-component-card[data-slot="card"], .pillar-component-card .pillar-card-artwork { transition: none; transform: none !important; } }
 @media (max-width:800px) { .plan-kpis { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-@media (max-width:480px) { .plan-kpi { padding: 16px; } .plan-kpi dd { font-size: 17px; } .plan-details-disclosure > summary { align-items: flex-start; flex-direction: column; gap: 4px; } }
+@media (max-width:480px) { .plan-kpi { padding: 16px; } .plan-kpi dd { font-size: 17px; } .plan-details-disclosure > [data-slot=collapsible-trigger] { align-items: flex-start; flex-direction: column; gap: 4px; } }
 .pillar-plan-details { margin-bottom: 32px; }
 .pillar-plan-details .review-entry { margin: 12px 0 0; }
 .plan-setup-summary[data-slot="card"] { gap: 0; padding: 0; overflow: hidden; border: 1px solid color-mix(in srgb,var(--border) 72%,transparent); border-radius: 18px; box-shadow: 0 16px 36px -30px rgb(0 50 40 / 40%), inset 0 1px 0 rgb(255 255 255 / 72%); }

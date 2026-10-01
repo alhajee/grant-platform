@@ -6,6 +6,7 @@ import { ArrowLeft, Send, UsersRound, Check, MessageSquare, History } from 'luci
 import { UbecShell } from '@/components/ubec-shell';
 import { PlanReviewContent } from '@/components/plan-review-content';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -51,6 +52,7 @@ const load=useCallback(async(value='current')=>{const ticket=++requestId.current
     {error&&<Alert variant="destructive"><AlertTitle>Review unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={()=>load(selected)}>Retry</Button></AlertDescription></Alert>}
     {loading?<Skeleton className="h-64"/>:data&&!error&&<>
       <div className="national-review-meta"><Badge variant={data.round?.status==='returned'?'warning':'secondary'}>{data.round?nationalStatusLabels[data.round.status]:data.canSubmit?'Ready for UBEC submission':'Not yet sent to UBEC'}</Badge>{data.round&&<span>Received {date.format(new Date(data.round.submitted_at))}</span>}{data.rounds.length>0&&<Select value={selected} onValueChange={load}><SelectTrigger aria-label="UBEC submission version"><History/><SelectValue/></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">Current submission</SelectItem>{data.rounds.map(r=><SelectItem key={r.id} value={String(r.id)}>Submission {r.number} · {date.format(new Date(r.submitted_at))}</SelectItem>)}</SelectGroup></SelectContent></Select>}</div>
+      <Separator className="national-review-meta-separator" />
       {!current&&<Alert><AlertTitle>Historical submission</AlertTitle><AlertDescription>This saved version is read-only.</AlertDescription></Alert>}
       {data.round?.decision&&<Alert className="mb-6"><AlertTitle>{data.round.status==='returned'?'UBEC ES feedback':'UBEC ES decision'}</AlertTitle><AlertDescription className="review-comment">{data.round.decision}</AlertDescription></Alert>}
       {!data.round&&<Alert><AlertTitle>{data.canSubmit?'Ready to send to UBEC':'Not ready for UBEC'}</AlertTitle><AlertDescription>{data.ubecMode==='reviewed_components'?'Only components that have reached the Executive Chairman are sent. Unfinished components are left out, and the plan is locked while UBEC reviews it.':'Send the completed plan to start UBEC review. The plan remains locked while under review.'}</AlertDescription></Alert>}

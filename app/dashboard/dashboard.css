@@ -113,7 +113,8 @@
 .dashboard-next h3 { font-size: 17px; line-height: 1.4; font-weight: 500; letter-spacing: -.025em; max-width: 220px; }
 .dashboard-next p { font-size: 14px; line-height: 1.7; color: #64705d; margin-top: 10px; }
 .dashboard-next [data-slot=button] { padding: 0; height: auto; margin-top: 15px; font-size: 14px; }
-.dashboard-footer { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); padding: 22px 0 26px; margin-top: 44px; font-size: 14px; color: var(--muted-foreground); }
+.dashboard-footer-separator { margin-top: 44px; }
+.dashboard-footer { display: flex; justify-content: space-between; gap: 12px; padding: 22px 0 26px; font-size: 14px; color: var(--muted-foreground); }
 .dashboard-empty { grid-column: 1 / -1; text-align: center; padding: 45px 25px; background: var(--background); border: 1px dashed var(--border); border-radius: 14px; color: var(--muted-foreground); font-size: 14px; }
 .dashboard-empty > svg { margin: 0 auto 16px; color: var(--primary); }
 .dashboard-empty h3 { color: var(--foreground); font-size: 18px; font-weight: 500; margin-bottom: 8px; }

@@ -88,7 +88,8 @@ function AlertSetting({ permission, onEnable }: { permission: AlertPermission; o
   // Nothing to show once alerts are on (or impossible): the footer only carries actions.
   if (permission === 'unsupported' || permission === 'granted') return null;
   if (permission === 'denied') return <span className="notification-alert-state" title="Allow notifications for this site in your browser settings to get desktop alerts."><BellOffIcon aria-hidden="true" />Desktop alerts blocked</span>;
-  return <Button variant="ghost" size="sm" className="notification-footer-action" onClick={onEnable} title="Get an alert when something new arrives, even while this window is minimised."><BellRingIcon />Turn on desktop alerts</Button>;
+  // The only footer item that needs a decision: tinted, with shadcn's shimmer on the label and a swinging bell.
+  return <Button variant="ghost" size="sm" className="notification-footer-action notification-alerts-cta" onClick={onEnable} title="Get an alert when something new arrives, even while this window is minimised."><BellRingIcon className="notification-alerts-icon" /><span className="shimmer shimmer-duration-2800">Turn on desktop alerts</span></Button>;
 }
 
 export function NotificationBell() {

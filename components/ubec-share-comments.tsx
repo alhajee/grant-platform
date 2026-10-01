@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FieldDescription, FieldLegend, FieldSet } from '@/components/ui/field';
+import { FieldDescription, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import type { PlanCommentThread } from '@/lib/plan-comments';
 
 const sheetNames: Record<PlanCommentThread['sheet'], string> = { infrastructure: 'Infrastructure', sports: 'Sports', sbmc: 'SBMC', tlm: 'TLM', distribution: 'TLM distribution' };
@@ -26,11 +26,11 @@ export function ShareCommentsField({ threads, value, onChange, disabled }: { thr
         const id = `share-comment-${thread.id}`, checked = value.includes(thread.id);
         return <li key={thread.id} data-checked={checked || undefined}>
           <Checkbox id={id} checked={checked} disabled={disabled} onCheckedChange={next => toggle(thread.id, next === true)} />
-          <label htmlFor={id}>
+          <FieldLabel htmlFor={id} className="ubec-share-label">
             <strong>{sheetNames[thread.sheet]} · {thread.targetLabel}{thread.sharedAt && <Badge variant="secondary" className="wb-scope-badge wb-shared-badge">Shared before</Badge>}</strong>
             <span>{thread.body}</span>
             <small>{thread.authorName}{thread.replies.length ? ` · ${thread.replies.length} ${thread.replies.length === 1 ? 'reply' : 'replies'}` : ''}</small>
-          </label>
+          </FieldLabel>
         </li>;
       })}
     </ul>

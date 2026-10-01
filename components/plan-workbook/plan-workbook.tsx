@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Maximize2, MessageSquare, Minimize2, Sheet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatQuarters } from '@/lib/format-quarters';
@@ -81,7 +82,7 @@ export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null,
           <TooltipContent side="bottom" onEscapeKeyDown={event => { if (expanded) { event.preventDefault(); setExpanded(false); } }}>{label} <kbd className="plan-workbook-kbd">F</kbd></TooltipContent></Tooltip></div></div>
     <Tabs value={current} onValueChange={select} className="plan-workbook-tabs-root gap-0">
       <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs plan-workbook-tabs" aria-label="Plan workbook sheets">
-        {sheets.map(s => { const open = openComments(s.key), ubec = comments?.scope === 'state' ? openComments(s.key, 'ubec') : 0; return <TabsTrigger key={s.key} value={s.key}><s.icon aria-hidden="true" />{s.label}<span className="plan-workbook-count" aria-label={`${s.rows.length} rows`}>{s.rows.length}</span>{open > 0 && <span className="plan-workbook-comments" aria-label={plural(open, 'comment')} title={plural(open, 'comment')}><MessageSquare aria-hidden="true" />{open}</span>}{ubec > 0 && <span className="plan-workbook-ubec-count" aria-label={plural(ubec, 'UBEC comment')} title={plural(ubec, 'UBEC comment')}>UBEC {ubec}</span>}</TabsTrigger>; })}
+        {sheets.map(s => { const open = openComments(s.key), ubec = comments?.scope === 'state' ? openComments(s.key, 'ubec') : 0; return <TabsTrigger key={s.key} value={s.key}><s.icon aria-hidden="true" />{s.label}<Badge className="plan-workbook-count" aria-label={`${s.rows.length} rows`}>{s.rows.length}</Badge>{open > 0 && <Badge className="plan-workbook-comments" aria-label={plural(open, 'comment')} title={plural(open, 'comment')}><MessageSquare aria-hidden="true" />{open}</Badge>}{ubec > 0 && <Badge className="plan-workbook-ubec-count" aria-label={plural(ubec, 'UBEC comment')} title={plural(ubec, 'UBEC comment')}>UBEC {ubec}</Badge>}</TabsTrigger>; })}
       </TabsList></div>
       {sheets.map(s => <TabsContent key={s.key} value={s.key} forceMount hidden={s.key !== current} className="plan-workbook-panel">
         <SheetView sheet={s} visited={visited.has(s.key)} onDownload={download} onRequestChanges={requestChanges[s.key === 'distribution' ? 'tlm' : s.key]} />

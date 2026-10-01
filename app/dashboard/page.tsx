@@ -8,6 +8,7 @@ import { CreatePlanDialog } from "@/components/create-plan-dialog";
 import { SubebHeader } from "@/components/subeb-header";
 import { DashboardArtwork } from "@/components/dashboard-artwork";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { PlanStatusBadge } from '@/components/plan-status';
 import { emptyInvestmentFilters, investmentFilterCount, InvestmentFilter, type InvestmentArea } from '@/components/investment-filter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,6 +141,7 @@ export default function DashboardPage() {
           </div>
         </aside>
       </div>
+      <Separator className="dashboard-footer-separator" />
       <footer className="dashboard-footer"><span>Universal Basic Education Commission</span><span>© {new Date().getFullYear()}</span></footer>
     </main>
     {open && <CreatePlanDialog stateName={stateName} plans={plans} onClose={() => setOpen(false)} />}

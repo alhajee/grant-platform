@@ -30,7 +30,7 @@ export function CommentsPanel({ sheet, comments, onNavigate }: { sheet: Workbook
     pending.current = thread; setOpen(false);
   };
   return <Sheet open={open} onOpenChange={setOpen}>
-    <SheetTrigger asChild><Button variant="outline" className="rounded-full wb-comments-toggle" aria-pressed={open} aria-label={`Comments, ${allOpen} open`}><MessageSquare data-icon="inline-start" />Comments{allOpen > 0 && <span className="wb-comments-count" aria-hidden="true">{allOpen}</span>}</Button></SheetTrigger>
+    <SheetTrigger asChild><Button variant="outline" className="rounded-full wb-comments-toggle" aria-pressed={open} aria-label={`Comments, ${allOpen} open`}><MessageSquare data-icon="inline-start" />Comments{allOpen > 0 && <Badge className="wb-comments-count" aria-hidden="true">{allOpen}</Badge>}</Button></SheetTrigger>
     <SheetContent side="right" className="wb-comments-panel" onCloseAutoFocus={event => {
       const thread = pending.current; pending.current = null;
       if (thread) { event.preventDefault(); onNavigate(thread); }

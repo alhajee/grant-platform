@@ -11,6 +11,7 @@
 .plan-workbook .plan-workbook-tabs { min-width: max-content; height: 44px; gap: 6px; }
 .plan-workbook .plan-workbook-tabs [data-slot=tabs-trigger] { height: 39px; min-width: 0; padding-inline: 14px; gap: 8px; font-size: 13px; }
 .plan-workbook .plan-workbook-tabs [data-slot=tabs-trigger] > svg { width: 15px; height: 15px; }
+/* Tab and toolbar counts are shadcn Badges restyled as compact pills. */
 .plan-workbook-count { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted-foreground); background: var(--background); border: 1px solid var(--border); }
 .plan-workbook-tabs [data-state=active] .plan-workbook-count { color: var(--primary); background: var(--primary-foreground); border-color: transparent; }
 .plan-workbook-panel { min-width: 0; }
@@ -134,9 +135,9 @@
 .wb-comment-preview { position: fixed; z-index: 70; display: flex; flex-direction: column; gap: 2px; width: 280px; padding: 8px 10px; border: 1px solid var(--border); border-left: 3px solid #f29900; border-radius: 8px; font-size: 12px; line-height: 1.4; color: var(--popover-foreground); background: var(--popover); box-shadow: 0 8px 24px -8px rgb(0 0 0 / 25%); pointer-events: none; }
 .wb-comment-preview span { overflow-wrap: anywhere; }
 .wb-comment-preview em { font-style: normal; color: var(--muted-foreground); }
-.plan-workbook-comments { display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--wb-comment-ink); background: color-mix(in srgb, var(--wb-comment) 18%, var(--background)); }
+.plan-workbook-comments { border: 0; display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--wb-comment-ink); background: color-mix(in srgb, var(--wb-comment) 18%, var(--background)); }
 .plan-workbook .plan-workbook-tabs [data-slot=tabs-trigger] > .plan-workbook-comments svg { width: 12px; height: 12px; }
-.wb-comments-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; margin-left: 2px; padding: 0 6px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; background: var(--wb-comment); }
+.wb-comments-count { border: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; margin-left: 2px; padding: 0 6px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; background: var(--wb-comment); }
 .wb-comments-panel { gap: 0; }
 .wb-comments-filter { padding: 0 16px 12px; border-bottom: 1px solid var(--border); }
 .wb-comments-list { display: flex; flex-direction: column; overflow-y: auto; }
@@ -192,4 +193,4 @@
 .wb-thread-head [data-slot=badge] { flex: none; }
 .wb-comments-item[data-ubec] { box-shadow: inset 3px 0 0 #1a73e8; }
 .wb-comments-sources { margin-top: 8px; }
-.plan-workbook-ubec-count { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .02em; font-variant-numeric: tabular-nums; color: var(--wb-ubec-ink); background: color-mix(in srgb, var(--wb-ubec) 16%, var(--background)); }
+.plan-workbook-ubec-count { border: 0; display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .02em; font-variant-numeric: tabular-nums; color: var(--wb-ubec-ink); background: color-mix(in srgb, var(--wb-ubec) 16%, var(--background)); }

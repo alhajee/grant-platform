@@ -5,6 +5,7 @@ import { SubebHeader } from '@/components/subeb-header';
 import { PlanStatusBadge } from '@/components/plan-status';
 import { PlanReviewContent } from '@/components/plan-review-content';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -112,6 +113,7 @@ export default function ReviewPage() {
         {data && !error && !statePlanOpen(data.plan.status) && <Button asChild variant="outline" className="rounded-full"><a href={planHref('/ubec/review',data.plan.id)}>View UBEC review</a></Button>}
       </div></div>
       </div>
+      <Separator className="review-page-summary-separator" />
       {error && <Alert variant="destructive"><AlertTitle>Review unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
       {loading ? <Skeleton className="h-64 w-full" /> : data && !error && <>
         {plan?.status === 'changes_requested' && latestFeedback && <Alert className="mb-6"><MessageSquareIcon /><AlertTitle>Changes requested · {scopeLabel(latestFeedback.scope)}</AlertTitle><AlertDescription><p className="review-comment">{latestFeedback.comment}</p>{editable && <Button asChild variant="outline"><a href={planHref('/beap', data.plan.id)}>Edit plan</a></Button>}</AlertDescription></Alert>}

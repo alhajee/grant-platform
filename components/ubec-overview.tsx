@@ -65,7 +65,7 @@ export function UbecOverview({ data, onStage, children }: { data: UbecDashboard;
       </Card>
     <section className="overview-stages" aria-label="Review stages"><div className="overview-section-title"><h2>Review pipeline</h2><span>Latest submission per plan</span></div><div className="overview-stage-grid">{stages.map(stage => {
       const count = items.filter(plan => plan.status === stage.id).length;
-      return <button key={stage.id} className="overview-stage" data-stage={stage.id} onClick={() => onStage(stage.id)}><span className="overview-stage-icon"><stage.icon /></span><span><span>{nationalStatusLabels[stage.id]}</span><strong>{count.toLocaleString()}</strong></span><ArrowUpRight className="overview-stage-arrow" /></button>;
+      return <Button key={stage.id} type="button" variant="ghost" className="overview-stage" data-stage={stage.id} onClick={() => onStage(stage.id)}><span className="overview-stage-icon"><stage.icon /></span><span><span>{nationalStatusLabels[stage.id]}</span><strong>{count.toLocaleString()}</strong></span><ArrowUpRight className="overview-stage-arrow" /></Button>;
     })}</div></section>
     </div>
   </div>;

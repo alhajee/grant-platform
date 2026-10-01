@@ -71,6 +71,10 @@
 .notification-footer { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 48px; padding: 6px 10px; }
 .notification-footer-action { height: 32px; padding-inline: 10px; border-radius: 9px; color: #55595c; font-size: 13px; font-weight: 500; }
 .notification-mark-all { margin-right: auto; }
+.notification-alerts-cta { color: var(--primary); background: color-mix(in srgb, var(--primary) 8%, transparent); }
+@media (hover:hover) and (pointer:fine) { .notification-alerts-cta:hover { color: var(--primary); background: color-mix(in srgb, var(--primary) 14%, transparent); } }
+.notification-alerts-icon { transform-origin: 50% 8%; animation: notification-swing 4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .notification-alerts-icon { animation: none; } }
 .notification-footer-action svg { width: 15px; height: 15px; }
 .notification-alert-state { display: inline-flex; align-items: center; gap: 6px; padding-inline: 10px; color: #9a9d9f; font-size: 12.5px; }
 .notification-alert-state svg { width: 14px; height: 14px; }

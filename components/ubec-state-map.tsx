@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ArrowUpRight, CircleCheck, MapPin, UsersRound } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select';
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from '@/components/ui/empty';
@@ -60,11 +61,13 @@ export function UbecStateMap({ items, selectedState, onState, reviewer }: {
         <div className="map-state-name"><MapPin aria-hidden="true" /><h3>{displayState?.name || (reviewer ? 'Assigned coverage' : 'Nigeria')}</h3></div>
         <strong className="map-headline-value" title={summary.plans ? exactValue : 'No submissions'} aria-label={summary.plans ? exactValue : 'No submissions'}>{summary.plans ? format(summary[metric]) : '—'}</strong><span className="map-detail-label">{metrics[metric]}</span>
         <dl className="map-detail-totals"><div><dt>Plans</dt><dd>{summary.plans.toLocaleString()}</dd></div><div><dt>Schools</dt><dd>{summary.schools.toLocaleString()}</dd></div></dl>
+        <Separator className="map-detail-separator" />
         </div>
         <div className="map-status-list">{[{key:'received',label:'Awaiting assignment'},{key:'reviewing',label:'In review'},{key:'returned',label:'Returned to SUBEB'},{key:'approved',label:'Approved'}].map(stage => <div key={stage.key}><span><i data-stage={stage.key} />{stage.label}</span><strong>{summary[stage.key as 'received' | 'reviewing' | 'returned' | 'approved']}</strong></div>)}</div>
         <p className="map-summary-note">{!summary.plans ? (reviewer ? 'No assigned submissions in this period.' : 'No submissions in this period.') : reviewer ? 'Assigned pillars · latest submissions.' : 'Latest submissions · proposed, not released funding.'}</p>
       </aside>
     </CardContent>
+    <Separator className="map-footer-separator" />
     <CardFooter className="map-footer"><span>States / FCT represented: {represented} of 37</span><a href="https://www.geoboundaries.org/api/current/gbOpen/NGA/ADM1/" target="_blank" rel="noreferrer">GRID3 / geoBoundaries · CC BY 4.0</a></CardFooter>
   </Card>;
 }
