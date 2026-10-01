@@ -2,7 +2,7 @@
 
 import { useId, useState, type ReactNode } from 'react';
 import { useTable, type ColumnDef, type SortingState, type ColumnFiltersState, type ColumnVisibilityState, type PaginationState, type Updater } from '@tanstack/react-table';
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupInput, InputGroupAddon } from '@/components/ui/input-group';
@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGro
 import { features, type DataTableFeatures } from './data-table-features';
 import { DataTableFacetedFilter, type DataTableFacet } from './data-table-faceted-filter';
 import { useSessionState } from './use-session-state';
+import { DataTableFilterGroup } from './data-table-filter-group';
 
 /** Server-side mode: the parent fetches one page at a time and owns paging, sorting and search. */
 export type DataTableServer = {
@@ -72,19 +73,20 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
   const searchValue = server ? server.search : (table.getColumn(searchColumn)?.getFilterValue() as string) ?? '';
   return <div className="flex min-w-0 flex-col gap-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
       <Field className="w-full sm:w-72">
         <FieldLabel htmlFor={`${id}-search`} className="sr-only">{searchPlaceholder}</FieldLabel>
-        <InputGroup className="bg-card">
+        <InputGroup className="rounded-full bg-card">
           <InputGroupInput id={`${id}-search`} type={server ? 'search' : undefined} placeholder={searchPlaceholder} value={searchValue} onChange={e => { if (server) { server.onSearchChange(e.target.value); return; } table.getColumn(searchColumn)?.setFilterValue(e.target.value); table.setPageIndex(0); }} />
           <InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon>
         </InputGroup>
       </Field>
       {filters}
-      {!server && facets.map(facet => { const column = table.getColumn(facet.column); return column && <DataTableFacetedFilter key={facet.column} title={facet.title} options={facet.options} selected={(column.getFilterValue() as string[] | undefined) ?? []} onChange={values => { column.setFilterValue(values.length ? values : undefined); table.setPageIndex(0); }} />; })}
-      {!server && facets.some(facet => table.getColumn(facet.column)?.getFilterValue()) && <Button variant="ghost" size="sm" onClick={() => { facets.forEach(facet => table.getColumn(facet.column)?.setFilterValue(undefined)); table.setPageIndex(0); }}>Reset<XIcon data-icon="inline-end" /></Button>}
+      {!server && facets.length > 0 && <DataTableFilterGroup activeCount={facets.filter(facet => table.getColumn(facet.column)?.getFilterValue()).length} onReset={() => { facets.forEach(facet => table.getColumn(facet.column)?.setFilterValue(undefined)); table.setPageIndex(0); }}>
+        {facets.map(facet => { const column = table.getColumn(facet.column); return column && <DataTableFacetedFilter key={facet.column} title={facet.title} options={facet.options} selected={(column.getFilterValue() as string[] | undefined) ?? []} onChange={values => { column.setFilterValue(values.length ? values : undefined); table.setPageIndex(0); }} />; })}
+      </DataTableFilterGroup>}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         {toolbar}
         <DropdownMenu>
           <DropdownMenuTrigger asChild><Button variant="outline" size="sm"><SlidersHorizontalIcon data-icon="inline-start" />Columns<ChevronDownIcon data-icon="inline-end" /></Button></DropdownMenuTrigger>
@@ -116,7 +118,7 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
       <div className="flex flex-wrap items-center gap-4">
         <Field orientation="horizontal" className="w-auto">
           <FieldLabel htmlFor={`${id}-page-size`}>Rows per page</FieldLabel>
-          <NativeSelect className="bg-card" id={`${id}-page-size`} value={pagination.pageSize} onChange={e => server ? server.onPaginationChange({ pageIndex: 0, pageSize: Number(e.target.value) }) : table.setPageSize(Number(e.target.value))}>
+          <NativeSelect className="rounded-full bg-card" id={`${id}-page-size`} value={pagination.pageSize} onChange={e => server ? server.onPaginationChange({ pageIndex: 0, pageSize: Number(e.target.value) }) : table.setPageSize(Number(e.target.value))}>
             {(server?.pageSizes ?? [10, 20, 50]).map(size => <NativeSelectOption key={size} value={size}>{size}</NativeSelectOption>)}
           </NativeSelect>
         </Field>

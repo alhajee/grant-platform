@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { PlusCircleIcon } from 'lucide-react';
+import { useFilterGroup } from './data-table-filter-group';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -17,7 +19,14 @@ const MAX_BADGES = 2;
 export function DataTableFacetedFilter({ title, options, selected, onChange }: { title: string; options: FacetOption[]; selected: string[]; onChange: (values: string[]) => void }) {
   const chosen = new Set(selected);
   const toggle = (value: string) => onChange(chosen.has(value) ? selected.filter(item => item !== value) : [...selected, value]);
-  return <Popover>
+  const [open, setOpen] = useState(false);
+  const group = useFilterGroup(), report = group?.report, reported = useRef(false);
+  // Tell an enclosing DataTableFilterGroup while this list is open (and release it on unmount).
+  useEffect(() => { if (!report || reported.current === open) return; reported.current = open; report(open); }, [open, report]);
+  useEffect(() => () => { if (reported.current) report?.(false); }, [report]);
+  // Inside a collapsed filter group, only filters in use stay visible.
+  if (group && !group.engaged && !open && !chosen.size) return null;
+  return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
       <Button variant="outline" size="sm" className="border-dashed">
         <PlusCircleIcon data-icon="inline-start" />{title}

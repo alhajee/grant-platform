@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createColumnHelper, type PaginationState, type SortingState } from '@tanstack/react-table';
-import { CopyIcon, HistoryIcon, MoreHorizontalIcon, XIcon } from 'lucide-react';
+import { CopyIcon, HistoryIcon, MoreHorizontalIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import { DataTableColumnHeader } from '@/components/data-table-column-header';
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DataTableFacetedFilter } from '@/components/data-table-faceted-filter';
+import { DataTableFilterGroup } from '@/components/data-table-filter-group';
 import { useSessionState } from '@/components/use-session-state';
 import { activityPageSizes, defaultActivityPageSize, type ActivityFacets, type ActivitySession, type ActivitySort, type ActivityStatus, type Paged, type SessionStatus } from '@/lib/admin-activity';
 import { stateDisplayName } from '@/lib/state-names';
@@ -103,11 +104,10 @@ export function AdminActivity() {
       itemLabel="sessions"
       columnLabels={{ admin: 'Administrator', started: 'Started', ends: 'Ended / Expires', duration: 'Duration', status: 'Status', writes: 'Write attempts' }}
       empty={empty}
-      filters={<>
+      filters={<DataTableFilterGroup activeCount={Number(statuses.length > 0) + Number(admins.length > 0)} onReset={() => { setStatuses([]); setAdmins([]); setPagination(state => ({ ...state, pageIndex: 0 })); }}>
         <DataTableFacetedFilter title="Status" options={statusFacet} selected={statuses} onChange={setFilter(setStatuses)} />
         {adminFacet.length > 0 && <DataTableFacetedFilter title="Administrator" options={adminFacet} selected={admins} onChange={setFilter(setAdmins)} />}
-        {(statuses.length > 0 || admins.length > 0) && <Button variant="ghost" size="sm" onClick={() => { setStatuses([]); setAdmins([]); setPagination(state => ({ ...state, pageIndex: 0 })); }}>Reset<XIcon data-icon="inline-end" /></Button>}
-      </>}
+      </DataTableFilterGroup>}
       server={{
         rowCount: error ? 0 : lastData?.total ?? 0,
         pagination, onPaginationChange: setPagination,
