@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { implementationStrategies } from './activity-plans.ts';
 
-export const strategies = implementationStrategies;
+// Request for quotation leads the infrastructure list and is the default method (UBEC10).
+export const strategies = ['Request for quotation', ...implementationStrategies.filter(s => s !== 'Request for quotation')] as [typeof implementationStrategies[number], ...typeof implementationStrategies[number][]];
+export const defaultStrategy = strategies[0];
 export const kindNames = { new: 'New Construction', whole: 'Whole School Renovation/Expansion', furniture: 'Furniture/Equipment' } as const;
 export const modelNames = ['Model 1 · Small School', 'Model 2 · Medium School', 'Model 3 · Large School'];
 export const modelFor = (enrolment: number) => enrolment <= 240 ? 0 : enrolment <= 320 ? 1 : 2;
@@ -32,6 +34,12 @@ export const requirements: Requirement[] = [
  {key:'solarPower',label:'Hybrid solar power system',qty:[1,1,1],unit:'systems'},
  {key:'solarLight',label:'Outdoor solar light',qty:[20,30,30],unit:'sets'},
 ];
+// Deliverable groups from UBEC's "Deliverables for proposed UBEC model school typologies" (UBEC14).
+export const deliverableGroups = ['Infrastructure (Construction/Renovation)', 'Furniture', 'Equipment', 'WASH Facilities', 'Special Projects/Facilities', 'Package costs'] as const;
+const groupKeys: Record<string, number> = {classroomPri:0,classroomEccde:0,office:0,store:0,toilet:0,staffroom:0,gatehouse:0,fence:0,block3os:0,block3:0,block6os:0,eccdeBlock:0,eccdeFurniture:1,dualDesk:1,magneticBoard:1,teachersFurniture:1,hmFurniture:1,storageShelf:1,playEquipment:2,kgBed:2,solarBorehole:3,handwashing:3,rwh:3,playground:4,landscaping:4,football:4,volleyball:4,solarPower:4,solarLight:4};
+export const deliverableGroup = (key: string) => deliverableGroups[groupKeys[key.replace(/-(renovate|construct)$/, '')] ?? 5];
+export function groupDeliverables<T extends { key: string }>(rows: T[]) { return deliverableGroups.map(group => ({ group, rows: rows.filter(row => deliverableGroup(row.key) === group) })).filter(g => g.rows.length); }
+export const inDeliverableOrder = <T extends { key: string }>(rows: T[]) => groupDeliverables(rows).flatMap(g => g.rows);
 const quantity = z.number().int().min(0).max(1000000);
 const amount = z.number().min(0).max(99999999999.99).refine(n => Math.abs(n * 100 - Math.round(n * 100)) < .001, 'Use at most two decimal places.');
 const auditRow = z.object({existing:quantity, functional:quantity, extra:quantity}).refine(v=>v.functional<=v.existing,'Functional cannot exceed existing.');
@@ -39,16 +47,17 @@ export const profileSchema = z.object({male:quantity, female:quantity, latitude:
 export const packageSchema = z.object({
  kind:z.enum(['new','whole','furniture']),schoolId:z.number().int().positive(),
  components:z.array(z.enum(['ECCDE','Primary','JSS'])).min(1).max(3),
- targeting:z.enum(['hope','nonhope']).default('hope'), grouping:z.enum(['standard','storey']).default('standard'),
+ targeting:z.enum(['hope','nonhope']).default('nonhope'), grouping:z.enum(['standard','storey']).default('standard'),
  land:z.object({available:z.boolean(),documented:z.boolean(),unencumbered:z.boolean()}).default({available:false,documented:false,unencumbered:false}),
  documentIds:z.array(z.string().uuid()).max(30).default([]),
  audit:z.record(auditRow).default({}),fenceRequired:quantity.default(0),fenceLength:quantity.default(0),
- prices:z.record(amount).default({}),classroomStrategy:z.enum(strategies).default('NCB'),
+ prices:z.record(amount).default({}),classroomStrategy:z.enum(strategies).default(defaultStrategy),
  packageCosts:z.record(z.object({cost:amount,strategy:z.enum(strategies),duration:z.string().trim().max(100)})).default({}),
  lumpSum:amount.default(0),duration:z.string().trim().max(100).default(''),contingency:amount.default(0),preliminaries:amount.default(0),
  observations:z.string().max(5000).default(''),dilapidation:z.enum(['Minor repairs required','Moderate deterioration','Unsafe / reconstruction recommended','Severe dilapidation / major rehabilitation']).default('Minor repairs required'),conditionNotes:z.string().max(5000).default(''),
  furniture:z.array(z.object({description:z.string().trim().min(1).max(500),quantity:quantity.refine(n=>n>0),cost:amount.refine(n=>n>0)})).max(100).default([]),
 });
+export const landDeclarationCount = (input: Pick<InfrastructureInput, 'land'>) => Object.values(input.land ?? {}).filter(Boolean).length;
 export type InfrastructureInput = z.infer<typeof packageSchema>;
 export type SchoolProfile = z.infer<typeof profileSchema>;
 export type InfrastructureSchool = {id:number;name:string;lga:string;level:string;location:string;male:number;female:number;latitude:string;longitude:string};
@@ -69,13 +78,13 @@ export function auditGaps(input:InfrastructureInput, enrolment:number) {
 export function calculateInfrastructure(input:InfrastructureInput,enrolment:number) {
  const model=modelFor(enrolment),items:PackageItem[]=[];
  let classroomSubtotal=0,otherSubtotal=0,vat=0;
- function add(key:string,label:string,quantity:number,unit:string,lump:boolean,cost:number,strategy='NCB',duration='',operation?:string){
+ function add(key:string,label:string,quantity:number,unit:string,lump:boolean,cost:number,strategy:string=defaultStrategy,duration='',operation?:string){
   const total=money(cents(cost)*(lump?1:quantity));
   items.push({key,label,quantity,unit,lump,cost,total,strategy,duration,operation});return total;
  }
  if(input.kind==='furniture') input.furniture.forEach((r,i)=>add('furniture-'+i,r.description,r.quantity,'units',false,r.cost,'',''));
  if(input.kind==='whole') for(const gap of auditGaps(input,enrolment)){
-  const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit)=>{const price=input.packageCosts[key];add(key,gap.label,qty,unit,lump,price?.cost??0,price?.strategy??'NCB',price?.duration??'',operation);};
+  const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit)=>{const price=input.packageCosts[key];add(key,gap.label,qty,unit,lump,price?.cost??0,price?.strategy??defaultStrategy,price?.duration??'',operation);};
   if(gap.civil&&gap.nonFunctional>0)addGap(gap.key+'-renovate','Renovation',gap.nonFunctional,true);
   if(gap.toBuild>0)addGap(gap.civil?gap.key+'-construct':gap.key,gap.civil?'New construction':'Supply / installation',gap.key==='classroomEccde'?1:gap.toBuild,!!(gap.civil||gap.lump),gap.key==='classroomEccde'?'block':gap.unit);
  }
@@ -98,7 +107,7 @@ export function calculateInfrastructure(input:InfrastructureInput,enrolment:numb
 }
 export function packageProblem(input:InfrastructureInput,enrolment:number){
  if(enrolment<=0&&input.kind!=='furniture')return 'Record the school’s enrolment before creating its package.';
- if(input.kind==='new'&&!Object.values(input.land).every(Boolean))return 'Confirm all three land declarations.';
+ if(input.kind==='new'&&!Object.values(input.land).some(Boolean))return 'Tick at least one land declaration.';
  if(input.kind==='new'&&modelFor(enrolment)===0&&input.grouping==='storey')return 'The small-school model uses standard classroom blocks.';
  if(input.kind==='whole'&&!input.observations.trim())return 'Enter the site observations.';
  const primaryAudit=input.audit.classroomPri;

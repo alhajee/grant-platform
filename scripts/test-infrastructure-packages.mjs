@@ -18,10 +18,12 @@ try{
  school=(await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,'Infrastructure QA','QA','Primary','Rural',100,100) RETURNING id",[marker])).rows[0].id;
  const path=`/api/infrastructure/packages?plan=${plan}`,reviewPath=`/api/plans/review?plan=${plan}`;
  ok(await api('anonymous',path),401);ok(await api('social',path),403);
- const input=packageSchema.parse({kind:'new',schoolId:school,components:['Primary','ECCDE'],targeting:'nonhope',lumpSum:1000,duration:'6 months',land:{available:true,documented:true,unencumbered:true}});
+ const landIds=[];for(let i=0;i<2;i++){const f=new FormData();f.set('kind','land');f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],`land-${i}.pdf`,{type:'application/pdf'}));landIds.push(ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f)).id);}
+ const input=packageSchema.parse({kind:'new',schoolId:school,components:['Primary','ECCDE'],targeting:'hope',lumpSum:1000,duration:'6 months',land:{available:true,documented:true,unencumbered:false},documentIds:landIds});
  ok(await api('social',path,{action:'save',input}),403);
- ok(await api('officer',path,{action:'save',input:{...input,land:{available:false,documented:true,unencumbered:true}}}),400);
- ok(await api('officer',path,{action:'save',input}));let current=ok(await api('officer',path));const project=current.packages[0];assert.equal(Number(project.total_cost),1000);
+ ok(await api('officer',path,{action:'save',input:{...input,land:{available:false,documented:false,unencumbered:false}}}),400);
+ const fewerLand=await api('officer',path,{action:'save',input:{...input,land:{available:true,documented:true,unencumbered:true}}});ok(fewerLand,400);assert.match(fewerLand.data.error,/3 ticked, 2 attached/);
+ ok(await api('officer',path,{action:'save',input}));let current=ok(await api('officer',path));const project=current.packages[0];assert.equal(Number(project.total_cost),1000);assert.equal(project.input.targeting,'nonhope','HOPE targeting is retired on save');
  ok(await api('officer',path,{action:'save',id:project.id,version:999,input}),409);
  ok(await api('officer',path,{action:'profile',schoolId:school,profile:{male:200,female:200,latitude:'12',longitude:'10'}}));
  const lockedProfile=(await db.query('SELECT enrolment_male,enrolment_female,latitude,longitude FROM schools WHERE id=$1',[school])).rows[0];
@@ -66,7 +68,7 @@ try{
  review=ok(await api('officer',reviewPath));ok(await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version}));
  ok(await api('officer',path,{action:'save',input}),409);ok(await api('director',path,{action:'save',input}));
  const scoped=ok(await api('social',reviewPath));assert.equal(scoped.snapshot.infrastructure.length,0);assert.equal(scoped.snapshot.infrastructureDocuments,undefined);
- review=ok(await api('director',reviewPath));const historical=ok(await api('director',reviewPath+'&submission='+review.submissions[0].number));assert.equal(historical.snapshot.infrastructure.length,2);assert.equal(historical.snapshot.infrastructureDocuments.length,docs.length);assert.equal(historical.snapshot.infrastructureDocuments.find(d=>d.id===docs[1]).schoolId,school);
+ review=ok(await api('director',reviewPath));const historical=ok(await api('director',reviewPath+'&submission='+review.submissions[0].number));assert.equal(historical.snapshot.infrastructure.length,2);assert.equal(historical.snapshot.infrastructureDocuments.length,docs.length+landIds.length);assert.equal(historical.snapshot.infrastructureDocuments.find(d=>d.id===docs[1]).schoolId,school);
  async function removeDocument(who,id){const r=await fetch(`${base}/api/infrastructure/documents?plan=${plan}&id=${id}`,{method:'DELETE',headers:{Origin:base,Cookie:cookies[who]||''}});return {status:r.status,data:await r.json()};}
  ok(await removeDocument('anonymous',docs[1]),401);
  ok(await removeDocument('social',docs[1]),403);

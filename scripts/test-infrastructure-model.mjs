@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {packageSchema,modelFor,auditGaps,calculateInfrastructure,packageProblem,requirements} from '../lib/infrastructure-model.ts';
 assert.deepEqual([1,240,241,320,321].map(modelFor),[0,0,1,1,2]);
 const make=kind=>packageSchema.parse({kind,schoolId:1,components:['Primary'],land:{available:true,documented:true,unencumbered:true}});
-const hope=make('new');hope.prices={block3os:100,block3:200,eccdeBlock:50,toilet:70,dualDesk:2,fence:3};hope.fenceLength=10;hope.contingency=5;hope.preliminaries=10;
+const hope=make('new');assert.equal(hope.targeting,'nonhope','New-school packages default to Non-HOPE');assert.equal(hope.classroomStrategy,'Request for quotation','Request for quotation is the default strategy');hope.targeting='hope';hope.classroomStrategy='NCB';hope.prices={block3os:100,block3:200,eccdeBlock:50,toilet:70,dualDesk:2,fence:3};hope.fenceLength=10;hope.contingency=5;hope.preliminaries=10;
 let r=calculateInfrastructure(hope,300);
 assert.equal(r.classroomSubtotal,300,'Block row amounts are lump sums, never multiplied by block count');
 assert.equal(r.items.find(i=>i.key==='block3os').quantity,2);
@@ -16,7 +16,7 @@ let gaps=auditGaps(whole,200);assert.equal(gaps[0].additional,3);assert.equal(ga
 for(const item of calculateInfrastructure(whole,200).items)whole.packageCosts[item.key]={cost:10,strategy:'NCB',duration:'4 weeks'};
 r=calculateInfrastructure(whole,200);assert.equal(r.items.find(i=>i.key==='classroomPri-renovate').total,10);assert.equal(r.items.find(i=>i.key==='classroomPri-construct').total,10);assert.equal(r.items.find(i=>i.key==='dualDesk').total,430);assert.equal(packageProblem(whole,200),null);
 assert.equal(packageSchema.safeParse({...whole,audit:{classroomPri:{existing:2,functional:3,extra:0}}}).success,false);
-assert.ok(packageProblem({...hope,land:{available:false,documented:true,unencumbered:true}},300));
+assert.ok(packageProblem({...hope,land:{available:false,documented:false,unencumbered:false}},300),'At least one land declaration is required');assert.equal(packageProblem({...hope,land:{available:false,documented:true,unencumbered:false}},300),null,'A single land declaration is enough');
 const met=make('whole');for(const item of requirements)met.audit[item.key]={existing:item.qty[0],functional:item.qty[0],extra:0};assert.equal(calculateInfrastructure(met,200).items.length,0);
 const furniture=make('furniture');furniture.furniture=[{description:'Desk',quantity:3,cost:10.15}];assert.equal(calculateInfrastructure(furniture,200).total,30.45);
 console.log('PASS: model boundaries, HOPE lump sums and VAT, Non-HOPE, civil/non-civil gaps, fence, validation and furniture.');

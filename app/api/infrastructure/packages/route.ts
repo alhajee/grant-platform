@@ -6,7 +6,7 @@ import { getPostgres } from '@/lib/postgres';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { canViewComponent } from '@/lib/subeb-access';
 import { mayEditPillar, readPillarReviews } from '@/lib/pillar-review';
-import { packageSchema, profileSchema, packageProblem, calculateInfrastructure } from '@/lib/infrastructure-model';
+import { packageSchema, profileSchema, packageProblem, calculateInfrastructure, landDeclarationCount } from '@/lib/infrastructure-model';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude';
 export async function GET(req:NextRequest){
@@ -49,13 +49,15 @@ export async function POST(req:NextRequest){
     await db.query('DELETE FROM infrastructure_packages WHERE id=$1 AND plan_id=$2',[v.id,plan.id]);return NextResponse.json({ok:true});
    }
    const parsed=packageSchema.safeParse(v.input);if(!parsed.success)return error(parsed.error.issues[0].message);
-   const input=parsed.data;
+   // HOPE targeting is retired (UBEC10): every new-school package is costed as one Non-HOPE package.
+   const input=parsed.data.kind==='new'?{...parsed.data,targeting:'nonhope' as const}:parsed.data;
    const school=(await db.query(`SELECT ${schoolFields} FROM schools WHERE id=$1 AND state_code=$2 FOR SHARE`,[input.schoolId,user.stateCode])).rows[0];
    if(!school)return error('Select a school from your state register.',404);
    const problem=packageProblem(input,school.male+school.female);if(problem)return error(problem);
    const docs=(await db.query('SELECT id,kind,created_at,school_id FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL AND id=ANY($2::uuid[])',[plan.id,input.documentIds])).rows;
    if(new Set(input.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan.');
    if(docs.some(d=>d.school_id!==null&&d.school_id!==input.schoolId))return error('One or more attachments belong to a different school.');
+   if(input.kind==='new'){const ticked=landDeclarationCount(input),attached=docs.filter(d=>d.kind==='land').length;if(attached<ticked)return error(`Attach one land document for each ticked land declaration (${ticked} ticked, ${attached} attached).`);}
    const primaryAudit=input.audit.classroomPri;
    if(input.kind==='whole'&&primaryAudit&&primaryAudit.existing>primaryAudit.functional&&!docs.some(d=>d.kind==='photo'))return error('Attach photographic evidence for the Whole School audit.');
    if(prior&&prior.kind!==input.kind)return error('An existing package’s intervention type cannot be changed.');
