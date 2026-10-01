@@ -23,7 +23,7 @@ export function DataTableFacetedFilter({ title, options, selected, onChange }: {
         <PlusCircleIcon data-icon="inline-start" />{title}
         {chosen.size > 0 && <>
           <Separator orientation="vertical" className="mx-1 h-4" />
-          <Badge variant="secondary" className="lg:hidden">{chosen.size}</Badge>
+          <Badge variant="secondary" className="h-5 min-w-5 justify-center rounded-full px-1 tabular-nums lg:hidden">{chosen.size}</Badge>
           <span className="hidden gap-1 lg:flex">{chosen.size > MAX_BADGES ? <Badge variant="secondary">{chosen.size} selected</Badge> : options.filter(option => chosen.has(option.value)).map(option => <Badge key={option.value} variant="secondary">{option.label}</Badge>)}</span>
         </>}
       </Button>
@@ -34,7 +34,7 @@ export function DataTableFacetedFilter({ title, options, selected, onChange }: {
         <CommandList>
           <CommandEmpty>No matches.</CommandEmpty>
           <CommandGroup>{options.map(option => <CommandItem key={option.value} value={option.label} onSelect={() => toggle(option.value)}>
-            <Checkbox checked={chosen.has(option.value)} tabIndex={-1} aria-hidden="true" className="pointer-events-none" />
+            <Checkbox checked={chosen.has(option.value)} tabIndex={-1} aria-hidden="true" className="pointer-events-none [&_svg]:text-primary-foreground!" />
             <span className="min-w-0 flex-1 truncate">{option.label}</span>
             {option.count !== undefined && <span className="ml-auto font-mono text-xs tabular-nums text-muted-foreground">{option.count}</span>}
           </CommandItem>)}</CommandGroup>
