@@ -33,7 +33,6 @@ export function SubebHeader({ user, plan = false, users = false }: { user?: Loca
     <div className="subeb-navigation-capsule">
       <a href="/dashboard" className="subeb-header-brand" aria-label="BEAPMS Portal overview"><UbecLogo /><span>BEAPMS Portal</span></a>
       <nav aria-label="SUBEB navigation">
-        <a href="/dashboard" aria-current={!plansActive && !users ? 'page' : undefined}>Overview</a>
         <a href="/dashboard#action-plans" aria-current={plansActive ? (plan ? 'page' : 'location') : undefined}>Plans</a>
         {canManageStateUsers((user === undefined ? sessionUser : user)?.role) && <a href="/users" aria-current={users ? 'page' : undefined}>Users</a>}
       </nav>
