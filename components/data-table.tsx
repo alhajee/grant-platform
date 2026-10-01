@@ -117,7 +117,7 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
       <p className="text-sm text-muted-foreground" role="status">{server ? (server.rowCount ? `Showing ${firstRow}–${lastRow} of ${server.rowCount} ${itemLabel}` : `0 ${itemLabel}`) : `${table.getFilteredRowModel().rows.length} of ${data.length} ${itemLabel}`}</p>
       <div className="flex flex-wrap items-center gap-4">
         <Field orientation="horizontal" className="w-auto">
-          <FieldLabel htmlFor={`${id}-page-size`}>Rows per page</FieldLabel>
+          <FieldLabel htmlFor={`${id}-page-size`}>Per page</FieldLabel>
           <NativeSelect className="rounded-full bg-card" id={`${id}-page-size`} value={pagination.pageSize} onChange={e => server ? server.onPaginationChange({ pageIndex: 0, pageSize: Number(e.target.value) }) : table.setPageSize(Number(e.target.value))}>
             {(server?.pageSizes ?? [10, 20, 50]).map(size => <NativeSelectOption key={size} value={size}>{size}</NativeSelectOption>)}
           </NativeSelect>
