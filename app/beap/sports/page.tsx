@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { sportsAllocationSchema, sportsBudget, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSections, type SportsPlan } from "@/lib/sports";
+import { sportsAllocationSchema, sportsBudget, sportsCatalogError, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSections, type SportsPlan } from "@/lib/sports";
 
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
@@ -148,8 +148,12 @@ export default function SportsPage() {
     const parsed = view === "budget"
       ? sportsLineSchema.safeParse({ ...budget, quantity: Number(budget.quantity), unitCost: Number(budget.unitCost) })
       : sportsAllocationSchema.safeParse({ ...allocation, quantity: Number(allocation.quantity) });
-    if (!parsed.success) {
-      const nextErrors = Object.fromEntries(parsed.error.issues.map((issue) => [issue.path[0], issue.message]));
+    // Same catalogue rules as the API; a saved line keeps its legacy sport/sub-activity if unchanged.
+    const saved = view === "budget" && editingId ? plan.lines.find((line) => line.id === editingId) : undefined;
+    const rule = parsed.success && view === "budget" ? sportsCatalogError({ ...budget, activityType: budget.activityType.trim(), description: budget.description.trim() }, plan.lines, editingId) : null;
+    const ruleError = rule && !(rule.field === "activityType" && saved?.section === budget.section && saved.activityType === budget.activityType.trim()) ? { [rule.field]: rule.message } : null;
+    if (!parsed.success || ruleError) {
+      const nextErrors = ruleError ?? (parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((issue) => [issue.path[0], issue.message])));
       if (nextErrors.schoolId) nextErrors.schoolId = "Choose a school from the directory.";
       if (nextErrors.lineId) nextErrors.lineId = "Choose an equipment item from your budget.";
       setErrors(nextErrors);
@@ -191,7 +195,7 @@ export default function SportsPage() {
       {view === "allocation" && !hasEquipment && !loading && !loadError && <div className="sports-empty-action"><Button variant="outline" onClick={() => changeView("budget")}>Go to budget</Button></div>}
     </div></ScrollArea>
     <div className="editor-footer">
-      <div className="line-total"><span>{view === "budget" ? "Line total" : "Items for this school"}</span><strong>{view === "budget" ? money.format(Number.isFinite(lineTotal) ? lineTotal : 0) : Number(allocation.quantity || 0).toLocaleString()}</strong></div>
+      <div className="line-total"><span>{view === "budget" ? "Total cost" : "Items for this school"}</span><strong>{view === "budget" ? money.format(Number.isFinite(lineTotal) ? lineTotal : 0) : Number(allocation.quantity || 0).toLocaleString()}</strong></div>
       <div className="footer-actions">{editingId && <><Button variant="ghost" disabled={saving} onClick={() => {
         const run = () => view === "budget" ? resetBudget() : resetAllocation();
         if (view === "budget" ? budgetDirty : allocationDirty) setPendingAction({ run, leaving: false }); else run();
@@ -204,7 +208,7 @@ export default function SportsPage() {
   const preview = <section className="workspace-pane preview-pane" aria-label="Sports plan preview"><ScrollArea className="pane-scroll"><article className="preview-document sports-preview">
     <div className="plan-overview"><div><span>{view === "budget" ? "Proposed sports budget" : "Beneficiary schools"}</span>{loading ? <Skeleton className="h-8 w-48" /> : <strong>{view === "budget" ? money.format(budgetTotal) : `${schoolCount} ${schoolCount === 1 ? "school" : "schools"}`}</strong>}</div><p>{view === "budget" ? `${plan.lines.length} budget ${plan.lines.length === 1 ? "line" : "lines"} · ${schoolCount} beneficiary ${schoolCount === 1 ? "school" : "schools"}` : `${allocatedQuantity.toLocaleString()} of ${equipmentQuantity.toLocaleString()} equipment items allocated`}</p></div>
     {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : view === "budget" ? <>
-      {plan.lines.length > 0 && <dl className="sports-breakdown">{sportsSections.map((section) => <div key={section.id}><dt>{section.id === "supervision" ? "Supervision & verification" : section.label}</dt><dd>{money.format(sportsBudget(plan.lines.filter((line) => line.section === section.id)))}</dd></div>)}</dl>}
+      {plan.lines.length > 0 && <dl className="sports-breakdown">{sportsSections.map((section) => <div key={section.id}><dt>{section.label} · {section.share}% indicative</dt><dd>{money.format(sportsBudget(plan.lines.filter((line) => line.section === section.id)))}<small className="block font-normal text-muted-foreground">{budgetTotal ? Math.round(sportsBudget(plan.lines.filter((line) => line.section === section.id)) / budgetTotal * 100) : 0}% of budget</small></dd></div>)}</dl>}
       <SportsBudgetPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} editingId={budget.id} />
     </> : <SportsBeneficiaryPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} editingId={allocation.id} />}
   </article></ScrollArea></section>;

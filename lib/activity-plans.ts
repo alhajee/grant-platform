@@ -3,11 +3,22 @@ export const activityWorkstreams = ['sbmc', 'tlm'] as const;
 export type ActivityWorkstream = typeof activityWorkstreams[number];
 export const activityNames = {
   sbmc: ['School-Based Management Committees', 'Low-cost rehabilitation of community ECCDE centres', 'Small-scale school improvement projects', 'School operations and development planning', 'Capacity building of SBMC members', 'Sensitization campaigns', 'Support to private/community schools and stakeholders', 'Others'],
-  tlm: ['Purchase of TLMs to Schools', 'Capacity Building of Teachers on the Implementation of the Revised TLMs', 'Distribution of TLMs to Schools', 'Monitoring of TLMs', 'Others'],
+  // Lines are stored by index: TLM 0-4 are the earlier activities (kept so saved lines still render), 5-22 are the UBEC allowable-materials checklist.
+  tlm: ['Purchase of TLMs to Schools', 'Capacity Building of Teachers on the Implementation of the Revised TLMs', 'Distribution of TLMs to Schools', 'Monitoring of TLMs', 'Others',
+    'Textbooks', 'Supplementary books', 'Teacher resources', 'Visual aids', 'Language materials', 'Mathematics materials', 'Science materials', 'Social Studies/Geography materials', 'Basic Technology materials', 'Computer Studies resources', 'Educational games', 'Writing and teaching aids', 'Art and creativity supplies', 'Audio materials', 'Digital/basic devices', 'Projection equipment', 'Interactive learning boards', 'Other TLMs'],
 } as const;
-export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7], tlm: [0,2,3,4] } as const;
-export const otherActivityIndex = { sbmc: 7, tlm: 4 } as const;
-export const activityLabel = (workstream: ActivityWorkstream, activity: number, customActivity = '') => activity === otherActivityIndex[workstream] && customActivity ? customActivity : activityNames[workstream][activity] ?? 'Unknown activity';
+/** Example items shown under each TLM checklist activity. */
+export const activityHints: Partial<Record<ActivityWorkstream, Record<number, string>>> = { tlm: {
+  5: 'English Studies, Mathematics, Basic Science/Technology, Social Studies', 6: 'Story books, supplementary readers, graded readers', 7: 'Teacher guides, lesson and activity resources', 8: 'Charts, posters, diagrams, maps, globes', 9: 'Flashcards, picture, word and alphabet cards', 10: 'Counting blocks, abacus, number cards, geometric shapes, manipulatives', 11: 'Models, specimens, magnifying glasses, simple microscopes', 12: 'Maps, globes, charts, models', 13: 'Models, demonstration materials, practical learning resources', 14: 'Basic computers and learning resources', 15: 'Educational games', 16: 'Blackboards, whiteboards, rulers, protractors, scales', 17: 'Art and craft supplies', 18: 'Radios, tape recorders, CD players', 19: 'Tablets, where justified', 20: 'Overhead projectors', 21: 'Smart interactive boards', 22: 'Must be justified and meet UBEC standards',
+} };
+export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22] } as const;
+/** The selectable "other" activity that needs a custom name. */
+export const otherActivityIndex = { sbmc: 7, tlm: 22 } as const;
+const customActivityIndexes = { sbmc: [7], tlm: [4, 22] } as const;
+/** TLM activity whose lines record textbook classes and subject. */
+export const textbookActivityIndex = 5;
+export const activityLabel = (workstream: ActivityWorkstream, activity: number, customActivity = '') => (customActivityIndexes[workstream] as readonly number[]).includes(activity) && customActivity ? customActivity : activityNames[workstream][activity] ?? 'Unknown activity';
+/** Material types used by legacy TLM purchase lines (activity 0). */
 export const materialTypes = ['Textbooks', 'Teachers guide', 'Interactive learning materials', 'Teaching aids & basic devices'] as const;
 export const textbookClasses = ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JSS 1', 'JSS 2', 'JSS 3'] as const;
 export const textbookSubjects = ['English/literacy (Core)', 'Mathematics/Numeracy (Core)', 'Basic Science (Core)', 'Social Studies', 'Nigerian languages (one local language textbook)', 'Physical and Health Education', 'History'] as const;
@@ -20,7 +31,7 @@ export const activityLineSchema = z.object({
   implementationApproach: z.string().trim().max(1000).default(''),
   quantity: z.number().int().min(1).max(1000000),
   unitCost: z.number().positive().max(999999999999.99).refine(n=>Math.abs(n*100-Math.round(n*100))<.001, 'Use at most two decimal places.'),
-  strategy: z.enum(implementationStrategies), targetGroup: z.enum(targetGroups), location: z.enum(['Rural','Urban']),
+  strategy: z.enum(implementationStrategies), targetGroup: z.enum(targetGroups), location: z.enum(['','Rural','Urban']).default(''),
   equipment: z.string().max(100).default(''),
   customActivity: z.string().trim().max(160).default(''),
   textbookClasses: z.array(z.enum(textbookClasses)).max(textbookClasses.length).default([]),
@@ -31,9 +42,8 @@ export const activityLineSchema = z.object({
   const isOther=v.activity===otherActivityIndex[v.workstream];
   if(isOther&&!v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'Enter the allowable activity.'});
   if(!isOther&&v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'A custom activity only applies when Others is selected.'});
-  if(v.workstream==='tlm'&&v.activity===0&&!materialTypes.some(m=>m===v.equipment))ctx.addIssue({code:'custom',path:['equipment'],message:'Choose a material type.'});
-  if(!(v.workstream==='tlm'&&v.activity===0)&&v.equipment)ctx.addIssue({code:'custom',path:['equipment'],message:'Material type only applies to TLM purchases.'});
-  const isTextbook=v.workstream==='tlm'&&v.activity===0&&v.equipment==='Textbooks';
+  if(v.equipment)ctx.addIssue({code:'custom',path:['equipment'],message:'Material type no longer applies; choose the material as the activity.'});
+  const isTextbook=v.workstream==='tlm'&&v.activity===textbookActivityIndex;
   if(isTextbook&&!v.textbookClasses.length)ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Choose at least one class for the textbooks.'});
   if(isTextbook&&!textbookSubjects.some(subject=>subject===v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookSubject'],message:'Choose a subject for the textbooks.'});
   if(!isTextbook&&(v.textbookClasses.length||v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Class and subject only apply to textbooks.'});
@@ -41,4 +51,16 @@ export const activityLineSchema = z.object({
 });
 export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number};
 export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string};
-export type DistributionSchool = {id:number;name:string;lga:string;level:string;location:string};
+export type DistributionSchool = {id:number;name:string;lga:string;level:string;location:string;enrolment?:number};
+/** Splits a budget (kobo) across schools in proportion to enrolment; remainders go to the largest fractions so shares sum exactly. Empty when no school has learners. */
+export function allocateByEnrolment(totalKobo: number, schools: readonly {id:number;enrolment?:number}[]): Map<number, number> {
+  const learners = schools.reduce((sum, s) => sum + Math.max(0, s.enrolment ?? 0), 0), shares = new Map<number, number>();
+  if (!learners || totalKobo <= 0) return shares;
+  const exact = schools.map(s => ({ id: s.id, value: totalKobo * Math.max(0, s.enrolment ?? 0) / learners }));
+  const floors = exact.map(e => ({ ...e, floor: Math.floor(e.value) }));
+  const left = totalKobo - floors.reduce((sum, e) => sum + e.floor, 0);
+  const order = [...floors].sort((a, b) => (b.value - b.floor) - (a.value - a.floor));
+  const bonus = new Set(order.slice(0, left).map(e => e.id));
+  for (const e of floors) shares.set(e.id, e.floor + (bonus.has(e.id) ? 1 : 0));
+  return shares;
+}

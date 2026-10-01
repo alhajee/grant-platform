@@ -23,13 +23,13 @@ export const ubecAuthorRoles = ['UBEC Executive Secretary', 'UBEC Department Rev
 
 // Column ids and headers mirror components/plan-workbook/sheets.tsx (scripts/test-plan-comments.mjs checks they stay in sync).
 const activityColumns = { activity: 'Allowable activity', description: 'Description' };
-const activityTail = { strategy: 'Strategy', target: 'Target group', location: 'Location', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' };
+const activityTail = { strategy: 'Strategy', target: 'Target group', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' };
 export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   infrastructure: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', type: 'Project type', code: 'Code', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', scope: 'Components', learners: 'Learners', strategy: 'Strategy', duration: 'Duration' },
-  sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Allowable activity', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty.' },
+  sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Sport / sub-activity', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty.' },
   sbmc: { ...activityColumns, rationale: 'Rationale', approach: 'Implementation approach', ...activityTail },
   tlm: { ...activityColumns, material: 'Material type', subject: 'Subject', classes: 'Classes', ...activityTail },
-  distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location' },
+  distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
 };
 
 /**

@@ -23,13 +23,13 @@ export function SportsBudgetPreview({ plan, disabled, onEdit, onRemove, editingI
     if (!lines.length) return null;
     const types = [...new Set(lines.map((line) => line.activityType))];
     return <section key={section.id} aria-labelledby={`preview-${section.id}`} className="sports-schedule">
-      <div className="sports-section-total"><h2 id={`preview-${section.id}`}>{section.label}</h2><strong>{money.format(sportsBudget(lines))}</strong></div>
+      <div className="sports-section-total"><h2 id={`preview-${section.id}`}>{section.label} <span className="font-normal text-muted-foreground">· {section.share}%</span></h2><strong>{money.format(sportsBudget(lines))}</strong></div>
       {types.map((type) => {
         const typeLines = lines.filter((line) => line.activityType === type);
         return <div className="sports-table" key={type}>
-          <div className="sports-type-heading"><h3>{type}</h3><span>{typeLines.length} {typeLines.length === 1 ? "line" : "lines"}</span></div>
+          {section.id !== "supervision" && <div className="sports-type-heading"><h3>{type}</h3><span>{typeLines.length} {typeLines.length === 1 ? "line" : "lines"}</span></div>}
           <Table className="table-fixed sports-editable-table" data-view="budget"><colgroup><col /><col className="sports-amount-column" /><col className="actions-column" /></colgroup>
-            <TableHeader><TableRow><TableHead>Item / allowable activity</TableHead><TableHead className="text-right">Amount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>{section.itemLabel}</TableHead><TableHead className="text-right">Amount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
             <TableBody>{typeLines.map((line) => <TableRow key={line.id} className="sports-editable-row" tabIndex={0} aria-label={`Edit ${line.description}`} aria-selected={editingId === line.id} data-sports-row-id={`budget-${line.id}`} data-state={editingId === line.id ? "selected" : undefined} onClick={() => !disabled && onEdit({ entity: "budget", item: line })} onKeyDown={(event) => { if (!disabled && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit({ entity: "budget", item: line }); } }}>
               <TableCell className="school-cell"><div className="school-name">{line.description}</div><div className="school-location">{line.quantity.toLocaleString()} × {money.format(line.unitCost)}</div>{line.section === "equipment" && <div className="school-code">{line.code}</div>}<div className="sports-mobile-amount">{money.format(sportsLineTotal(line))}</div></TableCell>
               <TableCell className="sports-amount-cell">{money.format(sportsLineTotal(line))}</TableCell>

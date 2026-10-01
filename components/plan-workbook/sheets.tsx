@@ -1,14 +1,15 @@
 import { Building2, Trophy, Users, BookOpen, School } from 'lucide-react';
 import type { Snapshot } from '@/lib/plan-review';
-import { activityLabel } from '@/lib/activity-plans';
+import { activityLabel, allocateByEnrolment } from '@/lib/activity-plans';
 import { kindNames } from '@/lib/infrastructure-model';
+import { sportsSections } from '@/lib/sports';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import type { CellValue, WorkbookColumn, WorkbookRow, WorkbookSheet } from './types';
 
 export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string };
 const cost = (line: { unit_cost: string; quantity: number }) => Math.round(Number(line.unit_cost) * 100) * line.quantity / 100;
-const sectionNames: Record<string, string> = { equipment: 'Equipment', competitions: 'Competitions', publicity: 'Publicity', supervision: 'Supervision' };
+const sectionNames: Record<string, string> = Object.fromEntries(sportsSections.map(section => [section.id, section.shortLabel]));
 const text = (id: string, header: string, size = 150, filter = false): WorkbookColumn => ({ id, header, kind: 'text', size, filter });
 const qty = (id = 'quantity', header = 'Qty.', total = false): WorkbookColumn => ({ id, header, kind: 'number', size: header === 'Qty.' ? 80 : 104, total });
 const amount = (id: string, header: string, total = false): WorkbookColumn => ({ id, header, kind: 'money', size: 156, total });
@@ -39,7 +40,7 @@ function sportsSheet(snapshot: Snapshot, editHref?: string): WorkbookSheet {
   const byId = new Map(snapshot.sports.map(line => [String(line.id), line]));
   return {
     key: 'sports', label: 'Sports', hash: 'review-sports', icon: Trophy, itemLabel: 'budget items', empty: 'No sports budget items.', editHref, editLabel: 'Sports activities',
-    columns: [text('item', 'Budget item', 270), text('code', 'Code', 180), text('section', 'Section', 124, true), text('activity', 'Allowable activity', 170, true), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), qty('schools', 'Schools', true), qty('allocated', 'Allocated qty.')],
+    columns: [text('item', 'Budget item', 270), text('code', 'Code', 180), text('section', 'Section', 124, true), text('activity', 'Sport / sub-activity', 170, true), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), qty('schools', 'Schools', true), qty('allocated', 'Allocated qty.')],
     rows: snapshot.sports.map(line => row(String(line.id), {
       item: line.description, code: line.code, section: sectionNames[line.section] || line.section, activity: line.activity_type || '',
       schools: line.section === 'equipment' ? line.allocations.length : '', allocated: line.section === 'equipment' ? line.allocations.reduce((sum, a) => sum + a.quantity, 0) : '',
@@ -61,20 +62,22 @@ function activitySheet(key: 'sbmc' | 'tlm', lines: NonNullable<Snapshot['sbmc']>
   const extra: WorkbookColumn[] = tlm ? [text('material', 'Material type', 170, true), text('subject', 'Subject', 190, true), text('classes', 'Classes', 170)] : [text('rationale', 'Rationale', 260), text('approach', 'Implementation approach', 260)];
   return {
     key, label: tlm ? 'Teaching & Learning Materials' : 'SBMC', hash: `review-${key}`, icon: tlm ? BookOpen : Users, itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: tlm ? 'Teaching & Learning Materials' : 'SBMC',
-    columns: [text('activity', 'Allowable activity', 240, true), text('description', 'Description', 280), ...extra, text('strategy', 'Strategy', 170, true), text('target', 'Target group', 170, true), text('location', 'Location', 104, true), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
+    columns: [text('activity', 'Allowable activity', 240, true), text('description', 'Description', 280), ...extra, text('strategy', 'Strategy', 170, true), text('target', 'Target group', 170, true), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
     rows: lines.map(line => row(String(line.id), {
       activity: activityLabel(key, line.activity, line.custom_activity), description: line.description,
       ...(tlm ? { material: line.equipment || '', subject: line.textbook_subject || '', classes: line.textbook_classes?.join(', ') ?? '' } : { rationale: line.rationale || '', approach: line.implementation_approach || '' }),
-      strategy: line.strategy, target: line.target_group, location: line.location, quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
+      strategy: line.strategy, target: line.target_group, quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
     })),
   };
 }
 
-function distributionSheet(schools: NonNullable<Snapshot['tlmDistribution']>, editHref?: string): WorkbookSheet {
+/** Allocation = the TLM budget shared across the listed schools by enrolment (snapshots before enrolment was recorded show blanks). */
+function distributionSheet(schools: NonNullable<Snapshot['tlmDistribution']>, tlmLines: NonNullable<Snapshot['tlm']>, editHref?: string): WorkbookSheet {
+  const shares = allocateByEnrolment(Math.round(tlmLines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
   return {
     key: 'distribution', label: 'TLM distribution', hash: 'review-tlm-distribution', icon: School, itemLabel: 'schools', empty: 'No distribution schools.', editHref, editLabel: 'TLM distribution list',
-    columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true)],
-    rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location })),
+    columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true), qty('learners', 'Learners', true), amount('allocation', 'Allocation', true)],
+    rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, learners: s.enrolment ?? '', allocation: shares.has(s.id) ? shares.get(s.id)! / 100 : '' })),
   };
 }
 
@@ -84,7 +87,7 @@ export function buildSheets(snapshot: Snapshot, visiblePillars: readonly string[
   if (visiblePillars.includes('infrastructure')) sheets.push(infrastructureSheet(snapshot, links.infrastructureEditHref));
   if (visiblePillars.includes('sports')) sheets.push(sportsSheet(snapshot, links.sportsEditHref));
   if (visiblePillars.includes('sbmc') && snapshot.sbmc) sheets.push(activitySheet('sbmc', snapshot.sbmc, links.sbmcEditHref));
-  if (visiblePillars.includes('tlm') && snapshot.tlm) sheets.push(activitySheet('tlm', snapshot.tlm, links.tlmEditHref), distributionSheet(snapshot.tlmDistribution ?? [], links.tlmEditHref));
+  if (visiblePillars.includes('tlm') && snapshot.tlm) sheets.push(activitySheet('tlm', snapshot.tlm, links.tlmEditHref), distributionSheet(snapshot.tlmDistribution ?? [], snapshot.tlm, links.tlmEditHref));
   return sheets;
 }
 

@@ -65,7 +65,7 @@ try {
   const q = `?plan=${planId}`, comments = `/api/plans/comments${q}`, reviewPath = `/api/plans/review${q}`;
   const review = async (who, action, pillar, comment = '') => api(who, reviewPath, { action, pillar, version: ok(await api(who, reviewPath)).plan.version, comment });
   const balls = ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 10, unitCost: 15000 }), 201).id;
-  const kits = ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'competitions', activityType: 'Football', description: 'Inter-school finals', quantity: 1, unitCost: 900000 }), 201).id;
+  const kits = ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'competitions', activityType: 'Inter School Competition', description: 'Inter-school finals', quantity: 1, unitCost: 900000 }), 201).id;
   ok(await api('des', `/api/activities${q}`, { workstream: 'sbmc', entity: 'line', action: 'create', activity: 1, description: 'Rehabilitate ECCDE centres', rationale: 'Collapsed roofs', implementationApproach: 'Community labour', quantity: 100, unitCost: 500000, strategy: 'Credit SBMC school account', targetGroup: 'Community level', location: 'Rural' }));
   const sbmcLine = String((await db.query('SELECT id FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2', [planId, 'sbmc'])).rows[0].id);
   schoolId = (await db.query("INSERT INTO schools(name,lga,level,location,state_code) VALUES($1,'QA LGA','Primary','Urban',$2) RETURNING id", [`QA School ${tag}`, state])).rows[0].id;

@@ -4,11 +4,12 @@ import { CurrencyInput } from "@/components/currency-input";
 import { SportsSectionSelect } from "@/components/sports-section-select";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { PackageIcon } from "lucide-react";
-import { sportsSections, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
+import { equipmentSports, findSport, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, supervisionActivity, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
 export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; quantity: string; unitCost: string };
 export type AllocationDraft = { id?: number; schoolId: number | null; lineId: number | null; quantity: string; longitude: string; latitude: string };
@@ -16,49 +17,87 @@ export type FormErrors = Record<string, string>;
 export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", quantity: "1", unitCost: "" };
 export const emptyAllocation: AllocationDraft = { schoolId: null, lineId: null, quantity: "1", longitude: "", latitude: "" };
 
+// "Select and type": pick a listed value or, when allowed, type your own.
+function SelectOrType({ id, items, value, onChange, allowCustom, isDisabled, placeholder, emptyText, error, disabled, describe }: {
+  id: string; items: readonly string[]; value: string; onChange: (value: string) => void; allowCustom: boolean; isDisabled?: (item: string) => boolean;
+  placeholder: string; emptyText: string; error?: string; disabled: boolean; describe?: (item: string) => string | undefined;
+}) {
+  const entered = value.trim();
+  const listed = items.find((item) => item.toLowerCase() === entered.toLowerCase());
+  const options = allowCustom && entered && !listed ? [...items, entered] : [...items];
+  return <Combobox items={options} value={listed ?? (entered || null)} inputValue={value} disabled={disabled}
+    onInputValueChange={(next, details) => { if (details.reason === "input-change" || details.reason === "input-clear") onChange(next); }}
+    onValueChange={(next) => onChange(next ?? "")}>
+    <ComboboxInput id={id} className="w-full" placeholder={placeholder} maxLength={160} disabled={disabled} showClear aria-invalid={Boolean(error)} aria-describedby={error ? `${id}-error` : undefined} />
+    <ComboboxContent><ComboboxEmpty>{emptyText}</ComboboxEmpty><ComboboxList>{(item: string) => <ComboboxItem key={item} value={item} disabled={isDisabled?.(item)}>{items.includes(item) ? describe?.(item) ? <span className="school-option"><span>{item}</span><small>{describe(item)}</small></span> : item : `Use “${item}”`}</ComboboxItem>}</ComboboxList></ComboboxContent>
+  </Combobox>;
+}
+
 export function SportsBudgetFields({ draft, onChange, plan, errors, disabled }: {
   draft: BudgetDraft; onChange: (value: BudgetDraft) => void; plan: SportsPlan; errors: FormErrors; disabled: boolean;
 }) {
   const section = sportsSections.find((item) => item.id === draft.section)!;
-  const types = [...new Set(plan.lines.filter((line) => line.section === draft.section).map((line) => line.activityType))];
-  const enteredType = draft.activityType.trim();
-  const existingType = types.find((type) => type.toLowerCase() === enteredType.toLowerCase());
-  const suggestions = enteredType && !existingType ? [...types, enteredType] : types;
   const allocated = draft.id ? plan.allocations.filter((allocation) => allocation.lineId === draft.id).reduce((sum, allocation) => sum + allocation.quantity, 0) : 0;
+  const locked = disabled || Boolean(allocated);
+  const usedSports = equipmentSports(plan.lines, draft.id);
+  const sportLimitReached = usedSports.length >= maxEquipmentSports;
+  const sportNames = [...new Set([...usedSports, ...sportsCatalog.map((sport) => sport.name)].map((name) => findSport(name)?.name ?? name))];
+  const sport = findSport(draft.activityType);
+  const sportItems = [...new Set([...(sport?.items ?? []), ...plan.lines.filter((line) => line.section === "equipment" && line.activityType.trim().toLowerCase() === draft.activityType.trim().toLowerCase()).map((line) => line.description)])];
+  const subActivities = draft.section === "competitions" || draft.section === "publicity" ? sportsSubActivities[draft.section] : [];
+  const legacyType = subActivities.length && draft.activityType && !subActivities.some((item) => item.name === draft.activityType) ? draft.activityType : "";
+  const total = sportsLineTotal({ quantity: Number(draft.quantity) || 0, unitCost: Number(draft.unitCost) || 0 });
+  const setText = (field: "activityType" | "description") => (value: string) => onChange({ ...draft, [field]: value });
   return <FieldGroup className="gap-6">
-    <Field data-disabled={disabled || Boolean(allocated)}>
+    <Field data-disabled={locked}>
       <FieldLabel htmlFor="sports-section">Budget section</FieldLabel>
-      <SportsSectionSelect id="sports-section" value={draft.section} disabled={disabled || Boolean(allocated)} onValueChange={(value) => onChange({ ...draft, section: value, activityType: "" })} />
+      <SportsSectionSelect id="sports-section" value={draft.section} disabled={locked} onValueChange={(value) => onChange({ ...draft, section: value, activityType: value === "supervision" ? supervisionActivity : "", description: "" })} />
     </Field>
-    <Field data-invalid={Boolean(errors.activityType)} data-disabled={disabled || Boolean(allocated)}>
-      <FieldLabel htmlFor="sports-type">{section.typeLabel}</FieldLabel>
-      <Combobox items={suggestions} value={existingType ?? (enteredType || null)} inputValue={draft.activityType}
-        disabled={disabled || Boolean(allocated)}
-        onInputValueChange={(value, details) => { if (details.reason === "input-change" || details.reason === "input-clear") onChange({ ...draft, activityType: value }); }}
-        onValueChange={(value) => onChange({ ...draft, activityType: value ?? "" })}>
-        <ComboboxInput id="sports-type" className="w-full" placeholder={section.placeholder} maxLength={160} disabled={disabled || Boolean(allocated)} showClear aria-invalid={Boolean(errors.activityType)} aria-describedby={errors.activityType ? "sports-type-error" : undefined} />
-        <ComboboxContent><ComboboxEmpty>Type a name to add your own.</ComboboxEmpty><ComboboxList>{(type: string) => <ComboboxItem key={type} value={type}>{types.includes(type) ? type : `Use “${type}”`}</ComboboxItem>}</ComboboxList></ComboboxContent>
-      </Combobox>
+    {draft.section === "equipment" && <Field data-invalid={Boolean(errors.activityType)} data-disabled={locked}>
+      <div className="construction-label-row"><FieldLabel htmlFor="sports-type">Sport</FieldLabel><span className="sports-available">{usedSports.length} of {maxEquipmentSports} sports selected</span></div>
+      <SelectOrType id="sports-type" items={sportNames} value={draft.activityType} onChange={(value) => onChange({ ...draft, activityType: value, description: "" })} allowCustom={!sportLimitReached} disabled={locked}
+        isDisabled={(name) => sportLimitReached && !usedSports.some((used) => used.toLowerCase() === name.toLowerCase())} placeholder={section.placeholder}
+        emptyText={sportLimitReached ? `You have selected ${maxEquipmentSports} sports. Add items to one of them.` : "Others: type the sport's name to add it."} error={errors.activityType} />
+      <FieldDescription>Select up to {maxEquipmentSports} sports, then add the equipment needed for each.</FieldDescription>
       {errors.activityType && <FieldError id="sports-type-error">{errors.activityType}</FieldError>}
-    </Field>
+    </Field>}
+    {subActivities.length > 0 && <Field data-invalid={Boolean(errors.activityType)} data-disabled={locked}>
+      <FieldLabel htmlFor="sports-type">{section.typeLabel}</FieldLabel>
+      <Select value={draft.activityType || undefined} onValueChange={setText("activityType")} disabled={locked}>
+        <SelectTrigger id="sports-type" className="w-full" aria-invalid={Boolean(errors.activityType)} aria-describedby={errors.activityType ? "sports-type-error" : undefined}><SelectValue placeholder={section.placeholder}>{draft.activityType}</SelectValue></SelectTrigger>
+        <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width)"><SelectGroup>
+          {legacyType && <SelectItem value={legacyType}>{legacyType}</SelectItem>}
+          {subActivities.map((item) => <SelectItem key={item.name} value={item.name} textValue={item.name}>{item.name}{item.share !== undefined && <span className="ml-auto text-muted-foreground tabular-nums">{item.share}%</span>}</SelectItem>)}
+        </SelectGroup></SelectContent>
+      </Select>
+      {draft.section === "competitions" && <FieldDescription>Shares show UBEC&apos;s indicative split of the competitions budget. They are guidance only.</FieldDescription>}
+      {errors.activityType && <FieldError id="sports-type-error">{errors.activityType}</FieldError>}
+    </Field>}
     <Separator />
     <Field data-invalid={Boolean(errors.description)}>
-      <FieldLabel htmlFor="sports-description">{draft.section === "equipment" || draft.section === "competitions" ? "Item description" : "Allowable activity / item description"}</FieldLabel>
-      <Input id="sports-description" value={draft.description} maxLength={1000} placeholder={draft.section === "equipment" ? "e.g. Footballs" : "Enter a description"} onChange={(event) => onChange({ ...draft, description: event.target.value })} aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? "sports-description-error" : undefined} />
+      <FieldLabel htmlFor="sports-description">{section.itemLabel}</FieldLabel>
+      {draft.section === "equipment"
+        ? <SelectOrType id="sports-description" items={sportItems} value={draft.description} onChange={setText("description")} allowCustom={!sport || sport.customItems} disabled={disabled || !draft.activityType.trim()}
+          placeholder={draft.activityType.trim() ? sport?.customItems === false ? "Choose an item…" : "Choose an item or type another…" : "Choose a sport first"} emptyText={sport?.customItems === false ? `Choose a listed ${sport.name} item.` : "Others: type the item's name to add it."} error={errors.description} />
+        : <Input id="sports-description" value={draft.description} maxLength={1000} placeholder="Enter a description" onChange={(event) => onChange({ ...draft, description: event.target.value })} aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? "sports-description-error" : undefined} />}
       {errors.description && <FieldError id="sports-description-error">{errors.description}</FieldError>}
     </Field>
     <FieldGroup className="field-columns">
       <Field data-invalid={Boolean(errors.quantity)}>
-        <FieldLabel htmlFor="sports-quantity">Quantity</FieldLabel>
+        <FieldLabel htmlFor="sports-quantity">Qty</FieldLabel>
         <Input id="sports-quantity" type="number" inputMode="numeric" min={Math.max(1, allocated)} max={1000000} step={1} value={draft.quantity} onChange={(event) => onChange({ ...draft, quantity: event.target.value })} aria-invalid={Boolean(errors.quantity)} aria-describedby={errors.quantity ? "sports-quantity-error" : undefined} />
         {errors.quantity && <FieldError id="sports-quantity-error">{errors.quantity}</FieldError>}
       </Field>
       <Field data-invalid={Boolean(errors.unitCost)}>
-        <FieldLabel htmlFor="sports-unit-cost">Unit cost (₦)</FieldLabel>
+        <FieldLabel htmlFor="sports-unit-cost">Unit cost (NGN)</FieldLabel>
         <CurrencyInput id="sports-unit-cost" placeholder="0.00" value={draft.unitCost} onValueChange={(unitCost) => onChange({ ...draft, unitCost })} aria-invalid={Boolean(errors.unitCost)} aria-describedby={errors.unitCost ? "sports-unit-cost-error" : undefined} />
         {errors.unitCost && <FieldError id="sports-unit-cost-error">{errors.unitCost}</FieldError>}
       </Field>
     </FieldGroup>
+    <Field>
+      <FieldLabel htmlFor="sports-total-cost">Total cost (NGN)</FieldLabel>
+      <Input id="sports-total-cost" readOnly tabIndex={-1} value={sportsMoney.format(Number.isFinite(total) ? total : 0)} className="tabular-nums" />
+    </Field>
     {allocated > 0 && <p className="construction-summary">{allocated} items allocated to schools. The sport and section are locked while allocations exist.</p>}
   </FieldGroup>;
 }

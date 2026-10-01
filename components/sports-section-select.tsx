@@ -13,7 +13,7 @@ function SectionIdentity({ section }: { section: typeof sportsSections[number] }
         <AvatarImage src={`/sports-sections/${section.id}.svg`} alt="" width={48} height={48} />
         <AvatarFallback className="rounded-lg">{initials[section.id]}</AvatarFallback>
       </Avatar>
-      <span className="min-w-0 whitespace-normal text-left">{section.label}</span>
+      <span className="flex min-w-0 flex-col whitespace-normal text-left"><span>{section.label}</span><small className="text-muted-foreground">{section.share}% indicative share</small></span>
     </span>
   );
 }

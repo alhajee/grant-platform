@@ -29,7 +29,8 @@ try {
   assert.equal(sportsAllocationSchema.safeParse({ ...allocate, lineId: 1, schoolId: 1, longitude: "181" }).success, false);
   assert.equal(sportsAllocationSchema.safeParse({ ...allocate, lineId: 1, schoolId: 1, latitude: "-91" }).success, false);
   const original = (await db.query("SELECT id, row_to_json(line)::text AS snapshot FROM infrastructure_lines line ORDER BY id")).rows;
-  await db.query("INSERT INTO users (email, full_name, role, password_hash, state_code) VALUES ($1, 'Sports QA', 'Data Entry Officer', $2, $3)", [email, hashSync(password, 4), marker]);
+  const userId = (await db.query("INSERT INTO users (email, full_name, role, department, password_hash, state_code) VALUES ($1, 'Sports QA', 'Data Entry Staff', 'academic', $2, $3) RETURNING id", [email, hashSync(password, 4), marker])).rows[0].id;
+  await db.query("INSERT INTO user_departments (user_id, department) VALUES ($1, 'academic')", [userId]);
   const schools = (await db.query("INSERT INTO schools (name, lga, level, location, state_code) VALUES ($1, 'QA', 'Primary', 'Urban', $3), ($2, 'QA', 'Primary', 'Rural', $3) RETURNING id", [`${marker}-A`, `${marker}-B`, marker])).rows;
   const foreignSchool = (await db.query("INSERT INTO schools (name, lga, level, location, state_code) VALUES ($1, 'QA', 'Primary', 'Rural', $2) RETURNING id", [foreignMarker, foreignMarker])).rows[0].id;
   const foreignPlan = (await db.query("INSERT INTO action_plans (state_code, start_year, end_year) VALUES ($1, 2025, 2025) RETURNING id", [foreignMarker])).rows[0].id;
@@ -37,7 +38,7 @@ try {
   const login = await api({ email, password }, false, "/api/auth/login");
   assert.equal(login.status, 200);
   cookie = login.response.headers.get("set-cookie").split(";")[0];
-  assert.equal((await api({ startYear: 2025, endYear: 2025 }, true, "/api/plans")).status, 201);
+  await db.query("INSERT INTO action_plans (state_code, start_year, end_year) VALUES ($1, 2025, 2025)", [marker]);
   assert.equal((await api(undefined, false)).status, 401);
   assert.equal((await api(budget, false)).status, 401);
   assert.equal((await api(allocate, false)).status, 401);
@@ -51,7 +52,20 @@ try {
   assert.equal(created.status, 201, JSON.stringify(created.body));
   const lineId = created.body.id;
   assert.match(created.body.code, /^UBEC\/SUBEB\/SPORT\/\d+\/2025$/);
-  for (const section of ["competitions", "publicity", "supervision"]) assert.equal((await api({ ...budget, section, activityType: `QA ${section}`, quantity: 2, unitCost: 100.1 })).status, 201);
+  const subActivity = { competitions: "Inter School Competition", publicity: "Electronic Media", supervision: "QA supervision" };
+  for (const section of ["competitions", "publicity"]) assert.equal((await api({ ...budget, section, activityType: `QA ${section}`, quantity: 2, unitCost: 100.1 })).status, 400, "Sub-activities must come from the UBEC list.");
+  for (const section of ["competitions", "publicity", "supervision"]) assert.equal((await api({ ...budget, section, activityType: subActivity[section], quantity: 2, unitCost: 100.1 })).status, 201);
+  assert.equal((await api()).body.lines.find((line) => line.section === "supervision").activityType, "Supervision, Assessment and Verification", "Supervision lines carry the section name.");
+  // Procurement: at most three distinct sports; listed-only items for Basketball.
+  assert.equal((await api({ ...budget, activityType: "Basketball", description: "Trampoline", quantity: 1, unitCost: 1 })).status, 400);
+  const sportLines = [];
+  for (const activityType of ["Basketball", "football"]) { const created = await api({ ...budget, activityType, description: activityType === "Basketball" ? "Basketballs" : "Footballs", quantity: 1, unitCost: 1 }); assert.equal(created.status, 201, JSON.stringify(created.body)); sportLines.push(created.body.id); }
+  assert.equal((await api({ ...budget, activityType: "Tennis", description: "Tennis balls", quantity: 1, unitCost: 1 })).status, 409, "A fourth sport must be rejected.");
+  const sameSport = await api({ ...budget, activityType: " CHILDREN'S FOOTBALL ", description: "Bibs", quantity: 1, unitCost: 1 });
+  assert.equal(sameSport.status, 201, "An existing sport (any case) is not a new sport.");
+  sportLines.push(sameSport.body.id);
+  assert.equal((await api({ ...budget, action: "update", id: sportLines[1], activityType: "Tennis", description: "Tennis balls", quantity: 1, unitCost: 1 })).status, 200, "Replacing a sport's only line keeps the plan at three sports.");
+  for (const id of sportLines) assert.equal((await api({ entity: "budget", action: "delete", id })).status, 200);
   assert.equal((await api()).body.lines.find((line) => line.id === lineId).activityType, budget.activityType);
   const schoolAllocation = { ...allocate, lineId, schoolId: schools[0].id };
   assert.equal((await api({ ...schoolAllocation, schoolId: foreignSchool })).status, 400);
@@ -87,7 +101,7 @@ try {
   assert.deepEqual(overview.infrastructure, { lineCount: 0, schoolCount: 0, budget: 0 });
   const after = (await db.query("SELECT id, row_to_json(line)::text AS snapshot FROM infrastructure_lines line WHERE id = ANY($1::int[]) ORDER BY id", [original.map((line) => line.id)])).rows;
   assert.deepEqual(after, original, "Existing infrastructure data must be unchanged.");
-  console.log("PASS: four sections, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
+  console.log("PASS: four sections, sub-activity lists, max three procurement sports, Basketball item list, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
 } finally {
   await db.query("DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code = ANY($1::text[]))", [[marker, foreignMarker]]);
   await db.query("DELETE FROM sports_budget_lines WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);

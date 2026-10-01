@@ -24,3 +24,14 @@
 .activity-shell[data-workstream=tlm] .activity-line-row[data-state=selected]{background:color-mix(in srgb,var(--lilac) 42%,var(--card))}
 @media(hover:hover) and (pointer:fine){.activity-line-row:hover{background:color-mix(in srgb,var(--muted) 58%,var(--card))}.activity-shell[data-workstream=sbmc] .activity-line-row[data-state=selected]:hover{background:color-mix(in srgb,var(--sage) 52%,var(--card))}.activity-shell[data-workstream=tlm] .activity-line-row[data-state=selected]:hover{background:color-mix(in srgb,var(--lilac) 52%,var(--card))}.activity-line-navigation [data-slot=button]:not(:disabled):hover{background:var(--primary);color:var(--primary-foreground)}}
 @media(max-width:850px){.activity-shell{height:auto;overflow:visible}.activity-shell .portal-workspace{height:auto;overflow:visible}.activity-split{grid-template-columns:1fr;overflow:visible}.activity-split .workspace-pane{min-height:500px}.activity-split .pane-scroll{max-height:650px}.activity-split .editor-pane{border-right:0;border-bottom:1px solid var(--border)}}
+.school-picker { max-height:min(52dvh,460px);overflow:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card); }
+.school-pick { display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer; }
+.school-pick:last-child { border-bottom:0; }
+.school-pick [data-slot=checkbox] { margin-top:3px; }
+.school-pick[data-listed] { cursor:default;opacity:.7; }
+.school-pick .school-option { flex:1; }
+.school-pick-all { position:sticky;top:0;z-index:1;align-items:center;background:var(--muted);font-weight:500; }
+.school-pick-badges { display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px; }
+.school-pick-empty { padding:10px 12px;color:var(--muted-foreground);font-size:14px; }
+.distribution-note { margin-bottom:12px;color:var(--muted-foreground);font-size:14px; }
+@media(hover:hover) and (pointer:fine){.school-pick:not([data-listed]):not(.school-pick-all):hover{background:color-mix(in srgb,var(--muted) 58%,var(--card))}}

@@ -7,7 +7,7 @@ import { readPillarReviews, mayEditPillar } from '@/lib/pillar-review';
 import { planPeriod } from "@/lib/action-plans";
 import { getPostgres } from "@/lib/postgres";
 import { getWorkspaceState, sqlText } from "@/lib/workspace-state";
-import { sportsAllocationSchema, sportsLineSchema } from "@/lib/sports";
+import { sportsAllocationSchema, sportsCatalogError, sportsLineSchema } from "@/lib/sports";
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const commandSchema = z.object({ entity: z.enum(["budget", "allocation"]), action: z.enum(["create", "update", "delete"]), id: z.number().int().positive().optional() });
@@ -68,6 +68,12 @@ export async function POST(request: NextRequest) {
         if (!parsed.success) return error(parsed.error.issues[0].message);
         const line = parsed.data;
         if (allocated && (line.section !== existing?.section || line.activityType !== existing?.activity_type)) return error("Remove this item's school allocations before changing its sport or section.", 409);
+        // Catalogue rules (max 3 procurement sports, listed sub-activities). A legacy line
+        // keeps its saved sport/sub-activity when it is edited without changing it.
+        const unchanged = existing && existing.section === line.section && existing.activity_type === line.activityType;
+        const others = (await db.query(`SELECT id, section, activity_type AS "activityType" FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id}`)).rows;
+        const rule = sportsCatalogError(line, others, id);
+        if (rule && !(unchanged && rule.field === "activityType")) return error(rule.message, rule.field === "activityType" && line.section === "equipment" ? 409 : 400);
         if (line.quantity < allocated) return error(`${allocated} items are already allocated to schools. Reduce those allocations first.`, 409);
         const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${line.quantity}, ${line.unitCost.toFixed(2)}`;
         const result = action === "create"

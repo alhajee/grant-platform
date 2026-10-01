@@ -17,9 +17,12 @@ export async function GET(req:NextRequest){
   const db=getPostgres(), workstream=parsed.data;
   if(!canViewComponent(user,workstream))return error('This component belongs to another department.',403);
   const lines=(await db.query('SELECT id,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject" FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
-  const schools=workstream==='tlm'?(await db.query('SELECT id,name,lga,level,location FROM schools WHERE state_code=$1 ORDER BY name',[user.stateCode])).rows:[];
-  const distribution=workstream==='tlm'?(await db.query('SELECT s.id,s.name,s.lga,s.level,s.location FROM tlm_distribution d JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND s.state_code=$2 ORDER BY s.name',[plan.id,user.stateCode])).rows:[];
-  return NextResponse.json({plan,lines,schools,distribution,canEdit:mayEditPillar(user.role,user.departments ?? user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
+  const schoolFields='s.id,s.name,s.lga,s.level,s.location,(s.enrolment_male+s.enrolment_female)::int AS enrolment';
+  const schools=workstream==='tlm'?(await db.query(`SELECT ${schoolFields} FROM schools s WHERE s.state_code=$1 ORDER BY s.name`,[user.stateCode])).rows:[];
+  const distribution=workstream==='tlm'?(await db.query(`SELECT ${schoolFields} FROM tlm_distribution d JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND s.state_code=$2 ORDER BY s.name`,[plan.id,user.stateCode])).rows:[];
+  // Schools in this plan's Whole School Renovation/Expansion packages: listed first and offered for distribution.
+  const renovated=workstream==='tlm'?(await db.query<{id:number}>("SELECT DISTINCT p.school_id AS id FROM infrastructure_packages p JOIN schools s ON s.id=p.school_id WHERE p.plan_id=$1 AND p.kind='whole' AND s.state_code=$2",[plan.id,user.stateCode])).rows.map(r=>r.id):[];
+  return NextResponse.json({plan,lines,schools,distribution,renovated,canEdit:mayEditPillar(user.role,user.departments ?? user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load this component.',503);}
 }
 export async function POST(req:NextRequest){
@@ -27,13 +30,21 @@ export async function POST(req:NextRequest){
   const user=await getWorkspaceState(req); if(!user)return error('Sign in to continue.',401);
   const plan=await resolveActionPlan(req,user.stateCode); if(!plan)return error('Plan not found.',404);
   const body=await req.json().catch(()=>null);
-  const parsed=z.object({workstream:z.enum(activityWorkstreams),entity:z.enum(['line','school']),action:z.enum(['create','update','delete']),id:z.number().int().positive().optional(),schoolId:z.number().int().positive().optional()}).safeParse(body);
+  const parsed=z.object({workstream:z.enum(activityWorkstreams),entity:z.enum(['line','school']),action:z.enum(['create','update','delete']),id:z.number().int().positive().optional(),schoolId:z.number().int().positive().optional(),schoolIds:z.array(z.number().int().positive()).min(1).max(10000).optional()}).safeParse(body);
   if(!parsed.success)return error('Invalid action.');
   const {workstream,entity,action,id}=parsed.data;
   if(action!=='create'&&!id)return error('Select an entry.');
   return await mutatePlan(user,plan,workstream,async db=>{
    if(entity==='school'){
     if(workstream!=='tlm'||action==='update')return error('Invalid distribution action.');
+    const many=parsed.data.schoolIds;
+    if(many){
+     if(action!=='create')return error('Invalid distribution action.');
+     const ids=[...new Set(many)], found=(await db.query('SELECT count(*)::int AS n FROM schools WHERE id=ANY($1::int[]) AND state_code=$2',[ids,user.stateCode])).rows[0].n;
+     if(found!==ids.length)return error('One or more schools were not found in your state.',404);
+     const added=(await db.query('INSERT INTO tlm_distribution(plan_id,school_id) SELECT $1,unnest($2::int[]) ON CONFLICT DO NOTHING',[plan.id,ids])).rowCount??0;
+     return NextResponse.json({ok:true,added,skipped:ids.length-added});
+    }
     const schoolId=action==='delete'?id:parsed.data.schoolId;
     if(!schoolId||!Number.isSafeInteger(schoolId))return error('Select a school.');
     if(!(await db.query('SELECT id FROM schools WHERE id=$1 AND state_code=$2',[schoolId,user.stateCode])).rowCount)return error('School not found in your state.',404);
