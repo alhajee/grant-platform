@@ -18,6 +18,8 @@ export type ActivitySession = {
 };
 export type ActivityRequest = { id: string; method: string; path: string; requestedAt: string };
 export type Paged<T> = { items: T[]; total: number; page: number; pageSize: number };
+/** Filter options for the Activity tab, counted over all sessions. */
+export type ActivityFacets = { admins: { id: number; name: string; count: number }[]; statuses: Record<SessionStatus, number> };
 export type ActivityRequestsPage = Paged<ActivityRequest> & { session: Omit<ActivitySession, 'requestCount'> };
 
 const nearestPageSize = (value: number) => activityPageSizes.reduce((best, size) => Math.abs(size - value) < Math.abs(best - value) ? size : best, activityPageSizes[0]);
@@ -32,11 +34,20 @@ const pageSizeParam = (fallback: number) => z.preprocess(value => {
   return present(value) && Number.isFinite(number) ? nearestPageSize(number) : fallback;
 }, z.number().int());
 
+const sessionStatuses = ['active', 'ended', 'expired'] as const;
+const maxAdminFilters = 50;
+/** Comma-separated list of the given values; empty or "all" means no filter. */
+const listParam = <T extends z.ZodTypeAny>(item: T, max: number) => z.preprocess(value => {
+  const text = typeof value === 'string' ? value.trim() : '';
+  return text && text !== 'all' ? [...new Set(text.split(',').map(part => part.trim()).filter(Boolean))] : [];
+}, z.array(item).max(max));
+
 export const activityQuerySchema = z.object({
   page: pageParam,
   pageSize: pageSizeParam(defaultActivityPageSize),
   q: z.string().optional().transform(value => (value ?? '').trim().slice(0, maxSearchLength)),
-  status: z.enum(activityStatuses).default('all'),
+  status: listParam(z.enum(sessionStatuses), sessionStatuses.length),
+  admin: listParam(z.coerce.number().int().positive(), maxAdminFilters),
   sort: z.enum(activitySorts).default('started'),
   dir: z.enum(['asc', 'desc']).optional(),
 }).transform(query => ({ ...query, dir: query.dir ?? (query.sort === 'started' || query.sort === 'writes' ? 'desc' : 'asc') as 'asc' | 'desc' }));

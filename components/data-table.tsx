@@ -2,7 +2,7 @@
 
 import { useId, useState, type ReactNode } from 'react';
 import { useTable, type ColumnDef, type SortingState, type ColumnFiltersState, type ColumnVisibilityState, type PaginationState, type Updater } from '@tanstack/react-table';
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupInput, InputGroupAddon } from '@/components/ui/input-group';
@@ -11,6 +11,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { features, type DataTableFeatures } from './data-table-features';
+import { DataTableFacetedFilter, type DataTableFacet } from './data-table-faceted-filter';
 
 /** Server-side mode: the parent fetches one page at a time and owns paging, sorting and search. */
 export type DataTableServer = {
@@ -27,7 +28,7 @@ export type DataTableServer = {
 
 const resolve = <T,>(updater: Updater<T>, current: T): T => typeof updater === 'function' ? (updater as (old: T) => T)(current) : updater;
 
-export function DataTable<TData extends { id: string | number }>({ data, columns, searchColumn = 'name', searchPlaceholder = 'Search…', itemLabel = 'records', columnLabels = {}, server, toolbar, empty }: {
+export function DataTable<TData extends { id: string | number }>({ data, columns, searchColumn = 'name', searchPlaceholder = 'Search…', itemLabel = 'records', columnLabels = {}, server, toolbar, facets = [], filters, empty }: {
   data: TData[];
   columns: ColumnDef<DataTableFeatures, TData>[];
   searchColumn?: string;
@@ -36,6 +37,10 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
   columnLabels?: Record<string, string>;
   server?: DataTableServer;
   toolbar?: ReactNode;
+  /** Client-side multi-select filters; each column needs a filterFn that accepts the selected values (string[]). */
+  facets?: DataTableFacet[];
+  /** Filters the parent controls (server mode), shown next to the search box. */
+  filters?: ReactNode;
   empty?: ReactNode;
 }) {
   const id = useId();
@@ -64,13 +69,18 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
   const searchValue = server ? server.search : (table.getColumn(searchColumn)?.getFilterValue() as string) ?? '';
   return <div className="flex min-w-0 flex-col gap-4">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <Field className="w-full sm:max-w-xs">
+      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+      <Field className="w-full sm:w-72">
         <FieldLabel htmlFor={`${id}-search`} className="sr-only">{searchPlaceholder}</FieldLabel>
         <InputGroup className="bg-card">
           <InputGroupInput id={`${id}-search`} type={server ? 'search' : undefined} placeholder={searchPlaceholder} value={searchValue} onChange={e => { if (server) { server.onSearchChange(e.target.value); return; } table.getColumn(searchColumn)?.setFilterValue(e.target.value); table.setPageIndex(0); }} />
           <InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon>
         </InputGroup>
       </Field>
+      {filters}
+      {!server && facets.map(facet => { const column = table.getColumn(facet.column); return column && <DataTableFacetedFilter key={facet.column} title={facet.title} options={facet.options} selected={(column.getFilterValue() as string[] | undefined) ?? []} onChange={values => { column.setFilterValue(values.length ? values : undefined); table.setPageIndex(0); }} />; })}
+      {!server && facets.some(facet => table.getColumn(facet.column)?.getFilterValue()) && <Button variant="ghost" size="sm" onClick={() => { facets.forEach(facet => table.getColumn(facet.column)?.setFilterValue(undefined)); table.setPageIndex(0); }}>Reset<XIcon data-icon="inline-end" /></Button>}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         {toolbar}
         <DropdownMenu>

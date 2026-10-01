@@ -23,7 +23,7 @@ export function ImpersonationBanner(){
     <Alert className="impersonation-strip-inner">
       <AlertTitle className="impersonation-strip-label">{expired?'Session ended':'Impersonating'}</AlertTitle>
       <AlertDescription className="impersonation-strip-description">
-        {expired ? <span>Return to admin to choose another user.</span> : <>
+        {expired ? null : <>
           <span>Acting as <strong>{status.session!.name}</strong></span>
           <span className="impersonation-strip-context">{status.session!.role} · {stateDisplayName(status.session!.stateCode)}</span>
         </>}

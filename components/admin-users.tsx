@@ -29,6 +29,18 @@ const blank = (stateCode:string):Form => ({ name:'', email:'', role:stateCode ==
 
 const workspaceName = (stateCode:string) => stateCode === 'UBEC' ? 'UBEC' : subebDisplayName(stateCode);
 const roleNeedsDepartment = (role:string) => ['Data Entry Staff','Director','UBEC Department Reviewer'].includes(role);
+const departmentNames = (user:AdminManagedUser) => (user.departments ?? []).map(value => user.stateCode === 'UBEC' ? departmentName(value) : subebDepartmentName(value));
+const NO_DEPARTMENT = 'No department', CHAIR = 'BEAP Chair';
+// Facet filters receive the selected values; a row matches when it has any of them.
+const anyOf = (values:string[]) => (selected:unknown) => !Array.isArray(selected) || !selected.length || values.some(value => selected.includes(value));
+const roleValues = (user:AdminManagedUser) => user.isBeapChair ? [user.role, CHAIR] : [user.role];
+const departmentValues = (user:AdminManagedUser) => departmentNames(user).length ? departmentNames(user) : [NO_DEPARTMENT];
+const statusValue = (user:AdminManagedUser) => user.active ? 'active' : 'inactive';
+function facetOptions(users:AdminManagedUser[], values:(user:AdminManagedUser)=>string[], label:(value:string)=>string = value => value) {
+  const counts = new Map<string, number>();
+  for (const user of users) for (const value of new Set(values(user))) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts].map(([value, count]) => ({ value, label: label(value), count })).sort((a, b) => a.label.localeCompare(b.label));
+}
 const departmentLabel = (user:AdminManagedUser) => user.stateCode !== 'UBEC' && user.departments?.length === subebDepartments.length ? 'All departments' : user.departments?.length ? user.departments.map(value => user.stateCode === 'UBEC' ? departmentName(value) : subebDepartmentName(value)).join(', ') : '—';
 
 export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUser[];busy:number|null;onSwitch:(id:number)=>Promise<void>|void;onChanged:()=>Promise<void>|void}) {
@@ -66,20 +78,26 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
     finally { pending.current=false; setSaving(false); }
   }
 
+  const facets = useMemo(()=>[
+    {column:'role',title:'Role',options:facetOptions(users,roleValues)},
+    {column:'stateCode',title:'Workspace',options:facetOptions(users,user=>[user.stateCode],workspaceName)},
+    {column:'department',title:'Department',options:facetOptions(users,departmentValues)},
+    {column:'active',title:'Status',options:facetOptions(users,user=>[statusValue(user)],value=>value==='active'?'Active':'Inactive')},
+  ],[users]);
   const columns = useMemo(()=>helper.columns([
     helper.accessor('name',{enableHiding:false,header:({column})=><DataTableColumnHeader column={column} title="User"/>,filterFn:(row,_id,value)=>[row.original.name,row.original.email,row.original.role,workspaceName(row.original.stateCode),departmentLabel(row.original)].join(' ').toLowerCase().includes(String(value).toLowerCase()),cell:({row})=><div><p className="font-medium">{row.original.name}</p><p className="text-xs text-muted-foreground">{row.original.email}</p></div>}),
-    helper.accessor('role',{header:({column})=><DataTableColumnHeader column={column} title="Role"/>,cell:({row})=><div className="flex flex-wrap items-center gap-2">{row.original.role}{row.original.isBeapChair&&<Badge variant="secondary">BEAP Chair</Badge>}</div>}),
-    helper.accessor('stateCode',{header:({column})=><DataTableColumnHeader column={column} title="Workspace"/>,cell:info=>workspaceName(info.getValue())}),
-    helper.accessor('department',{header:({column})=><DataTableColumnHeader column={column} title="Department"/>,cell:({row})=>departmentLabel(row.original)}),
-    helper.accessor('active',{header:({column})=><DataTableColumnHeader column={column} title="Status"/>,cell:info=><Badge variant={info.getValue()?'secondary':'outline'}>{info.getValue()?'Active':'Inactive'}</Badge>}),
+    helper.accessor('role',{filterFn:(row,_id,value)=>anyOf(roleValues(row.original))(value),header:({column})=><DataTableColumnHeader column={column} title="Role"/>,cell:({row})=><div className="flex flex-wrap items-center gap-2">{row.original.role}{row.original.isBeapChair&&<Badge variant="secondary">BEAP Chair</Badge>}</div>}),
+    helper.accessor('stateCode',{filterFn:(row,_id,value)=>anyOf([row.original.stateCode])(value),header:({column})=><DataTableColumnHeader column={column} title="Workspace"/>,cell:info=>workspaceName(info.getValue())}),
+    helper.accessor('department',{filterFn:(row,_id,value)=>anyOf(departmentValues(row.original))(value),header:({column})=><DataTableColumnHeader column={column} title="Department"/>,cell:({row})=>departmentLabel(row.original)}),
+    helper.accessor('active',{filterFn:(row,_id,value)=>anyOf([statusValue(row.original)])(value),header:({column})=><DataTableColumnHeader column={column} title="Status"/>,cell:info=><Badge variant={info.getValue()?'secondary':'outline'}>{info.getValue()?'Active':'Inactive'}</Badge>}),
     helper.display({id:'actions',enableHiding:false,header:'',cell:({row})=><div className="flex justify-end"><DropdownMenu modal={false}><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Manage ${row.original.name}`}><MoreHorizontalIcon/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onSelect={()=>open(row.original)}><PencilIcon/>Edit user</DropdownMenuItem><DropdownMenuItem onSelect={()=>{setReset(row.original);setFormError('');}}><KeyRoundIcon/>Reset password</DropdownMenuItem><DropdownMenuSeparator/><DropdownMenuItem disabled={!row.original.active||busy!==null} onSelect={()=>void onSwitch(row.original.id)}><UserRoundCogIcon/>{busy===row.original.id?'Switching…':'Act as user'}</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div>}),
   ]),[busy,onSwitch,open]);
 
   const isUbec = form.stateCode === 'UBEC';
   const departments = isUbec ? ubecDepartments : subebDepartments;
   return <div className="flex flex-col gap-4">
-    <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-lg font-semibold">Manage users</h2><p className="text-sm text-muted-foreground">Add and update accounts, reset passwords, or temporarily act as a user.</p></div><Button onClick={()=>open('new')} disabled={!workspaces.length}><PlusIcon data-icon="inline-start"/>Add user</Button></div>
-    <DataTable data={users} columns={columns} searchPlaceholder="Search users…" itemLabel="users" columnLabels={{role:'Role',stateCode:'Workspace',department:'Department',active:'Status'}} />
+    <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-lg font-semibold">Manage users</h2></div><Button onClick={()=>open('new')} disabled={!workspaces.length}><PlusIcon data-icon="inline-start"/>Add user</Button></div>
+    <DataTable data={users} columns={columns} searchPlaceholder="Search users…" itemLabel="users" columnLabels={{role:'Role',stateCode:'Workspace',department:'Department',active:'Status'}} facets={facets} />
     <Dialog open={Boolean(editing)} onOpenChange={openState=>{if(!openState&&!saving)setEditing(null);}}><DialogContent aria-describedby={undefined} className="max-h-[calc(100dvh-2rem)] overflow-y-auto" showCloseButton={!saving}><DialogHeader><DialogTitle>{editing==='new'?'Add user':'Edit user'}</DialogTitle></DialogHeader><form onSubmit={event=>{event.preventDefault();void save();}}><FieldGroup className="gap-4">
       <Field><FieldLabel htmlFor="admin-user-workspace">Workspace</FieldLabel><NativeSelect id="admin-user-workspace" required disabled={saving||editing!=='new'} value={form.stateCode} onChange={event=>changeWorkspace(event.target.value)}>{workspaces.map(code=><NativeSelectOption key={code} value={code}>{workspaceName(code)}</NativeSelectOption>)}</NativeSelect></Field>
       <Field><FieldLabel htmlFor="admin-user-name">Full name</FieldLabel><Input id="admin-user-name" required minLength={2} maxLength={120} disabled={saving} value={form.name} onChange={event=>setForm({...form,name:event.target.value})}/></Field>

@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { getPostgres } from '@/lib/postgres';
-import { activityQuerySchema, clampPage, escapeLike, type ActivitySort, type SessionStatus } from '@/lib/admin-activity';
+import { activityQuerySchema, clampPage, escapeLike, type ActivityFacets, type ActivitySort, type SessionStatus } from '@/lib/admin-activity';
 import { noStoreJson, requireSuperAdmin, sessionFieldsSql, sessionJoinsSql } from '@/lib/admin-activity-server';
 import { stateCodesMatching } from '@/lib/state-names';
 
@@ -23,12 +23,14 @@ export async function GET(request: NextRequest) {
     if (auth.error) return auth.error;
     const parsed = activityQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
     if (!parsed.success) return noStoreJson({ error: 'Choose a valid status, sort column and direction.' }, 400);
-    const { page, pageSize, q, status, sort, dir } = parsed.data;
+    const { page, pageSize, q, status, admin, sort, dir } = parsed.data;
     const where: string[] = [], params: unknown[] = [];
-    if (status !== 'all') where.push(statusFilters[status]);
+    if (status.length) where.push(`(${status.map(value => statusFilters[value]).join(' OR ')})`);
+    if (admin.length) { params.push(admin); where.push(`i.actor_id = ANY($${params.length}::int[])`); }
     if (q) {
       params.push(`%${escapeLike(q)}%`, stateCodesMatching(q));
-      where.push(`(i.actor_name ILIKE $1 OR i.target_name ILIKE $1 OR i.target_role ILIKE $1 OR i.target_state ILIKE $1 OR a.email ILIKE $1 OR t.email ILIKE $1 OR i.target_state = ANY($2::text[]))`);
+      const like = `$${params.length - 1}`, states = `$${params.length}`;
+      where.push(`(i.actor_name ILIKE ${like} OR i.target_name ILIKE ${like} OR i.target_role ILIKE ${like} OR i.target_state ILIKE ${like} OR a.email ILIKE ${like} OR t.email ILIKE ${like} OR i.target_state = ANY(${states}::text[]))`);
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
     // One connection and one snapshot, so the count and the page agree.
@@ -39,7 +41,11 @@ export async function GET(request: NextRequest) {
         FROM ${sessionJoinsSql} ${whereSql}
         ORDER BY ${sortColumns[sort]} ${dir === 'asc' ? 'ASC' : 'DESC'}, i.started_at DESC, i.id
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, pageSize, (served - 1) * pageSize])).rows : [];
-      return noStoreJson({ items, total, page: served, pageSize });
+      // Options for the Administrator and Status filters, counted over all sessions.
+      const admins = (await db.query<{ id: number; name: string; count: number }>(`SELECT i.actor_id AS id, MAX(i.actor_name) AS name, COUNT(*)::int AS count FROM impersonation_sessions i GROUP BY i.actor_id ORDER BY lower(MAX(i.actor_name))`)).rows;
+      const counts = (await db.query<Record<SessionStatus, number>>(`SELECT ${(Object.keys(statusFilters) as SessionStatus[]).map(key => `COUNT(*) FILTER (WHERE ${statusFilters[key]})::int AS ${key}`).join(', ')} FROM impersonation_sessions i`)).rows[0];
+      const facets: ActivityFacets = { admins, statuses: counts };
+      return noStoreJson({ items, total, page: served, pageSize, facets });
     });
   } catch (cause) {
     console.error('admin activity list failed', cause);

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createColumnHelper, type PaginationState, type SortingState } from '@tanstack/react-table';
-import { CopyIcon, HistoryIcon, MoreHorizontalIcon } from 'lucide-react';
+import { CopyIcon, HistoryIcon, MoreHorizontalIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table';
 import { DataTableColumnHeader } from '@/components/data-table-column-header';
@@ -13,8 +13,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { activityPageSizes, activityStatuses, defaultActivityPageSize, type ActivitySession, type ActivitySort, type ActivityStatus, type Paged } from '@/lib/admin-activity';
+import { DataTableFacetedFilter } from '@/components/data-table-faceted-filter';
+import { activityPageSizes, defaultActivityPageSize, type ActivityFacets, type ActivitySession, type ActivitySort, type ActivityStatus, type Paged, type SessionStatus } from '@/lib/admin-activity';
 import { stateDisplayName } from '@/lib/state-names';
 import './admin-activity.css';
 
@@ -22,7 +22,7 @@ const helper = createColumnHelper<DataTableFeatures, ActivitySession>();
 const defaultSorting: SortingState = [{ id: 'started', desc: true }];
 const searchDelay = 300;
 const statusOptions: Record<ActivityStatus, string> = { all: 'All', active: 'Active', ended: 'Ended', expired: 'Expired' };
-type Loaded = { key: string; data: Paged<ActivitySession> } | { key: string; error: string };
+type Loaded = { key: string; data: Paged<ActivitySession> & { facets?: ActivityFacets } } | { key: string; error: string };
 
 function StatusBadge({ status }: { status: ActivitySession['status'] }) {
   return <Badge variant={status === 'active' ? 'default' : status === 'ended' ? 'secondary' : 'outline'} className={status === 'expired' ? 'text-muted-foreground' : undefined}>{statusLabel(status)}</Badge>;
@@ -31,13 +31,13 @@ function StatusBadge({ status }: { status: ActivitySession['status'] }) {
 export function AdminActivity() {
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: defaultActivityPageSize });
   const [sorting, setSorting] = useState<SortingState>(defaultSorting);
-  const [status, setStatus] = useState<ActivityStatus>('all');
+  const [statuses, setStatuses] = useState<string[]>([]), [admins, setAdmins] = useState<string[]>([]);
   const [search, setSearch] = useState(''), [q, setQ] = useState('');
   const [attempt, setAttempt] = useState(0), [loaded, setLoaded] = useState<Loaded | null>(null);
   const [now, setNow] = useState(Date.now);
   const [viewing, setViewing] = useState<ActivitySession | null>(null), [sheetOpen, setSheetOpen] = useState(false);
   const sort = (sorting[0]?.id ?? 'started') as ActivitySort, dir = sorting[0]?.desc === false ? 'asc' : 'desc';
-  const query = useMemo(() => new URLSearchParams({ page: String(pagination.pageIndex + 1), pageSize: String(pagination.pageSize), q, status, sort, dir }).toString(), [pagination, q, status, sort, dir]);
+  const query = useMemo(() => new URLSearchParams({ page: String(pagination.pageIndex + 1), pageSize: String(pagination.pageSize), q, status: statuses.join(','), admin: admins.join(','), sort, dir }).toString(), [pagination, q, statuses, admins, sort, dir]);
   const key = `${query}#${attempt}`;
 
   // Debounce typing, then restart from the first page.
@@ -52,7 +52,7 @@ export function AdminActivity() {
     const controller = new AbortController();
     fetch(`/api/admin/activity?${query}`, { cache: 'no-store', signal: controller.signal }).then(async response => {
       if (response.status === 401) { window.location.replace('/'); return; }
-      const body = await response.json().catch(() => ({})) as Paged<ActivitySession> & { error?: string };
+      const body = await response.json().catch(() => ({})) as Paged<ActivitySession> & { facets?: ActivityFacets; error?: string };
       if (!response.ok) throw Error(body.error || 'Unable to load impersonation activity.');
       setNow(Date.now());
       // The server clamps a page past the end; follow it so the footer stays truthful.
@@ -67,9 +67,13 @@ export function AdminActivity() {
   const current = loaded?.key === key ? loaded : null;
   const lastData = loaded && 'data' in loaded ? loaded.data : null;
   const error = current && 'error' in current ? current.error : '';
-  const filtered = Boolean(q || status !== 'all');
+  const filtered = Boolean(q || statuses.length || admins.length);
+  const facets = lastData?.facets;
+  const statusFacet = (Object.keys(statusOptions) as ActivityStatus[]).filter((value): value is SessionStatus => value !== 'all').map(value => ({ value, label: statusOptions[value], count: facets?.statuses[value] }));
+  const adminFacet = (facets?.admins ?? []).map(item => ({ value: String(item.id), label: item.name, count: item.count }));
+  const setFilter = (set: (values: string[]) => void) => (values: string[]) => { set(values); setPagination(state => ({ ...state, pageIndex: 0 })); };
   const retry = useCallback(() => setAttempt(value => value + 1), []);
-  const clearFilters = useCallback(() => { setSearch(''); setQ(''); setStatus('all'); setPagination(value => ({ ...value, pageIndex: 0 })); }, []);
+  const clearFilters = useCallback(() => { setSearch(''); setQ(''); setStatuses([]); setAdmins([]); setPagination(value => ({ ...value, pageIndex: 0 })); }, []);
   const view = useCallback((session: ActivitySession) => { setViewing(session); setSheetOpen(true); }, []);
   const copyId = useCallback((id: string) => { void navigator.clipboard.writeText(id).then(() => toast.success('Session ID copied'), () => toast.error('Unable to copy the session ID.')); }, []);
 
@@ -89,7 +93,7 @@ export function AdminActivity() {
     : <div className="flex flex-col items-center gap-1"><p className="font-medium">No impersonation sessions yet</p><p className="text-muted-foreground">Sessions appear here when an administrator acts as a user.</p></div>;
 
   return <div className="admin-activity flex flex-col gap-4">
-    <div><h2 className="text-lg font-semibold">Recent impersonation sessions</h2><p className="text-sm text-muted-foreground">Write requests are logged as attempts; each workflow keeps its own outcome history.</p></div>
+    <div><h2 className="text-lg font-semibold">Recent impersonation sessions</h2></div>
     {error && <Alert variant="destructive"><AlertTitle>Unable to load activity</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={retry}>Try again</Button></AlertDescription></Alert>}
     <DataTable
       data={error ? [] : lastData?.items ?? []}
@@ -98,7 +102,11 @@ export function AdminActivity() {
       itemLabel="sessions"
       columnLabels={{ admin: 'Administrator', started: 'Started', ends: 'Ended / Expires', duration: 'Duration', status: 'Status', writes: 'Write attempts' }}
       empty={empty}
-      toolbar={<ToggleGroup type="single" variant="outline" size="sm" aria-label="Filter by status" className="admin-activity-status" value={status} onValueChange={value => { if (!value) return; setStatus(value as ActivityStatus); setPagination(state => ({ ...state, pageIndex: 0 })); }}>{activityStatuses.map(option => <ToggleGroupItem key={option} value={option}>{statusOptions[option]}</ToggleGroupItem>)}</ToggleGroup>}
+      filters={<>
+        <DataTableFacetedFilter title="Status" options={statusFacet} selected={statuses} onChange={setFilter(setStatuses)} />
+        {adminFacet.length > 0 && <DataTableFacetedFilter title="Administrator" options={adminFacet} selected={admins} onChange={setFilter(setAdmins)} />}
+        {(statuses.length > 0 || admins.length > 0) && <Button variant="ghost" size="sm" onClick={() => { setStatuses([]); setAdmins([]); setPagination(state => ({ ...state, pageIndex: 0 })); }}>Reset<XIcon data-icon="inline-end" /></Button>}
+      </>}
       server={{
         rowCount: error ? 0 : lastData?.total ?? 0,
         pagination, onPaginationChange: setPagination,
