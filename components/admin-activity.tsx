@@ -104,7 +104,7 @@ export function AdminActivity() {
       itemLabel="sessions"
       columnLabels={{ admin: 'Administrator', started: 'Started', ends: 'Ended / Expires', duration: 'Duration', status: 'Status', writes: 'Write attempts' }}
       empty={empty}
-      filters={<DataTableFilterGroup activeCount={Number(statuses.length > 0) + Number(admins.length > 0)} onReset={() => { setStatuses([]); setAdmins([]); setPagination(state => ({ ...state, pageIndex: 0 })); }}>
+      filters={<DataTableFilterGroup activeCount={Number(statuses.length > 0) + Number(admins.length > 0)} filterCount={adminFacet.length > 0 ? 2 : 1} onReset={() => { setStatuses([]); setAdmins([]); setPagination(state => ({ ...state, pageIndex: 0 })); }}>
         <DataTableFacetedFilter title="Status" options={statusFacet} selected={statuses} onChange={setFilter(setStatuses)} />
         {adminFacet.length > 0 && <DataTableFacetedFilter title="Administrator" options={adminFacet} selected={admins} onChange={setFilter(setAdmins)} />}
       </DataTableFilterGroup>}

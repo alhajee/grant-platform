@@ -82,7 +82,7 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
         </InputGroup>
       </Field>
       {filters}
-      {!server && facets.length > 0 && <DataTableFilterGroup activeCount={facets.filter(facet => table.getColumn(facet.column)?.getFilterValue()).length} onReset={() => { facets.forEach(facet => table.getColumn(facet.column)?.setFilterValue(undefined)); table.setPageIndex(0); }}>
+      {!server && facets.length > 0 && <DataTableFilterGroup activeCount={facets.filter(facet => table.getColumn(facet.column)?.getFilterValue()).length} filterCount={facets.length} onReset={() => { facets.forEach(facet => table.getColumn(facet.column)?.setFilterValue(undefined)); table.setPageIndex(0); }}>
         {facets.map(facet => { const column = table.getColumn(facet.column); return column && <DataTableFacetedFilter key={facet.column} title={facet.title} options={facet.options} selected={(column.getFilterValue() as string[] | undefined) ?? []} onChange={values => { column.setFilterValue(values.length ? values : undefined); table.setPageIndex(0); }} />; })}
       </DataTableFilterGroup>}
       </div>

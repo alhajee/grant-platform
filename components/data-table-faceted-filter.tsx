@@ -24,8 +24,9 @@ export function DataTableFacetedFilter({ title, options, selected, onChange }: {
   // Tell an enclosing DataTableFilterGroup while this list is open (and release it on unmount).
   useEffect(() => { if (!report || reported.current === open) return; reported.current = open; report(open); }, [open, report]);
   useEffect(() => () => { if (reported.current) report?.(false); }, [report]);
-  // Inside a collapsed filter group, only filters in use stay visible.
-  if (group && !group.engaged && !open && !chosen.size) return null;
+  // Inside a filter group, filters in use sit inline and unused ones live in the floating panel; an open
+  // list keeps its copy mounted until it closes.
+  if (group && !open && (group.place === 'inline' ? !chosen.size : chosen.size > 0)) return null;
   return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
       <Button variant="outline" size="sm" className="border-dashed">
