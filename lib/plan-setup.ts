@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { formatQuarters } from './format-quarters';
 
 const year = z.number().int().min(2004).max(2100);
+export const implementationYearError = (fundingYear: number, implementationYear: number) => Number.isInteger(fundingYear) && Number.isInteger(implementationYear) && implementationYear < fundingYear ? `Implementation year can't be earlier than the funding year (${fundingYear}).` : '';
 const amount = z.string().regex(/^\d{1,13}(\.\d{1,2})?$/, 'Enter an amount below ₦10 trillion, with up to two decimal places.');
 export const planSetupSchema = z.object({
   planningYear: year,
@@ -10,7 +11,7 @@ export const planSetupSchema = z.object({
     .refine(q => new Set(q).size === q.length, 'Do not repeat quarters.').transform(q=>[...q].sort()),
   stateLodgment: amount,
   otherFunding: amount,
-}).strict().refine(p => p.implementationYear >= p.planningYear, {message:'Implementation year cannot be before the funding year.',path:['implementationYear']})
+}).strict().superRefine((p, ctx) => { const message = implementationYearError(p.planningYear, p.implementationYear); if (message) ctx.addIssue({code:'custom',message,path:['implementationYear']}); })
   .refine(p => Number(p.stateLodgment)*2+Number(p.otherFunding)>0, {message:'Enter funding greater than zero.',path:['stateLodgment']});
 
 export function fundingTotal(lodgment: string, other: string) {
