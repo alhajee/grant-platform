@@ -47,3 +47,4 @@ next-env.d.ts
 /.agents/
 /outputs/
 /work/
+.gstack/

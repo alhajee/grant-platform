@@ -11,48 +11,62 @@ export type NotificationItem = {
 };
 export type NotificationTodo = PendingAction & { planId: number; period: string };
 export type NotificationFeed = { notifications: NotificationItem[]; unreadCount: number; todos: NotificationTodo[] };
-/** A notification rendered as "<actor> <text> <target>" with a context line and destination. */
-export type NotificationMessage = { actor: string; text: string; target: string; context: string; href: string };
+/** What happened, for the avatar badge. */
+export type NotificationKind = 'sent' | 'changes' | 'approved' | 'assigned' | 'feedback';
+/** A notification rendered as "<verb> <target> <suffix>" by <actor>, grouped under its plan context. */
+export type NotificationMessage = { actor: string; verb: string; target: string; suffix: string; kind: NotificationKind; context: string; href: string };
+type Wording = Pick<NotificationMessage, 'verb' | 'target' | 'suffix' | 'kind'>;
 
 export const NOTIFICATION_PAGE_SIZE = 30;
 
 const componentName = (scope: string | null) => scope && scope in componentSections ? componentSections[scope as PillarId][0].name : null;
 const planName = (item: Pick<NotificationItem, 'startYear' | 'endYear' | 'fundingQuarters'>) => `${planPeriod(item)} BEAP`;
 
-function stateMessage(item: NotificationItem): Omit<NotificationMessage, 'context' | 'href'> {
+function stateWording(item: NotificationItem): Wording {
   const component = componentName(item.scope);
-  const target = component ?? planName(item);
+  const target = component ?? 'the plan';
   const fromUbec = item.actorRole.startsWith('UBEC ');
   switch (item.action) {
-    case 'submit': return { actor: item.actorName, text: 'sent you', target: `${target} to review` };
-    case 'endorse': return { actor: item.actorName, text: 'sent', target: `${target} to the BEAP Chair` };
-    case 'forward': return { actor: item.actorName, text: 'sent', target: `${component ?? 'the complete BEAP'} to the Executive Chairman` };
-    case 'request_changes': return fromUbec ? { actor: item.actorName, text: 'returned', target: `${planName(item)} for changes` } : { actor: item.actorName, text: 'requested changes on', target };
-    case 'approve': return { actor: item.actorName, text: fromUbec ? 'approved' : 'completed the review of', target: planName(item) };
-    default: return { actor: item.actorName, text: 'updated', target };
+    case 'submit': return { verb: 'Sent you', target, suffix: 'to review', kind: 'sent' };
+    case 'endorse': return { verb: 'Sent', target, suffix: 'to the BEAP Chair', kind: 'sent' };
+    case 'forward': return { verb: 'Sent', target: component ?? 'the complete BEAP', suffix: 'to the Executive Chairman', kind: 'sent' };
+    case 'request_changes': return fromUbec ? { verb: 'Returned', target: 'the plan', suffix: 'for changes', kind: 'changes' } : { verb: 'Requested changes on', target, suffix: '', kind: 'changes' };
+    case 'approve': return fromUbec ? { verb: 'Approved', target: 'the plan', suffix: '', kind: 'approved' } : { verb: 'Completed the review of', target, suffix: '', kind: 'approved' };
+    default: return { verb: 'Updated', target, suffix: '', kind: 'sent' };
   }
 }
 
-function ubecMessage(item: NotificationItem): Omit<NotificationMessage, 'context' | 'href'> {
-  const state = subebDisplayName(item.stateCode);
+function ubecWording(item: NotificationItem): Wording {
   switch (item.action) {
-    case 'submit': return { actor: state, text: 'sent its plan to UBEC:', target: planName(item) };
-    case 'assign': return { actor: item.actorName, text: 'assigned your department to review', target: `${state} ${planName(item)}` };
-    case 'feedback': return { actor: item.actorName, text: 'finished a department review of', target: `${state} ${planName(item)}` };
-    default: return { actor: item.actorName, text: 'updated', target: `${state} ${planName(item)}` };
+    case 'submit': return { verb: 'Sent', target: 'the plan', suffix: 'to UBEC for review', kind: 'sent' };
+    case 'assign': return { verb: 'Assigned', target: 'a component', suffix: 'to your department', kind: 'assigned' };
+    case 'feedback': return { verb: 'Finished', target: 'a department review', suffix: '', kind: 'feedback' };
+    default: return { verb: 'Updated', target: 'the plan', suffix: '', kind: 'sent' };
   }
 }
 
 export function describeNotification(item: NotificationItem): NotificationMessage {
-  if (item.source === 'ubec') return { ...ubecMessage(item), context: subebDisplayName(item.stateCode), href: `/ubec/review?plan=${item.planId}` };
+  if (item.source === 'ubec') {
+    const state = subebDisplayName(item.stateCode);
+    return { ...ubecWording(item), actor: item.action === 'submit' ? state : item.actorName, context: `${state} · ${planName(item)}`, href: `/ubec/review?plan=${item.planId}` };
+  }
   const anchor = componentName(item.scope) ? `#review-${item.scope}` : '';
-  return { ...stateMessage(item), context: planName(item), href: `/beap/review?plan=${item.planId}${anchor}` };
+  return { ...stateWording(item), actor: item.actorName, context: planName(item), href: `/beap/review?plan=${item.planId}${anchor}` };
 }
 
 /** One line suitable for a browser (OS) notification body. */
 export function notificationText(item: NotificationItem) {
-  const message = describeNotification(item);
-  return `${message.actor} ${message.text} ${message.target}`;
+  const { actor, verb, target, suffix } = describeNotification(item);
+  return `${actor}: ${[verb, target, suffix].filter(Boolean).join(' ')}`;
+}
+
+/** Consecutive notifications for the same plan share one heading. */
+export function groupByPlan<T extends { planId: number }>(items: T[], context: (item: T) => string) {
+  return items.reduce<{ key: string; context: string; items: T[] }[]>((groups, item) => {
+    const last = groups[groups.length - 1];
+    if (last?.items[0].planId === item.planId) return [...groups.slice(0, -1), { ...last, items: [...last.items, item] }];
+    return [...groups, { key: `${item.planId}-${groups.length}`, context: context(item), items: [item] }];
+  }, []);
 }
 
 const relative = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto', style: 'short' });
