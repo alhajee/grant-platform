@@ -123,8 +123,9 @@ export function NotificationBell() {
 
   return <Popover open={open} onOpenChange={onOpenChange}>
     <PopoverTrigger asChild>
-      <Button variant="ghost" size="icon" className="notification-bell" aria-label={label} data-active={unread > 0 || undefined}>
-        <BellIcon key={ringing} data-ringing={ringing > 0 || undefined} aria-hidden="true" />
+      <Button variant="ghost" size="icon" className="notification-bell" aria-label={label} data-active={unread > 0 || undefined} data-attention={unread > 0 || todos.length > 0 || undefined}>
+        {/* Remounting on each new arrival restarts the swing immediately. */}
+        <BellIcon key={ringing} className="notification-bell-icon" aria-hidden="true" />
         {unread > 0 ? <Badge className="notification-badge" aria-hidden="true">{countLabel(unread)}</Badge> : todos.length > 0 && <span className="notification-dot" aria-hidden="true" />}
       </Button>
     </PopoverTrigger>

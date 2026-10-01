@@ -4,13 +4,15 @@
 .notification-bell:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 .notification-bell[data-state=open] { background: var(--background); }
 @media (hover:hover) and (pointer:fine) { .notification-bell:hover { background: var(--background); } }
-.notification-bell svg[data-ringing] { transform-origin: 50% 8%; animation: notification-ring 900ms ease-in-out 2; }
+.notification-bell[data-attention] .notification-bell-icon { transform-origin: 50% 8%; animation: notification-swing 4s ease-in-out infinite; }
+.notification-bell[data-state=open] .notification-bell-icon { animation: none; }
 .notification-badge { position: absolute; border: 0; gap: 0; top: 6px; right: 5px; min-width: 20px; height: 20px; padding-inline: 5px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: #d9480f; color: #fff; font-size: 11px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 2px #fff; }
 .notification-bell[data-active] .notification-badge { animation: notification-pulse 2.4s ease-out infinite; }
 .notification-dot { position: absolute; top: 13px; right: 14px; width: 9px; height: 9px; border-radius: 999px; background: #e5a300; box-shadow: 0 0 0 2px #fff; }
-@keyframes notification-ring { 0%,100% { transform: rotate(0); } 15% { transform: rotate(14deg); } 30% { transform: rotate(-12deg); } 45% { transform: rotate(9deg); } 60% { transform: rotate(-6deg); } 75% { transform: rotate(3deg); } }
+/* Swing in the first second, then rest, so the bell draws the eye without constant motion. */
+@keyframes notification-swing { 0%,25%,100% { transform: rotate(0); } 3% { transform: rotate(16deg); } 7% { transform: rotate(-14deg); } 11% { transform: rotate(10deg); } 15% { transform: rotate(-7deg); } 19% { transform: rotate(4deg); } 22% { transform: rotate(-2deg); } }
 @keyframes notification-pulse { 0% { box-shadow: 0 0 0 2px #fff, 0 0 0 2px #d9480f66; } 70%,100% { box-shadow: 0 0 0 2px #fff, 0 0 0 10px #d9480f00; } }
-@media (prefers-reduced-motion: reduce) { .notification-bell svg[data-ringing], .notification-bell[data-active] .notification-badge { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .notification-bell[data-attention] .notification-bell-icon, .notification-bell[data-active] .notification-badge { animation: none; } }
 
 /* Panel: one title size, 14px body, 12px detail; bold only for people and the thing acted on. */
 .notification-panel { --notification-accent: #1f9d63; --notification-line: #f0ede6; width: min(420px, calc(100vw - 24px)); padding: 0; border-radius: 22px; border-color: #ebe6dc; box-shadow: 0 28px 64px -20px rgb(32 33 36 / 30%), 0 4px 14px rgb(32 33 36 / 6%); overflow: hidden; font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased; }
