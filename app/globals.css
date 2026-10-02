@@ -530,7 +530,9 @@
 .beap-account > span { color: var(--muted-foreground); font-size: 14px; }
 .beap-main { max-width: 1136px; margin: 0 auto; padding: 24px 32px 72px; }
 .beap-main.pillar-overview { max-width: 1280px; }
-.plan-kpis { display: grid; grid-template-columns: 1.4fr 1.4fr 1fr 1fr; gap: 14px; margin: 8px 0 20px; }
+.plan-kpis { display: grid; grid-template-columns: 1.3fr 1.3fr 1.2fr .9fr .9fr; gap: 14px; margin: 8px 0 20px; }
+.plan-kpi dt .field-help-trigger { width: 18px; height: 18px; flex-basis: 18px; margin: -3px 0 -3px 2px; vertical-align: middle; }
+@media (max-width:1100px) { .plan-kpis { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 .plan-kpi { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 20px; border-radius: 20px; background: linear-gradient(135deg,#f4f7ed,#e6edda); box-shadow: 0 10px 24px -16px rgb(0 50 40 / 28%), inset 0 1px 0 rgb(255 255 255 / 55%); min-width: 0; }
 .plan-kpi[data-tone="peach"] { background: linear-gradient(135deg,#fff7f0,#f8e5d5); }
 .plan-kpi[data-tone="lilac"] { background: linear-gradient(135deg,#f7f4fc,#eae1f5); }

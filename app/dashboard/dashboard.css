@@ -160,3 +160,11 @@
   .plan-budget strong { font-size: 23px; }
   .dashboard-footer { flex-direction: column; }
 }
+/* Other funding (component-specific sources) on the hero funding card and plan cards. */
+.dashboard-stat:has(.stat-sub) > [data-slot=card-content] { flex-direction: column; align-items: flex-start; gap: 4px; }
+.dashboard-stat .stat-sub { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 500; opacity: .85; }
+.dashboard-stat .stat-sub .field-help-trigger { color: inherit; }
+.plan-other-funding { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 10px; font-size: 14px; color: var(--muted-foreground); }
+.plan-other-funding > span { display: inline-flex; align-items: center; gap: 2px; }
+.plan-other-funding strong { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
+.plan-card-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }

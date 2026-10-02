@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { CheckIcon, LockKeyholeIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { NewSchoolsEntry } from '@/components/new-schools-entry';
 import { Field, FieldGroup, FieldSet, FieldLegend, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { CurrencyInput } from '@/components/currency-input';
 import { FileUpload, DocumentFiles } from '@/components/document-files';
 import { FieldHelp } from '@/components/field-help';
-import { planSetupSchema, implementationYearError, fundingTotal, isRatSpreadsheet, maxRatFileBytes, maxRatTotalBytes, ratFileAccept } from '@/lib/plan-setup';
+import { FundingSourcesField, fromDraftSources, draftSourceErrors, type DraftSource } from '@/components/funding-sources-field';
+import { planSetupSchema, implementationYearError, fundingTotal, sourcesSum, isRatSpreadsheet, maxRatFileBytes, maxRatTotalBytes, ratFileAccept } from '@/lib/plan-setup';
 import { planHref, type PlanOverview } from '@/lib/action-plans';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
@@ -42,16 +44,20 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
   const [implementation, setImplementation] = useState(year);
   const [quarters, setQuarters] = useState<string[]>([]);
   const [lodgment, setLodgment] = useState('');
-  const [other, setOther] = useState('0');
+  const [sources, setSources] = useState<DraftSource[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const pending = useRef(false);
   const reserved = (value: string) => new Set(plans.filter(p => p.startYear <= Number(value) && p.endYear >= Number(value)).flatMap(p => p.fundingQuarters ?? [1, 2, 3, 4]));
   const occupied = reserved(year);
-  const total = /^\d{0,13}(\.\d{0,2})?$/.test(lodgment) && /^\d{0,13}(\.\d{0,2})?$/.test(other) ? fundingTotal(lodgment || '0', other || '0') : '0';
+  const fundingSources = fromDraftSources(sources);
+  const other = sourcesSum(fundingSources);
+  const sourceErrors = draftSourceErrors(sources);
+  const total = /^\d{0,13}(\.\d{0,2})?$/.test(lodgment) ? fundingTotal(lodgment || '0', other) : '0';
   const displayedTotal = money.format(Number(total));
-  const setupReady = planSetupSchema.safeParse({ planningYear: Number(year), implementationYear: Number(implementation), quarters: quarters.map(Number), stateLodgment: lodgment, otherFunding: other || '0' }).success;
+  const setupInput = () => ({ planningYear: Number(year), implementationYear: Number(implementation), quarters: quarters.map(Number), stateLodgment: lodgment, fundingSources });
+  const setupReady = planSetupSchema.safeParse(setupInput()).success && !Object.keys(sourceErrors).length;
   const ratReady = files.length > 0 && files.length <= 3 && files.every(file => isRatSpreadsheet(file.name) && file.size > 0 && file.size <= maxRatFileBytes) && files.reduce((sum, file) => sum + file.size, 0) <= maxRatTotalBytes;
   const canSubmit = setupReady && ratReady;
   const implementationError = errors.implementationYear || (year.length === 4 && implementation.length === 4 ? implementationYearError(Number(year), Number(implementation)) : '');
@@ -59,9 +65,10 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending.current) return;
-    const parsed = planSetupSchema.safeParse({ planningYear: Number(year), implementationYear: Number(implementation), quarters: quarters.map(Number), stateLodgment: lodgment, otherFunding: other || '0' });
+    const parsed = planSetupSchema.safeParse(setupInput());
     const issues: Record<string, string> = {};
     if (!parsed.success) for (const issue of parsed.error.issues) issues[String(issue.path[0])] = issue.message;
+    if (Object.keys(sourceErrors).length) issues.fundingSources = 'Complete or remove each other funding source.';
     if (!files.length) issues.rat = 'Attach the Rapid Assessment Tool (RAT) document.';
     else if (files.some(file => !isRatSpreadsheet(file.name))) issues.rat = 'Upload the RAT as an Excel (.xlsx) file.';
     else if (files.length > 3 || files.some(f => !f.size || f.size > maxRatFileBytes) || files.reduce((sum, f) => sum + f.size, 0) > maxRatTotalBytes) issues.rat = 'Use 1–3 Excel files, up to 5 MB each and 10 MB in total.';
@@ -116,7 +123,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                 <dl className="plan-funding-breakdown">
                   <div><dt>State contribution</dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
                   <div><dt>UBEC match</dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
-                  <div><dt>Other funding</dt><dd>{money.format(Number(other || 0))}</dd></div>
+                  <div><dt>Other funding{fundingSources.length ? ` · ${fundingSources.length} ${fundingSources.length === 1 ? 'source' : 'sources'}` : ''}</dt><dd>{money.format(Number(other))}</dd></div>
                 </dl>
               </div>
             </CardContent>
@@ -145,15 +152,17 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                 {errors.quarters && <FieldError>{errors.quarters}</FieldError>}
               </Field>
             </FieldGroup></FieldSet>
-            <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding amounts</FieldLegend><FieldGroup className="grid gap-3 md:grid-cols-2">
-              <Field data-invalid={!!errors.stateLodgment}><FieldLabel htmlFor="state-lodgment">State contribution (₦) <RequiredMark /><FieldHelp>The amount paid by the state. UBEC adds the same amount.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} required aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
-              <Field data-invalid={!!errors.otherFunding}><FieldLabel htmlFor="other-funding">Other funding (₦) <span className="font-normal text-muted-foreground">Optional</span></FieldLabel><CurrencyInput id="other-funding" value={other} maxIntegerDigits={13} onValueChange={setOther} aria-invalid={!!errors.otherFunding} />{errors.otherFunding && <FieldError>{errors.otherFunding}</FieldError>}</Field>
+            <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding amounts</FieldLegend><FieldGroup className="gap-3">
+              <Field data-invalid={!!errors.stateLodgment} className="md:max-w-[calc(50%-6px)]"><FieldLabel htmlFor="state-lodgment">State contribution (₦) <RequiredMark /><FieldHelp>The amount paid by the state. UBEC adds the same amount, and both are shared across components by the funding policy.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} required aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
+              <FundingSourcesField value={sources} onChange={next => { setSources(next); setErrors(current => ({ ...current, fundingSources: '' })); }} disabled={saving} showErrors />
+              {errors.fundingSources && <FieldError>{errors.fundingSources}</FieldError>}
             </FieldGroup></FieldSet>
             <Field data-invalid={!!errors.rat} className="gap-3 rounded-xl border bg-card p-3 shadow-xs">
               <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Rapid Assessment Tool (RAT) <RequiredMark /><FieldHelp>Upload the approved RAT as an Excel workbook. Each file can be up to 5 MB, with a 10 MB total.</FieldHelp></FieldLabel><FieldDescription>Excel (.xlsx) · up to 3 files</FieldDescription></div>
               <FileUpload compact id="rat-document" label="Rapid Assessment Tool (RAT) Excel files" multiple accept={ratFileAccept} disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 Excel files and 10 MB in total.'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/>
               <DocumentFiles compact documents={files.map((file,i)=>({id:String(i),name:file.name,size:file.size,file}))} disabled={saving} onRemove={id=>setFiles(current=>current.filter((_,i)=>String(i)!==id))}/>{errors.rat && <FieldError>{errors.rat}</FieldError>}
             </Field>
+            <NewSchoolsEntry step={4} disabled={saving} />
           </FieldGroup>
         </div>
         {errors.form && <FieldError role="alert" className="px-6 pt-3">{errors.form}</FieldError>}

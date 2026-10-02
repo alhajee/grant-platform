@@ -2,9 +2,14 @@
 import "./dashboard.css";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightIcon, ArrowUpRightIcon, CalendarDaysIcon, CircleCheckIcon, FileTextIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { ArrowRightIcon, ArrowUpRightIcon, CalendarDaysIcon, CircleCheckIcon, FileTextIcon, PencilIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
 import { CreatePlanDialog } from "@/components/create-plan-dialog";
+import { EditPlanDialog } from "@/components/edit-plan-dialog";
+import { OtherFundingInfo } from "@/components/funding-sources-field";
+import { otherFundingTotal } from "@/lib/plan-setup";
+import { statePlanOpen } from "@/lib/pillar-review";
+import { fromKobo, toKobo, type FundingSource } from "@/lib/funding-policy";
 import { SubebHeader } from "@/components/subeb-header";
 import { DashboardArtwork } from "@/components/dashboard-artwork";
 import { Button } from "@/components/ui/button";
@@ -34,6 +39,7 @@ export default function DashboardPage() {
   const [query, setQuery] = useState("");
   const [investmentFilters, setInvestmentFilters] = useState(emptyInvestmentFilters);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
   const load = useCallback(async () => {
     setError("");
     try {
@@ -64,6 +70,9 @@ export default function DashboardPage() {
       sports: plan.sportsBudget,
       sbmc: plan.sbmcBudget ?? 0,
       tlm: plan.tlmBudget ?? 0,
+      monitoring: plan.monitoringBudget ?? 0,
+      gscci: plan.gscciBudget ?? 0,
+      curriculum: plan.curriculumBudget ?? 0,
     })[area] > 0);
     return (!investmentFilters.years.length || investmentFilters.years.some(year => year >= plan.startYear && year <= plan.endYear))
       && (!investmentFilters.quarters.length || investmentFilters.quarters.some(quarter => quarters.includes(quarter)))
@@ -75,6 +84,9 @@ export default function DashboardPage() {
       && (!investmentFilters.hasSchools || plan.schoolCount > 0);
   });
   const totalFunding = dashboardPlans.reduce((sum, plan) => sum + Number(plan.fundingTotal ?? 0), 0);
+  // Other funding across the shown plans, one line per component and funder.
+  const groupedSources = [...dashboardPlans.flatMap(plan => plan.fundingSources ?? []).reduce((map, source) => { const key = `${source.component}|${source.funder.toLowerCase()}`; const prior = map.get(key); return new Map(map).set(key, { ...source, id: undefined, amount: fromKobo(toKobo(prior?.amount ?? '0') + toKobo(source.amount)) }); }, new Map<string, FundingSource>()).values()];
+  const otherFunding = { otherFunding: fromKobo(dashboardPlans.reduce((sum, plan) => sum + toKobo(plan.otherFunding ?? '0'), BigInt(0))), fundingSources: groupedSources };
   const dashboardSchoolCount = activeInvestmentFilters ? new Set(dashboardPlans.flatMap(plan => plan.schoolIds ?? [])).size : targetedSchools;
   const latest = dashboardPlans[0];
   const areaAmounts: Record<InvestmentArea, number> = {
@@ -82,13 +94,19 @@ export default function DashboardPage() {
     sports: dashboardPlans.reduce((sum, plan) => sum + plan.sportsBudget, 0),
     sbmc: dashboardPlans.reduce((sum, plan) => sum + (plan.sbmcBudget ?? 0), 0),
     tlm: dashboardPlans.reduce((sum, plan) => sum + (plan.tlmBudget ?? 0), 0),
+    monitoring: dashboardPlans.reduce((sum, plan) => sum + (plan.monitoringBudget ?? 0), 0),
+    gscci: dashboardPlans.reduce((sum, plan) => sum + (plan.gscciBudget ?? 0), 0),
+    curriculum: dashboardPlans.reduce((sum, plan) => sum + (plan.curriculumBudget ?? 0), 0),
   };
-  const selectedAreas = investmentFilters.areas.length ? investmentFilters.areas : ["infrastructure", "sports", "sbmc", "tlm"] as InvestmentArea[];
+  const selectedAreas = investmentFilters.areas.length ? investmentFilters.areas : ["infrastructure", "sports", "sbmc", "tlm", "monitoring", "gscci", "curriculum"] as InvestmentArea[];
   const areaDetails: Record<InvestmentArea, { label: string; color: string }> = {
     infrastructure: { label: "Infrastructure", color: "var(--primary)" },
     sports: { label: "Sports development", color: "var(--dashboard-sage)" },
     sbmc: { label: "SBMC", color: "var(--lilac)" },
     tlm: { label: "TLM", color: "var(--peach)" },
+    monitoring: { label: "Supervision & Monitoring", color: "var(--butter)" },
+    gscci: { label: "Greening & Safeguards", color: "#9fc7a4" },
+    curriculum: { label: "Curriculum", color: "var(--blush)" },
   };
   const investmentTotal = selectedAreas.reduce((sum, area) => sum + areaAmounts[area], 0);
   let investmentCursor = 0;
@@ -108,6 +126,7 @@ export default function DashboardPage() {
               <CardHeader><CardTitle className="stat-label"><stat.artwork />{stat.label}</CardTitle></CardHeader>
               <CardContent>
                 {loading ? <Skeleton className="h-8 w-24" /> : <strong title={stat.label === "Total plan funding" ? money.format(totalFunding) : undefined}>{error ? "—" : stat.value}</strong>}
+                {stat.label === "Total plan funding" && !loading && !error && <span className="stat-sub" title={money.format(Number(otherFundingTotal(otherFunding)))}>Other funding {compactMoney.format(Number(otherFundingTotal(otherFunding)))}<OtherFundingInfo setup={otherFunding} /></span>}
               </CardContent>
             </Card>
           ))}
@@ -124,7 +143,7 @@ export default function DashboardPage() {
           {loading ? <div className="dashboard-plan-list"><Skeleton className="h-48 w-full rounded-xl" /><Skeleton className="h-48 w-full rounded-xl" /></div> : error ? <div className="dashboard-empty">Your plans will appear here when the connection is restored.</div> : <div className="dashboard-plan-list">
             {visiblePlans.map((plan, index) => <Card className="dashboard-plan-card" key={plan.id}>
               <CardHeader><div className="plan-card-top"><span className="plan-calendar"><CalendarDaysIcon /></span><PlanStatusBadge status={plan.status} /></div><CardTitle><h3>{planPeriod(plan)} action plan</h3></CardTitle><CardDescription>{plan.startYear === plan.endYear ? "Annual" : `${plan.endYear - plan.startYear + 1}-year`} planning period · Matching Grant</CardDescription></CardHeader>
-              <CardContent><div className="plan-budget"><span>Available funding</span><strong>{money.format(Number(plan.fundingTotal ?? 0))}</strong></div><div className="plan-counts"><span>{money.format(plan.budget)} proposed</span><span>{plan.lineCount} budget {plan.lineCount === 1 ? "line" : "lines"}</span><span>{plan.schoolCount} {plan.schoolCount === 1 ? "school" : "schools"}</span></div><div className="plan-card-bottom"><span>{index === 0 && !query ? "Latest activity" : "Updated"}<small>{date.format(new Date(plan.updatedAt))}</small></span><Button asChild size="sm" variant="outline"><a href={planHref(isOfficer && ['draft', 'changes_requested'].includes(plan.status) ? "/beap" : "/beap/review", plan.id)}>{!isOfficer && ['awaiting_review','awaiting_beap_chair'].includes(plan.status) ? "Review plan" : !isOfficer || ['awaiting_review', 'awaiting_beap_chair', 'awaiting_chairman', 'approved'].includes(plan.status) ? "View plan" : plan.lineCount ? "Continue" : "Start planning"}<ArrowUpRightIcon /></a></Button></div></CardContent>
+              <CardContent><div className="plan-budget"><span>Available funding</span><strong>{money.format(Number(plan.fundingTotal ?? 0))}</strong></div><div className="plan-other-funding"><span>Other funding<OtherFundingInfo setup={plan} /></span><strong>{money.format(Number(otherFundingTotal(plan)))}</strong></div><div className="plan-counts"><span>{money.format(plan.budget)} proposed</span><span>{plan.lineCount} budget {plan.lineCount === 1 ? "line" : "lines"}</span><span>{plan.schoolCount} {plan.schoolCount === 1 ? "school" : "schools"}</span></div><div className="plan-card-bottom"><span>{index === 0 && !query ? "Latest activity" : "Updated"}<small>{date.format(new Date(plan.updatedAt))}</small></span><span className="plan-card-actions">{canCreatePlan && statePlanOpen(plan.status) && <Button size="sm" variant="ghost" onClick={() => setEditing(plan.id)}><PencilIcon />Edit plan</Button>}<Button asChild size="sm" variant="outline"><a href={planHref(isOfficer && ['draft', 'changes_requested'].includes(plan.status) ? "/beap" : "/beap/review", plan.id)}>{!isOfficer && ['awaiting_review','awaiting_beap_chair'].includes(plan.status) ? "Review plan" : !isOfficer || ['awaiting_review', 'awaiting_beap_chair', 'awaiting_chairman', 'approved'].includes(plan.status) ? "View plan" : plan.lineCount ? "Continue" : "Start planning"}<ArrowUpRightIcon /></a></Button></span></div></CardContent>
             </Card>)}
             {canCreatePlan && visiblePlans.length > 0 && !query && !activeInvestmentFilters && <Button variant="outline" className="dashboard-new-plan" onClick={beginPlan}><span className="new-plan-symbol"><PlusIcon /></span><strong>Plan what comes next.</strong><span>Choose your year and quarters.<br />Build your next action plan.</span><span className="new-plan-link">Create a new plan<ArrowRightIcon /></span></Button>}
             {!visiblePlans.length && <div className="dashboard-empty"><FileTextIcon /><h3>{query ? "No matching plans" : activeInvestmentFilters ? "No plans match your filters" : "No action plans yet"}</h3><p>{query ? "Try a different year or clear your search." : activeInvestmentFilters ? "Adjust or clear the dashboard filters to see more plans." : canCreatePlan ? "Create an action plan so your state team can start filling its pillars." : "Your Executive Chairman or an authorized colleague must create a plan before you can start filling it."}</p>{(query || activeInvestmentFilters || canCreatePlan) && <Button variant="outline" onClick={query ? () => setQuery("") : activeInvestmentFilters ? () => setInvestmentFilters(emptyInvestmentFilters) : beginPlan}>{query ? "Clear search" : activeInvestmentFilters ? "Clear filters" : "Create action plan"}</Button>}</div>}
@@ -144,6 +163,7 @@ export default function DashboardPage() {
       <Separator className="dashboard-footer-separator" />
       <footer className="dashboard-footer"><span>Universal Basic Education Commission</span><span>© {new Date().getFullYear()}</span></footer>
     </main>
+    {editing !== null && <EditPlanDialog planId={editing} onClose={() => setEditing(null)} onSaved={() => void load()} />}
     {open && <CreatePlanDialog stateName={stateName} plans={plans} onClose={() => setOpen(false)} />}
   </div>;
 }

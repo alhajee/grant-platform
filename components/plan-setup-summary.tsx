@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { DocumentFiles } from '@/components/document-files';
 import { PlansArtwork } from '@/components/metric-artwork';
 import { formatQuarters } from '@/lib/format-quarters';
-import type { PlanSetup } from '@/lib/plan-setup';
+import { OtherFundingInfo } from '@/components/funding-sources-field';
+import { otherFundingTotal, type PlanSetup } from '@/lib/plan-setup';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' });
 export function PlanSetupSummary({ setup, compact = false }: { setup: Partial<PlanSetup>; compact?: boolean }) {
@@ -27,8 +28,8 @@ export function PlanSetupSummary({ setup, compact = false }: { setup: Partial<Pl
           { label: 'Total funding', value: amount(setup.fundingTotal), Icon: BanknoteIcon, primary: true },
           { label: 'State contribution', value: amount(setup.stateLodgment), Icon: LandmarkIcon },
           { label: 'UBEC match', value: amount(setup.stateLodgment), Icon: RefreshCwIcon },
-          { label: 'Other funding', value: amount(setup.otherFunding), Icon: WalletCardsIcon },
-        ].map(({ label, value, Icon, primary }) => <div key={label} data-primary={primary || undefined}><span className="plan-source-icon"><Icon aria-hidden="true" /></span><div><dt>{label}</dt><dd>{value}</dd></div></div>)}</dl>
+          { label: 'Other funding', value: amount(otherFundingTotal(setup)), Icon: WalletCardsIcon, info: true },
+        ].map(({ label, value, Icon, primary, info }) => <div key={label} data-primary={primary || undefined}><span className="plan-source-icon"><Icon aria-hidden="true" /></span><div><dt>{label}{info && <OtherFundingInfo setup={setup} />}</dt><dd>{value}</dd></div></div>)}</dl>
       </section>
     </CardContent>
     <CardFooter className="plan-assessment-files">
@@ -42,9 +43,9 @@ export function PlanSetupSummary({ setup, compact = false }: { setup: Partial<Pl
       ['Implementation year', setup.implementationYear],
       ['State contribution', money.format(Number(setup.stateLodgment))],
       ['UBEC match', money.format(Number(setup.stateLodgment))],
-      ['Other funding', money.format(Number(setup.otherFunding))],
+      ['Other funding', <>{money.format(Number(otherFundingTotal(setup)))}<OtherFundingInfo setup={setup} /></>],
       ['Total funding', money.format(Number(setup.fundingTotal))],
-    ].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium tabular-nums">{value}</dd></div>)}</dl>
+    ].map(([label, value]) => <div key={String(label)} className="min-w-0"><dt className="text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium tabular-nums">{value}</dd></div>)}</dl>
     <DocumentFiles documents={documents}/>
   </CardContent></Card>;
 }

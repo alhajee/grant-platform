@@ -14,7 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CurrencyInput } from "@/components/currency-input";
 import { planStatusLabels, type PlanOverview, type PlanStatus } from "@/lib/action-plans";
 
-export type InvestmentArea = "infrastructure" | "sports" | "sbmc" | "tlm";
+export type InvestmentArea = "infrastructure" | "sports" | "sbmc" | "tlm" | "monitoring" | "gscci" | "curriculum";
 export type InvestmentFilters = {
   years: number[];
   quarters: number[];
@@ -31,7 +31,7 @@ export const emptyInvestmentFilters: InvestmentFilters = {
 };
 
 const areaLabels: Record<InvestmentArea, string> = {
-  infrastructure: "Infrastructure", sports: "Sports development", sbmc: "SBMC", tlm: "TLM",
+  infrastructure: "Infrastructure", sports: "Sports development", sbmc: "SBMC", tlm: "TLM", monitoring: "Supervision & Monitoring", gscci: "Greening & Safeguards", curriculum: "Curriculum",
 };
 
 export function investmentFilterCount(value: InvestmentFilters) {

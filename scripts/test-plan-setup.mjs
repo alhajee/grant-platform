@@ -9,7 +9,7 @@ const db=new Client({connectionString:process.env.DATABASE_URL});
 const marker=`PS${Date.now()}`, ids=[], cookies={};
 const states=[marker,`${marker}B`];
 const password=crypto.randomUUID();
-const setup={planningYear:2029,implementationYear:2030,quarters:[1,2],stateLodgment:'100.25',otherFunding:'0.11'};
+const setup={planningYear:2029,implementationYear:2030,quarters:[1,2],stateLodgment:'100.25',fundingSources:[{component:'sbmc',funder:'QA funder',amount:'0.11'}]};
 const pdf='%PDF-1.4\n%%EOF';
 async function create(input=setup,files=[new Blob([pdf])]) {
   const body=new FormData();body.set('setup',JSON.stringify(input));
@@ -25,7 +25,7 @@ try {
     const row=await db.query('INSERT INTO users(full_name,email,role,state_code,password_hash) VALUES($1,$2,$3,$4,$5) RETURNING id',[`QA ${who}`,email,role,state,hashSync(password,4)]);ids.push(row.rows[0].id);
     const r=await fetch(base+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});assert.equal(r.status,200);cookies[who]=r.headers.get('set-cookie').split(';')[0];
   }
-  for(const change of [{quarters:[]},{quarters:[1,1]},{quarters:[5]},{implementationYear:2028},{stateLodgment:'-1'},{otherFunding:'1.001'},{stateLodgment:'0',otherFunding:'0'},{stateCode:'YO'},{fundingTotal:'900'}]) expect(await create({...setup,...change}),400);
+  for(const change of [{quarters:[]},{quarters:[1,1]},{quarters:[5]},{implementationYear:2028},{stateLodgment:'-1'},{otherFunding:'0.11'},{fundingSources:[{component:'sbmc',funder:'QA',amount:'1.001'}]},{stateLodgment:'0',fundingSources:[]},{stateCode:'YO'},{fundingTotal:'900'}]) expect(await create({...setup,...change}),400);
   expect(await create(setup,[]),400);
   expect(await create(setup,[new Blob(['not a pdf'])]),400);
   expect(await create(setup,[new Blob([new Uint8Array(5*1024*1024+1)])]),400);

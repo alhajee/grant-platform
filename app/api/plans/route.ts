@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     if (!workspace) return NextResponse.json({ error: "Sign in to view your action plans." }, { status: 401 });
     const db = getPostgres();
     const [result, targets] = await Promise.all([db.query(`SELECT p.id, p.start_year AS "startYear", p.end_year AS "endYear", p.created_at AS "createdAt", p.status, p.version, p.submission_number AS "submissionNumber", ${planSetupFields('p')},
-      COALESCE(i.budget, 0)::float8 AS "infrastructureBudget", COALESCE(s.budget, 0)::float8 AS "sportsBudget", COALESCE(a.sbmc,0)::float8 AS "sbmcBudget", COALESCE(a.tlm,0)::float8 AS "tlmBudget",
+      COALESCE(i.budget, 0)::float8 AS "infrastructureBudget", COALESCE(s.budget, 0)::float8 AS "sportsBudget", COALESCE(a.sbmc,0)::float8 AS "sbmcBudget", COALESCE(a.tlm,0)::float8 AS "tlmBudget", COALESCE(a.monitoring,0)::float8 AS "monitoringBudget", COALESCE(a.gscci,0)::float8 AS "gscciBudget", COALESCE(a.curriculum,0)::float8 AS "curriculumBudget",
       (COALESCE(i.budget, 0) + COALESCE(s.budget, 0) + COALESCE(a.budget, 0))::float8 AS budget,
       (COALESCE(i.lines, 0) + COALESCE(s.lines, 0) + COALESCE(a.lines, 0))::int AS "lineCount",
       COALESCE(beneficiaries.count, 0)::int AS "schoolCount",
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       FROM action_plans p
       LEFT JOIN LATERAL (SELECT SUM(total_cost) AS budget, COUNT(*) AS lines, MAX(updated_at) AS updated FROM infrastructure_packages WHERE plan_id=p.id) i ON TRUE
       LEFT JOIN LATERAL (SELECT SUM(unit_cost * quantity) AS budget, COUNT(*) AS lines, MAX(updated_at) AS updated FROM sports_budget_lines WHERE plan_id = p.id) s ON TRUE
-      LEFT JOIN LATERAL (SELECT SUM(unit_cost*quantity) AS budget,SUM(unit_cost*quantity) FILTER(WHERE workstream='sbmc') AS sbmc,SUM(unit_cost*quantity) FILTER(WHERE workstream='tlm') AS tlm,COUNT(*) AS lines,MAX(updated_at) AS updated FROM activity_plan_lines WHERE plan_id=p.id) a ON TRUE
+      LEFT JOIN LATERAL (SELECT SUM(unit_cost*quantity) AS budget,SUM(unit_cost*quantity) FILTER(WHERE workstream='sbmc') AS sbmc,SUM(unit_cost*quantity) FILTER(WHERE workstream='tlm') AS tlm,SUM(unit_cost*quantity) FILTER(WHERE workstream='monitoring') AS monitoring,SUM(unit_cost*quantity) FILTER(WHERE workstream='gscci') AS gscci,SUM(unit_cost*quantity) FILTER(WHERE workstream='curriculum') AS curriculum,COUNT(*) AS lines,MAX(updated_at) AS updated FROM activity_plan_lines WHERE plan_id=p.id) a ON TRUE
       LEFT JOIN LATERAL (SELECT COUNT(*)::int AS count, ARRAY_AGG(school_id ORDER BY school_id)::int[] AS ids FROM (
         SELECT school_id FROM infrastructure_packages WHERE plan_id=p.id
         UNION SELECT allocation.school_id FROM sports_allocations allocation JOIN sports_budget_lines line ON line.id=allocation.line_id JOIN schools school ON school.id=allocation.school_id WHERE line.plan_id=p.id AND line.state_code=p.state_code AND school.state_code=p.state_code
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const parsed = planSetupSchema.safeParse(JSON.parse(String(form.get('setup') ?? 'null')));
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
     const files = await ratDocuments(form);
-    const { planningYear, implementationYear, quarters, stateLodgment, otherFunding } = parsed.data;
+    const { planningYear, implementationYear, quarters, stateLodgment, fundingSources } = parsed.data;
     return await getPostgres().transaction(async db => {
     const actor = (await db.query('SELECT role,can_create_plan,is_beap_chair FROM users WHERE id=$1 AND active AND session_version=$2 AND state_code=$3 FOR SHARE', [workspace.userId,workspace.sessionVersion,workspace.stateCode])).rows[0];
     if (!actor || !canCreateStatePlan(actor.role, actor.can_create_plan, actor.is_beap_chair)) return NextResponse.json({ error:'Only the Executive Chairman or a staff member they authorize can create an action plan.' },{status:403});
@@ -70,9 +70,11 @@ export async function POST(request: NextRequest) {
     const overlap = (await db.query('SELECT quarter FROM plan_quarters WHERE state_code=$1 AND planning_year=$2 AND quarter=ANY($3::int[]) ORDER BY quarter',[workspace.stateCode,planningYear,quarters])).rows;
     if(overlap.length) return NextResponse.json({error:`${overlap.map(r=>`Q${r.quarter}`).join(', ')} already belongs to a ${planningYear} plan. Choose other quarters or open the existing plan.`},{status:409});
     const name=beapName(stateDisplayName(workspace.stateCode),planningYear,quarters);
-    const result = await db.query(`INSERT INTO action_plans (state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,beap_name,created_by,funding_policy_id) VALUES ($1,$2,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`, [workspace.stateCode,planningYear,implementationYear,quarters,stateLodgment,otherFunding,name,workspace.userId,fundingPolicy.id]);
+    const result = await db.query(`INSERT INTO action_plans (state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,beap_name,created_by,funding_policy_id) VALUES ($1,$2,$2,$3,$4,$5,0,$6,$7,$8) RETURNING id`, [workspace.stateCode,planningYear,implementationYear,quarters,stateLodgment,name,workspace.userId,fundingPolicy.id]);
     const id=result.rows[0].id;
     for(const quarter of quarters) await db.query('INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,$3,$4)',[id,workspace.stateCode,planningYear,quarter]);
+    // Other funding is component-specific (plan_funding_sources); other_funding stays 0 on new plans.
+    for(const source of fundingSources) await db.query('INSERT INTO plan_funding_sources(plan_id,component,funder,amount,created_by) VALUES($1,$2,$3,$4,$5)',[id,source.component,source.funder,source.amount,workspace.userId]);
     for(const file of files) await db.query("INSERT INTO plan_documents(id,plan_id,name,media_type,content,size) VALUES($1,$2,$3,$4,decode($5,'hex'),$6)",[file.id,id,file.name,file.mediaType,file.content.toString('hex'),file.size]);
     const plan=(await db.query(`SELECT ${planFields} FROM action_plans WHERE id=$1`,[id])).rows[0];
     return NextResponse.json({ plan }, { status: 201 });

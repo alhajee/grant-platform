@@ -4,7 +4,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { currentPlanHref, planHref, planPeriod } from "@/lib/action-plans";
 import { PlanSetupSummary } from '@/components/plan-setup-summary';
-import { ArrowRightIcon, ChevronDownIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronDownIcon, PencilIcon } from "lucide-react";
+import { EditPlanDialog } from "@/components/edit-plan-dialog";
+import { OtherFundingInfo } from "@/components/funding-sources-field";
+import { otherFundingTotal } from "@/lib/plan-setup";
 import { PillarIllustration } from "@/components/pillar-illustration";
 import { InfrastructureIllustration } from "@/components/infrastructure-illustration";
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
@@ -30,6 +33,8 @@ export default function BeapPage() {
   const [summary, setSummary] = useState<BeapSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [canEditSetup, setCanEditSetup] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const loadOverview = useCallback(async () => {
     try {
@@ -41,7 +46,11 @@ export default function BeapPage() {
       if (!sessionResponse.ok || !planResponse.ok) throw new Error();
       const session = await sessionResponse.json() as { user: LocalUser };
       setUser(session.user);
-      setSummary(await planResponse.json() as BeapSummary);
+      const next = await planResponse.json() as BeapSummary;
+      setSummary(next);
+      // Plan details (period and funding) can be edited by plan creators; the dialog explains any lock.
+      const setup = await fetch(`/api/plans/setup?plan=${next.plan.id}`, { cache: "no-store" }).then(r => r.ok ? r.json() as Promise<{ allowed?: boolean }> : null).catch(() => null);
+      setCanEditSetup(Boolean(setup?.allowed));
     } catch { setError("We couldn't load your saved plan. Check your connection and try again."); }
     finally { setLoading(false); }
   }, []);
@@ -65,15 +74,16 @@ export default function BeapPage() {
             <div className="beap-title"><h1>{summary ? `${planPeriod(summary.plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{summary && <PlanStatusBadge status={summary.plan.status} />}</div>
             <p className="beap-intro">{summary?.canEdit ? 'Choose a component to start or continue your plan.' : 'View your saved plan and review history.'}</p>
           </div>
-          {summary && !error && <Button asChild><a href={planHref('/beap/review', summary.plan.id)}>Review plan<ArrowRightIcon /></a></Button>}
+          {summary && !error && <div className="flex flex-wrap gap-2">{canEditSetup && <Button variant="outline" onClick={() => setEditing(true)}><PencilIcon />Edit plan</Button>}<Button asChild><a href={planHref('/beap/review', summary.plan.id)}>Review plan<ArrowRightIcon /></a></Button></div>}
         </header>
         <section className="plan-kpis" aria-label="Plan at a glance">
           {[
             {label:'Proposed budget',value:total ? money.format(total.budget) : '—',Artwork:BudgetArtwork,tone:'sage'},
             {label:'Available funding',value:summary?.plan.fundingTotal != null ? money.format(Number(summary.plan.fundingTotal)) : '—',Artwork:BudgetArtwork,tone:'peach'},
+            {label:'Other funding',value:summary ? money.format(Number(otherFundingTotal(summary.plan))) : '—',Artwork:BudgetArtwork,tone:'peach',info:true},
             {label:'Schools',value:total ? String(total.schoolCount) : '—',Artwork:SchoolsArtwork,tone:'lilac'},
             {label:'Budget lines',value:total ? String(total.lineCount) : '—',Artwork:PlansArtwork,tone:'blue'},
-          ].map(({label,value,Artwork,tone})=><div className="plan-kpi" data-tone={tone} key={label}><Artwork /><dl><dt>{label}</dt><dd>{loading ? <Skeleton className="h-7 w-24" /> : error ? '—' : value}</dd></dl></div>)}
+          ].map(({label,value,Artwork,tone,info})=><div className="plan-kpi" data-tone={tone} key={label}><Artwork /><dl><dt>{label}{info && summary && <OtherFundingInfo setup={summary.plan} />}</dt><dd>{loading ? <Skeleton className="h-7 w-24" /> : error ? '—' : value}</dd></dl></div>)}
         </section>
         {summary && !error && <Collapsible className="pillar-plan-details plan-details-disclosure"><CollapsibleTrigger><span className="plan-details-summary-label"><ChevronDownIcon aria-hidden="true" />Funding details & assessment documents</span><span>Implementation · {summary.plan.implementationYear ?? '—'}</span></CollapsibleTrigger><CollapsibleContent><PlanSetupSummary setup={summary.plan} compact /></CollapsibleContent></Collapsible>}
 
@@ -119,6 +129,7 @@ export default function BeapPage() {
           </div>
         </section>
       </main>
+      {editing && summary && <EditPlanDialog planId={summary.plan.id} onClose={() => setEditing(false)} onSaved={() => void loadOverview()} />}
     </div>
   );
 }
