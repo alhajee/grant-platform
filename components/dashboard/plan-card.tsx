@@ -68,7 +68,7 @@ export function PlanCard({ plan, isOfficer, canEdit, onEdit }: PlanCardProps) {
   return <Card className="dashboard-plan-card" {...planCardTilt}>
     <PlanCardGuilloche seed={plan.startYear} />
     <CardHeader className="plan-card-header">
-      <div className="min-w-0"><CardTitle><h3>{planPeriod(plan)} BEAP</h3></CardTitle><CardDescription>{plan.startYear === plan.endYear ? 'Annual' : `${plan.endYear - plan.startYear + 1}-year`} plan · Matching Grant</CardDescription></div>
+      <div className="min-w-0"><CardTitle><h3>{planPeriod(plan)} BEAP</h3></CardTitle>{plan.endYear > plan.startYear && <CardDescription>{plan.endYear - plan.startYear + 1}-year plan</CardDescription>}</div>
       <PlanStatusBadge status={plan.status} />
     </CardHeader>
     <CardContent>
