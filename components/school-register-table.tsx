@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createColumnHelper, type PaginationState, type SortingState } from '@tanstack/react-table';
 import { DownloadIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { DataTable } from '@/components/data-table';
+import { SchoolMapDialog } from '@/components/school-map-dialog';
 import { SchoolBulkBar, useSchoolActions } from '@/components/school-register-bulk-bar';
 import { DataTableColumnHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
@@ -95,7 +96,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
     helper.accessor('category', { id: 'type', enableSorting: false, header: 'Type', cell: info => <Badge variant={info.getValue() === 'Private' ? 'outline' : 'secondary'}>{info.getValue() || '—'}</Badge> }),
     helper.accessor('location', { id: 'location', enableSorting: false, header: 'Location' }),
     helper.accessor(school => school.male + school.female, { id: 'learners', header: ({ column }) => <DataTableColumnHeader column={column} title="Learners" align="end" />, cell: ({ row }) => <div className="text-right tabular-nums"><p>{(row.original.male + row.original.female).toLocaleString()}</p><p className="text-xs text-muted-foreground">{row.original.male.toLocaleString()} M · {row.original.female.toLocaleString()} F</p></div> }),
-    helper.display({ id: 'coordinates', enableSorting: false, header: 'Coordinates', cell: ({ row }) => row.original.latitude && row.original.longitude ? <span className="whitespace-nowrap tabular-nums text-xs">{row.original.latitude}, {row.original.longitude}</span> : <span className="text-muted-foreground">—</span> }),
+    helper.display({ id: 'coordinates', enableSorting: false, header: 'Coordinates', cell: ({ row }) => row.original.latitude && row.original.longitude ? <SchoolMapDialog name={row.original.name} lga={row.original.lga} latitude={row.original.latitude} longitude={row.original.longitude} /> : <span className="text-muted-foreground">—</span> }),
     helper.accessor('updatedAt', { id: 'updated', header: ({ column }) => <DataTableColumnHeader column={column} title="Last updated" />, cell: ({ row }) => row.original.updatedAt ? <div className="whitespace-nowrap"><p>{updated.format(new Date(row.original.updatedAt))}</p>{row.original.updatedBy && <p className="text-xs text-muted-foreground">{row.original.updatedBy}</p>}</div> : <span className="text-muted-foreground">Original list</span> }),
     helper.display({ id: 'actions', enableHiding: false, header: () => <span className="sr-only">Actions</span>, cell: ({ row }) => <div className="flex justify-end"><DropdownMenu>
       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground data-[state=open]:bg-muted" aria-label={`Actions for ${row.original.name}`}><MoreHorizontalIcon /></Button></DropdownMenuTrigger>
