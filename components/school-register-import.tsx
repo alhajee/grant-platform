@@ -59,7 +59,7 @@ export function SchoolBulkUpload({ onImported, dialog = false }: SchoolBulkUploa
   const body = <div className={cn('flex flex-col gap-4', dialog && 'px-6 pb-6')}>
     {!checked && <Dropzone onFile={file => run(file, 'preview')} onReject={setError} />}
     {checked && <div className="flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5">
-      <span className="h-8 w-7 shrink-0 [&_svg]:size-full"><FileArtwork name={checked.file.name} /></span>
+      <span className="h-8 w-7 shrink-0 [&_svg]:size-full!"><FileArtwork name={checked.file.name} /></span>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
         <span className="truncate text-sm font-medium">{checked.file.name}</span>
         {!result ? <Badge variant="secondary"><Spinner data-icon="inline-start" />Checking</Badge>
@@ -108,7 +108,7 @@ function Dropzone({ onFile, onReject }: { onFile: (file: File) => void; onReject
     onDrop={event => { event.preventDefault(); pick(Array.from(event.dataTransfer.files)); }}
   >
     <input ref={input} className="sr-only" type="file" tabIndex={-1} aria-hidden="true" accept=".xlsx" onChange={event => { pick(Array.from(event.target.files ?? [])); event.target.value = ''; }} />
-    <span className="mb-2 size-12 transition-transform group-hover:-translate-y-0.5 [&_svg]:size-full"><FileArtwork name="list.xlsx" /></span>
+    <span className="mb-2 size-12 transition-transform group-hover:-translate-y-0.5 [&_svg]:size-full!"><FileArtwork name="list.xlsx" /></span>
     <p className="text-sm font-medium">Drag and drop your school list here</p>
     <p className="text-sm text-muted-foreground">or, <span className="underline underline-offset-4">click to browse</span> (.xlsx, 5 MB max)</p>
     <Button type="button" variant="outline" size="sm" className="mt-3 rounded-full bg-background" tabIndex={-1} onClick={event => { event.stopPropagation(); input.current?.click(); }}>Select file</Button>
