@@ -51,9 +51,9 @@ export default function SchoolsPage() {
       </DialogContent>
     </Dialog>
     <Dialog open={bulk} onOpenChange={setBulk}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[34rem]" aria-describedby={undefined}>
-        <DialogHeader><DialogTitle>Bulk entry</DialogTitle></DialogHeader>
-        {bulk && <SchoolBulkUpload onImported={result => { if (result.created) refresh(); }} />}
+      <DialogContent variant="inset-footer" className="sm:max-w-[34rem]" onOpenAutoFocus={event => event.preventDefault()}>
+        <DialogHeader className="items-center px-6! pt-7! pb-5! text-center!"><DialogTitle className="px-6 text-lg!">Bulk entry</DialogTitle><DialogDescription>Add many schools at once from your school list.</DialogDescription></DialogHeader>
+        {bulk && <SchoolBulkUpload dialog onImported={result => { if (result.created) refresh(); }} />}
       </DialogContent>
     </Dialog>
   </main></div>;
