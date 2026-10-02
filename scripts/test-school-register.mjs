@@ -90,13 +90,17 @@ try {
   ok(template); assert.match(template.type, /spreadsheetml/); assert.equal(template.data.subarray(0, 2).toString(), 'PK');
   const workbook = new ExcelJS.Workbook(); await workbook.xlsx.load(template.data);
   const sheet = workbook.getWorksheet('Schools');
-  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(column => sheet.getCell(1, column).text), ['S/N', 'Longitude', 'Latitude', 'School name', 'Town', 'LGA', 'Type of school', 'Location', 'Level', 'School code']);
-  assert.deepEqual([11, 12, 13].map(column => sheet.getCell(2, column).text), ['Male', 'Female', 'Total']);
-  assert.equal(sheet.getCell(1, 11).text, 'ECCDE'); assert.equal(sheet.getCell(1, 41).text, 'Total enrolment');
+  // The client's layout ("TLMs list 2025"): title rows 1-2, headers rows 3-6, data from row 7; Level and School code last.
+  assert.deepEqual([1, 4, 5, 6, 7, 8].map(column => sheet.getCell(3, column).text), ['S/N', 'SCHOOL NAME', 'TOWN', 'LGA', 'TYPE OF SCHOOL(PUBLIC OR PRIVATE)', 'LOCATION (URBAN OR RURAL)']);
+  assert.deepEqual([2, 3].map(column => sheet.getCell(6, column).text), ['Longitude', 'Latitude']);
+  assert.deepEqual([9, 10, 11].map(column => sheet.getCell(6, column).text), ['MALE', 'FEMALE', 'TOTAL']);
+  assert.equal(sheet.getCell(4, 9).text, 'ECCDE'); assert.equal(sheet.getCell(3, 39).text, 'TOTAL ENROLMENT');
+  assert.match(sheet.getCell(3, 40).text, /^LEVEL/); assert.match(sheet.getCell(3, 41).text, /^SCHOOL CODE/);
   assert.ok(workbook.getWorksheet('Guide').getColumn(5).values.includes('QA South'));
 
   // Bulk entry: preview reports every problem by row; commit refuses errors, then adds only new schools.
-  const fill = rows => { rows.forEach((values, index) => { const row = sheet.getRow(3 + index); values.forEach((value, column) => { row.getCell(column + 1).value = value ?? null; }); row.commit(); }); };
+  const position = column => column < 8 ? column + 1 : column === 8 ? 40 : column === 9 ? 41 : column - 1;
+  const fill = rows => { rows.forEach((values, index) => { const row = sheet.getRow(7 + index); values.forEach((value, column) => { row.getCell(position(column)).value = value ?? null; }); row.commit(); }); };
   const classes = (eccde, p1) => [eccde[0], eccde[1], eccde[0] + eccde[1], p1[0], p1[1], p1[0] + p1[1]];
   fill([
     [1, 12.01, 11.5, 'QA Bulk ECCDE Centre', 'Bulk Town', 'qa south', 'public', 'urban', 'eccde', 'QA-BULK-1', ...classes([10, 12], [0, 0])],
@@ -105,7 +109,7 @@ try {
     [4, 11.9, 11.6, 'QA Bulk ECCDE Centre', 'Bulk Town', 'QA South', 'Public', 'Urban', 'ECCDE'],
     [5, 11.9, 25, 'QA Swapped Coordinates', 'Town', 'QA South', 'Private', 'Rural', 'JSS'],
   ]);
-  sheet.getCell(7, 41).value = 99;
+  sheet.getCell(11, 39).value = 99;
   let bytes = await workbook.xlsx.writeBuffer();
   ok(await api('officer', '/api/schools/import?mode=preview', upload(bytes), 'POST', { origin: false }), 403);
   ok(await api('director', '/api/schools/import?mode=preview', upload(bytes)), 403);
@@ -113,13 +117,14 @@ try {
   const preview = ok(await api('officer', '/api/schools/import?mode=preview', upload(bytes)));
   assert.equal(preview.rows, 5); assert.equal(preview.errorCount, 3); assert.equal(preview.ready, 1); assert.equal(preview.duplicates.length, 1);
   const byRow = Object.fromEntries(preview.errors.map(item => [item.row, item.messages.join(' ')]));
-  assert.match(byRow[5], /Atlantis/); assert.match(byRow[6], /Same school as row 3/); assert.match(byRow[7], /Latitude/); assert.match(byRow[7], /Total enrolment 99/);
-  assert.equal(preview.duplicates[0].row, 4);
+  // Data starts on row 7 in the client's layout, so spreadsheet rows are 4 higher than the old template's.
+  assert.match(byRow[9], /Atlantis/); assert.match(byRow[10], /Same school as row 7/); assert.match(byRow[11], /Latitude/); assert.match(byRow[11], /Total enrolment 99/);
+  assert.equal(preview.duplicates[0].row, 8);
   const refused = ok(await api('officer', '/api/schools/import?mode=commit', upload(bytes)), 400);
   assert.match(refused.error, /No schools were added/);
   assert.equal(ok(await api('chair', '/api/schools')).total, 3, 'Nothing is added while any row has errors');
 
-  sheet.spliceRows(5, 3);
+  sheet.spliceRows(9, 3);
   bytes = await workbook.xlsx.writeBuffer();
   const committed = ok(await api('officer', '/api/schools/import?mode=commit', upload(bytes)), 201);
   assert.deepEqual([committed.created, committed.duplicates.length, committed.errorCount], [1, 1, 0]);

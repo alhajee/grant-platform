@@ -51,8 +51,8 @@ export default function SchoolsPage() {
       </DialogContent>
     </Dialog>
     <Dialog open={bulk} onOpenChange={setBulk}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader><DialogTitle>Bulk entry</DialogTitle><DialogDescription>Upload the filled template. Every row is checked before any school is added.</DialogDescription></DialogHeader>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[34rem]" aria-describedby={undefined}>
+        <DialogHeader><DialogTitle>Bulk entry</DialogTitle></DialogHeader>
         {bulk && <SchoolBulkUpload onImported={result => { if (result.created) refresh(); }} />}
       </DialogContent>
     </Dialog>

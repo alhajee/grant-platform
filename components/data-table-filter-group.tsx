@@ -21,11 +21,18 @@ export const useFilterGroup = () => useContext(FilterGroupContext);
  */
 export function DataTableFilterGroup({ activeCount, filterCount, onReset, children }: { activeCount: number; filterCount: number; onReset?: () => void; children: ReactNode }) {
   const [hovered, setHovered] = useState(false), [focused, setFocused] = useState(false), [pinned, setPinned] = useState(false), [openPopovers, setOpenPopovers] = useState(0);
-  const timer = useRef<number | null>(null), root = useRef<HTMLDivElement>(null);
+  const timer = useRef<number | null>(null), root = useRef<HTMLDivElement>(null), pointer = useRef('');
   // Focus can end up on <body> when a closed list returns it to a filter that has since moved; re-check.
   const syncFocus = useCallback(() => { const active = document.activeElement; setFocused(!!active && !!root.current?.contains(active) && active.matches(':focus-visible')); }, []);
   const cancel = () => { if (timer.current !== null) { window.clearTimeout(timer.current); timer.current = null; } };
   useEffect(() => cancel, []);
+  // A pinned panel (tap or keyboard) closes on a tap or click anywhere outside it.
+  useEffect(() => {
+    if (!pinned) return;
+    const away = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node) && !(event.target as Element | null)?.closest?.('[data-radix-popper-content-wrapper]')) setPinned(false); };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, [pinned]);
   // The pointer may leave through a portalled option list without a pointerleave on the group, so
   // re-read the real hover and focus state whenever a list closes.
   const report = useCallback((open: boolean) => {
@@ -47,7 +54,7 @@ export function DataTableFilterGroup({ activeCount, filterCount, onReset, childr
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocused(false); }}
       onKeyDown={event => { if (event.key === 'Escape' && !openPopovers) { setPinned(false); setFocused(false); } }}
     >
-      <Button type="button" variant="outline" size="sm" className="rounded-full" aria-expanded={showPanel} onClick={() => setPinned(value => !value)}>
+      <Button type="button" variant="outline" size="sm" className="rounded-full" aria-expanded={showPanel} onPointerDown={event => { pointer.current = event.pointerType; }} onClick={event => { const mouse = pointer.current === 'mouse' && event.detail > 0; pointer.current = ''; if (!mouse) setPinned(value => !value); }}>
         <ListFilterIcon data-icon="inline-start" />Filter
         {activeCount > 0 && <Badge className="h-5 min-w-5 justify-center rounded-full px-1 tabular-nums">{activeCount}</Badge>}
       </Button>

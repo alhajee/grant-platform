@@ -49,6 +49,7 @@ function learnerCount(value: string | number | undefined, label: string, message
 }
 
 /** Turns one uploaded row into a valid school input, or the reasons it cannot be added. */
+const coordinate = (value: unknown) => { const text = toText(value as never); return Number(text) === 0 && text !== '' ? '' : text; };
 export function validateImportRow(row: ParsedSchoolRow, lgas: string[]): { input: SchoolInput } | { messages: string[] } {
   const messages: string[] = [];
   const enrolment: ClassEnrolment = {};
@@ -63,12 +64,15 @@ export function validateImportRow(row: ParsedSchoolRow, lgas: string[]): { input
   if (typeof row.total === 'number' && row.total !== sum) messages.push(`Total enrolment ${row.total} does not match the class figures (${sum}).`);
   const rawLga = toText(row.base.lga), lga = rawLga ? matchLga(lgas, rawLga) : '';
   if (rawLga && lga === null) messages.push(`LGA "${rawLga}" is not an LGA in this state's register.`);
-  const level = canonicalLevel(toText(row.base.level));
+  // Level is optional in the client's layout: work it out from the classes with learners when blank.
+  const inferredLevel = Object.keys(enrolment).some(key => key.startsWith('P')) ? 'Primary' : Object.keys(enrolment).some(key => key.startsWith('JSS')) ? 'JSS' : enrolment.ECCDE ? 'ECCDE' : '';
+  const level = canonicalLevel(toText(row.base.level) || inferredLevel);
   if (level === 'SSS') messages.push('Senior secondary schools cannot be added. Choose ECCDE, Primary or JSS.');
   const parsed = schoolInputSchema.safeParse({
     schoolCode: toText(row.base.schoolCode) || null, name: toText(row.base.name), town: toText(row.base.town), lga: lga ?? rawLga,
     category: canonicalOption(schoolTypes, toText(row.base.category)), location: canonicalOption(schoolLocations, toText(row.base.location)), level,
-    latitude: toText(row.base.latitude), longitude: toText(row.base.longitude), enrolment,
+    // Lists often use 0 for an unknown coordinate; treat it as blank.
+    latitude: coordinate(row.base.latitude), longitude: coordinate(row.base.longitude), enrolment,
   });
   if (!parsed.success) messages.push(...schoolIssues(parsed.error).filter(message => !(lga === null && message.startsWith('Choose the LGA'))));
   return messages.length || !parsed.success ? { messages: [...new Set(messages)] } : { input: parsed.data };
