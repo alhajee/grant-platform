@@ -1,8 +1,15 @@
 import type { NextRequest } from 'next/server';
 import { getPostgres } from '@/lib/postgres';
 import { escapeLike } from '@/lib/admin-activity';
-import { registerQuerySchema, schoolCreateSchema, schoolSelectionSchema, type SchoolDeleteResult, schoolEditSchema, schoolIssues, schoolTotals, type RegisterFacets, type RegisterSort, type SchoolInput } from '@/lib/school-register';
+import { maxSelection, registerQuerySchema, schoolCreateSchema, schoolSelectionSchema, type SchoolDeleteResult, schoolEditSchema, schoolIssues, schoolTotals, type RegisterFacets, type RegisterSort, type SchoolGap, type SchoolInput } from '@/lib/school-register';
 import { findConflict, lockManager, managerMessage, matchLga, noStoreJson, registerActor, registerFieldsSql, stateLgas } from '@/lib/school-register-server';
+
+// A school is missing a value when it is blank; enrolment counts as missing when no learners are recorded.
+const gapSql: Record<SchoolGap, string> = {
+  coordinates: "(coalesce(latitude,'') = '' OR coalesce(longitude,'') = '')",
+  enrolment: '(enrolment_male + enrolment_female) = 0',
+  code: "coalesce(school_code,'') = ''",
+};
 
 const sortColumns: Record<RegisterSort, string> = {
   name: 'lower(name)', lga: 'lower(lga)', level: 'level', learners: '(enrolment_male + enrolment_female)', updated: 'updated_at',
@@ -15,7 +22,7 @@ export async function GET(request: NextRequest) {
     if ('error' in auth) return auth.error;
     const parsed = registerQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
     if (!parsed.success) return noStoreJson({ error: 'Choose valid filters and sorting.' }, 400);
-    const { page, pageSize, q, lga, level, type, location, id, sort, dir } = parsed.data;
+    const { page, pageSize, q, lga, level, type, location, gap, ids, id, sort, dir } = parsed.data;
     const params: unknown[] = [auth.workspace.stateCode], where = ['state_code = $1'];
     const add = (value: unknown, sql: (ref: string) => string) => { params.push(value); where.push(sql(`$${params.length}`)); };
     if (q) add(`%${escapeLike(q)}%`, ref => `(name ILIKE ${ref} OR town ILIKE ${ref} OR lga ILIKE ${ref} OR school_code ILIKE ${ref})`);
@@ -24,14 +31,18 @@ export async function GET(request: NextRequest) {
     if (level.length) add(level, ref => `level = ANY(${ref}::text[])`);
     if (type.length) add(type, ref => `category = ANY(${ref}::text[])`);
     if (location.length) add(location, ref => `location = ANY(${ref}::text[])`);
+    if (gap.length) where.push(`(${gap.map(key => gapSql[key]).join(' OR ')})`);
     const whereSql = where.join(' AND ');
     return await getPostgres().transaction(async db => {
+      if (ids) return noStoreJson({ ids: (await db.query<{ id: number }>(`SELECT id FROM schools WHERE ${whereSql} ORDER BY id LIMIT ${maxSelection}`, params)).rows.map(row => row.id) });
       const total = (await db.query<{ total: number }>(`SELECT COUNT(*)::int AS total FROM schools WHERE ${whereSql}`, params)).rows[0]?.total ?? 0;
       const served = Math.min(page, Math.max(1, Math.ceil(total / pageSize)));
       const items = total ? (await db.query(`SELECT ${registerFieldsSql} FROM schools WHERE ${whereSql}
         ORDER BY ${sortColumns[sort]} ${dir === 'asc' ? 'ASC' : 'DESC'} NULLS LAST, lower(name), id LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, pageSize, (served - 1) * pageSize])).rows : [];
       const facet = async (column: string) => (await db.query<{ value: string; count: number }>(`SELECT ${column} AS value, COUNT(*)::int AS count FROM schools WHERE state_code=$1 AND ${column}<>'' GROUP BY ${column} ORDER BY ${column}`, [auth.workspace.stateCode])).rows;
-      const facets: RegisterFacets = { lgas: await facet('lga'), levels: await facet('level'), types: await facet('category'), locations: await facet('location') };
+      const gapCounts = (await db.query<Record<SchoolGap, number>>(`SELECT ${Object.entries(gapSql).map(([key, sql]) => `COUNT(*) FILTER (WHERE ${sql})::int AS ${key}`).join(', ')} FROM schools WHERE state_code=$1`, [auth.workspace.stateCode])).rows[0];
+      const gaps = (Object.keys(gapSql) as SchoolGap[]).map(key => ({ value: key, count: gapCounts?.[key] ?? 0 }));
+      const facets: RegisterFacets = { lgas: await facet('lga'), levels: await facet('level'), types: await facet('category'), locations: await facet('location'), gaps };
       return noStoreJson({ items, total, page: served, pageSize, facets });
     });
   } catch (cause) {

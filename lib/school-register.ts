@@ -27,7 +27,13 @@ export type RegisterSchool = {
   latitude: string; longitude: string; male: number; female: number; enrolment: ClassEnrolment; updatedAt: string | null; updatedBy: string | null;
 };
 export type RegisterFacet = { value: string; count: number };
-export type RegisterFacets = { lgas: RegisterFacet[]; levels: RegisterFacet[]; types: RegisterFacet[]; locations: RegisterFacet[] };
+export type RegisterFacets = { lgas: RegisterFacet[]; levels: RegisterFacet[]; types: RegisterFacet[]; locations: RegisterFacet[]; gaps: RegisterFacet[] };
+/** Data-quality filters: schools missing coordinates, enrolment or a school code. */
+export const schoolGaps = ['coordinates', 'enrolment', 'code'] as const;
+export type SchoolGap = typeof schoolGaps[number];
+export const schoolGapLabels: Record<SchoolGap, string> = { coordinates: 'Missing coordinates', enrolment: 'Missing enrolment', code: 'No school code' };
+/** Most schools one bulk action (or "select all matching") can cover; the largest state has about 7,000. */
+export const maxSelection = 20000;
 export type RegisterPage = { items: RegisterSchool[]; total: number; page: number; pageSize: number; facets: RegisterFacets };
 export type RegisterOptions = { canManage: boolean; stateName: string; lgas: string[] };
 export type ImportIssue = { row: number; name: string; messages: string[] };
@@ -91,13 +97,16 @@ export const registerQuerySchema = z.object({
   level: listParam(z.enum([...schoolLevels, ...legacyLevels]), 4),
   type: listParam(z.enum(schoolTypes), 2),
   location: listParam(z.enum(schoolLocations), 2),
+  gap: listParam(z.enum(schoolGaps), 3),
+  /** `ids=1`: return only the ids of every matching school (for select all matching). */
+  ids: z.preprocess(value => value === '1', z.boolean()),
   id: z.preprocess(value => present(value) ? Number(value) : undefined, z.number().int().positive().optional()),
   sort: z.enum(registerSorts).default('name'),
   dir: z.enum(['asc', 'desc']).optional(),
 }).transform(query => ({ ...query, dir: query.dir ?? (query.sort === 'learners' || query.sort === 'updated' ? 'desc' : 'asc') as 'asc' | 'desc' }));
 
 /** Ticked schools for a bulk action (export or delete). */
-export const schoolSelectionSchema = z.object({ ids: z.array(z.number().int().positive()).min(1).max(maxImportRows) }).strict()
+export const schoolSelectionSchema = z.object({ ids: z.array(z.number().int().positive()).min(1).max(maxSelection) }).strict()
   .transform(value => ({ ids: [...new Set(value.ids)] }));
 export type SchoolDeleteResult = { deleted: number; kept: { id: number; name: string }[] };
 

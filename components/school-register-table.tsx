@@ -10,13 +10,14 @@ import { DataTableColumnHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
 import { DataTableFacetedFilter } from '@/components/data-table-faceted-filter';
 import { DataTableFilterGroup } from '@/components/data-table-filter-group';
+import { toast } from 'sonner';
 import { useSessionState } from '@/components/use-session-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { defaultRegisterPageSize, registerPageSizes, type RegisterFacet, type RegisterPage, type RegisterSchool } from '@/lib/school-register';
+import { defaultRegisterPageSize, registerPageSizes, schoolGapLabels, type RegisterFacet, type RegisterPage, type RegisterSchool, type SchoolGap } from '@/lib/school-register';
 
 export type SchoolRegisterTableProps = { refreshKey: number; onEdit: (school: RegisterSchool) => void };
 type Loaded = { key: string; data: RegisterPage } | { key: string; error: string };
@@ -24,6 +25,9 @@ const helper = createColumnHelper<DataTableFeatures, RegisterSchool>();
 const defaultSorting: SortingState = [{ id: 'name', desc: false }];
 const searchDelay = 300, persist = 'school-register';
 const options = (facets: RegisterFacet[] = []) => facets.map(item => ({ value: item.value, label: item.value, count: item.count }));
+const gapOptions = (facets: RegisterFacet[] = []) => facets.map(item => ({ value: item.value, label: schoolGapLabels[item.value as SchoolGap] ?? item.value, count: item.count }));
+// No learners and no class figures means enrolment was never entered, which is not the same as zero learners.
+const enrolmentRecorded = (school: RegisterSchool) => school.male + school.female > 0 || Object.keys(school.enrolment ?? {}).length > 0;
 const updated = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
 
 /** The state's schools, paged, searched, sorted and filtered on the server. */
@@ -33,11 +37,12 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
   const [search, setSearch] = useSessionState(`${persist}:search`, ''), [q, setQ] = useState(() => search.trim());
   const [lgas, setLgas] = useSessionState<string[]>(`${persist}:lga`, []), [levels, setLevels] = useSessionState<string[]>(`${persist}:level`, []);
   const [types, setTypes] = useSessionState<string[]>(`${persist}:type`, []), [locations, setLocations] = useSessionState<string[]>(`${persist}:location`, []);
+  const [gaps, setGaps] = useSessionState<string[]>(`${persist}:gap`, []), [selectingAll, setSelectingAll] = useState(false);
   const [attempt, setAttempt] = useState(0), [loaded, setLoaded] = useState<Loaded | null>(null);
   // Ticked schools stay ticked across pages and filters until cleared or acted on.
   const [selected, setSelected] = useState<ReadonlySet<number>>(() => new Set());
   const sort = sorting[0]?.id ?? 'name', dir = sorting[0]?.desc ? 'desc' : 'asc';
-  const query = useMemo(() => new URLSearchParams({ page: String(pagination.pageIndex + 1), pageSize: String(pagination.pageSize), q, lga: lgas.join(','), level: levels.join(','), type: types.join(','), location: locations.join(','), sort, dir }).toString(), [pagination, q, lgas, levels, types, locations, sort, dir]);
+  const query = useMemo(() => new URLSearchParams({ page: String(pagination.pageIndex + 1), pageSize: String(pagination.pageSize), q, lga: lgas.join(','), level: levels.join(','), type: types.join(','), location: locations.join(','), gap: gaps.join(','), sort, dir }).toString(), [pagination, q, lgas, levels, types, locations, gaps, sort, dir]);
   const key = `${query}#${attempt}#${refreshKey}`;
 
   useEffect(() => {
@@ -63,14 +68,15 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
   const lastData = loaded && 'data' in loaded ? loaded.data : null;
   const error = current && 'error' in current ? current.error : '';
   const facets = lastData?.facets;
-  const filtered = Boolean(q || lgas.length || levels.length || types.length || locations.length);
+  const filtered = Boolean(q || lgas.length || levels.length || types.length || locations.length || gaps.length);
   const setFilter = (set: (values: string[]) => void) => (values: string[]) => { set(values); setPagination(state => ({ ...state, pageIndex: 0 })); };
-  const clearFilters = useCallback(() => { setSearch(''); setQ(''); setLgas([]); setLevels([]); setTypes([]); setLocations([]); setPagination(value => ({ ...value, pageIndex: 0 })); }, [setSearch, setLgas, setLevels, setTypes, setLocations]);
+  const clearFilters = useCallback(() => { setSearch(''); setQ(''); setLgas([]); setLevels([]); setTypes([]); setLocations([]); setGaps([]); setPagination(value => ({ ...value, pageIndex: 0 })); }, [setSearch, setLgas, setLevels, setTypes, setLocations, setGaps]);
   const filters = [
     { title: 'LGA', options: options(facets?.lgas), selected: lgas, set: setLgas },
     { title: 'Level', options: options(facets?.levels), selected: levels, set: setLevels },
     { title: 'Type', options: options(facets?.types), selected: types, set: setTypes },
     { title: 'Location', options: options(facets?.locations), selected: locations, set: setLocations },
+    { title: 'Data gaps', options: gapOptions(facets?.gaps), selected: gaps, set: setGaps },
   ];
 
   const actions = useSchoolActions({ onDeleted: result => {
@@ -86,18 +92,33 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
     ids.forEach(id => { if (on) next.add(id); else next.delete(id); });
     return next;
   }), []);
+  const total = error ? 0 : lastData?.total ?? 0;
+  const selectAll = async () => {
+    setSelectingAll(true);
+    try {
+      const params = new URLSearchParams(query); params.set('ids', '1');
+      const response = await fetch(`/api/schools?${params}`, { cache: 'no-store' });
+      if (response.status === 401) { window.location.replace('/'); return; }
+      const body = await response.json().catch(() => ({})) as { ids?: number[]; error?: string };
+      if (!response.ok || !body.ids) throw Error(body.error || 'The matching schools could not be selected.');
+      toggle(body.ids, true);
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The matching schools could not be selected.'); }
+    finally { setSelectingAll(false); }
+  };
+  // Offer every matching school once the whole page is ticked and more match than are shown.
+  const canSelectAll = pageIds.length > 0 && pageTicked === pageIds.length && total > pageIds.length && selected.size < total;
   const columns = useMemo(() => helper.columns([
     helper.display({ id: 'select', enableHiding: false, enableSorting: false,
       header: () => <Checkbox aria-label="Select all schools on this page" disabled={!pageIds.length} checked={pageIds.length > 0 && pageTicked === pageIds.length ? true : pageTicked ? 'indeterminate' : false} onCheckedChange={value => toggle(pageIds, value === true)} />,
       cell: ({ row }) => <Checkbox aria-label={`Select ${row.original.name}`} checked={selected.has(row.original.id)} onCheckedChange={value => toggle([row.original.id], value === true)} /> }),
-    helper.accessor('name', { id: 'name', enableHiding: false, header: ({ column }) => <DataTableColumnHeader column={column} title="School" />, cell: ({ row }) => <div className="min-w-56 whitespace-normal"><p className="font-medium">{row.original.name}</p><p className="text-xs text-muted-foreground">{row.original.schoolCode ? `Code ${row.original.schoolCode}` : 'No school code'}{row.original.town ? ` · ${row.original.town}` : ''}</p></div> }),
+    helper.accessor('name', { id: 'name', enableHiding: false, header: ({ column }) => <DataTableColumnHeader column={column} title="School" />, cell: ({ row }) => <div className="min-w-56 whitespace-normal"><p className="font-medium">{row.original.name}</p>{(row.original.town || row.original.schoolCode) && <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{row.original.town && <span>{row.original.town}</span>}{row.original.schoolCode && <Badge variant="outline" className="h-4 px-1.5 font-mono text-[0.65rem] font-normal" title="School code (EMIS/DNEMIS)">{row.original.schoolCode}</Badge>}</p>}</div> }),
     helper.accessor('lga', { id: 'lga', header: ({ column }) => <DataTableColumnHeader column={column} title="LGA" />, cell: info => <span className="whitespace-nowrap">{info.getValue()}</span> }),
     helper.accessor('level', { id: 'level', header: ({ column }) => <DataTableColumnHeader column={column} title="Level" /> }),
     helper.accessor('category', { id: 'type', enableSorting: false, header: 'Type', cell: info => <Badge variant={info.getValue() === 'Private' ? 'outline' : 'secondary'}>{info.getValue() || '—'}</Badge> }),
     helper.accessor('location', { id: 'location', enableSorting: false, header: 'Location' }),
-    helper.accessor(school => school.male + school.female, { id: 'learners', header: ({ column }) => <DataTableColumnHeader column={column} title="Learners" align="end" />, cell: ({ row }) => <div className="text-right tabular-nums"><p>{(row.original.male + row.original.female).toLocaleString()}</p><p className="text-xs text-muted-foreground">{row.original.male.toLocaleString()} M · {row.original.female.toLocaleString()} F</p></div> }),
+    helper.accessor(school => school.male + school.female, { id: 'learners', header: ({ column }) => <DataTableColumnHeader column={column} title="Learners" align="end" />, cell: ({ row }) => !enrolmentRecorded(row.original) ? <p className="text-right text-xs whitespace-nowrap text-muted-foreground">Not recorded</p> : <div className="text-right tabular-nums"><p>{(row.original.male + row.original.female).toLocaleString()}</p><p className="text-xs text-muted-foreground">{row.original.male.toLocaleString()} M · {row.original.female.toLocaleString()} F</p></div> }),
     helper.display({ id: 'coordinates', enableSorting: false, header: 'Coordinates', cell: ({ row }) => row.original.latitude && row.original.longitude ? <SchoolMapDialog name={row.original.name} lga={row.original.lga} latitude={row.original.latitude} longitude={row.original.longitude} /> : <span className="text-muted-foreground">—</span> }),
-    helper.accessor('updatedAt', { id: 'updated', header: ({ column }) => <DataTableColumnHeader column={column} title="Last updated" />, cell: ({ row }) => row.original.updatedAt ? <div className="whitespace-nowrap"><p>{updated.format(new Date(row.original.updatedAt))}</p>{row.original.updatedBy && <p className="text-xs text-muted-foreground">{row.original.updatedBy}</p>}</div> : <span className="text-muted-foreground">Original list</span> }),
+    helper.accessor('updatedAt', { id: 'updated', header: ({ column }) => <DataTableColumnHeader column={column} title="Last updated" />, cell: ({ row }) => row.original.updatedAt ? <div className="whitespace-nowrap"><p>{updated.format(new Date(row.original.updatedAt))}</p>{row.original.updatedBy && <p className="text-xs text-muted-foreground">{row.original.updatedBy}</p>}</div> : <span className="text-muted-foreground" title="Not changed since the original school list">—</span> }),
     helper.display({ id: 'actions', enableHiding: false, header: () => <span className="sr-only">Actions</span>, cell: ({ row }) => <div className="flex justify-end"><DropdownMenu>
       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground data-[state=open]:bg-muted" aria-label={`Actions for ${row.original.name}`}><MoreHorizontalIcon /></Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
@@ -124,6 +145,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
       columnLabels={{ lga: 'LGA', level: 'Level', type: 'Type', location: 'Location', learners: 'Learners', coordinates: 'Coordinates', updated: 'Last updated' }}
       empty={empty}
       onRowClick={onEdit}
+      rowSelected={school => selected.has(school.id)}
       rowLabel={school => `Edit ${school.name}`}
       filters={<DataTableFilterGroup activeCount={filters.filter(item => item.selected.length).length} filterCount={filters.length} onReset={() => { filters.forEach(item => item.set([])); setPagination(state => ({ ...state, pageIndex: 0 })); }}>
         {filters.map(item => <DataTableFacetedFilter key={item.title} title={item.title} options={item.options} selected={item.selected} onChange={setFilter(item.set)} />)}
@@ -137,7 +159,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
         pageSizes: registerPageSizes,
       }}
     />
-    <SchoolBulkBar ids={[...selected]} actions={actions} onClear={() => setSelected(new Set())} />
+    <SchoolBulkBar ids={[...selected]} actions={actions} onClear={() => setSelected(new Set())} selectAll={canSelectAll ? { total, busy: selectingAll, onSelect: () => void selectAll() } : undefined} />
     {actions.dialog}
   </div>;
 }

@@ -148,6 +148,18 @@ try {
   const reread = ok(await api('chair', '/api/schools/import?mode=preview', upload(await exportBook.xlsx.writeBuffer())));
   assert.deepEqual([reread.rows, reread.errorCount, reread.duplicates.length], [2, 0, 2], 'An export uploads back cleanly as duplicates');
 
+  // Data-gap filters (OR within the facet), their counts, and ids-only mode for "select all matching".
+  const gapIds = async where => (await db.query(`SELECT id FROM schools WHERE state_code=$1 AND (${where}) ORDER BY id`, [marker])).rows.map(row => row.id);
+  const noCode = await gapIds("coalesce(school_code,'') = ''"), noCoords = await gapIds("coalesce(latitude,'') = '' OR coalesce(longitude,'') = ''"), noLearners = await gapIds('enrolment_male + enrolment_female = 0');
+  assert.ok(noCode.length && noLearners.length, 'fixture has gaps to find');
+  const gapPage = ok(await api('chair', '/api/schools?gap=code'));
+  assert.equal(gapPage.total, noCode.length);
+  assert.deepEqual(Object.fromEntries(gapPage.facets.gaps.map(item => [item.value, item.count])), { coordinates: noCoords.length, enrolment: noLearners.length, code: noCode.length });
+  assert.deepEqual(ok(await api('chair', '/api/schools?gap=code&ids=1')).ids, noCode);
+  assert.deepEqual(ok(await api('chair', '/api/schools?gap=code,enrolment&ids=1')).ids, [...new Set([...noCode, ...noLearners])].sort((a, b) => a - b));
+  assert.equal(ok(await api('chair', '/api/schools?ids=1')).ids.length, ok(await api('chair', '/api/schools')).total, 'ids mode covers every page');
+  ok(await api('chair', '/api/schools?gap=bogus'), 400);
+
   await db.query('INSERT INTO tlm_distribution(plan_id,school_id) VALUES($1,$2)', [plan, seeded[1]]);
   ok(await api('chair', '/api/schools', { ids: [seeded[0]] }, 'DELETE', { origin: false }), 403);
   ok(await api('director', '/api/schools', { ids: [seeded[0]] }, 'DELETE'), 403);
