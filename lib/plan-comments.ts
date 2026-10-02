@@ -11,10 +11,10 @@ import type { Snapshot } from './plan-review';
 // threads are written at UBEC on a submitted round and reach the state only when the UBEC ES shares them
 // on return (migration 029, lib/ubec-comments.ts).
 
-export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution'] as const;
+export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution', 'monitoring', 'gscci', 'curriculum', 'curriculumDistribution'] as const;
 export type CommentSheet = typeof commentSheets[number];
-/** The component each sheet belongs to; the TLM distribution list is part of TLM. */
-export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm' };
+/** The component each sheet belongs to; each distribution list is part of its component (TLM, Curriculum). */
+export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm', monitoring: 'monitoring', gscci: 'gscci', curriculum: 'curriculum', curriculumDistribution: 'curriculum' };
 export const commentBodyLimit = 2000;
 export const commentScopes = ['state', 'ubec'] as const;
 export type CommentScope = typeof commentScopes[number];
@@ -30,19 +30,25 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   sbmc: { ...activityColumns, rationale: 'Rationale', approach: 'Implementation approach', ...activityTail },
   tlm: { ...activityColumns, material: 'Material type', subject: 'Subject', classes: 'Classes', ...activityTail },
   distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
+  monitoring: { ...activityColumns, ...activityTail },
+  gscci: { ...activityColumns, ...activityTail },
+  curriculum: { ...activityColumns, share: 'Activity share', ...activityTail },
+  curriculumDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
 };
 
 /**
  * Durable row references: the workbook's row.id for each sheet. All are database ids that the
  * editors update in place (they never delete and recreate a line on save):
  * infrastructure = negative infrastructure_packages.id (see lib/plan-snapshot.ts), sports = sports_budget_lines.id,
- * sbmc/tlm = activity_plan_lines.id, distribution = schools.id on the plan's tlm_distribution list.
+ * sbmc/tlm/monitoring/gscci/curriculum = activity_plan_lines.id, distribution/curriculumDistribution = schools.id on the
+ * plan's tlm_distribution list for that workstream.
  */
 export function sheetRows(snapshot: Snapshot, sheet: CommentSheet): Map<string, string> {
   const pairs: [string, string][] =
     sheet === 'infrastructure' ? snapshot.infrastructure.map(line => [String(line.id), line.school.name]) :
     sheet === 'sports' ? snapshot.sports.map(line => [String(line.id), line.description]) :
     sheet === 'distribution' ? (snapshot.tlmDistribution ?? []).map(school => [String(school.id), school.name]) :
+    sheet === 'curriculumDistribution' ? (snapshot.curriculumDistribution ?? []).map(school => [String(school.id), school.name]) :
     (snapshot[sheet] ?? []).map(line => [String(line.id), line.description]);
   return new Map(pairs);
 }

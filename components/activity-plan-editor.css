@@ -35,3 +35,7 @@
 .school-pick-empty { padding:10px 12px;color:var(--muted-foreground);font-size:14px; }
 .distribution-note { margin-bottom:12px;color:var(--muted-foreground);font-size:14px; }
 @media(hover:hover) and (pointer:fine){.school-pick:not([data-listed]):not(.school-pick-all):hover{background:color-mix(in srgb,var(--muted) 58%,var(--card))}}
+.activity-shell:is([data-workstream=monitoring],[data-workstream=gscci],[data-workstream=curriculum]) .activity-line-row[data-state=selected]{background:color-mix(in srgb,var(--peach) 42%,var(--card))}
+.activity-documents { display:flex;flex-direction:column;gap:12px;margin-block:20px 8px; }
+.activity-documents h2 { font-size:15px;font-weight:600; }
+.activity-share-note { margin-top:-8px;margin-bottom:12px;color:var(--muted-foreground);font-size:13px; }

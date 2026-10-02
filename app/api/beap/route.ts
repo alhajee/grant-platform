@@ -24,18 +24,22 @@ export async function GET(request: NextRequest) {
     const infraSchools = snapshot.infrastructure.map(line=>schoolKey(line.school));
     const sportsSchools = snapshot.sports.flatMap(line=>line.allocations.map(a=>schoolKey(a.school)));
     const tlmSchools = (snapshot.tlmDistribution??[]).map(schoolKey);
+    const curriculumSchools = (snapshot.curriculumDistribution??[]).map(schoolKey);
     const infrastructure = summarize(snapshot.infrastructure,new Set(infraSchools).size);
     const sports = summarize(snapshot.sports,new Set(sportsSchools).size);
     const sbmc = summarize(snapshot.sbmc??[]);
     const tlm = summarize(snapshot.tlm??[],new Set(tlmSchools).size);
+    const monitoring = summarize(snapshot.monitoring??[]), gscci = summarize(snapshot.gscci??[]);
+    const curriculum = summarize(snapshot.curriculum??[],new Set(curriculumSchools).size);
+    const parts = [infrastructure,sports,sbmc,tlm,monitoring,gscci,curriculum];
     const total = {
-      lineCount: infrastructure.lineCount+sports.lineCount+sbmc.lineCount+tlm.lineCount,
-      schoolCount: new Set([...infraSchools,...sportsSchools,...tlmSchools]).size,
-      budget: infrastructure.budget+sports.budget+sbmc.budget+tlm.budget,
+      lineCount: parts.reduce((sum,p)=>sum+p.lineCount,0),
+      schoolCount: new Set([...infraSchools,...sportsSchools,...tlmSchools,...curriculumSchools]).size,
+      budget: parts.reduce((sum,p)=>sum+p.budget,0),
     };
     const reviews = await readPillarReviews(db, plan.id);
     const editablePillars = implementedPillars.filter(p => mayEditPillar(workspace.role,workspace.departments ?? workspace.department,p,plan.status,reviews));
-    return NextResponse.json({ wholeState: canViewWholeStatePlan(workspace), visiblePillars, sbmc, tlm, editablePillars, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, canEdit: editablePillars.length > 0, infrastructure, sports, total }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ wholeState: canViewWholeStatePlan(workspace), visiblePillars, sbmc, tlm, monitoring, gscci, curriculum, editablePillars, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, canEdit: editablePillars.length > 0, infrastructure, sports, total }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Unable to load BEAP overview", cause);
     return NextResponse.json({ error: "Your annual plan could not be loaded. Please try again." }, { status: 503 });

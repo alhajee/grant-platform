@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 
-export type SheetKey = 'infrastructure' | 'sports' | 'sbmc' | 'tlm' | 'distribution';
+export type SheetKey = import('@/lib/plan-comments').CommentSheet;
 export type CellValue = string | number;
 export type ColumnKind = 'text' | 'number' | 'money';
 /** One spreadsheet column. `value` returns the raw value used for sorting, copying and export. */

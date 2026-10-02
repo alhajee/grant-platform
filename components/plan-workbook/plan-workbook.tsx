@@ -13,16 +13,18 @@ import type { Snapshot } from '@/lib/plan-review';
 import { buildSheets, detailExportSheets, type SheetLinks } from './sheets';
 import { SheetView, type DownloadRequest } from './sheet-view';
 import type { SheetKey, WorkbookSheet } from './types';
+import { sheetPillar } from '@/lib/plan-comments';
+import type { ImplementedPillar } from '@/lib/beap-pillars';
 import '../plan-workbook.css';
 
 const hashSheet = (hash: string, sheets: WorkbookSheet[]) => sheets.find(s => `#${s.hash}` === hash)?.key;
 
 /** Read-only, Excel-inspired view of a plan: one sheet per visible component. Editing stays in the editors. */
-export type RequestChangesHandlers = Partial<Record<'infrastructure' | 'sports' | 'sbmc' | 'tlm', () => void>>;
+export type RequestChangesHandlers = Partial<Record<ImplementedPillar, () => void>>;
 
 export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null, requestChanges = {} }: { snapshot: Snapshot; visiblePillars: readonly string[]; links: SheetLinks; comments?: CommentsController | null; requestChanges?: RequestChangesHandlers }) {
-  const { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref } = links;
-  const sheets = useMemo(() => buildSheets(snapshot, visiblePillars, { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref }), [snapshot, visiblePillars, infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref]);
+  const { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref } = links;
+  const sheets = useMemo(() => buildSheets(snapshot, visiblePillars, { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref }), [snapshot, visiblePillars, infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref]);
   const cardRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
   const expandRef = useRef<HTMLButtonElement>(null);
@@ -85,7 +87,7 @@ export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null,
         {sheets.map(s => { const open = openComments(s.key), ubec = comments?.scope === 'state' ? openComments(s.key, 'ubec') : 0; return <TabsTrigger key={s.key} value={s.key}><s.icon aria-hidden="true" />{s.label}<Badge className="plan-workbook-count" aria-label={`${s.rows.length} rows`}>{s.rows.length}</Badge>{open > 0 && <Badge className="plan-workbook-comments" aria-label={plural(open, 'comment')} title={plural(open, 'comment')}><MessageSquare aria-hidden="true" />{open}</Badge>}{ubec > 0 && <Badge className="plan-workbook-ubec-count" aria-label={plural(ubec, 'UBEC comment')} title={plural(ubec, 'UBEC comment')}>UBEC {ubec}</Badge>}</TabsTrigger>; })}
       </TabsList></div>
       {sheets.map(s => <TabsContent key={s.key} value={s.key} forceMount hidden={s.key !== current} className="plan-workbook-panel">
-        <SheetView sheet={s} visited={visited.has(s.key)} onDownload={download} onRequestChanges={requestChanges[s.key === 'distribution' ? 'tlm' : s.key]} />
+        <SheetView sheet={s} visited={visited.has(s.key)} onDownload={download} onRequestChanges={requestChanges[sheetPillar[s.key]]} />
       </TabsContent>)}
     </Tabs>
   </Card></div></CommentsProvider>;

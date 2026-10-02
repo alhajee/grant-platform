@@ -15,5 +15,9 @@ export function visibleSnapshot(snapshot: Snapshot, user: Parameters<typeof canV
     sports: canViewComponent(user, 'sports') ? snapshot.sports : [],
     ...(canViewComponent(user, 'sbmc') ? { sbmc: snapshot.sbmc ?? [] } : {}),
     ...(canViewComponent(user, 'tlm') ? { tlm: snapshot.tlm ?? [], tlmDistribution: snapshot.tlmDistribution ?? [] } : {}),
+    ...(canViewComponent(user, 'monitoring') ? { monitoring: snapshot.monitoring ?? [] } : {}),
+    ...(canViewComponent(user, 'gscci') ? { gscci: snapshot.gscci ?? [] } : {}),
+    ...(canViewComponent(user, 'curriculum') ? { curriculum: snapshot.curriculum ?? [], curriculumDistribution: snapshot.curriculumDistribution ?? [] } : {}),
+    componentDocuments: (snapshot.componentDocuments ?? []).filter(d => canViewComponent(user, d.component)),
   };
 }

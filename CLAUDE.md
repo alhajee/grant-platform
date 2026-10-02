@@ -80,7 +80,7 @@ These settings apply across every SUBEB, not per state. The implementation lives
 - `lib/workflow-settings.ts`
 - `app/api/admin/workflow-settings/route.ts`
 
-Only Infrastructure and Sports are currently treated as implemented blocking components. The other seven pillars are visible but not complete editors yet.
+Implemented blocking components (`implementedPillars` in `lib/beap-pillars.ts`): Infrastructure, TLM, Sports, SBMC, Supervision & Monitoring (`monitoring`), Greening Schools, Climate Change & Safeguards (`gscci`) and Curriculum (`curriculum`). Quality Assurance, Teacher development/ICT and Planning/EMIS are still placeholders. The SBMC/TLM activity editor (`components/activity-plan-editor.tsx`, `lib/activity-plans.ts`, `activity_plan_lines.workstream`) also drives the three newer components (migration 036): Monitoring has optional Proforma Invoice uploads (`component_documents`, `app/api/activities/documents/route.ts`); Curriculum has per-activity caps (60/20/10/10% of its envelope) and a distribution list (`tlm_distribution.workstream = 'curriculum'`). Test: `node scripts/test-activity-components.mjs [baseUrl]`.
 
 ## Plan workbook comments (migration 028)
 
@@ -123,6 +123,18 @@ A bell sits left of the account pill in `SubebHeader` and `UbecShell` (not the S
 - UI: `components/notifications/` (`notification-bell.tsx`, `use-notifications.ts`, `notifications.css`); wording in `lib/notifications.ts`. It polls every 30 s and on focus, shows unread count in the tab title, and raises browser notifications for new arrivals while the window is unfocused, once the user clicks "Turn on". One tab alerts per notification (localStorage `beapms:notifications:alerted-through`).
 - A notification with a note links to its Review history entry (`#review-event-<eventId>`); `app/beap/review/page.tsx` scrolls to and flashes it after the review loads. Other state notifications open the component sheet (`#review-<pillar>`). The footer shows only actions: "Mark all as read" while something is unread, and "Turn on desktop alerts" until permission is decided.
 - Test: `node scripts/test-notifications.mjs [baseUrl]` (throwaway states, users and plan; cleans up).
+
+## Funding sources and plan editing (migration 035)
+
+- Other funding is component-specific: `plan_funding_sources` rows {component, funder, amount}. A component's ceiling = its policy share of `state contribution ×2 + legacy other_funding` + its own sources (`componentEnvelope(plan, component)` in `lib/funding-policy.ts`). Older plans keep `other_funding` as shared funding; new plans store 0 there. API `fundingTotal` = base + legacy other funding + sources.
+- Plans can be edited (year, implementation year, quarters, state contribution, funding sources) by anyone `canCreateStatePlan` allows while `statePlanOpen`, via `components/edit-plan-dialog.tsx` and `app/api/plans/setup/route.ts`; edits that would drop a component's ceiling below its proposed lines are refused, and each edit adds a `plan_review_events` 'edit' entry ("Plan details updated").
+- Dashboard cards, the hero total and the BEAP overview show "Other funding" with a per-component tooltip (`OtherFundingInfo` in `components/funding-sources-field.tsx`). Test: `node scripts/test-funding-sources.mjs [baseUrl]`.
+
+## School register (migration 034)
+
+- `/schools` (nav link "Schools") lets the Executive Chairman, the BEAP Chair and users granted `users.can_manage_schools` (toggled by the Executive Chairman on Users or by the Super Admin) add, edit and bulk-import schools from an XLSX template (`app/api/schools/**`, `lib/school-register*.ts`). `schools.school_code` (optional, unique per state) is the future DNEMIS match key; `schools.enrolment_by_class` holds per-class figures, with `enrolment_male/female` as totals.
+- School details (enrolment, coordinates) are read-only in the component editors; managers get an "Update in the School register" link. Plan creation has an optional step 4 "Do you have a new school you wish to add?" (`components/new-schools-entry.tsx`).
+- DNEMIS integration is pending access. Test: `node scripts/test-school-register.mjs [baseUrl]`.
 
 ## Roles and department access
 

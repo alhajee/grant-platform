@@ -43,6 +43,11 @@ export function ubecSubmissionSnapshot(snapshot: Snapshot, reviews: PillarReview
     sbmc: sent.includes('sbmc') ? snapshot.sbmc ?? [] : [],
     tlm: sent.includes('tlm') ? snapshot.tlm ?? [] : [],
     tlmDistribution: sent.includes('tlm') ? snapshot.tlmDistribution ?? [] : [],
+    monitoring: sent.includes('monitoring') ? snapshot.monitoring ?? [] : [],
+    gscci: sent.includes('gscci') ? snapshot.gscci ?? [] : [],
+    curriculum: sent.includes('curriculum') ? snapshot.curriculum ?? [] : [],
+    curriculumDistribution: sent.includes('curriculum') ? snapshot.curriculumDistribution ?? [] : [],
+    componentDocuments: (snapshot.componentDocuments ?? []).filter(d => sent.includes(d.component)),
   };
 }
 export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Snapshot) {
@@ -50,7 +55,7 @@ export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Sna
     reviews.some(r => r.status === 'beap_review') && planIsComplete(snapshot);
 }
 function planIsComplete(snapshot: Snapshot) {
-  return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && (snapshot.tlmDistribution?.length ?? 0)>0 && !infrastructureDocumentProblem(snapshot);
+  return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && (snapshot.tlmDistribution?.length ?? 0)>0 && (snapshot.curriculumDistribution?.length ?? 0)>0 && !infrastructureDocumentProblem(snapshot);
 }
 export function aggregateReviewStatus(reviews: PillarReview[]): PlanStatus {
   if (implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready'))) return 'awaiting_chairman';

@@ -1,13 +1,13 @@
-import { Building2, Trophy, Users, BookOpen, School } from 'lucide-react';
+import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap } from 'lucide-react';
 import type { Snapshot } from '@/lib/plan-review';
-import { activityLabel, allocateByEnrolment } from '@/lib/activity-plans';
+import { activityLabel, activityTitles, allocateByEnrolment, curriculumActivityShares } from '@/lib/activity-plans';
 import { kindNames } from '@/lib/infrastructure-model';
 import { sportsSections } from '@/lib/sports';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import type { CellValue, WorkbookColumn, WorkbookRow, WorkbookSheet } from './types';
 
-export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string };
+export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string };
 const cost = (line: { unit_cost: string; quantity: number }) => Math.round(Number(line.unit_cost) * 100) * line.quantity / 100;
 const sectionNames: Record<string, string> = Object.fromEntries(sportsSections.map(section => [section.id, section.shortLabel]));
 const text = (id: string, header: string, size = 150, filter = false): WorkbookColumn => ({ id, header, kind: 'text', size, filter });
@@ -57,37 +57,51 @@ function sportsSheet(snapshot: Snapshot, editHref?: string): WorkbookSheet {
   };
 }
 
-function activitySheet(key: 'sbmc' | 'tlm', lines: NonNullable<Snapshot['sbmc']>, editHref?: string): WorkbookSheet {
-  const tlm = key === 'tlm';
-  const extra: WorkbookColumn[] = tlm ? [text('material', 'Material type', 170, true), text('subject', 'Subject', 190, true), text('classes', 'Classes', 170)] : [text('rationale', 'Rationale', 260), text('approach', 'Implementation approach', 260)];
+type ActivitySheetKey = 'sbmc' | 'tlm' | 'monitoring' | 'gscci' | 'curriculum';
+const activityIcons = { sbmc: Users, tlm: BookOpen, monitoring: ClipboardCheck, gscci: Leaf, curriculum: GraduationCap };
+function activityExtras(key: ActivitySheetKey): WorkbookColumn[] {
+  if (key === 'tlm') return [text('material', 'Material type', 170, true), text('subject', 'Subject', 190, true), text('classes', 'Classes', 170)];
+  if (key === 'sbmc') return [text('rationale', 'Rationale', 260), text('approach', 'Implementation approach', 260)];
+  return key === 'curriculum' ? [text('share', 'Activity share', 120, true)] : [];
+}
+function activityExtraValues(key: ActivitySheetKey, line: NonNullable<Snapshot['sbmc']>[number]): Record<string, CellValue> {
+  if (key === 'tlm') return { material: line.equipment || '', subject: line.textbook_subject || '', classes: line.textbook_classes?.join(', ') ?? '' };
+  if (key === 'sbmc') return { rationale: line.rationale || '', approach: line.implementation_approach || '' };
+  return key === 'curriculum' ? { share: `${(curriculumActivityShares[line.activity] ?? 0) / 100}%` } : {};
+}
+function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc']>, editHref?: string): WorkbookSheet {
   return {
-    key, label: tlm ? 'Teaching & Learning Materials' : 'SBMC', hash: `review-${key}`, icon: tlm ? BookOpen : Users, itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: tlm ? 'Teaching & Learning Materials' : 'SBMC',
-    columns: [text('activity', 'Allowable activity', 240, true), text('description', 'Description', 280), ...extra, text('strategy', 'Strategy', 170, true), text('target', 'Target group', 170, true), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
+    key, label: activityTitles[key], hash: `review-${key}`, icon: activityIcons[key], itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: activityTitles[key],
+    columns: [text('activity', 'Allowable activity', 240, true), text('description', 'Description', 280), ...activityExtras(key), text('strategy', 'Strategy', 170, true), text('target', 'Target group', 170, true), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
     rows: lines.map(line => row(String(line.id), {
       activity: activityLabel(key, line.activity, line.custom_activity), description: line.description,
-      ...(tlm ? { material: line.equipment || '', subject: line.textbook_subject || '', classes: line.textbook_classes?.join(', ') ?? '' } : { rationale: line.rationale || '', approach: line.implementation_approach || '' }),
+      ...activityExtraValues(key, line),
       strategy: line.strategy, target: line.target_group, quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
     })),
   };
 }
 
-/** Allocation = the TLM budget shared across the listed schools by enrolment (snapshots before enrolment was recorded show blanks). */
-function distributionSheet(schools: NonNullable<Snapshot['tlmDistribution']>, tlmLines: NonNullable<Snapshot['tlm']>, editHref?: string): WorkbookSheet {
-  const shares = allocateByEnrolment(Math.round(tlmLines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
+/** Allocation = the component budget (TLM or Curriculum) shared across the listed schools by enrolment (snapshots before enrolment was recorded show blanks). */
+function distributionSheet(component: 'tlm' | 'curriculum', schools: NonNullable<Snapshot['tlmDistribution']>, lines: NonNullable<Snapshot['tlm']>, editHref?: string): WorkbookSheet {
+  const shares = allocateByEnrolment(Math.round(lines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
+  const name = component === 'tlm' ? 'TLM' : 'Curriculum';
   return {
-    key: 'distribution', label: 'TLM distribution', hash: 'review-tlm-distribution', icon: School, itemLabel: 'schools', empty: 'No distribution schools.', editHref, editLabel: 'TLM distribution list',
+    key: component === 'tlm' ? 'distribution' : 'curriculumDistribution', label: `${name} distribution`, hash: `review-${component}-distribution`, icon: School, itemLabel: 'schools', empty: 'No distribution schools.', editHref, editLabel: `${name} distribution list`,
     columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true), qty('learners', 'Learners', true), amount('allocation', 'Allocation', true)],
     rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, learners: s.enrolment ?? '', allocation: shares.has(s.id) ? shares.get(s.id)! / 100 : '' })),
   };
 }
 
-/** Builds one sheet per visible component; the TLM distribution list is its own sheet after TLM. */
+/** Builds one sheet per visible component; the TLM and Curriculum distribution lists are their own sheets after the component. */
 export function buildSheets(snapshot: Snapshot, visiblePillars: readonly string[], links: SheetLinks): WorkbookSheet[] {
   const sheets: WorkbookSheet[] = [];
   if (visiblePillars.includes('infrastructure')) sheets.push(infrastructureSheet(snapshot, links.infrastructureEditHref));
   if (visiblePillars.includes('sports')) sheets.push(sportsSheet(snapshot, links.sportsEditHref));
   if (visiblePillars.includes('sbmc') && snapshot.sbmc) sheets.push(activitySheet('sbmc', snapshot.sbmc, links.sbmcEditHref));
-  if (visiblePillars.includes('tlm') && snapshot.tlm) sheets.push(activitySheet('tlm', snapshot.tlm, links.tlmEditHref), distributionSheet(snapshot.tlmDistribution ?? [], snapshot.tlm, links.tlmEditHref));
+  if (visiblePillars.includes('tlm') && snapshot.tlm) sheets.push(activitySheet('tlm', snapshot.tlm, links.tlmEditHref), distributionSheet('tlm', snapshot.tlmDistribution ?? [], snapshot.tlm, links.tlmEditHref));
+  if (visiblePillars.includes('monitoring') && snapshot.monitoring) sheets.push(activitySheet('monitoring', snapshot.monitoring, links.monitoringEditHref));
+  if (visiblePillars.includes('gscci') && snapshot.gscci) sheets.push(activitySheet('gscci', snapshot.gscci, links.gscciEditHref));
+  if (visiblePillars.includes('curriculum') && snapshot.curriculum) sheets.push(activitySheet('curriculum', snapshot.curriculum, links.curriculumEditHref), distributionSheet('curriculum', snapshot.curriculumDistribution ?? [], snapshot.curriculum, links.curriculumEditHref));
   return sheets;
 }
 

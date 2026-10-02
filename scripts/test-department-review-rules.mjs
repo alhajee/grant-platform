@@ -16,17 +16,19 @@ function load(path) {
 }
 const { mayEditPillar, readyForExecutiveChairman, readyForUbec, readyForUbecSubmission, ubecSubmissionSnapshot, aggregateReviewStatus } = load('lib/pillar-review.ts');
 const { beapPillars, implementedPillars } = load('lib/beap-pillars.ts');
-const reviews = (infrastructure, sports, sbmc= sports, tlm= sports) => [
+// The activity-line components (migration 036) follow the Sports status unless a test sets them.
+const reviews = (infrastructure, sports, sbmc= sports, tlm= sports, rest = sports) => [
   { pillar: 'infrastructure', status: infrastructure }, { pillar: 'sports', status: sports },
   { pillar: 'sbmc', status: sbmc }, { pillar: 'tlm', status: tlm },
+  ...['monitoring', 'gscci', 'curriculum'].map(pillar => ({ pillar, status: rest })),
 ];
 const completeSnapshot = {
-  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1}}}], sports:[{}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}],
+  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1}}}], sports:[{}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}], monitoring:[{}], gscci:[{}], curriculum:[{}], curriculumDistribution:[{}],
   infrastructureDocuments:[{kind:'drawings'},{kind:'boq',schoolId:1},{kind:'survey',schoolId:1}],
 };
 assert.equal(beapPillars.length, 9);
 assert.equal(beapPillars.reduce((sum,p) => sum+p.share,0), 100);
-assert.deepEqual(implementedPillars, ['infrastructure','sports','sbmc','tlm']);
+assert.deepEqual(implementedPillars, ['infrastructure','sports','sbmc','tlm','monitoring','gscci','curriculum']);
 for (const locked of ['submitted_ubec','ubec_review','ubec_approved']) {
   assert.equal(mayEditPillar('Director','physical','infrastructure',locked,reviews('director_review','draft')),false);
   assert.equal(mayEditPillar('Data Entry Staff','physical','infrastructure',locked,reviews('draft','draft')),false);
@@ -54,15 +56,18 @@ assert.equal(readyForExecutiveChairman(reviews('beap_review','draft'),completeSn
 assert.equal(readyForUbec(reviews('chairman_ready','draft'),completeSnapshot),false);
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,sports:[]}),false);
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),completeSnapshot),true);
+assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,curriculumDistribution:[]}),false);
+assert.equal(readyForExecutiveChairman(reviews('beap_review','beap_review','beap_review','beap_review','draft'),completeSnapshot),false);
 // The UBEC submission setting: complete plans only, or whatever reached the Executive Chairman.
 assert.equal(readyForUbecSubmission('complete_plan',reviews('chairman_ready','draft'),completeSnapshot),false);
 assert.equal(readyForUbecSubmission('complete_plan',reviews('chairman_ready','chairman_ready'),completeSnapshot),true);
 assert.equal(readyForUbecSubmission('reviewed_components',reviews('chairman_ready','draft'),{infrastructure:[{}],sports:[]}),true);
 assert.equal(readyForUbecSubmission('reviewed_components',reviews('beap_review','draft'),completeSnapshot),false);
-const partialSnapshot = ubecSubmissionSnapshot({...completeSnapshot,setup:{id:1}},reviews('draft','chairman_ready','director_review','draft'));
+const partialSnapshot = ubecSubmissionSnapshot({...completeSnapshot,setup:{id:1},componentDocuments:[{id:'a',component:'monitoring'}]},reviews('draft','chairman_ready','director_review','draft','draft'));
 assert.deepEqual(partialSnapshot.setup,{id:1});
 assert.equal(partialSnapshot.sports.length,1);
 assert.deepEqual([partialSnapshot.infrastructure,partialSnapshot.sbmc,partialSnapshot.tlm,partialSnapshot.tlmDistribution],[[],[],[],[]]);
 assert.equal('infrastructureDocuments' in partialSnapshot,false);
+assert.deepEqual([partialSnapshot.monitoring,partialSnapshot.curriculumDistribution,partialSnapshot.componentDocuments],[[],[],[]]);
 assert.equal(ubecSubmissionSnapshot(completeSnapshot,reviews('chairman_ready','chairman_ready')).infrastructureDocuments.length,3);
 console.log('PASS: department isolation, Director, BEAP Chair and Executive Chairman stages, UBEC locks, implemented-component readiness, UBEC submission modes, nine components and 100% shares.');

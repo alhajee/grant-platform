@@ -1,23 +1,38 @@
 import { z } from 'zod';
-export const activityWorkstreams = ['sbmc', 'tlm'] as const;
+export const activityWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum'] as const;
 export type ActivityWorkstream = typeof activityWorkstreams[number];
 export const activityNames = {
   sbmc: ['School-Based Management Committees', 'Low-cost rehabilitation of community ECCDE centres', 'Small-scale school improvement projects', 'School operations and development planning', 'Capacity building of SBMC members', 'Sensitization campaigns', 'Support to private/community schools and stakeholders', 'Others'],
   // Lines are stored by index: TLM 0-4 are the earlier activities (kept so saved lines still render), 5-22 are the UBEC allowable-materials checklist.
   tlm: ['Purchase of TLMs to Schools', 'Capacity Building of Teachers on the Implementation of the Revised TLMs', 'Distribution of TLMs to Schools', 'Monitoring of TLMs', 'Others',
     'Textbooks', 'Supplementary books', 'Teacher resources', 'Visual aids', 'Language materials', 'Mathematics materials', 'Science materials', 'Social Studies/Geography materials', 'Basic Technology materials', 'Computer Studies resources', 'Educational games', 'Writing and teaching aids', 'Art and creativity supplies', 'Audio materials', 'Digital/basic devices', 'Projection equipment', 'Interactive learning boards', 'Other TLMs'],
+  monitoring: ['Monitoring tools and supervision visit equipment', 'Procurement/maintenance of monitoring vehicles or other means of transportation to sites', 'Allowances for monitoring officers', 'Digital monitoring system/dashboard'],
+  // Activities from UBEC's environmental and social safeguarding guidance.
+  gscci: ['Training on environmental and social safeguarding in schools', 'Awareness and sensitisation campaigns', 'Provision of waste disposal equipment in schools', 'Provision of a well-equipped safe space environment/centre', 'Monitoring and evaluation of safeguarding activities'],
+  curriculum: ['Purchase and distribution of copies of the revised NERDC curriculum to schools', 'Capacity building of teachers on the implementation of the revised curriculum', 'Distribution of curriculum to schools', 'Monitoring of implementation of the revised curriculum'],
 } as const;
+/** Each Curriculum activity's share of the Curriculum envelope, in basis points (UBEC30-32). */
+export const curriculumActivityShares = [6000, 2000, 1000, 1000] as const;
+/** Workstreams with a school distribution list (stored in tlm_distribution by workstream). */
+export const distributionWorkstreams = ['tlm', 'curriculum'] as const;
+export type DistributionWorkstream = typeof distributionWorkstreams[number];
+export const hasDistribution = (workstream: string): workstream is DistributionWorkstream => (distributionWorkstreams as readonly string[]).includes(workstream);
+/** Workstreams that collect documents in component_documents (the Supervision & Monitoring proforma invoices). */
+export const documentWorkstreams = ['monitoring'] as const;
+export const activityTitles: Record<ActivityWorkstream, string> = { sbmc: 'SBMC', tlm: 'Teaching & Learning Materials', monitoring: 'Supervision & Monitoring', gscci: 'Greening Schools, Climate Change & Safeguards', curriculum: 'Curriculum' };
 /** Example items shown under each TLM checklist activity. */
-export const activityHints: Partial<Record<ActivityWorkstream, Record<number, string>>> = { tlm: {
+export const activityHints: Partial<Record<ActivityWorkstream, Record<number, string>>> = {
+ gscci: { 0: 'SUBEB/LGEA desk officers, head-teachers, teachers, guidance counsellors, SBMC/PTA and non-teaching staff', 1: 'Community sensitisation, SEA & GBV, grievance redress mechanism, drugs and substance abuse prevention', 3: 'First aid, sanitary materials, fans, beds, furniture, cabinets' },
+ tlm: {
   5: 'English Studies, Mathematics, Basic Science/Technology, Social Studies', 6: 'Story books, supplementary readers, graded readers', 7: 'Teacher guides, lesson and activity resources', 8: 'Charts, posters, diagrams, maps, globes', 9: 'Flashcards, picture, word and alphabet cards', 10: 'Counting blocks, abacus, number cards, geometric shapes, manipulatives', 11: 'Models, specimens, magnifying glasses, simple microscopes', 12: 'Maps, globes, charts, models', 13: 'Models, demonstration materials, practical learning resources', 14: 'Basic computers and learning resources', 15: 'Educational games', 16: 'Blackboards, whiteboards, rulers, protractors, scales', 17: 'Art and craft supplies', 18: 'Radios, tape recorders, CD players', 19: 'Tablets, where justified', 20: 'Overhead projectors', 21: 'Smart interactive boards', 22: 'Must be justified and meet UBEC standards',
 } };
-export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22] } as const;
+export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22], monitoring: [0,1,2,3], gscci: [0,1,2,3,4], curriculum: [0,1,2,3] } as const;
 /** The selectable "other" activity that needs a custom name. */
-export const otherActivityIndex = { sbmc: 7, tlm: 22 } as const;
-const customActivityIndexes = { sbmc: [7], tlm: [4, 22] } as const;
+export const otherActivityIndex: Partial<Record<ActivityWorkstream, number>> = { sbmc: 7, tlm: 22 };
+const customActivityIndexes: Partial<Record<ActivityWorkstream, readonly number[]>> = { sbmc: [7], tlm: [4, 22] };
 /** TLM activity whose lines record textbook classes and subject. */
 export const textbookActivityIndex = 5;
-export const activityLabel = (workstream: ActivityWorkstream, activity: number, customActivity = '') => (customActivityIndexes[workstream] as readonly number[]).includes(activity) && customActivity ? customActivity : activityNames[workstream][activity] ?? 'Unknown activity';
+export const activityLabel = (workstream: ActivityWorkstream, activity: number, customActivity = '') => (customActivityIndexes[workstream] ?? []).includes(activity) && customActivity ? customActivity : activityNames[workstream][activity] ?? 'Unknown activity';
 /** Material types used by legacy TLM purchase lines (activity 0). */
 export const materialTypes = ['Textbooks', 'Teachers guide', 'Interactive learning materials', 'Teaching aids & basic devices'] as const;
 export const textbookClasses = ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JSS 1', 'JSS 2', 'JSS 3'] as const;
@@ -38,7 +53,7 @@ export const activityLineSchema = z.object({
   textbookSubject: z.string().max(100).default(''),
 }).superRefine((v,ctx)=>{
   if(v.workstream==='sbmc') for(const field of ['rationale','implementationApproach'] as const) if(!v[field])ctx.addIssue({code:'custom',path:[field],message:field==='rationale'?'Enter a rationale.':'Enter an implementation approach.'});
-  if(!selectableActivityIndexes[v.workstream].some(activity=>activity===v.activity))ctx.addIssue({code:'custom',path:['activity'],message:'Choose a valid allowable activity.'});
+  if(!(selectableActivityIndexes[v.workstream] as readonly number[]).includes(v.activity))ctx.addIssue({code:'custom',path:['activity'],message:'Choose a valid allowable activity.'});
   const isOther=v.activity===otherActivityIndex[v.workstream];
   if(isOther&&!v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'Enter the allowable activity.'});
   if(!isOther&&v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'A custom activity only applies when Others is selected.'});
@@ -51,6 +66,7 @@ export const activityLineSchema = z.object({
 });
 export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number};
 export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string};
+export type ComponentDocument = {id:string;component:typeof documentWorkstreams[number];name:string;size:number};
 export type DistributionSchool = {id:number;name:string;lga:string;level:string;location:string;enrolment?:number};
 /** Splits a budget (kobo) across schools in proportion to enrolment; remainders go to the largest fractions so shares sum exactly. Empty when no school has learners. */
 export function allocateByEnrolment(totalKobo: number, schools: readonly {id:number;enrolment?:number}[]): Map<number, number> {
