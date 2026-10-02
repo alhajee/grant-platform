@@ -12,10 +12,10 @@ type Requirement = { key: string; label: string; qty: number[]; unit: string; ci
 // 0 means the typology sets no standard quantity (audited, and costed only as an extra beyond standard).
 export const requirements: Requirement[] = [
  {key:'classroomPri',label:'Primary / general classrooms',qty:[6,9,12],unit:'classrooms',civil:true,block:3},
- {key:'classroomEccde',label:'ECCDE block · 2 classrooms, nanny station, sleeping bay and 2 toilets',qty:[2,2,2],unit:'classrooms',civil:true,block:2},
+ {key:'classroomEccde',label:'ECCDE block · 2 classrooms, nanny station and sleeping bay',qty:[2,2,2],unit:'classrooms',civil:true,block:2},
  {key:'office',label:'Office',qty:[1,2,2],unit:'offices',civil:true},
  {key:'store',label:'Store',qty:[1,2,2],unit:'stores',civil:true},
- {key:'toilet',label:'Toilet compartments · excluding ECCDE toilets',qty:[14,26,26],unit:'compartments',lump:true},
+ {key:'toilet',label:'Toilet compartments · male and female blocks plus 4 ECCDE toilets',qty:[16,28,28],unit:'compartments',lump:true},
  {key:'workshop',label:'Workshop',qty:[0,0,0],unit:'rooms',civil:true},
  {key:'scienceLab',label:'Science laboratory',qty:[0,0,0],unit:'rooms',civil:true},
  {key:'roboticsLab',label:'Robotic / AI laboratory',qty:[0,0,0],unit:'rooms',civil:true},
@@ -139,7 +139,7 @@ export function calculateInfrastructure(input:InfrastructureInput,enrolment:numb
  if(input.kind==='new'){
   const blocks=model>0&&input.grouping==='storey'?[{key:'block6os',label:'Storey block of 6 classrooms with 2 offices and 2 stores',count:1},{key:'block3',label:'Block of 3 classrooms',count:model===1?1:2}]:[{key:'block3os',label:'Block of 3 classrooms with office and store',count:model===0?1:2},{key:'block3',label:'Block of 3 classrooms',count:model===2?2:1}];
   for(const b of blocks)classroomSubtotal+=add(b.key,b.label,b.count,'blocks',true,input.targeting==='hope'?input.prices[b.key]??0:0,input.classroomStrategy);
-  otherSubtotal+=add('eccdeBlock','ECCDE block · 2 classrooms, nanny station, sleeping bay and 2 toilets',1,'block',true,input.targeting==='hope'?input.prices.eccdeBlock??0:0);
+  otherSubtotal+=add('eccdeBlock','ECCDE block · 2 classrooms, nanny station and sleeping bay',1,'block',true,input.targeting==='hope'?input.prices.eccdeBlock??0:0);
   for(const r of requirements.filter(r=>!['classroomPri','classroomEccde','office','store'].includes(r.key)&&r.qty[model]>0)) otherSubtotal+=add(r.key,r.label+(r.key==='solarPower'?` · ${[5,7.5,10][model]} KVA`:''),r.qty[model],r.unit,!!r.lump,input.targeting==='hope'?input.prices[r.key]??0:0);
   otherSubtotal+=add('fence','Perimeter wall fence with concertina security wire',input.fenceLength,'metres',false,input.targeting==='hope'?input.prices.fence??0:0);
   if(input.targeting==='nonhope')add('package','Complete construction package',1,'lot',true,input.lumpSum,input.classroomStrategy,input.duration);
