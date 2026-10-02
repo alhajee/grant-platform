@@ -75,14 +75,13 @@ export function PlanCard({ plan, isOfficer, canEdit, onEdit }: PlanCardProps) {
       <p className="plan-funding-label">Available funding</p>
       <p className="plan-funding" aria-label={amountFormat.format(funding)}><Amount value={funding} /></p>
       {proposed ? <div className="plan-proposed">
-        <div className="plan-gauge-scale" aria-hidden="true"><span>0</span><span>50</span><span>100%</span></div>
         <FundingGauge plan={plan} funding={funding} />
         <p><strong>{compact.format(plan.budget)}</strong> proposed<span>{share}% of funding</span></p>
       </div> : <p className="plan-proposed-empty">Nothing proposed yet</p>}
       {(plan.lineCount > 0 || plan.schoolCount > 0 || other > 0) && <ul className="plan-pills" aria-label="Plan contents">
-        {plan.lineCount > 0 && <li><ListChecksIcon aria-hidden="true" />Budget lines<b>{plan.lineCount}</b></li>}
-        {plan.schoolCount > 0 && <li><SchoolIcon aria-hidden="true" />Schools<b>{plan.schoolCount}</b></li>}
-        {other > 0 && <li><HandCoinsIcon aria-hidden="true" />Other funding<b>+{compact.format(other)}</b><OtherFundingInfo setup={plan} /></li>}
+        {plan.lineCount > 0 && <li title="Budget lines"><ListChecksIcon aria-hidden="true" /><b>{plan.lineCount}</b>{plan.lineCount === 1 ? "line" : "lines"}</li>}
+        {plan.schoolCount > 0 && <li><SchoolIcon aria-hidden="true" /><b>{plan.schoolCount}</b>{plan.schoolCount === 1 ? "school" : "schools"}</li>}
+        {other > 0 && <li><HandCoinsIcon aria-hidden="true" /><b>+{compact.format(other)}</b>other funding<OtherFundingInfo setup={plan} /></li>}
       </ul>}
       <div className="plan-card-bottom">
         <time dateTime={plan.updatedAt} title={date.format(new Date(plan.updatedAt))}>Updated {updatedAgo(plan.updatedAt)}</time>
