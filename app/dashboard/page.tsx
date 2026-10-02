@@ -2,13 +2,13 @@
 import "./dashboard.css";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightIcon, ArrowUpRightIcon, CalendarDaysIcon, FileTextIcon, PencilIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { ArrowRightIcon, ArrowUpRightIcon, FileTextIcon, HandCoinsIcon, ListChecksIcon, SchoolIcon, PencilIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
 import { CreatePlanDialog } from "@/components/create-plan-dialog";
 import { EditPlanDialog } from "@/components/edit-plan-dialog";
 import { OtherFundingInfo } from "@/components/funding-sources-field";
 import { PlanCardGuilloche, planCardTilt } from "@/components/plan-card-surface";
-import { ComponentBudgets } from "@/components/dashboard/component-budgets";
+import { ComponentBudgets, componentPalette } from "@/components/dashboard/component-budgets";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import type { PlanActivity } from "@/lib/plan-activity";
 import { otherFundingTotal } from "@/lib/plan-setup";
@@ -21,7 +21,6 @@ import { Separator } from "@/components/ui/separator";
 import { PlanStatusBadge } from '@/components/plan-status';
 import { emptyInvestmentFilters, investmentFilterCount, InvestmentFilter, type InvestmentArea } from '@/components/investment-filter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -37,6 +36,17 @@ const cardMoney = new Intl.NumberFormat("en-NG", { style: "currency", currency: 
 /** The amount with a quieter naira sign and kobo, so the figure itself carries the weight. */
 function CardAmount({ value }: { value: number }) {
   return <>{cardMoney.formatToParts(value).map((part, index) => part.type === "currency" ? <span key={index} className="plan-amount-sign">{part.value}</span> : part.type === "decimal" || part.type === "fraction" ? <span key={index} className="plan-amount-minor">{part.value}</span> : part.value)}</>;
+}
+// Component order for the stacked bar, matching the dashboard palette.
+const mixOrder = ["infrastructure", "tlm", "sports", "sbmc", "curriculum", "monitoring", "gscci"] as const;
+const planAmounts = (plan: PlanOverview) => ({ infrastructure: plan.infrastructureBudget, tlm: plan.tlmBudget ?? 0, sports: plan.sportsBudget, sbmc: plan.sbmcBudget ?? 0, curriculum: plan.curriculumBudget ?? 0, monitoring: plan.monitoringBudget ?? 0, gscci: plan.gscciBudget ?? 0 });
+/** Proposed spend against available funding, one segment per component (hover a segment for its amount). */
+function PlanMix({ plan, funding }: { plan: PlanOverview; funding: number }) {
+  const amounts = planAmounts(plan), base = Math.max(funding, plan.budget, 1);
+  const parts = mixOrder.filter(area => amounts[area] > 0);
+  return <div className="plan-mix" role="img" aria-label={`Proposed by component: ${parts.map(area => `${componentPalette[area].label} ${compactMoney.format(amounts[area])}`).join(", ")}`}>
+    {parts.map(area => <span key={area} title={`${componentPalette[area].label}: ${compactMoney.format(amounts[area])}`} style={{ width: `${amounts[area] / base * 100}%`, background: componentPalette[area].fill }} />)}
+  </div>;
 }
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 const DAY_MS = 86_400_000;
@@ -154,18 +164,17 @@ export default function DashboardPage() {
               return <Card className="dashboard-plan-card" key={plan.id} {...planCardTilt}>
                 <PlanCardGuilloche seed={plan.startYear} />
                 <CardHeader className="plan-card-header">
-                  <span className="plan-calendar" aria-hidden="true"><CalendarDaysIcon /></span>
                   <div className="min-w-0"><CardTitle><h3>{planPeriod(plan)} BEAP</h3></CardTitle><CardDescription>{plan.startYear === plan.endYear ? "Annual" : `${plan.endYear - plan.startYear + 1}-year`} plan · Matching Grant</CardDescription></div>
                   <PlanStatusBadge status={plan.status} />
                 </CardHeader>
                 <CardContent>
                   <div className="plan-budget"><span>Available funding</span><strong aria-label={cardMoney.format(funding)}><CardAmount value={funding} /></strong></div>
-                  {plan.lineCount > 0 || plan.budget > 0 ? <div className="plan-proposed"><Progress value={Math.min(share, 100)} aria-label={`${share}% of available funding proposed`} /><p><strong>{compactMoney.format(plan.budget)}</strong> proposed<span>{share}%</span></p></div>
+                  {plan.lineCount > 0 || plan.budget > 0 ? <div className="plan-proposed"><PlanMix plan={plan} funding={funding} /><p><strong>{compactMoney.format(plan.budget)}</strong> proposed<span>{share}%</span></p></div>
                     : <p className="plan-proposed plan-proposed-empty">Nothing proposed yet</p>}
                   {(plan.lineCount > 0 || plan.schoolCount > 0 || other > 0) ? <ul className="plan-chips" aria-label="Plan contents">
-                    {plan.lineCount > 0 && <li>{plan.lineCount} budget {plan.lineCount === 1 ? "line" : "lines"}</li>}
-                    {plan.schoolCount > 0 && <li>{plan.schoolCount} {plan.schoolCount === 1 ? "school" : "schools"}</li>}
-                    {other > 0 && <li>{compactMoney.format(other)} other funding<OtherFundingInfo setup={plan} /></li>}
+                    {plan.lineCount > 0 && <li><ListChecksIcon aria-hidden="true" /><span title="Budget lines">{plan.lineCount} {plan.lineCount === 1 ? "line" : "lines"}</span></li>}
+                    {plan.schoolCount > 0 && <li><SchoolIcon aria-hidden="true" />{plan.schoolCount} {plan.schoolCount === 1 ? "school" : "schools"}</li>}
+                    {other > 0 && <li><HandCoinsIcon aria-hidden="true" />{compactMoney.format(other)} other funding<OtherFundingInfo setup={plan} /></li>}
                   </ul> : <div className="plan-chips" aria-hidden="true" />}
                   <div className="plan-card-bottom"><time dateTime={plan.updatedAt} title={date.format(new Date(plan.updatedAt))}>Updated {updatedAgo(plan.updatedAt)}</time><span className="plan-card-actions">{canCreatePlan && statePlanOpen(plan.status) && <Button size="sm" variant="ghost" className="plan-edit" onClick={() => setEditing(plan.id)}><PencilIcon />Edit plan</Button>}<Button asChild size="sm" variant="outline"><a href={planHref(isOfficer && ['draft', 'changes_requested'].includes(plan.status) ? "/beap" : "/beap/review", plan.id)}>{!isOfficer && ['awaiting_review','awaiting_beap_chair'].includes(plan.status) ? "Review plan" : !isOfficer || ['awaiting_review', 'awaiting_beap_chair', 'awaiting_chairman', 'approved'].includes(plan.status) ? "View plan" : plan.lineCount ? "Continue" : "Start planning"}<ArrowUpRightIcon /></a></Button></span></div>
                 </CardContent>

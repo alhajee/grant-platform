@@ -55,7 +55,7 @@
 .new-plan-link { display: inline-flex; gap: 8px; align-items: center; color: var(--primary); font-size: 14px; margin-top: 5px; }
 .dashboard-plan-card { padding: 20px 0 0; gap: 18px; box-shadow: none; border-radius: 14px; overflow: hidden; transition: transform 180ms ease, box-shadow 180ms ease; }
 .dashboard-plan-card > [data-slot=card-header], .dashboard-plan-card > [data-slot=card-content] { padding: 0 21px; }
-.plan-card-header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; column-gap: 12px; }
+.plan-card-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 12px; }
 .plan-card-header [data-slot=card-description] { margin-top: 2px; }
 .plan-calendar { background: #f0f3e8; color: #627445; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #e3e8d7; border-radius: 9px; }
 .plan-calendar svg { width: 20px; stroke-width: 1.5; }
@@ -238,3 +238,11 @@
 .activity-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; font-size: 13px; font-weight: 500; line-height: 1.4; }
 .activity-copy small { font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
 .recent-activity-empty { font-size: 13px; line-height: 1.6; color: var(--muted-foreground); }
+
+/* Stacked proposed-by-component bar on each plan card, in the dashboard palette. */
+.plan-mix { display: flex; gap: 2px; height: 8px; overflow: hidden; border-radius: 999px; background: #efe8d9; }
+.plan-mix span { display: block; height: 100%; min-width: 3px; }
+.plan-mix span:first-child { border-radius: 999px 0 0 999px; }
+.plan-mix span:last-child { border-radius: 0 999px 999px 0; }
+.plan-mix span:only-child { border-radius: 999px; }
+.plan-chips li svg { width: 13px; height: 13px; margin-right: 4px; opacity: .75; }
