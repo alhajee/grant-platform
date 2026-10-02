@@ -49,8 +49,9 @@
 .plan-guilloche path:nth-child(5) { stroke-opacity: .06; }
 
 @media (hover: hover) {
-  .dashboard-plan-card .plan-edit { opacity: 0; transition: opacity 150ms ease; }
-  .dashboard-plan-card:hover .plan-edit, .dashboard-plan-card:focus-within .plan-edit { opacity: 1; }
+  /* Edit plan and the updated time are hover details; touch screens always show them. */
+  .dashboard-plan-card :is(.plan-edit, .plan-card-bottom > time) { opacity: 0; transition: opacity 150ms ease; }
+  .dashboard-plan-card:is(:hover, :focus-within) :is(.plan-edit, .plan-card-bottom > time) { opacity: 1; }
 }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .dashboard-plan-card:hover { transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(-3px); box-shadow: 0 0 0 1px rgb(74 60 30 / 7%), 0 2px 4px rgb(74 60 30 / 5%), 0 26px 48px -28px rgb(22 73 60 / 34%); transition: transform 120ms ease-out, box-shadow 180ms ease; }
