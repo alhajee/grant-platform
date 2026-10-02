@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { useTable, type ColumnDef, type SortingState, type ColumnFiltersState, type ColumnVisibilityState, type PaginationState, type Updater } from '@tanstack/react-table';
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon, SearchIcon, SlidersHorizontalIcon } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -30,7 +30,7 @@ export type DataTableServer = {
 
 const resolve = <T,>(updater: Updater<T>, current: T): T => typeof updater === 'function' ? (updater as (old: T) => T)(current) : updater;
 
-export function DataTable<TData extends { id: string | number }>({ data, columns, searchColumn = 'name', searchPlaceholder = 'Search…', itemLabel = 'records', columnLabels = {}, server, toolbar, facets = [], filters, persistKey, empty }: {
+export function DataTable<TData extends { id: string | number }>({ data, columns, searchColumn = 'name', searchPlaceholder = 'Search…', itemLabel = 'records', columnLabels = {}, server, toolbar, facets = [], filters, persistKey, empty, onRowClick, rowLabel }: {
   data: TData[];
   columns: ColumnDef<DataTableFeatures, TData>[];
   searchColumn?: string;
@@ -46,6 +46,9 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
   /** Remember search and filters (client mode) for the browser-tab session under this key. */
   persistKey?: string;
   empty?: ReactNode;
+  /** Makes whole rows open the record (click or Enter); clicks on controls inside the row are left alone. */
+  onRowClick?: (row: TData) => void;
+  rowLabel?: (row: TData) => string;
 }) {
   const id = useId();
   const [localSorting, setLocalSorting] = useState<SortingState>([]);
@@ -109,7 +112,12 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
         <TableBody className={server?.loading && rows.length ? 'opacity-60 transition-opacity' : undefined}>{loadingRows ? Array.from({ length: loadingRows }, (_, index) =>
           <TableRow key={`loading-${index}`}>{Array.from({ length: visibleColumns }, (_, cell) => <TableCell key={cell} className="px-4 py-3"><Skeleton className="h-4 w-full max-w-32" /></TableCell>)}</TableRow>
         ) : rows.length ? rows.map(row =>
-          <TableRow key={row.id}>{row.getVisibleCells().map(cell => <TableCell key={cell.id} className="px-4 py-3"><table.FlexRender cell={cell} /></TableCell>)}</TableRow>
+          <TableRow key={row.id} {...onRowClick ? {
+            tabIndex: 0, 'aria-label': rowLabel?.(row.original), className: 'cursor-pointer focus-visible:bg-muted/50 focus-visible:outline-none',
+            // Portalled menus and dialogs bubble through React, so act only on clicks inside the row itself.
+            onClick: (event: MouseEvent<HTMLTableRowElement>) => { const target = event.target as Element; if (event.currentTarget.contains(target) && !target.closest('button,a,input,label,[role=checkbox],[role=menuitem]')) onRowClick(row.original); },
+            onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => { if (event.key === 'Enter' && event.target === event.currentTarget) onRowClick(row.original); },
+          } : {}}>{row.getVisibleCells().map(cell => <TableCell key={cell.id} className="px-4 py-3"><table.FlexRender cell={cell} /></TableCell>)}</TableRow>
         ) : <TableRow><TableCell colSpan={visibleColumns} className="h-24 text-center">{empty ?? `No matching ${itemLabel}.`}</TableCell></TableRow>}</TableBody>
       </Table>
     </div>

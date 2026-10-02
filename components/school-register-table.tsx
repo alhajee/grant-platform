@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createColumnHelper, type PaginationState, type SortingState } from '@tanstack/react-table';
-import { PencilIcon } from 'lucide-react';
+import { DownloadIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { DataTable } from '@/components/data-table';
-import { SchoolBulkBar } from '@/components/school-register-bulk-bar';
+import { SchoolBulkBar, useSchoolActions } from '@/components/school-register-bulk-bar';
 import { DataTableColumnHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
 import { DataTableFacetedFilter } from '@/components/data-table-faceted-filter';
@@ -14,6 +14,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { defaultRegisterPageSize, registerPageSizes, type RegisterFacet, type RegisterPage, type RegisterSchool } from '@/lib/school-register';
 
 export type SchoolRegisterTableProps = { refreshKey: number; onEdit: (school: RegisterSchool) => void };
@@ -71,6 +72,12 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
     { title: 'Location', options: options(facets?.locations), selected: locations, set: setLocations },
   ];
 
+  const actions = useSchoolActions({ onDeleted: result => {
+    const kept = new Set(result.kept.map(item => item.id));
+    setSelected(current => new Set([...current].filter(id => kept.has(id))));
+    setAttempt(value => value + 1);
+  } });
+  const { exportSchools, confirmDelete, busy } = actions;
   const pageIds = useMemo(() => (lastData?.items ?? []).map(school => school.id), [lastData]);
   const pageTicked = pageIds.filter(id => selected.has(id)).length;
   const toggle = useCallback((ids: number[], on: boolean) => setSelected(current => {
@@ -90,8 +97,16 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
     helper.accessor(school => school.male + school.female, { id: 'learners', header: ({ column }) => <DataTableColumnHeader column={column} title="Learners" align="end" />, cell: ({ row }) => <div className="text-right tabular-nums"><p>{(row.original.male + row.original.female).toLocaleString()}</p><p className="text-xs text-muted-foreground">{row.original.male.toLocaleString()} M · {row.original.female.toLocaleString()} F</p></div> }),
     helper.display({ id: 'coordinates', enableSorting: false, header: 'Coordinates', cell: ({ row }) => row.original.latitude && row.original.longitude ? <span className="whitespace-nowrap tabular-nums text-xs">{row.original.latitude}, {row.original.longitude}</span> : <span className="text-muted-foreground">—</span> }),
     helper.accessor('updatedAt', { id: 'updated', header: ({ column }) => <DataTableColumnHeader column={column} title="Last updated" />, cell: ({ row }) => row.original.updatedAt ? <div className="whitespace-nowrap"><p>{updated.format(new Date(row.original.updatedAt))}</p>{row.original.updatedBy && <p className="text-xs text-muted-foreground">{row.original.updatedBy}</p>}</div> : <span className="text-muted-foreground">Original list</span> }),
-    helper.display({ id: 'actions', enableHiding: false, header: '', cell: ({ row }) => <div className="flex justify-end"><Button variant="ghost" size="sm" aria-label={`Edit ${row.original.name}`} onClick={() => onEdit(row.original)}><PencilIcon data-icon="inline-start" />Edit</Button></div> }),
-  ]), [onEdit, pageIds, pageTicked, selected, toggle]);
+    helper.display({ id: 'actions', enableHiding: false, header: () => <span className="sr-only">Actions</span>, cell: ({ row }) => <div className="flex justify-end"><DropdownMenu>
+      <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground data-[state=open]:bg-muted" aria-label={`Actions for ${row.original.name}`}><MoreHorizontalIcon /></Button></DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem onSelect={() => onEdit(row.original)}><PencilIcon />Edit school</DropdownMenuItem>
+        <DropdownMenuItem disabled={!!busy} onSelect={() => void exportSchools([row.original.id])}><DownloadIcon />Export</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" disabled={!!busy} onSelect={() => confirmDelete([row.original.id], row.original.name)}><Trash2Icon />Delete</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu></div> }),
+  ]), [onEdit, pageIds, pageTicked, selected, toggle, busy, exportSchools, confirmDelete]);
 
   const empty = error ? 'The school register could not be loaded.' : filtered
     ? <div className="flex flex-col items-center gap-2"><p className="font-medium">No schools match your filters</p><p className="text-muted-foreground">Try another name, town, LGA or school code.</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
@@ -107,6 +122,8 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
       persistKey={persist}
       columnLabels={{ lga: 'LGA', level: 'Level', type: 'Type', location: 'Location', learners: 'Learners', coordinates: 'Coordinates', updated: 'Last updated' }}
       empty={empty}
+      onRowClick={onEdit}
+      rowLabel={school => `Edit ${school.name}`}
       filters={<DataTableFilterGroup activeCount={filters.filter(item => item.selected.length).length} filterCount={filters.length} onReset={() => { filters.forEach(item => item.set([])); setPagination(state => ({ ...state, pageIndex: 0 })); }}>
         {filters.map(item => <DataTableFacetedFilter key={item.title} title={item.title} options={item.options} selected={item.selected} onChange={setFilter(item.set)} />)}
       </DataTableFilterGroup>}
@@ -119,6 +136,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
         pageSizes: registerPageSizes,
       }}
     />
-    <SchoolBulkBar ids={[...selected]} onClear={() => setSelected(new Set())} onDeleted={() => { setSelected(new Set()); setAttempt(value => value + 1); }} />
+    <SchoolBulkBar ids={[...selected]} actions={actions} onClear={() => setSelected(new Set())} />
+    {actions.dialog}
   </div>;
 }
