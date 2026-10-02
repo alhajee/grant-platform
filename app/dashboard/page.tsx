@@ -2,12 +2,15 @@
 import "./dashboard.css";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightIcon, ArrowUpRightIcon, CalendarDaysIcon, CircleCheckIcon, FileTextIcon, PencilIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { ArrowRightIcon, ArrowUpRightIcon, CalendarDaysIcon, FileTextIcon, PencilIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
 import { CreatePlanDialog } from "@/components/create-plan-dialog";
 import { EditPlanDialog } from "@/components/edit-plan-dialog";
 import { OtherFundingInfo } from "@/components/funding-sources-field";
 import { PlanCardGuilloche, planCardTilt } from "@/components/plan-card-surface";
+import { ComponentBudgets } from "@/components/dashboard/component-budgets";
+import { RecentActivity } from "@/components/dashboard/recent-activity";
+import type { PlanActivity } from "@/lib/plan-activity";
 import { otherFundingTotal } from "@/lib/plan-setup";
 import { statePlanOpen } from "@/lib/pillar-review";
 import { fromKobo, toKobo, type FundingSource } from "@/lib/funding-policy";
@@ -48,6 +51,7 @@ export default function DashboardPage() {
   const [stateName, setStateName] = useState("");
   const [plans, setPlans] = useState<PlanOverview[]>([]);
   const [targetedSchools, setTargetedSchools] = useState(0);
+  const [recentActivity, setRecentActivity] = useState<PlanActivity[]>([]);
   const [canCreatePlan, setCanCreatePlan] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,10 +68,11 @@ export default function DashboardPage() {
       const loggedIn = (await session.json() as { user: LocalUser }).user;
       if (loggedIn.role.startsWith('UBEC ')) { window.location.replace('/ubec'); return; }
       setUser(loggedIn);
-      const dashboard = await response.json() as { plans: PlanOverview[]; stateName: string; targetedSchools: number; role: string; canCreatePlan: boolean };
+      const dashboard = await response.json() as { plans: PlanOverview[]; recentActivity?: PlanActivity[]; stateName: string; targetedSchools: number; role: string; canCreatePlan: boolean };
       setCanCreatePlan(dashboard.canCreatePlan);
       setUser(previous => previous ? { ...previous, role: dashboard.role } : previous);
       setPlans(dashboard.plans);
+      setRecentActivity(dashboard.recentActivity ?? []);
       setStateName(dashboard.stateName);
       setTargetedSchools(dashboard.targetedSchools);
     } catch { setError("We couldn't load your dashboard. Please check your connection and try again."); }
@@ -103,7 +108,6 @@ export default function DashboardPage() {
   const groupedSources = [...dashboardPlans.flatMap(plan => plan.fundingSources ?? []).reduce((map, source) => { const key = `${source.component}|${source.funder.toLowerCase()}`; const prior = map.get(key); return new Map(map).set(key, { ...source, id: undefined, amount: fromKobo(toKobo(prior?.amount ?? '0') + toKobo(source.amount)) }); }, new Map<string, FundingSource>()).values()];
   const otherFunding = { otherFunding: fromKobo(dashboardPlans.reduce((sum, plan) => sum + toKobo(plan.otherFunding ?? '0'), BigInt(0))), fundingSources: groupedSources };
   const dashboardSchoolCount = activeInvestmentFilters ? new Set(dashboardPlans.flatMap(plan => plan.schoolIds ?? [])).size : targetedSchools;
-  const latest = dashboardPlans[0];
   const areaAmounts: Record<InvestmentArea, number> = {
     infrastructure: dashboardPlans.reduce((sum, plan) => sum + plan.infrastructureBudget, 0),
     sports: dashboardPlans.reduce((sum, plan) => sum + plan.sportsBudget, 0),
@@ -114,18 +118,6 @@ export default function DashboardPage() {
     curriculum: dashboardPlans.reduce((sum, plan) => sum + (plan.curriculumBudget ?? 0), 0),
   };
   const selectedAreas = investmentFilters.areas.length ? investmentFilters.areas : ["infrastructure", "sports", "sbmc", "tlm", "monitoring", "gscci", "curriculum"] as InvestmentArea[];
-  const areaDetails: Record<InvestmentArea, { label: string; color: string }> = {
-    infrastructure: { label: "Infrastructure", color: "var(--primary)" },
-    sports: { label: "Sports development", color: "var(--dashboard-sage)" },
-    sbmc: { label: "SBMC", color: "var(--lilac)" },
-    tlm: { label: "TLM", color: "var(--peach)" },
-    monitoring: { label: "Supervision & Monitoring", color: "var(--butter)" },
-    gscci: { label: "Greening & Safeguards", color: "#9fc7a4" },
-    curriculum: { label: "Curriculum", color: "var(--blush)" },
-  };
-  const investmentTotal = selectedAreas.reduce((sum, area) => sum + areaAmounts[area], 0);
-  let investmentCursor = 0;
-  const investmentGradient = investmentTotal ? `conic-gradient(${selectedAreas.map(area => { const start = investmentCursor; investmentCursor += areaAmounts[area] / investmentTotal * 100; return `${areaDetails[area].color} ${start}% ${investmentCursor}%`; }).join(", ")})` : "var(--muted)";
   const visiblePlans = dashboardPlans.filter((p) => `${planPeriod(p)} action plan ${p.status}`.includes(query.toLowerCase().trim()) || (/^\d{4}$/.test(query.trim()) && Number(query) >= p.startYear && Number(query) <= p.endYear));
   const unavailable = loading || Boolean(error);
 
@@ -186,11 +178,10 @@ export default function DashboardPage() {
         <aside className="dashboard-aside">
           <div className="investment-filter-bar"><InvestmentFilter plans={plans} value={investmentFilters} onChange={setInvestmentFilters} /></div>
           <div className="dashboard-aside-content">
-          <Card className="budget-allocation"><CardHeader><CardTitle><h2>Where your plans invest</h2></CardTitle><CardDescription>{activeInvestmentFilters ? `${dashboardPlans.length} matching ${dashboardPlans.length === 1 ? "plan" : "plans"}` : "Proposed budget across all periods"}</CardDescription></CardHeader><CardContent>
-            <div className="allocation-donut" role="img" aria-label={unavailable ? "Budget breakdown unavailable" : selectedAreas.map(area => `${areaDetails[area].label} ${money.format(areaAmounts[area])}`).join("; ")} style={{ background: unavailable ? "var(--muted)" : investmentGradient }}><div><span>{unavailable ? "—" : compactMoney.format(investmentTotal)}</span><small>{activeInvestmentFilters ? "Filtered proposed" : "Total proposed"}</small></div></div>
-            <div className="allocation-legend">{selectedAreas.map(area => <div key={area}><span><i style={{ background: areaDetails[area].color }} />{areaDetails[area].label}</span><strong>{unavailable ? "—" : compactMoney.format(areaAmounts[area])}</strong></div>)}</div>
+          <Card className="budget-allocation"><CardHeader><CardTitle><h2>Where your plans invest</h2></CardTitle><CardDescription>{activeInvestmentFilters ? `${dashboardPlans.length} matching ${dashboardPlans.length === 1 ? "plan" : "plans"}` : "Share of each component's funding already proposed"}</CardDescription></CardHeader><CardContent>
+            <ComponentBudgets plans={dashboardPlans} areas={selectedAreas} amounts={areaAmounts} totalFunding={totalFunding} unavailable={unavailable} />
           </CardContent></Card>
-          <div className="dashboard-next"><span className="next-icon"><CircleCheckIcon /></span><h3>{latest ? "Progress saved" : "One workspace. Three pillars."}</h3><p>{latest ? `Your ${planPeriod(latest)} plan is saved. Return to your pillars whenever you're ready.` : "Bring your education priorities together, one pillar at a time."}</p>{latest && !unavailable && <Button asChild variant="link"><a href={planHref("/beap", latest.id)}>Back to your plan<ArrowRightIcon /></a></Button>}</div>
+          {!unavailable && <RecentActivity items={recentActivity} />}
           </div>
         </aside>
       </div>

@@ -103,22 +103,6 @@
 .investment-filter-footer [data-slot=button] { border-radius: 9px; }
 .budget-allocation h2 { font-size: 15px; letter-spacing: -.025em; }
 .budget-allocation [data-slot=card-description] { font-size: 14px; }
-.allocation-donut { height: 160px; width: 160px; border-radius: 50%; padding: 15px; margin: 2px auto 25px; transform: rotate(-90deg); }
-.allocation-donut > div { background: var(--background); width: 100%; height: 100%; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: rotate(90deg); }
-.allocation-donut span { font-size: 23px; letter-spacing: -.04em; font-weight: 600; }
-.allocation-donut small { font-size: 14px; color: var(--muted-foreground); margin-top: 4px; }
-.allocation-legend { display: flex; flex-direction: column; gap: 13px; }
-.allocation-legend > div { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; }
-.allocation-legend span { display: flex; align-items: center; gap: 8px; }
-.allocation-legend i { display: inline-block; width: 7px; height: 7px; background: var(--primary); border-radius: 2px; }
-.allocation-legend > div + div i { background: var(--dashboard-sage); }
-.allocation-legend strong { font-weight: 500; font-variant-numeric: tabular-nums; }
-.dashboard-next { border-radius: 14px; background: #edf1e7; padding: 24px; }
-.next-icon { color: #728658; display: block; margin-bottom: 12px; }
-.next-icon svg { width: 20px; height: 20px; stroke-width: 1.5; }
-.dashboard-next h3 { font-size: 17px; line-height: 1.4; font-weight: 500; letter-spacing: -.025em; max-width: 220px; }
-.dashboard-next p { font-size: 14px; line-height: 1.7; color: #64705d; margin-top: 10px; }
-.dashboard-next [data-slot=button] { padding: 0; height: auto; margin-top: 15px; font-size: 14px; }
 .dashboard-footer-separator { margin-top: 44px; }
 .dashboard-footer { display: flex; justify-content: space-between; gap: 12px; padding: 22px 0 26px; font-size: 14px; color: var(--muted-foreground); }
 .dashboard-empty { grid-column: 1 / -1; text-align: center; padding: 45px 25px; background: var(--background); border: 1px dashed var(--border); border-radius: 14px; color: var(--muted-foreground); font-size: 14px; }
@@ -211,3 +195,46 @@
 .plan-chips li { background: var(--plan-warm); border: 1px solid color-mix(in srgb, var(--plan-line) 70%, transparent); color: color-mix(in srgb, var(--muted-foreground) 85%, #6b5d43); }
 .dashboard-plan-card .plan-card-bottom { background: var(--plan-warm); border-top-color: var(--plan-line); }
 .dashboard-plan-card .plan-card-bottom [data-slot=button][data-variant=outline] { background: #fff; }
+
+/* Sidebar cards share the plan cards' warm finish. */
+.budget-allocation, .recent-activity {
+  border-radius: 14px; gap: 18px;
+  border-color: color-mix(in srgb, #d9cfbb 55%, var(--border));
+  background: linear-gradient(180deg, #fffdf9 0%, #fff 46%);
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgb(74 60 30 / 5%), 0 12px 28px -22px rgb(74 60 30 / 22%);
+}
+.recent-activity h2 { font-size: 15px; letter-spacing: -.025em; }
+
+/* Where your plans invest: total, then a tile per component sized by its proposals. */
+.component-budgets { display: flex; flex-direction: column; gap: 16px; }
+.component-budgets-total strong { display: block; font-size: 28px; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.component-budgets-total span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted-foreground); }
+.component-budgets-total b { font-weight: 600; color: var(--primary); }
+.component-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.component-tiles li { display: flex; flex-direction: column; min-height: 104px; padding: 12px 13px; border-radius: 12px; background: var(--tile-fill); color: var(--tile-ink); box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%); }
+.component-tiles li[data-lead] { grid-column: span 2; min-height: 128px; }
+.tile-share { font-size: 26px; font-weight: 600; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.tile-share small { font-size: .55em; font-weight: 500; margin-left: 1px; letter-spacing: 0; }
+[data-lead] .tile-share { font-size: 32px; }
+.tile-label { margin: 5px 0 10px; font-size: 13px; opacity: .88; }
+.tile-meter { margin-top: auto; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--tile-ink) 22%, transparent); overflow: hidden; }
+.tile-meter span { display: block; height: 100%; border-radius: inherit; background: var(--tile-ink); }
+.tile-amounts { display: flex; justify-content: space-between; gap: 6px; margin-top: 6px; font-size: 11px; opacity: .8; font-variant-numeric: tabular-nums; }
+.component-budgets-empty, .component-budgets-idle { font-size: 13px; line-height: 1.55; color: var(--muted-foreground); }
+.component-budgets-idle span { display: block; margin-bottom: 2px; font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: color-mix(in srgb, var(--muted-foreground) 80%, transparent); }
+
+/* Recent activity: who did what, on which plan, how long ago. */
+.recent-activity ul { margin: -6px -10px; padding: 0; list-style: none; }
+.recent-activity li + li { border-top: 1px solid color-mix(in srgb, #d9cfbb 40%, var(--border)); }
+.recent-activity a { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; color: inherit; text-decoration: none; outline: none; }
+.recent-activity a:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 40%, transparent); }
+@media (hover: hover) { .recent-activity a:hover { background: color-mix(in srgb, var(--canvas) 60%, #fff); } }
+.recent-activity a { align-items: flex-start; }
+.activity-icon { display: grid; flex-shrink: 0; place-items: center; width: 28px; height: 28px; margin-top: 1px; border-radius: 8px; background: #edf4ef; color: var(--primary); }
+.activity-icon svg { width: 14px; height: 14px; }
+.activity-icon[data-kind=changes] { background: #fdf0e3; color: #9a4d12; }
+.activity-icon[data-kind=approved] { background: #e3f3e9; color: #1d6b45; }
+.activity-icon[data-kind=edited] { background: var(--muted); color: var(--muted-foreground); }
+.activity-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; font-size: 13px; font-weight: 500; line-height: 1.4; }
+.activity-copy small { font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
+.recent-activity-empty { font-size: 13px; line-height: 1.6; color: var(--muted-foreground); }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { RECENT_ACTIVITY_LIMIT, type PlanActivity } from '@/lib/plan-activity';
 import { getPostgres } from "@/lib/postgres";
 import { getWorkspaceState } from "@/lib/workspace-state";
 import { planFields, planSetupFields } from "@/lib/plan-workspace";
@@ -41,11 +42,14 @@ export async function GET(request: NextRequest) {
       ) targeted_schools`, [workspace.stateCode]),
     ]);
     const reviews = (await db.query<PillarReviewRow>('SELECT r.plan_id,r.pillar,r.status FROM plan_pillar_reviews r JOIN action_plans p ON p.id=r.plan_id WHERE p.state_code=$1', [workspace.stateCode])).rows;
+    const recentActivity = (await db.query<PlanActivity>(`SELECT e.id, e.plan_id AS "planId", e.action, e.scope, e.actor_name AS "actorName", e.actor_role AS "actorRole", e.comment, e.created_at AS "createdAt",
+      p.start_year AS "startYear", p.end_year AS "endYear", p.funding_quarters AS "fundingQuarters"
+      FROM plan_review_events e JOIN action_plans p ON p.id = e.plan_id WHERE p.state_code = $1 ORDER BY e.created_at DESC, e.id DESC LIMIT ${RECENT_ACTIVITY_LIMIT}`, [workspace.stateCode])).rows;
     const plans = result.rows.map(plan => {
       const pendingActions = pendingActionsFor(workspace, plan as { id: number; status: string }, reviews);
       return {...plan,pendingActions,pendingReview:pendingActions.length>0&&workspace.role!=='Data Entry Staff'};
     });
-    return NextResponse.json({ plans, targetedSchools: targets.rows[0].count, stateName: stateDisplayName(workspace.stateCode), role: workspace.role, canCreatePlan: canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair) }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ plans, recentActivity, targetedSchools: targets.rows[0].count, stateName: stateDisplayName(workspace.stateCode), role: workspace.role, canCreatePlan: canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair) }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Unable to load action plans", cause);
     return NextResponse.json({ error: "Your action plans could not be loaded. Please try again." }, { status: 503 });
