@@ -114,7 +114,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
     helper.accessor('name', { id: 'name', enableHiding: false, header: ({ column }) => <DataTableColumnHeader column={column} title="School" />, cell: ({ row }) => <div className="min-w-56 whitespace-normal"><p className="font-medium">{row.original.name}</p>{(row.original.town || row.original.schoolCode) && <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">{row.original.town && <span>{row.original.town}</span>}{row.original.schoolCode && <Badge variant="outline" className="h-4 px-1.5 font-mono text-[0.65rem] font-normal" title="School code (EMIS/DNEMIS)">{row.original.schoolCode}</Badge>}</p>}</div> }),
     helper.accessor('lga', { id: 'lga', header: ({ column }) => <DataTableColumnHeader column={column} title="LGA" />, cell: info => <span className="whitespace-nowrap">{info.getValue()}</span> }),
     helper.accessor('level', { id: 'level', header: ({ column }) => <DataTableColumnHeader column={column} title="Level" /> }),
-    helper.accessor('category', { id: 'type', enableSorting: false, header: 'Type', cell: info => <Badge variant={info.getValue() === 'Private' ? 'outline' : 'secondary'}>{info.getValue() || '—'}</Badge> }),
+    helper.accessor('category', { id: 'type', enableSorting: false, header: 'Type', cell: info => info.getValue() ? <Badge variant="outline" className="gap-1.5 font-normal"><span aria-hidden="true" className={`size-1.5 rounded-full ${info.getValue() === 'Private' ? 'bg-amber-500' : 'bg-primary'}`} />{info.getValue()}</Badge> : <span className="text-muted-foreground">—</span> }),
     helper.accessor('location', { id: 'location', enableSorting: false, header: 'Location' }),
     helper.accessor(school => school.male + school.female, { id: 'learners', header: ({ column }) => <DataTableColumnHeader column={column} title="Learners" align="end" />, cell: ({ row }) => !enrolmentRecorded(row.original) ? <p className="text-right text-xs whitespace-nowrap text-muted-foreground">Not recorded</p> : <div className="text-right tabular-nums"><p>{(row.original.male + row.original.female).toLocaleString()}</p><p className="text-xs text-muted-foreground">{row.original.male.toLocaleString()} M · {row.original.female.toLocaleString()} F</p></div> }),
     helper.display({ id: 'coordinates', enableSorting: false, header: 'Coordinates', cell: ({ row }) => row.original.latitude && row.original.longitude ? <SchoolMapDialog name={row.original.name} lga={row.original.lga} latitude={row.original.latitude} longitude={row.original.longitude} /> : <span className="text-muted-foreground">—</span> }),
@@ -146,6 +146,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
       empty={empty}
       onRowClick={onEdit}
       rowSelected={school => selected.has(school.id)}
+      stickyHeader
       rowLabel={school => `Edit ${school.name}`}
       filters={<DataTableFilterGroup activeCount={filters.filter(item => item.selected.length).length} filterCount={filters.length} onReset={() => { filters.forEach(item => item.set([])); setPagination(state => ({ ...state, pageIndex: 0 })); }}>
         {filters.map(item => <DataTableFacetedFilter key={item.title} title={item.title} options={item.options} selected={item.selected} onChange={setFilter(item.set)} />)}

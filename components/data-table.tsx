@@ -31,7 +31,7 @@ export type DataTableServer = {
 
 const resolve = <T,>(updater: Updater<T>, current: T): T => typeof updater === 'function' ? (updater as (old: T) => T)(current) : updater;
 
-export function DataTable<TData extends { id: string | number }>({ data, columns, searchColumn = 'name', searchPlaceholder = 'Search…', itemLabel = 'records', columnLabels = {}, server, toolbar, facets = [], filters, persistKey, empty, onRowClick, rowLabel, rowSelected }: {
+export function DataTable<TData extends { id: string | number }>({ data, columns, searchColumn = 'name', searchPlaceholder = 'Search…', itemLabel = 'records', columnLabels = {}, server, toolbar, facets = [], filters, persistKey, empty, onRowClick, rowLabel, rowSelected, stickyHeader = false }: {
   data: TData[];
   columns: ColumnDef<DataTableFeatures, TData>[];
   searchColumn?: string;
@@ -52,6 +52,8 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
   rowLabel?: (row: TData) => string;
   /** Highlights ticked rows. */
   rowSelected?: (row: TData) => boolean;
+  /** Scroll the rows inside a window-high area so the header stays in view on long pages. */
+  stickyHeader?: boolean;
 }) {
   const id = useId();
   const [localSorting, setLocalSorting] = useState<SortingState>([]);
@@ -105,9 +107,9 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
         </DropdownMenu>
       </div>
     </div>
-    <div className="overflow-hidden rounded-md border bg-card">
+    <div className={cn('overflow-hidden rounded-md border bg-card', stickyHeader && '[&>[data-slot=table-container]]:max-h-[max(24rem,calc(100dvh-11rem))] [&>[data-slot=table-container]]:overflow-y-auto')}>
       <Table className="min-w-[720px]" aria-busy={server?.loading || undefined}>
-        <TableHeader className="bg-muted/60 [&_tr]:hover:bg-transparent">{table.getHeaderGroups().map(group => <TableRow key={group.id}>
+        <TableHeader className={cn('bg-[color-mix(in_oklab,var(--muted)_60%,var(--card))] [&_tr]:hover:bg-transparent', stickyHeader && 'sticky top-0 z-10 shadow-[0_1px_0_var(--border)]')}>{table.getHeaderGroups().map(group => <TableRow key={group.id}>
           {group.headers.map(header => <TableHead key={header.id} className="px-4" aria-sort={header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : undefined}>
             {header.isPlaceholder ? null : <table.FlexRender header={header} />}
           </TableHead>)}
