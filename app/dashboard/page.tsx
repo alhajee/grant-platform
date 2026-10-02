@@ -2,59 +2,32 @@
 import "./dashboard.css";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightIcon, ArrowUpRightIcon, FileTextIcon, HandCoinsIcon, ListChecksIcon, SchoolIcon, PencilIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { ArrowRightIcon, FileTextIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
 import { CreatePlanDialog } from "@/components/create-plan-dialog";
 import { EditPlanDialog } from "@/components/edit-plan-dialog";
 import { OtherFundingInfo } from "@/components/funding-sources-field";
-import { PlanCardGuilloche, planCardTilt } from "@/components/plan-card-surface";
-import { ComponentBudgets, componentPalette } from "@/components/dashboard/component-budgets";
+import { ComponentBudgets } from "@/components/dashboard/component-budgets";
+import { PlanCard } from "@/components/dashboard/plan-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import type { PlanActivity } from "@/lib/plan-activity";
 import { otherFundingTotal } from "@/lib/plan-setup";
-import { statePlanOpen } from "@/lib/pillar-review";
 import { fromKobo, toKobo, type FundingSource } from "@/lib/funding-policy";
 import { SubebHeader } from "@/components/subeb-header";
 import { DashboardArtwork } from "@/components/dashboard-artwork";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { PlanStatusBadge } from '@/components/plan-status';
 import { emptyInvestmentFilters, investmentFilterCount, InvestmentFilter, type InvestmentArea } from '@/components/investment-filter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { planHref, planPeriod, type PlanOverview } from "@/lib/action-plans";
+import { planPeriod, type PlanOverview } from "@/lib/action-plans";
 import { subebDisplayName } from '@/lib/state-names';
 import type { LocalUser } from "@/lib/local-session";
 
 const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 2 });
 const compactMoney = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", notation: "compact", maximumFractionDigits: 2 });
-const date = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
-// Whole naira on the card; kobo only when there is any.
-const cardMoney = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0, maximumFractionDigits: 2 });
-/** The amount with a quieter naira sign and kobo, so the figure itself carries the weight. */
-function CardAmount({ value }: { value: number }) {
-  return <>{cardMoney.formatToParts(value).map((part, index) => part.type === "currency" ? <span key={index} className="plan-amount-sign">{part.value}</span> : part.type === "decimal" || part.type === "fraction" ? <span key={index} className="plan-amount-minor">{part.value}</span> : part.value)}</>;
-}
-// Component order for the stacked bar, matching the dashboard palette.
-const mixOrder = ["infrastructure", "tlm", "sports", "sbmc", "curriculum", "monitoring", "gscci"] as const;
-const planAmounts = (plan: PlanOverview) => ({ infrastructure: plan.infrastructureBudget, tlm: plan.tlmBudget ?? 0, sports: plan.sportsBudget, sbmc: plan.sbmcBudget ?? 0, curriculum: plan.curriculumBudget ?? 0, monitoring: plan.monitoringBudget ?? 0, gscci: plan.gscciBudget ?? 0 });
-/** Proposed spend against available funding, one segment per component (hover a segment for its amount). */
-function PlanMix({ plan, funding }: { plan: PlanOverview; funding: number }) {
-  const amounts = planAmounts(plan), base = Math.max(funding, plan.budget, 1);
-  const parts = mixOrder.filter(area => amounts[area] > 0);
-  return <div className="plan-mix" role="img" aria-label={`Proposed by component: ${parts.map(area => `${componentPalette[area].label} ${compactMoney.format(amounts[area])}`).join(", ")}`}>
-    {parts.map(area => <span key={area} title={`${componentPalette[area].label}: ${compactMoney.format(amounts[area])}`} style={{ width: `${amounts[area] / base * 100}%`, background: componentPalette[area].fill }} />)}
-  </div>;
-}
-const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-const DAY_MS = 86_400_000;
-/** "today", "yesterday", "4 days ago"; older than a month falls back to the date. */
-function updatedAgo(value: string) {
-  const then = new Date(value), days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(then).setHours(0, 0, 0, 0)) / DAY_MS);
-  return days >= 0 && days <= 30 ? relative.format(-days, "day") : `on ${date.format(then)}`;
-}
 
 export default function DashboardPage() {
   const [user, setUser] = useState<LocalUser | null>(null);
@@ -158,28 +131,7 @@ export default function DashboardPage() {
           <div className="dashboard-section-title"><div><h2 id="plans-title">Your Basic Education Action Plans <span>{unavailable ? "—" : dashboardPlans.length}</span></h2></div>{canCreatePlan && <Button variant="outline" size="sm" onClick={beginPlan} disabled={unavailable}><PlusIcon />New plan</Button>}</div>
           <div className="plan-search"><SearchIcon aria-hidden="true" /><Input aria-label="Search action plans by year" placeholder="Find a plan by year…" value={query} onChange={(e) => setQuery(e.target.value)} disabled={unavailable} /></div>
           {loading ? <div className="dashboard-plan-list"><Skeleton className="h-48 w-full rounded-xl" /><Skeleton className="h-48 w-full rounded-xl" /></div> : error ? <div className="dashboard-empty">Your plans will appear here when the connection is restored.</div> : <div className="dashboard-plan-list">
-            {visiblePlans.map(plan => {
-              const funding = Number(plan.fundingTotal ?? 0), other = Number(otherFundingTotal(plan));
-              const share = funding > 0 ? Math.round(plan.budget / funding * 100) : 0;
-              return <Card className="dashboard-plan-card" key={plan.id} {...planCardTilt}>
-                <PlanCardGuilloche seed={plan.startYear} />
-                <CardHeader className="plan-card-header">
-                  <div className="min-w-0"><CardTitle><h3>{planPeriod(plan)} BEAP</h3></CardTitle><CardDescription>{plan.startYear === plan.endYear ? "Annual" : `${plan.endYear - plan.startYear + 1}-year`} plan · Matching Grant</CardDescription></div>
-                  <PlanStatusBadge status={plan.status} />
-                </CardHeader>
-                <CardContent>
-                  <div className="plan-budget"><span>Available funding</span><strong aria-label={cardMoney.format(funding)}><CardAmount value={funding} /></strong></div>
-                  {plan.lineCount > 0 || plan.budget > 0 ? <div className="plan-proposed"><PlanMix plan={plan} funding={funding} /><p><strong>{compactMoney.format(plan.budget)}</strong> proposed<span>{share}%</span></p></div>
-                    : <p className="plan-proposed plan-proposed-empty">Nothing proposed yet</p>}
-                  {(plan.lineCount > 0 || plan.schoolCount > 0 || other > 0) ? <ul className="plan-chips" aria-label="Plan contents">
-                    {plan.lineCount > 0 && <li><ListChecksIcon aria-hidden="true" /><span title="Budget lines">{plan.lineCount} {plan.lineCount === 1 ? "line" : "lines"}</span></li>}
-                    {plan.schoolCount > 0 && <li><SchoolIcon aria-hidden="true" />{plan.schoolCount} {plan.schoolCount === 1 ? "school" : "schools"}</li>}
-                    {other > 0 && <li><HandCoinsIcon aria-hidden="true" />{compactMoney.format(other)} other funding<OtherFundingInfo setup={plan} /></li>}
-                  </ul> : <div className="plan-chips" aria-hidden="true" />}
-                  <div className="plan-card-bottom"><time dateTime={plan.updatedAt} title={date.format(new Date(plan.updatedAt))}>Updated {updatedAgo(plan.updatedAt)}</time><span className="plan-card-actions">{canCreatePlan && statePlanOpen(plan.status) && <Button size="sm" variant="ghost" className="plan-edit" onClick={() => setEditing(plan.id)}><PencilIcon />Edit plan</Button>}<Button asChild size="sm" variant="outline"><a href={planHref(isOfficer && ['draft', 'changes_requested'].includes(plan.status) ? "/beap" : "/beap/review", plan.id)}>{!isOfficer && ['awaiting_review','awaiting_beap_chair'].includes(plan.status) ? "Review plan" : !isOfficer || ['awaiting_review', 'awaiting_beap_chair', 'awaiting_chairman', 'approved'].includes(plan.status) ? "View plan" : plan.lineCount ? "Continue" : "Start planning"}<ArrowUpRightIcon /></a></Button></span></div>
-                </CardContent>
-              </Card>;
-            })}
+            {visiblePlans.map(plan => <PlanCard key={plan.id} plan={plan} isOfficer={isOfficer} canEdit={canCreatePlan} onEdit={setEditing} />)}
             {canCreatePlan && visiblePlans.length > 0 && !query && !activeInvestmentFilters && <Button variant="outline" className="dashboard-new-plan" onClick={beginPlan}><span className="new-plan-symbol"><PlusIcon /></span><strong>Plan what comes next.</strong><span>Choose your year and quarters.<br />Build your next action plan.</span><span className="new-plan-link">Create a new plan<ArrowRightIcon /></span></Button>}
             {!visiblePlans.length && <div className="dashboard-empty"><FileTextIcon /><h3>{query ? "No matching plans" : activeInvestmentFilters ? "No plans match your filters" : "No action plans yet"}</h3><p>{query ? "Try a different year or clear your search." : activeInvestmentFilters ? "Adjust or clear the dashboard filters to see more plans." : canCreatePlan ? "Create an action plan so your state team can start filling its pillars." : "Your Executive Chairman or an authorized colleague must create a plan before you can start filling it."}</p>{(query || activeInvestmentFilters || canCreatePlan) && <Button variant="outline" onClick={query ? () => setQuery("") : activeInvestmentFilters ? () => setInvestmentFilters(emptyInvestmentFilters) : beginPlan}>{query ? "Clear search" : activeInvestmentFilters ? "Clear filters" : "Create action plan"}</Button>}</div>}
           </div>}

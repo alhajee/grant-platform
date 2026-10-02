@@ -53,28 +53,6 @@
 .dashboard-new-plan strong { font-size: 17px; font-weight: 500; letter-spacing: -.025em; }
 .dashboard-new-plan > span:not(.new-plan-symbol):not(.new-plan-link) { font-size: 14px; font-weight: 400; line-height: 1.7; color: var(--muted-foreground); }
 .new-plan-link { display: inline-flex; gap: 8px; align-items: center; color: var(--primary); font-size: 14px; margin-top: 5px; }
-.dashboard-plan-card { padding: 20px 0 0; gap: 18px; box-shadow: none; border-radius: 14px; overflow: hidden; transition: transform 180ms ease, box-shadow 180ms ease; }
-.dashboard-plan-card > [data-slot=card-header], .dashboard-plan-card > [data-slot=card-content] { padding: 0 21px; }
-.plan-card-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 12px; }
-.plan-card-header [data-slot=card-description] { margin-top: 2px; }
-.plan-calendar { background: #f0f3e8; color: #627445; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #e3e8d7; border-radius: 9px; }
-.plan-calendar svg { width: 20px; stroke-width: 1.5; }
-.plan-card-header [data-slot=badge] { font-size: 13px; font-weight: 500; padding: 2px 8px; }
-.dashboard-plan-card h3 { font-size: 19px; font-weight: 600; letter-spacing: -.025em; }
-.dashboard-plan-card [data-slot=card-description] { font-size: 14px; }
-.plan-budget > span { display: block; color: var(--muted-foreground); font-size: 14px; margin-bottom: 7px; }
-.plan-budget strong { font-size: clamp(17px, 1.6vw, 23px); font-weight: 600; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
-.plan-proposed { margin-top: 14px; }
-.plan-proposed [data-slot=progress] { height: 6px; }
-.plan-proposed-empty { font-size: 14px; color: var(--muted-foreground); }
-.plan-proposed p { display: flex; align-items: baseline; gap: 4px; margin-top: 8px; font-size: 14px; color: var(--muted-foreground); }
-.plan-proposed strong { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
-.plan-proposed p span { margin-left: auto; font-variant-numeric: tabular-nums; }
-.plan-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 20px; padding: 0; list-style: none; }
-.plan-chips li { display: inline-flex; align-items: center; gap: 2px; padding: 3px 9px; border-radius: 6px; background: var(--muted); color: var(--muted-foreground); font-size: 13px; font-variant-numeric: tabular-nums; }
-.plan-card-bottom { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding: 15px 21px; margin: 0 -21px; border-top: 1px solid var(--border); background: #fcfdfc; }
-.plan-card-bottom > time { font-size: 13px; color: var(--muted-foreground); }
-.plan-card-bottom [data-slot=button] { font-size: 14px; }
 .dashboard-aside { display: grid; grid-template-rows: subgrid; grid-column: 2; grid-row: 2 / span 2; }
 .investment-filter-bar { grid-row: 1; display: flex; align-items: center; margin: 22px 0 18px; }
 .investment-filter-trigger { width: 100%; height: 40px; justify-content: flex-start; border-radius: var(--radius-md); background: var(--background); box-shadow: none; }
@@ -112,10 +90,6 @@
 .plan-year-fields { display: flex; gap: 12px; }
 [data-variant=inset-footer] > form > [data-slot=dialog-footer] { padding: 16px; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--foreground) 2%, var(--background)); }
 [data-variant=inset-footer] > form > [data-slot=dialog-footer] > button { border-radius: 10px; }
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .dashboard-plan-card:hover { transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(-3px); box-shadow: 0 14px 32px -20px #16493c40; transition: transform 120ms ease-out, box-shadow 180ms ease; }
-  .dashboard-plan-card:hover .plan-guilloche { transform: translate(var(--shift-x, 0px), var(--shift-y, 0px)) rotate(4deg); }
-}
 @media (min-width: 1440px) { .dashboard-hero { padding: 36px; } .dashboard-hero-copy { padding-bottom: 40px; } }
 @media (max-width: 1000px) {
   .dashboard-nav, .dashboard-main { padding-left: 24px; padding-right: 24px; }
@@ -150,51 +124,13 @@
   .dashboard-section-title h2 { font-size: 18px; }
   .dashboard-section-title p { max-width: 220px; line-height: 1.6; }
   .dashboard-plan-list { grid-template-columns: 1fr; }
-  .plan-budget strong { font-size: 23px; }
   .dashboard-footer { flex-direction: column; }
 }
 /* Other funding (component-specific sources) on the hero funding card and plan cards. */
 .dashboard-stat:has(.stat-sub) > [data-slot=card-content] { flex-direction: column; align-items: flex-start; gap: 4px; }
 .dashboard-stat .stat-sub { display: inline-flex; align-items: center; gap: 2px; font-size: 13px; font-weight: 500; opacity: .85; }
 .dashboard-stat .stat-sub .field-help-trigger { color: inherit; }
-.plan-card-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto; }
-/* Cards in a row share a height; keep the footer on the bottom edge. */
-.dashboard-plan-card > [data-slot=card-content] { flex: 1; display: flex; flex-direction: column; }
-.dashboard-plan-card .plan-card-bottom { margin-top: auto; }
-/* Edit plan appears on hover (and keyboard focus) where a pointer can hover; touch screens always show it. */
-@media (hover: hover) {
-  .dashboard-plan-card .plan-edit { opacity: 0; transition: opacity 150ms ease; }
-  .dashboard-plan-card:hover .plan-edit, .dashboard-plan-card:focus-within .plan-edit { opacity: 1; }
-}
-/* Card surface: a faint banknote-style rosette in the top-right corner, fading toward the content. */
-.dashboard-plan-card { position: relative; isolation: isolate; }
-.plan-guilloche { position: absolute; z-index: -1; top: -74px; right: -70px; width: 280px; height: 280px; pointer-events: none; fill: none; stroke: #5f7d45; stroke-width: .6; mask-image: radial-gradient(circle at 62% 38%, #000 0 30%, transparent 64%); transition: transform 400ms ease-out; }
-.plan-guilloche path { stroke-opacity: .2; }
-.plan-guilloche path:nth-child(2) { stroke-opacity: .17; }
-.plan-guilloche path:nth-child(3) { stroke-opacity: .14; }
-.plan-guilloche path:nth-child(4) { stroke-opacity: .11; }
-.plan-guilloche path:nth-child(5) { stroke-opacity: .08; }
 
-/* Card finish: warm hairline, soft layered depth, and warm neutrals that match the cream canvas. */
-.dashboard-plan-card {
-  --plan-warm: color-mix(in srgb, var(--canvas) 70%, #fff);
-  --plan-line: color-mix(in srgb, #d9cfbb 55%, var(--border));
-  border-color: var(--plan-line);
-  background: linear-gradient(180deg, #fffdf9 0%, #fff 46%);
-  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgb(74 60 30 / 5%), 0 12px 28px -22px rgb(74 60 30 / 22%);
-}
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .dashboard-plan-card:hover { box-shadow: inset 0 1px 0 #fff, 0 2px 4px rgb(74 60 30 / 6%), 0 22px 40px -24px rgb(22 73 60 / 32%); }
-}
-.plan-calendar { background: linear-gradient(160deg, #f6f8ef, #e9eedd); border-color: #dfe5cf; box-shadow: inset 0 1px 0 #fff; }
-.plan-budget strong { display: inline-flex; align-items: baseline; font-size: clamp(20px, 1.9vw, 26px); letter-spacing: -.04em; }
-.plan-amount-sign { margin-right: 2px; font-size: .68em; font-weight: 500; color: var(--muted-foreground); letter-spacing: 0; }
-.plan-amount-minor { font-size: .62em; font-weight: 500; color: var(--muted-foreground); letter-spacing: 0; }
-.plan-proposed [data-slot=progress] { background: #efe8d9; }
-.plan-proposed [data-slot=progress] > * { background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 72%, #6f9a62)); border-radius: inherit; }
-.plan-chips li { background: var(--plan-warm); border: 1px solid color-mix(in srgb, var(--plan-line) 70%, transparent); color: color-mix(in srgb, var(--muted-foreground) 85%, #6b5d43); }
-.dashboard-plan-card .plan-card-bottom { background: var(--plan-warm); border-top-color: var(--plan-line); }
-.dashboard-plan-card .plan-card-bottom [data-slot=button][data-variant=outline] { background: #fff; }
 
 /* Sidebar cards share the plan cards' warm finish. */
 .budget-allocation, .recent-activity {
@@ -207,21 +143,20 @@
 
 /* Where your plans invest: total, then a tile per component sized by its proposals. */
 .component-budgets { display: flex; flex-direction: column; gap: 16px; }
-.component-budgets-total strong { display: block; font-size: 28px; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.component-budgets-total strong { display: block; font-size: 34px; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .component-budgets-total span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted-foreground); }
 .component-budgets-total b { font-weight: 600; color: var(--primary); }
-.component-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
-.component-tiles li { display: flex; flex-direction: column; min-height: 104px; padding: 12px 13px; border-radius: 12px; background: var(--tile-fill); color: var(--tile-ink); box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%); }
-.component-tiles li[data-lead] { grid-column: span 2; min-height: 128px; }
-.tile-share { font-size: 26px; font-weight: 600; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
-.tile-share small { font-size: .55em; font-weight: 500; margin-left: 1px; letter-spacing: 0; }
-[data-lead] .tile-share { font-size: 32px; }
-.tile-label { margin: 5px 0 10px; font-size: 13px; opacity: .88; }
-.tile-meter { margin-top: auto; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--tile-ink) 22%, transparent); overflow: hidden; }
-.tile-meter span { display: block; height: 100%; border-radius: inherit; background: var(--tile-ink); }
-.tile-amounts { display: flex; justify-content: space-between; gap: 6px; margin-top: 6px; font-size: 11px; opacity: .8; font-variant-numeric: tabular-nums; }
-.component-budgets-empty, .component-budgets-idle { font-size: 13px; line-height: 1.55; color: var(--muted-foreground); }
+[data-lead] .component-budgets-empty, .component-budgets-idle { font-size: 13px; line-height: 1.55; color: var(--muted-foreground); }
 .component-budgets-idle span { display: block; margin-bottom: 2px; font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: color-mix(in srgb, var(--muted-foreground) 80%, transparent); }
+
+.component-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.component-tiles li { position: relative; display: flex; align-items: flex-end; height: 176px; border-radius: 12px; overflow: hidden;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--tile-fill) 16%, #fff) 0 6px, color-mix(in srgb, var(--tile-fill) 9%, #fff) 6px 12px); }
+.tile-block { display: flex; width: 100%; flex-direction: column; padding: 10px; border-radius: 12px; background: var(--tile-fill); color: var(--tile-ink); box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%); }
+.tile-share { font-size: 22px; font-weight: 600; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.tile-share small { margin-left: 1px; font-size: .55em; font-weight: 500; letter-spacing: 0; }
+.tile-label { margin-top: 4px; font-size: 12px; line-height: 1.25; opacity: .9; hyphens: auto; -webkit-hyphens: auto; }
+.tile-amount { margin-top: auto; padding-top: 6px; font-size: 11px; opacity: .75; font-variant-numeric: tabular-nums; }
 
 /* Recent activity: who did what, on which plan, how long ago. */
 .recent-activity ul { margin: -6px -10px; padding: 0; list-style: none; }
@@ -239,10 +174,3 @@
 .activity-copy small { font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
 .recent-activity-empty { font-size: 13px; line-height: 1.6; color: var(--muted-foreground); }
 
-/* Stacked proposed-by-component bar on each plan card, in the dashboard palette. */
-.plan-mix { display: flex; gap: 2px; height: 8px; overflow: hidden; border-radius: 999px; background: #efe8d9; }
-.plan-mix span { display: block; height: 100%; min-width: 3px; }
-.plan-mix span:first-child { border-radius: 999px 0 0 999px; }
-.plan-mix span:last-child { border-radius: 0 999px 999px 0; }
-.plan-mix span:only-child { border-radius: 999px; }
-.plan-chips li svg { width: 13px; height: 13px; margin-right: 4px; opacity: .75; }

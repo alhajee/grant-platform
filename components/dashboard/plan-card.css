@@ -1,0 +1,59 @@
+/* Dashboard plan card: a white surface on the cream canvas, one large figure, a tick gauge and pills. */
+.dashboard-plan-card {
+  position: relative; isolation: isolate; overflow: hidden;
+  gap: 16px; padding: 24px 0 18px; border: 0; border-radius: 22px; background: #fff;
+  box-shadow: 0 0 0 1px rgb(74 60 30 / 6%), 0 1px 2px rgb(74 60 30 / 4%), 0 18px 40px -30px rgb(74 60 30 / 30%);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.dashboard-plan-card > [data-slot=card-header], .dashboard-plan-card > [data-slot=card-content] { padding: 0 24px; }
+.dashboard-plan-card > [data-slot=card-content] { display: flex; flex: 1; flex-direction: column; }
+.plan-card-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; column-gap: 12px; }
+.plan-card-header h3 { font-size: 16px; font-weight: 600; letter-spacing: -.02em; }
+.plan-card-header [data-slot=card-description] { margin-top: 2px; font-size: 13px; }
+.plan-card-header [data-slot=badge] { font-size: 12px; font-weight: 500; padding: 2px 9px; }
+
+.plan-funding-label { margin-top: 18px; font-size: 13px; color: var(--muted-foreground); }
+.plan-funding { display: flex; align-items: baseline; margin-top: 2px; font-size: clamp(30px, 2.9vw, 40px); font-weight: 600; line-height: 1.1; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.plan-amount-sign { margin-right: 3px; font-size: .55em; font-weight: 500; letter-spacing: 0; color: var(--muted-foreground); }
+.plan-amount-minor { font-size: .55em; font-weight: 500; letter-spacing: 0; color: var(--muted-foreground); }
+
+/* Tick gauge: 32 slim bars, coloured by component up to the proposed amount. */
+.plan-proposed { margin-top: 18px; }
+.plan-gauge-scale { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.plan-gauge { display: flex; gap: 3px; height: 30px; }
+.plan-gauge span { flex: 1; border-radius: 3px; background: #ecefe2; }
+.plan-proposed p { display: flex; align-items: baseline; gap: 4px; margin-top: 10px; font-size: 13px; color: var(--muted-foreground); }
+.plan-proposed p strong { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
+.plan-proposed p span { margin-left: auto; font-variant-numeric: tabular-nums; }
+.plan-proposed-empty { margin-top: 18px; font-size: 13px; color: var(--muted-foreground); }
+
+/* Pills: icon, label and value, the value in the brand green. */
+.plan-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 0; padding: 0; list-style: none; }
+.plan-pills li { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: #f4f3ee; font-size: 12px; color: var(--muted-foreground); }
+.plan-pills li svg { width: 13px; height: 13px; opacity: .7; }
+.plan-pills b { font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; }
+.plan-pills .field-help-trigger { width: 16px; height: 16px; flex-basis: 16px; margin-left: -2px; }
+
+/* Footer row without a strip: when, then the quiet actions. */
+.plan-card-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 18px; }
+.plan-card-bottom > time { font-size: 12px; color: var(--muted-foreground); }
+.plan-card-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-left: auto; }
+.plan-card-actions [data-slot=button] { height: 30px; border-radius: 999px; font-size: 13px; }
+.plan-open { color: var(--primary); font-weight: 600; }
+
+/* Rosette: a faint banknote pattern in the top-right corner. */
+.plan-guilloche { position: absolute; z-index: -1; top: -74px; right: -70px; width: 280px; height: 280px; pointer-events: none; fill: none; stroke: #5f7d45; stroke-width: .6; mask-image: radial-gradient(circle at 62% 38%, #000 0 30%, transparent 64%); transition: transform 400ms ease-out; }
+.plan-guilloche path { stroke-opacity: .16; }
+.plan-guilloche path:nth-child(2) { stroke-opacity: .13; }
+.plan-guilloche path:nth-child(3) { stroke-opacity: .11; }
+.plan-guilloche path:nth-child(4) { stroke-opacity: .085; }
+.plan-guilloche path:nth-child(5) { stroke-opacity: .06; }
+
+@media (hover: hover) {
+  .dashboard-plan-card .plan-edit { opacity: 0; transition: opacity 150ms ease; }
+  .dashboard-plan-card:hover .plan-edit, .dashboard-plan-card:focus-within .plan-edit { opacity: 1; }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .dashboard-plan-card:hover { transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(-3px); box-shadow: 0 0 0 1px rgb(74 60 30 / 7%), 0 2px 4px rgb(74 60 30 / 5%), 0 26px 48px -28px rgb(22 73 60 / 34%); transition: transform 120ms ease-out, box-shadow 180ms ease; }
+  .dashboard-plan-card:hover .plan-guilloche { transform: translate(var(--shift-x, 0px), var(--shift-y, 0px)) rotate(4deg); }
+}

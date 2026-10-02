@@ -7,7 +7,8 @@ import type { PlanOverview } from '@/lib/action-plans';
 
 /** One green family for every component, darkest for the largest envelopes; `ink` is the readable text colour on it. */
 export const componentPalette: Record<InvestmentArea, { label: string; fill: string; ink: string }> = {
-  infrastructure: { label: 'Infrastructure', fill: '#004540', ink: '#ffffff' },
+  // \u00ad: a soft hyphen, so the narrow tiles break it as Infra-structure.
+  infrastructure: { label: 'Infra\u00adstructure', fill: '#004540', ink: '#ffffff' },
   tlm: { label: 'TLM', fill: '#2c7a5e', ink: '#ffffff' },
   sports: { label: 'Sports', fill: '#a9d05a', ink: '#1d3a0e' },
   sbmc: { label: 'SBMC', fill: '#4bbf96', ink: '#0d3a2b' },
@@ -39,14 +40,17 @@ export function ComponentBudgets({ plans, areas, amounts, totalFunding, unavaila
       <span>{unavailable ? 'Unavailable' : overall === null ? 'proposed' : <>proposed · <b>{overall}%</b> of {compact.format(totalFunding)}</>}</span>
     </div>
     {!unavailable && tiles.length > 0 && <ul className="component-tiles">
-      {tiles.map((tile, index) => {
+      {tiles.map(tile => {
         const { label, fill, ink } = componentPalette[tile.area];
-        return <li key={tile.area} data-lead={index === 0 || undefined} style={{ '--tile-fill': fill, '--tile-ink': ink } as CSSProperties}
+        // The column is the ceiling; the solid block rises to the share proposed (never so short the text cannot fit).
+        const level = tile.share === null ? 100 : Math.max(Math.min(tile.share, 100), 60);
+        return <li key={tile.area} title={`${label}: ${compact.format(tile.amount)}${tile.share === null ? '' : ` of ${compact.format(tile.ceiling)}`}`} style={{ '--tile-fill': fill, '--tile-ink': ink } as CSSProperties}
           aria-label={`${label}: ${compact.format(tile.amount)} proposed${tile.share === null ? '' : `, ${tile.share}% of ${compact.format(tile.ceiling)}`}`}>
-          <p className="tile-share">{tile.share === null ? compact.format(tile.amount) : <>{tile.share}<small>%</small></>}</p>
-          <p className="tile-label">{label}</p>
-          {tile.share !== null && <div className="tile-meter" aria-hidden="true"><span style={{ width: `${Math.min(tile.share, 100)}%` }} /></div>}
-          {tile.share !== null && <p className="tile-amounts" aria-hidden="true"><span>{compact.format(tile.amount)}</span><span>{compact.format(tile.ceiling)}</span></p>}
+          <div className="tile-block" style={{ height: `${level}%` }}>
+            <p className="tile-share">{tile.share === null ? compact.format(tile.amount) : <>{tile.share}<small>%</small></>}</p>
+            <p className="tile-label">{label}</p>
+            <p className="tile-amount">{compact.format(tile.amount)}</p>
+          </div>
         </li>;
       })}
     </ul>}
