@@ -128,7 +128,10 @@
 .plan-year-fields { display: flex; gap: 12px; }
 [data-variant=inset-footer] > form > [data-slot=dialog-footer] { padding: 16px; border-top: 1px solid var(--border); background: color-mix(in srgb, var(--foreground) 2%, var(--background)); }
 [data-variant=inset-footer] > form > [data-slot=dialog-footer] > button { border-radius: 10px; }
-@media (hover: hover) and (prefers-reduced-motion: no-preference) { .dashboard-plan-card:hover { transform: translateY(-3px); box-shadow: 0 10px 28px -18px #16493c33; } }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .dashboard-plan-card:hover { transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)) translateY(-3px); box-shadow: 0 14px 32px -20px #16493c40; transition: transform 120ms ease-out, box-shadow 180ms ease; }
+  .dashboard-plan-card:hover .plan-guilloche { transform: translate(var(--shift-x, 0px), var(--shift-y, 0px)) rotate(4deg); }
+}
 @media (min-width: 1440px) { .dashboard-hero { padding: 36px; } .dashboard-hero-copy { padding-bottom: 40px; } }
 @media (max-width: 1000px) {
   .dashboard-nav, .dashboard-main { padding-left: 24px; padding-right: 24px; }
@@ -179,3 +182,11 @@
   .dashboard-plan-card .plan-edit { opacity: 0; transition: opacity 150ms ease; }
   .dashboard-plan-card:hover .plan-edit, .dashboard-plan-card:focus-within .plan-edit { opacity: 1; }
 }
+/* Card surface: a faint banknote-style rosette in the top-right corner, fading toward the content. */
+.dashboard-plan-card { position: relative; isolation: isolate; }
+.plan-guilloche { position: absolute; z-index: -1; top: -74px; right: -70px; width: 280px; height: 280px; pointer-events: none; fill: none; stroke: #5f7d45; stroke-width: .6; mask-image: radial-gradient(circle at 62% 38%, #000 0 30%, transparent 64%); transition: transform 400ms ease-out; }
+.plan-guilloche path { stroke-opacity: .2; }
+.plan-guilloche path:nth-child(2) { stroke-opacity: .17; }
+.plan-guilloche path:nth-child(3) { stroke-opacity: .14; }
+.plan-guilloche path:nth-child(4) { stroke-opacity: .11; }
+.plan-guilloche path:nth-child(5) { stroke-opacity: .08; }

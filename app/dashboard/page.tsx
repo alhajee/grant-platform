@@ -7,6 +7,7 @@ import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric
 import { CreatePlanDialog } from "@/components/create-plan-dialog";
 import { EditPlanDialog } from "@/components/edit-plan-dialog";
 import { OtherFundingInfo } from "@/components/funding-sources-field";
+import { PlanCardGuilloche, planCardTilt } from "@/components/plan-card-surface";
 import { otherFundingTotal } from "@/lib/plan-setup";
 import { statePlanOpen } from "@/lib/pillar-review";
 import { fromKobo, toKobo, type FundingSource } from "@/lib/funding-policy";
@@ -154,7 +155,8 @@ export default function DashboardPage() {
             {visiblePlans.map(plan => {
               const funding = Number(plan.fundingTotal ?? 0), other = Number(otherFundingTotal(plan));
               const share = funding > 0 ? Math.round(plan.budget / funding * 100) : 0;
-              return <Card className="dashboard-plan-card" key={plan.id}>
+              return <Card className="dashboard-plan-card" key={plan.id} {...planCardTilt}>
+                <PlanCardGuilloche seed={plan.startYear} />
                 <CardHeader className="plan-card-header">
                   <span className="plan-calendar" aria-hidden="true"><CalendarDaysIcon /></span>
                   <div className="min-w-0"><CardTitle><h3>{planPeriod(plan)} BEAP</h3></CardTitle><CardDescription>{plan.startYear === plan.endYear ? "Annual" : `${plan.endYear - plan.startYear + 1}-year`} plan · Matching Grant</CardDescription></div>
