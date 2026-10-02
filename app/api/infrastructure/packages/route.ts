@@ -6,9 +6,9 @@ import { getPostgres } from '@/lib/postgres';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { canManageSchoolRegister, canViewComponent } from '@/lib/subeb-access';
 import { mayEditPillar, readPillarReviews } from '@/lib/pillar-review';
-import { packageSchema, packageProblem, calculateInfrastructure, landDeclarationCount } from '@/lib/infrastructure-model';
+import { packageSchema, packageProblem, calculateInfrastructure, landDeclarationCount,schoolComponents} from '@/lib/infrastructure-model';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
-const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude';
+const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude,enrolment_by_class AS "enrolmentByClass"';
 export async function GET(req:NextRequest){
  try{
   const user=await getWorkspaceState(req);if(!user)return error('Sign in to continue.',401);
@@ -41,9 +41,11 @@ export async function POST(req:NextRequest){
    }
    const parsed=packageSchema.safeParse(v.input);if(!parsed.success)return error(parsed.error.issues[0].message);
    // HOPE targeting is retired (UBEC10): every new-school package is costed as one Non-HOPE package.
-   const input=parsed.data.kind==='new'?{...parsed.data,targeting:'nonhope' as const}:parsed.data;
-   const school=(await db.query(`SELECT ${schoolFields} FROM schools WHERE id=$1 AND state_code=$2 FOR SHARE`,[input.schoolId,user.stateCode])).rows[0];
+   const base=parsed.data.kind==='new'?{...parsed.data,targeting:'nonhope' as const}:parsed.data;
+   const school=(await db.query(`SELECT ${schoolFields} FROM schools WHERE id=$1 AND state_code=$2 FOR SHARE`,[base.schoolId,user.stateCode])).rows[0];
    if(!school)return error('Select a school from your state register.',404);
+   // School components are read-only: always taken from the School register.
+   const input={...base,components:schoolComponents(school)};
    const problem=packageProblem(input,school.male+school.female);if(problem)return error(problem);
    const docs=(await db.query('SELECT id,kind,created_at,school_id FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL AND id=ANY($2::uuid[])',[plan.id,input.documentIds])).rows;
    if(new Set(input.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan.');
