@@ -14,7 +14,7 @@ import { DataTableColumnHeader as SortHeader } from '@/components/data-table-col
 import type { DataTableFeatures } from '@/components/data-table-features';
 import { departmentsContain } from '@/lib/user-departments';
 
-export type User = { id: number; name: string; email: string; role: string; department: string | null; departments: string[]; active: boolean; canCreatePlan: boolean; isBeapChair: boolean };
+export type User = { id: number; name: string; email: string; role: string; department: string | null; departments: string[]; active: boolean; canCreatePlan: boolean; canManageSchools: boolean; isBeapChair: boolean };
 const helper = createColumnHelper<DataTableFeatures, User>();
 export const departmentLabel = (user: User) => {
   if (user.role === 'Executive Chairman') return 'Whole state';
@@ -56,6 +56,11 @@ export function userColumns(actorId: number, actorRole: string, actorDepartments
     helper.accessor(user => user.role === 'Executive Chairman' || (user.role === 'Director' && user.isBeapChair) || user.canCreatePlan ? 'Allowed' : '—', {
       id: 'planCreation',
       header: ({ column }) => <SortHeader column={column} title="Create plans" />,
+      sortFn: 'text',
+    }),
+    helper.accessor(user => user.role === 'Executive Chairman' || (user.role === 'Director' && user.isBeapChair) || user.canManageSchools ? 'Allowed' : '—', {
+      id: 'schoolRegister',
+      header: ({ column }) => <SortHeader column={column} title="School register" />,
       sortFn: 'text',
     }),
     helper.accessor(user => user.active ? 'Active' : 'Inactive', {

@@ -20,7 +20,7 @@ export async function GET(request:NextRequest){
       const session=id&&/^[0-9a-f-]{36}$/i.test(id)?(await db.query('SELECT target_name AS name,target_role AS role,target_state AS "stateCode",expires_at AS "expiresAt" FROM impersonation_sessions WHERE id=$1 AND actor_id=$2 AND session_binding=$3',[id,actor.userId,await sessionBinding(request)])).rows[0]:null;
       return json({isAdmin:true,impersonating:!!id,session});
     }
-    const users=(await db.query(`SELECT id,full_name AS name,email,role,department,${userDepartmentsSql('users')} AS departments,state_code AS "stateCode",active,can_create_plan AS "canCreatePlan",is_beap_chair AS "isBeapChair" FROM users WHERE role<>'Super Admin' ORDER BY state_code,role,full_name`)).rows;
+    const users=(await db.query(`SELECT id,full_name AS name,email,role,department,${userDepartmentsSql('users')} AS departments,state_code AS "stateCode",active,can_create_plan AS "canCreatePlan",can_manage_schools AS "canManageSchools",is_beap_chair AS "isBeapChair" FROM users WHERE role<>'Super Admin' ORDER BY state_code,role,full_name`)).rows;
     // Session history is paginated separately by /api/admin/activity.
     return json({user:{name:actor.name,role:actor.role,email:actor.email},users});
   }catch{return json({error:'Unable to load the admin workspace.'},503);}

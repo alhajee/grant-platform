@@ -22,10 +22,10 @@ import { departmentName, departments as ubecDepartments } from '@/lib/ubec';
 import { toast } from 'sonner';
 import { DepartmentCheckboxes } from '@/components/department-checkboxes';
 
-export type AdminManagedUser = { id:number; name:string; email:string; role:string; department:string|null; departments:string[]; stateCode:string; active:boolean; canCreatePlan:boolean; isBeapChair:boolean };
+export type AdminManagedUser = { id:number; name:string; email:string; role:string; department:string|null; departments:string[]; stateCode:string; active:boolean; canCreatePlan:boolean; canManageSchools:boolean; isBeapChair:boolean };
 type Form = Omit<AdminManagedUser, 'id'>;
 const helper = createColumnHelper<DataTableFeatures, AdminManagedUser>();
-const blank = (stateCode:string):Form => ({ name:'', email:'', role:stateCode === 'UBEC' ? 'UBEC Department Reviewer' : 'Data Entry Staff', department:'', departments:[], stateCode, active:true, canCreatePlan:false, isBeapChair:false });
+const blank = (stateCode:string):Form => ({ name:'', email:'', role:stateCode === 'UBEC' ? 'UBEC Department Reviewer' : 'Data Entry Staff', department:'', departments:[], stateCode, active:true, canCreatePlan:false, canManageSchools:false, isBeapChair:false });
 
 const workspaceName = (stateCode:string) => stateCode === 'UBEC' ? 'UBEC' : subebDisplayName(stateCode);
 const roleNeedsDepartment = (role:string) => ['Data Entry Staff','Director','UBEC Department Reviewer'].includes(role);
@@ -59,7 +59,7 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
     setFormError('');
   },[initialWorkspace]);
   const changeWorkspace = (stateCode:string) => setForm(blank(stateCode));
-  const changeRole = (role:string) => setForm(current=>({...current,role,department:'',departments:[],isBeapChair:false,canCreatePlan:false}));
+  const changeRole = (role:string) => setForm(current=>({...current,role,department:'',departments:[],isBeapChair:false,canCreatePlan:false,canManageSchools:false}));
 
   async function save(passwordReset=false) {
     if (pending.current || (!editing && !reset)) return;
@@ -106,6 +106,7 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
       {roleNeedsDepartment(form.role) && (isUbec ? <Field><FieldLabel htmlFor="admin-user-department">Department</FieldLabel><NativeSelect id="admin-user-department" required disabled={saving} value={form.departments[0]??''} onChange={event=>setForm({...form,department:event.target.value,departments:[event.target.value]})}><NativeSelectOption value="" disabled>Select department</NativeSelectOption>{departments.map(item=><NativeSelectOption key={item.id} value={item.id}>{item.name}</NativeSelectOption>)}</NativeSelect></Field> : <DepartmentCheckboxes departments={departments} selected={form.departments} disabled={saving} onChange={values=>setForm({...form,departments:values,department:values[0]??''})}/>)}
       <Field><FieldLabel htmlFor="admin-user-active">Account access</FieldLabel><NativeSelect id="admin-user-active" disabled={saving} value={String(form.active)} onChange={event=>setForm({...form,active:event.target.value==='true'})}><NativeSelectOption value="true">Active</NativeSelectOption><NativeSelectOption value="false">Inactive</NativeSelectOption></NativeSelect></Field>
       {!isUbec&&<Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="admin-user-create-plan">Allow creating action plans</FieldLabel><Switch id="admin-user-create-plan" disabled={saving||form.isBeapChair} checked={form.isBeapChair||form.canCreatePlan} onCheckedChange={canCreatePlan=>setForm({...form,canCreatePlan})}/></Field>}
+      {!isUbec&&<Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="admin-user-manage-schools">Allow managing the School register</FieldLabel><Switch id="admin-user-manage-schools" disabled={saving||form.isBeapChair||form.role==='Executive Chairman'} checked={form.isBeapChair||form.role==='Executive Chairman'||form.canManageSchools} onCheckedChange={canManageSchools=>setForm({...form,canManageSchools})}/></Field>}
       {!isUbec&&form.role==='Director'&&<Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="admin-user-beap-chair">Appoint as SUBEB BEAP Chair</FieldLabel><Switch id="admin-user-beap-chair" disabled={saving} checked={form.isBeapChair} onCheckedChange={isBeapChair=>setForm({...form,isBeapChair,canCreatePlan:isBeapChair||form.canCreatePlan})}/></Field>}
       {formError&&<FieldError role="alert">{formError}</FieldError>}
     </FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={()=>setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving||(roleNeedsDepartment(form.role)&&form.departments.length===0)}>{saving&&<Spinner data-icon="inline-start"/>}Save user</Button></DialogFooter></form></DialogContent></Dialog>

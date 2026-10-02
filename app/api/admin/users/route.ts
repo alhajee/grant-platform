@@ -18,12 +18,13 @@ const profile = z.object({
   departments: z.array(z.string().trim().min(1)).max(32).optional(),
   active: z.boolean(),
   canCreatePlan: z.boolean().optional(),
+  canManageSchools: z.boolean().optional(),
   isBeapChair: z.boolean().optional(),
 });
 const create = profile.extend({ email: z.string().trim().toLowerCase().email().max(254) }).strict();
 const edit = profile.extend({ id: z.number().int().positive() }).strict();
 const reset = z.object({ id: z.number().int().positive(), action: z.literal('reset_password') }).strict();
-const fields = `id, full_name AS name, email, role, department, ${userDepartmentsSql('users')} AS departments, state_code AS "stateCode", active, can_create_plan AS "canCreatePlan", is_beap_chair AS "isBeapChair"`;
+const fields = `id, full_name AS name, email, role, department, ${userDepartmentsSql('users')} AS departments, state_code AS "stateCode", active, can_create_plan AS "canCreatePlan", can_manage_schools AS "canManageSchools", is_beap_chair AS "isBeapChair"`;
 
 async function requireAdmin(request: NextRequest) {
   const actor = await getAuthenticatedUser(request);
@@ -43,6 +44,7 @@ function validProfile(input: z.infer<typeof profile>) {
   if (ubec && input.role === 'UBEC Department Reviewer' && selected.length !== 1) return 'A UBEC Department Reviewer must have one department.';
   if (!needsDepartment && selected.length) return 'This role is not assigned to a department.';
   if (input.isBeapChair && (ubec || input.role !== 'Director')) return 'The BEAP Chair must be a SUBEB Director.';
+  if (input.canManageSchools && ubec) return 'School register access applies to SUBEB accounts only.';
   return null;
 }
 
@@ -76,17 +78,17 @@ async function mutate(request: NextRequest, creating: boolean) {
       if ('email' in input) {
         if ((await db.query('SELECT id FROM users WHERE email=$1', [input.email])).rowCount) return json({ error: 'An account already uses this email address.' }, 409);
         const selectedDepartments = normalizeDepartments(input.departments?.length ? input.departments : input.department);
-        id = (await db.query('INSERT INTO users(full_name,email,password_hash,role,department,state_code,active,can_create_plan,is_beap_chair) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id', [input.name, input.email, hashSync(password!, 10), input.role, selectedDepartments[0] || null, input.stateCode, input.active, input.canCreatePlan ?? false, input.isBeapChair ?? false])).rows[0].id;
+        id = (await db.query('INSERT INTO users(full_name,email,password_hash,role,department,state_code,active,can_create_plan,is_beap_chair,can_manage_schools) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id', [input.name, input.email, hashSync(password!, 10), input.role, selectedDepartments[0] || null, input.stateCode, input.active, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? false])).rows[0].id;
         await replaceUserDepartments(db, id, selectedDepartments);
       } else if (resetting) {
         await db.query('UPDATE users SET password_hash=$1,session_version=session_version+1 WHERE id=$2', [hashSync(password!, 10), id]);
       } else {
         const selectedDepartments = normalizeDepartments(input.departments?.length ? input.departments : input.department);
-        await db.query('UPDATE users SET full_name=$1,role=$2,department=$3,active=$4,session_version=session_version+1,can_create_plan=$6,is_beap_chair=$7 WHERE id=$5', [input.name, input.role, selectedDepartments[0] || null, input.active, id, input.canCreatePlan ?? false, input.isBeapChair ?? false]);
+        await db.query('UPDATE users SET full_name=$1,role=$2,department=$3,active=$4,session_version=session_version+1,can_create_plan=$6,is_beap_chair=$7,can_manage_schools=$8 WHERE id=$5', [input.name, input.role, selectedDepartments[0] || null, input.active, id, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? target.canManageSchools]);
         await replaceUserDepartments(db, id!, selectedDepartments);
       }
       const stateCode = resetting ? target.stateCode : input.stateCode;
-      await db.query('INSERT INTO user_management_events(actor_id,target_id,state_code,action,details) VALUES($1,$2,$3,$4,$5::jsonb)', [actor.userId, id, stateCode, creating ? 'create' : resetting ? 'reset_password' : 'update', JSON.stringify(resetting ? {} : { role: input.role, departments: normalizeDepartments(input.departments?.length ? input.departments : input.department), active: input.active, canCreatePlan: input.canCreatePlan ?? false, isBeapChair: input.isBeapChair ?? false })]);
+      await db.query('INSERT INTO user_management_events(actor_id,target_id,state_code,action,details) VALUES($1,$2,$3,$4,$5::jsonb)', [actor.userId, id, stateCode, creating ? 'create' : resetting ? 'reset_password' : 'update', JSON.stringify(resetting ? {} : { role: input.role, departments: normalizeDepartments(input.departments?.length ? input.departments : input.department), active: input.active, canCreatePlan: input.canCreatePlan ?? false, canManageSchools: input.canManageSchools ?? target?.canManageSchools ?? false, isBeapChair: input.isBeapChair ?? false })]);
       return json({ id, password }, creating ? 201 : 200);
     });
   } catch (cause) {

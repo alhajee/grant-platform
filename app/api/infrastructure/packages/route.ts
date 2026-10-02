@@ -4,9 +4,9 @@ import { getWorkspaceState } from '@/lib/workspace-state';
 import { resolveActionPlan } from '@/lib/plan-workspace';
 import { getPostgres } from '@/lib/postgres';
 import { mutatePlan } from '@/lib/plan-mutations';
-import { canViewComponent } from '@/lib/subeb-access';
+import { canManageSchoolRegister, canViewComponent } from '@/lib/subeb-access';
 import { mayEditPillar, readPillarReviews } from '@/lib/pillar-review';
-import { packageSchema, profileSchema, packageProblem, calculateInfrastructure, landDeclarationCount } from '@/lib/infrastructure-model';
+import { packageSchema, packageProblem, calculateInfrastructure, landDeclarationCount } from '@/lib/infrastructure-model';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude';
 export async function GET(req:NextRequest){
@@ -19,7 +19,7 @@ export async function GET(req:NextRequest){
    db.query(`SELECT ${schoolFields} FROM schools WHERE state_code=$1 ORDER BY name`,[user.stateCode]),
    db.query(`SELECT p.*,p.result->'school' AS school FROM infrastructure_packages p WHERE p.plan_id=$1 ORDER BY p.id DESC`,[plan.id]),
    db.query('SELECT d.id,d.kind,d.name,d.size,d.school_id AS "schoolId",s.name AS "schoolName" FROM infrastructure_documents d LEFT JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.removed_at IS NULL ORDER BY d.created_at',[plan.id]),readPillarReviews(db,plan.id)]);
-  return NextResponse.json({plan,schools:schools.rows,packages:packages.rows,documents:documents.rows,canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews)},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({plan,schools:schools.rows,packages:packages.rows,documents:documents.rows,canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews),canManageSchools:canManageSchoolRegister(user.role,user.isBeapChair,user.canManageSchools)},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load infrastructure.',503);}
 }
 export async function POST(req:NextRequest){
@@ -27,20 +27,11 @@ export async function POST(req:NextRequest){
   const user=await getWorkspaceState(req);if(!user)return error('Sign in to continue.',401);
   const plan=await resolveActionPlan(req,user.stateCode);if(!plan)return error('Plan not found.',404);
   const raw=await req.json().catch(()=>null);
-  const command=z.object({action:z.enum(['save','delete','profile']),id:z.number().int().positive().optional(),version:z.number().int().positive().optional(),schoolId:z.number().int().positive().optional(),input:z.unknown().optional(),profile:z.unknown().optional()}).safeParse(raw);
+  const command=z.object({action:z.enum(['save','delete']),id:z.number().int().positive().optional(),version:z.number().int().positive().optional(),input:z.unknown().optional()}).safeParse(raw);
   if(!command.success)return error('Invalid package action.');
   const v=command.data;
   return await mutatePlan(user,plan,'infrastructure',async db=>{
-   if(v.action==='profile'){
-    const profile=profileSchema.safeParse(v.profile);if(!profile.success||!v.schoolId)return error('Enter valid school enrolment and coordinates.');
-    const p=profile.data;
-    const current=(await db.query('SELECT enrolment_male,enrolment_female FROM schools WHERE id=$1 AND state_code=$2 FOR UPDATE',[v.schoolId,user.stateCode])).rows[0];
-    if(!current)return error('School not found.',404);
-    const maleEnrolmentLocked=Number(current.enrolment_male)>0;
-    const femaleEnrolmentLocked=Number(current.enrolment_female)>0;
-    const updated=await db.query('UPDATE schools SET enrolment_male=$1,enrolment_female=$2,latitude=$3,longitude=$4 WHERE id=$5 AND state_code=$6',[maleEnrolmentLocked?current.enrolment_male:p.male,femaleEnrolmentLocked?current.enrolment_female:p.female,p.latitude,p.longitude,v.schoolId,user.stateCode]);
-    return updated.rowCount?NextResponse.json({ok:true}):error('School not found.',404);
-   }
+   // School enrolment and coordinates are edited only in the School register (/api/schools, UBEC07).
    const prior=v.id?(await db.query('SELECT * FROM infrastructure_packages WHERE id=$1 AND plan_id=$2 FOR UPDATE',[v.id,plan.id])).rows[0]:null;
    if(v.id&&!prior)return error('Package not found.',404);
    if(prior&&prior.version!==v.version)return error('This package has changed. Reopen it before saving.',409);
