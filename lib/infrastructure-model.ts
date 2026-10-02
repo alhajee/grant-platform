@@ -8,37 +8,73 @@ export const kindNames = { new: 'New Construction', whole: 'Whole School Renovat
 export const modelNames = ['Model 1 · Small School', 'Model 2 · Medium School', 'Model 3 · Large School'];
 export const modelFor = (enrolment: number) => enrolment <= 240 ? 0 : enrolment <= 320 ? 1 : 2;
 type Requirement = { key: string; label: string; qty: number[]; unit: string; civil?: boolean; lump?: boolean; block?: number };
+// UBEC "Deliverables for proposed UBEC model school typologies" (18 Sept 2026). qty = Model I/II/III requirement;
+// 0 means the typology sets no standard quantity (audited, and costed only as an extra beyond standard).
 export const requirements: Requirement[] = [
  {key:'classroomPri',label:'Primary / general classrooms',qty:[6,9,12],unit:'classrooms',civil:true,block:3},
  {key:'classroomEccde',label:'ECCDE block · 2 classrooms, nanny station, sleeping bay and 2 toilets',qty:[2,2,2],unit:'classrooms',civil:true,block:2},
  {key:'office',label:'Office',qty:[1,2,2],unit:'offices',civil:true},
  {key:'store',label:'Store',qty:[1,2,2],unit:'stores',civil:true},
  {key:'toilet',label:'Toilet compartments · excluding ECCDE toilets',qty:[14,26,26],unit:'compartments',lump:true},
+ {key:'workshop',label:'Workshop',qty:[0,0,0],unit:'rooms',civil:true},
+ {key:'scienceLab',label:'Science laboratory',qty:[0,0,0],unit:'rooms',civil:true},
+ {key:'roboticsLab',label:'Robotic / AI laboratory',qty:[0,0,0],unit:'rooms',civil:true},
+ {key:'vocationalLab',label:'Vocational laboratory',qty:[0,0,0],unit:'rooms',civil:true},
+ {key:'library',label:'Library / e-library',qty:[0,0,0],unit:'rooms',civil:true},
+ {key:'ictRoom',label:'ICT / computer room',qty:[0,0,0],unit:'rooms',civil:true},
+ {key:'adminBlock',label:'Admin block',qty:[0,0,0],unit:'blocks',civil:true},
  {key:'staffroom',label:'Staff room',qty:[1,1,2],unit:'rooms'},
  {key:'gatehouse',label:'Gate house',qty:[1,1,1],unit:'units',civil:true},
+ {key:'multipurposeHall',label:'Multipurpose hall',qty:[0,0,0],unit:'halls',civil:true},
+ {key:'staffQuarters',label:'Staff quarters',qty:[0,0,0],unit:'units',civil:true},
+ {key:'hostel',label:'Hostel room',qty:[0,0,0],unit:'rooms',civil:true},
+ {key:'clinic',label:'Clinic / sick bay',qty:[0,0,0],unit:'units',civil:true},
  {key:'eccdeFurniture',label:'ECCDE plastic furniture · 1 table and 5 chairs',qty:[12,12,12],unit:'sets'},
  {key:'dualDesk',label:'Dual-seater desk · wood and metal frame',qty:[120,180,240],unit:'sets'},
+ {key:'singleSeater',label:'Single-seater plastic chair and table with locker',qty:[0,0,0],unit:'sets'},
  {key:'magneticBoard',label:'Magnetic board',qty:[8,11,14],unit:'sets'},
  {key:'teachersFurniture',label:'Teachers’ furniture · chair and table with drawer',qty:[17,20,32],unit:'sets'},
  {key:'hmFurniture',label:'Head teacher / principal furniture',qty:[1,1,1],unit:'sets'},
  {key:'storageShelf',label:'Storage shelf / cupboard',qty:[9,12,15],unit:'units'},
+ {key:'workshopFurniture',label:'Workshop furniture',qty:[0,0,0],unit:'sets'},
+ {key:'labFurniture',label:'Laboratory furniture',qty:[0,0,1],unit:'sets'},
+ {key:'libraryFurniture',label:'Library furniture',qty:[0,0,0],unit:'sets'},
  {key:'playEquipment',label:'Play equipment',qty:[1,1,1],unit:'sets'},
  {key:'kgBed',label:'Kindergarten bed',qty:[1,1,1],unit:'units'},
+ {key:'desktop',label:'Desktop computer',qty:[0,0,0],unit:'units'},
+ {key:'laptop',label:'Laptop computer',qty:[0,0,0],unit:'units'},
+ {key:'tablet',label:'Tablet',qty:[0,0,0],unit:'units'},
+ {key:'smartBoard',label:'Interactive smart board',qty:[0,0,0],unit:'units'},
+ {key:'ictAccessories',label:'ICT accessories',qty:[0,0,0],unit:'sets'},
+ {key:'networking',label:'Networking equipment',qty:[0,0,0],unit:'sets'},
+ {key:'workshopEquipment',label:'Workshop equipment',qty:[0,0,0],unit:'sets'},
+ {key:'labEquipment',label:'Laboratory equipment',qty:[0,0,0],unit:'sets'},
+ {key:'libraryEquipment',label:'Library equipment',qty:[0,0,0],unit:'sets'},
+ {key:'sportsEquipment',label:'Sports equipment',qty:[0,0,0],unit:'sets'},
  {key:'solarBorehole',label:'Solar borehole with overhead tank',qty:[1,1,1],unit:'systems'},
+ {key:'handpumpBorehole',label:'Handpump borehole',qty:[0,0,0],unit:'units'},
+ {key:'deepWell',label:'Deep well',qty:[0,0,0],unit:'units'},
  {key:'handwashing',label:'Handwashing station',qty:[1,1,1],unit:'units'},
  {key:'rwh',label:'Rainwater harvesting system',qty:[1,1,1],unit:'systems'},
+ {key:'wasteBin',label:'Waste bin',qty:[0,0,0],unit:'units'},
  {key:'playground',label:'Playground',qty:[1,1,1],unit:'units'},
  {key:'landscaping',label:'Soft and hard landscaping',qty:[1,1,1],unit:'units'},
+ {key:'drainage',label:'Drainage and external works',qty:[0,0,0],unit:'lots',lump:true},
  {key:'football',label:'Football pitch with associated facilities',qty:[1,1,1],unit:'units'},
  {key:'volleyball',label:'Volleyball court with associated facilities',qty:[1,1,1],unit:'units'},
  {key:'solarPower',label:'Hybrid solar power system',qty:[1,1,1],unit:'systems'},
- {key:'solarLight',label:'Outdoor solar light',qty:[20,30,30],unit:'sets'},
+ {key:'solarLight',label:'All-in-one standalone outdoor solar light',qty:[20,30,30],unit:'sets'},
+ {key:'erosionControl',label:'Erosion control measures',qty:[0,0,0],unit:'lots',lump:true},
 ];
 // Deliverable groups from UBEC's "Deliverables for proposed UBEC model school typologies" (UBEC14).
 export const deliverableGroups = ['Infrastructure (Construction/Renovation)', 'Furniture', 'Equipment', 'WASH Facilities', 'Special Projects/Facilities', 'Package costs'] as const;
-const groupKeys: Record<string, number> = {classroomPri:0,classroomEccde:0,office:0,store:0,toilet:0,staffroom:0,gatehouse:0,fence:0,block3os:0,block3:0,block6os:0,eccdeBlock:0,eccdeFurniture:1,dualDesk:1,magneticBoard:1,teachersFurniture:1,hmFurniture:1,storageShelf:1,playEquipment:2,kgBed:2,solarBorehole:3,handwashing:3,rwh:3,playground:4,landscaping:4,football:4,volleyball:4,solarPower:4,solarLight:4};
+const groupKeys: Record<string, number> = {classroomPri:0,classroomEccde:0,office:0,store:0,toilet:0,workshop:0,scienceLab:0,roboticsLab:0,vocationalLab:0,library:0,ictRoom:0,adminBlock:0,staffroom:0,fence:0,gatehouse:0,multipurposeHall:0,staffQuarters:0,hostel:0,clinic:0,block3os:0,block3:0,block6os:0,eccdeBlock:0,eccdeFurniture:1,dualDesk:1,singleSeater:1,magneticBoard:1,teachersFurniture:1,hmFurniture:1,storageShelf:1,workshopFurniture:1,labFurniture:1,libraryFurniture:1,playEquipment:2,kgBed:2,desktop:2,laptop:2,tablet:2,smartBoard:2,ictAccessories:2,networking:2,workshopEquipment:2,labEquipment:2,libraryEquipment:2,sportsEquipment:2,solarBorehole:3,handpumpBorehole:3,deepWell:3,handwashing:3,rwh:3,wasteBin:3,playground:4,landscaping:4,drainage:4,football:4,volleyball:4,solarPower:4,solarLight:4,erosionControl:4};
+// Position in the typology document (S/N), so the fence (13) sits between the staff room and the gate house.
+const deliverableIndex: Record<string, number> = Object.fromEntries(["classroomPri", "classroomEccde", "office", "store", "toilet", "workshop", "scienceLab", "roboticsLab", "vocationalLab", "library", "ictRoom", "adminBlock", "staffroom", "fence", "gatehouse", "multipurposeHall", "staffQuarters", "hostel", "clinic", "block3os", "block3", "block6os", "eccdeBlock", "eccdeFurniture", "dualDesk", "singleSeater", "magneticBoard", "teachersFurniture", "hmFurniture", "storageShelf", "workshopFurniture", "labFurniture", "libraryFurniture", "playEquipment", "kgBed", "desktop", "laptop", "tablet", "smartBoard", "ictAccessories", "networking", "workshopEquipment", "labEquipment", "libraryEquipment", "sportsEquipment", "solarBorehole", "handpumpBorehole", "deepWell", "handwashing", "rwh", "wasteBin", "playground", "landscaping", "drainage", "football", "volleyball", "solarPower", "solarLight", "erosionControl"].map((key, index) => [key, index]));
 export const deliverableGroup = (key: string) => deliverableGroups[groupKeys[key.replace(/-(renovate|construct)$/, '')] ?? 5];
-export function groupDeliverables<T extends { key: string }>(rows: T[]) { return deliverableGroups.map(group => ({ group, rows: rows.filter(row => deliverableGroup(row.key) === group) })).filter(g => g.rows.length); }
+const baseKey = (key: string) => key.replace(/-(renovate|construct)$/, '');
+const byDocument = <T extends { key: string }>(a: T, b: T) => (deliverableIndex[baseKey(a.key)] ?? 999) - (deliverableIndex[baseKey(b.key)] ?? 999);
+export function groupDeliverables<T extends { key: string }>(rows: T[]) { return deliverableGroups.map(group => ({ group, rows: rows.filter(row => deliverableGroup(row.key) === group).sort(byDocument) })).filter(g => g.rows.length); }
 export const inDeliverableOrder = <T extends { key: string }>(rows: T[]) => groupDeliverables(rows).flatMap(g => g.rows);
 const quantity = z.number().int().min(0).max(1000000);
 const amount = z.number().min(0).max(99999999999.99).refine(n => Math.abs(n * 100 - Math.round(n * 100)) < .001, 'Use at most two decimal places.');
@@ -104,7 +140,7 @@ export function calculateInfrastructure(input:InfrastructureInput,enrolment:numb
   const blocks=model>0&&input.grouping==='storey'?[{key:'block6os',label:'Storey block of 6 classrooms with 2 offices and 2 stores',count:1},{key:'block3',label:'Block of 3 classrooms',count:model===1?1:2}]:[{key:'block3os',label:'Block of 3 classrooms with office and store',count:model===0?1:2},{key:'block3',label:'Block of 3 classrooms',count:model===2?2:1}];
   for(const b of blocks)classroomSubtotal+=add(b.key,b.label,b.count,'blocks',true,input.targeting==='hope'?input.prices[b.key]??0:0,input.classroomStrategy);
   otherSubtotal+=add('eccdeBlock','ECCDE block · 2 classrooms, nanny station, sleeping bay and 2 toilets',1,'block',true,input.targeting==='hope'?input.prices.eccdeBlock??0:0);
-  for(const r of requirements.filter(r=>!['classroomPri','classroomEccde','office','store'].includes(r.key))) otherSubtotal+=add(r.key,r.label+(r.key==='solarPower'?` · ${[5,7.5,10][model]} KVA`:''),r.qty[model],r.unit,!!r.lump,input.targeting==='hope'?input.prices[r.key]??0:0);
+  for(const r of requirements.filter(r=>!['classroomPri','classroomEccde','office','store'].includes(r.key)&&r.qty[model]>0)) otherSubtotal+=add(r.key,r.label+(r.key==='solarPower'?` · ${[5,7.5,10][model]} KVA`:''),r.qty[model],r.unit,!!r.lump,input.targeting==='hope'?input.prices[r.key]??0:0);
   otherSubtotal+=add('fence','Perimeter wall fence with concertina security wire',input.fenceLength,'metres',false,input.targeting==='hope'?input.prices.fence??0:0);
   if(input.targeting==='nonhope')add('package','Complete construction package',1,'lot',true,input.lumpSum,input.classroomStrategy,input.duration);
   else{
