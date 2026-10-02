@@ -1,7 +1,7 @@
 'use client';
 import './plan-card.css';
 
-import { ArrowUpRightIcon, HandCoinsIcon, ListChecksIcon, PencilIcon, SchoolIcon } from 'lucide-react';
+import { ArrowUpRightIcon, HandCoinsIcon, PencilIcon, SchoolIcon } from 'lucide-react';
 import { componentPalette } from '@/components/dashboard/component-budgets';
 import { OtherFundingInfo } from '@/components/funding-sources-field';
 import type { InvestmentArea } from '@/components/investment-filter';
@@ -78,8 +78,7 @@ export function PlanCard({ plan, isOfficer, canEdit, onEdit }: PlanCardProps) {
         <FundingGauge plan={plan} funding={funding} />
         <p><strong>{compact.format(plan.budget)}</strong> proposed<span>{share}% of funding</span></p>
       </div> : <p className="plan-proposed-empty">Nothing proposed yet</p>}
-      {(plan.lineCount > 0 || plan.schoolCount > 0 || other > 0) && <ul className="plan-pills" aria-label="Plan contents">
-        {plan.lineCount > 0 && <li title="Budget lines"><ListChecksIcon aria-hidden="true" /><b>{plan.lineCount}</b>{plan.lineCount === 1 ? "line" : "lines"}</li>}
+      {(plan.schoolCount > 0 || other > 0) && <ul className="plan-pills" aria-label="Plan contents">
         {plan.schoolCount > 0 && <li><SchoolIcon aria-hidden="true" /><b>{plan.schoolCount}</b>{plan.schoolCount === 1 ? "school" : "schools"}</li>}
         {other > 0 && <li><HandCoinsIcon aria-hidden="true" /><b>+{compact.format(other)}</b>other funding<OtherFundingInfo setup={plan} /></li>}
       </ul>}
