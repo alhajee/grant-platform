@@ -190,3 +190,24 @@
 .plan-guilloche path:nth-child(3) { stroke-opacity: .14; }
 .plan-guilloche path:nth-child(4) { stroke-opacity: .11; }
 .plan-guilloche path:nth-child(5) { stroke-opacity: .08; }
+
+/* Card finish: warm hairline, soft layered depth, and warm neutrals that match the cream canvas. */
+.dashboard-plan-card {
+  --plan-warm: color-mix(in srgb, var(--canvas) 70%, #fff);
+  --plan-line: color-mix(in srgb, #d9cfbb 55%, var(--border));
+  border-color: var(--plan-line);
+  background: linear-gradient(180deg, #fffdf9 0%, #fff 46%);
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgb(74 60 30 / 5%), 0 12px 28px -22px rgb(74 60 30 / 22%);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .dashboard-plan-card:hover { box-shadow: inset 0 1px 0 #fff, 0 2px 4px rgb(74 60 30 / 6%), 0 22px 40px -24px rgb(22 73 60 / 32%); }
+}
+.plan-calendar { background: linear-gradient(160deg, #f6f8ef, #e9eedd); border-color: #dfe5cf; box-shadow: inset 0 1px 0 #fff; }
+.plan-budget strong { display: inline-flex; align-items: baseline; font-size: clamp(20px, 1.9vw, 26px); letter-spacing: -.04em; }
+.plan-amount-sign { margin-right: 2px; font-size: .68em; font-weight: 500; color: var(--muted-foreground); letter-spacing: 0; }
+.plan-amount-minor { font-size: .62em; font-weight: 500; color: var(--muted-foreground); letter-spacing: 0; }
+.plan-proposed [data-slot=progress] { background: #efe8d9; }
+.plan-proposed [data-slot=progress] > * { background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 72%, #6f9a62)); border-radius: inherit; }
+.plan-chips li { background: var(--plan-warm); border: 1px solid color-mix(in srgb, var(--plan-line) 70%, transparent); color: color-mix(in srgb, var(--muted-foreground) 85%, #6b5d43); }
+.dashboard-plan-card .plan-card-bottom { background: var(--plan-warm); border-top-color: var(--plan-line); }
+.dashboard-plan-card .plan-card-bottom [data-slot=button][data-variant=outline] { background: #fff; }

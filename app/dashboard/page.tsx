@@ -31,6 +31,10 @@ const compactMoney = new Intl.NumberFormat("en-NG", { style: "currency", currenc
 const date = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 // Whole naira on the card; kobo only when there is any.
 const cardMoney = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+/** The amount with a quieter naira sign and kobo, so the figure itself carries the weight. */
+function CardAmount({ value }: { value: number }) {
+  return <>{cardMoney.formatToParts(value).map((part, index) => part.type === "currency" ? <span key={index} className="plan-amount-sign">{part.value}</span> : part.type === "decimal" || part.type === "fraction" ? <span key={index} className="plan-amount-minor">{part.value}</span> : part.value)}</>;
+}
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 const DAY_MS = 86_400_000;
 /** "today", "yesterday", "4 days ago"; older than a month falls back to the date. */
@@ -163,7 +167,7 @@ export default function DashboardPage() {
                   <PlanStatusBadge status={plan.status} />
                 </CardHeader>
                 <CardContent>
-                  <div className="plan-budget"><span>Available funding</span><strong>{cardMoney.format(funding)}</strong></div>
+                  <div className="plan-budget"><span>Available funding</span><strong aria-label={cardMoney.format(funding)}><CardAmount value={funding} /></strong></div>
                   {plan.lineCount > 0 || plan.budget > 0 ? <div className="plan-proposed"><Progress value={Math.min(share, 100)} aria-label={`${share}% of available funding proposed`} /><p><strong>{compactMoney.format(plan.budget)}</strong> proposed<span>{share}%</span></p></div>
                     : <p className="plan-proposed plan-proposed-empty">Nothing proposed yet</p>}
                   {(plan.lineCount > 0 || plan.schoolCount > 0 || other > 0) ? <ul className="plan-chips" aria-label="Plan contents">
