@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createColumnHelper, type PaginationState, type SortingState } from '@tanstack/react-table';
 import { PencilIcon } from 'lucide-react';
 import { DataTable } from '@/components/data-table';
+import { SchoolBulkBar } from '@/components/school-register-bulk-bar';
 import { DataTableColumnHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
 import { DataTableFacetedFilter } from '@/components/data-table-faceted-filter';
@@ -12,6 +13,7 @@ import { useSessionState } from '@/components/use-session-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { defaultRegisterPageSize, registerPageSizes, type RegisterFacet, type RegisterPage, type RegisterSchool } from '@/lib/school-register';
 
 export type SchoolRegisterTableProps = { refreshKey: number; onEdit: (school: RegisterSchool) => void };
@@ -30,6 +32,8 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
   const [lgas, setLgas] = useSessionState<string[]>(`${persist}:lga`, []), [levels, setLevels] = useSessionState<string[]>(`${persist}:level`, []);
   const [types, setTypes] = useSessionState<string[]>(`${persist}:type`, []), [locations, setLocations] = useSessionState<string[]>(`${persist}:location`, []);
   const [attempt, setAttempt] = useState(0), [loaded, setLoaded] = useState<Loaded | null>(null);
+  // Ticked schools stay ticked across pages and filters until cleared or acted on.
+  const [selected, setSelected] = useState<ReadonlySet<number>>(() => new Set());
   const sort = sorting[0]?.id ?? 'name', dir = sorting[0]?.desc ? 'desc' : 'asc';
   const query = useMemo(() => new URLSearchParams({ page: String(pagination.pageIndex + 1), pageSize: String(pagination.pageSize), q, lga: lgas.join(','), level: levels.join(','), type: types.join(','), location: locations.join(','), sort, dir }).toString(), [pagination, q, lgas, levels, types, locations, sort, dir]);
   const key = `${query}#${attempt}#${refreshKey}`;
@@ -67,7 +71,17 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
     { title: 'Location', options: options(facets?.locations), selected: locations, set: setLocations },
   ];
 
+  const pageIds = useMemo(() => (lastData?.items ?? []).map(school => school.id), [lastData]);
+  const pageTicked = pageIds.filter(id => selected.has(id)).length;
+  const toggle = useCallback((ids: number[], on: boolean) => setSelected(current => {
+    const next = new Set(current);
+    ids.forEach(id => { if (on) next.add(id); else next.delete(id); });
+    return next;
+  }), []);
   const columns = useMemo(() => helper.columns([
+    helper.display({ id: 'select', enableHiding: false, enableSorting: false,
+      header: () => <Checkbox aria-label="Select all schools on this page" disabled={!pageIds.length} checked={pageIds.length > 0 && pageTicked === pageIds.length ? true : pageTicked ? 'indeterminate' : false} onCheckedChange={value => toggle(pageIds, value === true)} />,
+      cell: ({ row }) => <Checkbox aria-label={`Select ${row.original.name}`} checked={selected.has(row.original.id)} onCheckedChange={value => toggle([row.original.id], value === true)} /> }),
     helper.accessor('name', { id: 'name', enableHiding: false, header: ({ column }) => <DataTableColumnHeader column={column} title="School" />, cell: ({ row }) => <div className="min-w-56 whitespace-normal"><p className="font-medium">{row.original.name}</p><p className="text-xs text-muted-foreground">{row.original.schoolCode ? `Code ${row.original.schoolCode}` : 'No school code'}{row.original.town ? ` · ${row.original.town}` : ''}</p></div> }),
     helper.accessor('lga', { id: 'lga', header: ({ column }) => <DataTableColumnHeader column={column} title="LGA" />, cell: info => <span className="whitespace-nowrap">{info.getValue()}</span> }),
     helper.accessor('level', { id: 'level', header: ({ column }) => <DataTableColumnHeader column={column} title="Level" /> }),
@@ -77,7 +91,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
     helper.display({ id: 'coordinates', enableSorting: false, header: 'Coordinates', cell: ({ row }) => row.original.latitude && row.original.longitude ? <span className="whitespace-nowrap tabular-nums text-xs">{row.original.latitude}, {row.original.longitude}</span> : <span className="text-muted-foreground">—</span> }),
     helper.accessor('updatedAt', { id: 'updated', header: ({ column }) => <DataTableColumnHeader column={column} title="Last updated" />, cell: ({ row }) => row.original.updatedAt ? <div className="whitespace-nowrap"><p>{updated.format(new Date(row.original.updatedAt))}</p>{row.original.updatedBy && <p className="text-xs text-muted-foreground">{row.original.updatedBy}</p>}</div> : <span className="text-muted-foreground">Original list</span> }),
     helper.display({ id: 'actions', enableHiding: false, header: '', cell: ({ row }) => <div className="flex justify-end"><Button variant="ghost" size="sm" aria-label={`Edit ${row.original.name}`} onClick={() => onEdit(row.original)}><PencilIcon data-icon="inline-start" />Edit</Button></div> }),
-  ]), [onEdit]);
+  ]), [onEdit, pageIds, pageTicked, selected, toggle]);
 
   const empty = error ? 'The school register could not be loaded.' : filtered
     ? <div className="flex flex-col items-center gap-2"><p className="font-medium">No schools match your filters</p><p className="text-muted-foreground">Try another name, town, LGA or school code.</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
@@ -105,5 +119,6 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
         pageSizes: registerPageSizes,
       }}
     />
+    <SchoolBulkBar ids={[...selected]} onClear={() => setSelected(new Set())} onDeleted={() => { setSelected(new Set()); setAttempt(value => value + 1); }} />
   </div>;
 }

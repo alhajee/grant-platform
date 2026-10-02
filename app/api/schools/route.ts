@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { getPostgres } from '@/lib/postgres';
 import { escapeLike } from '@/lib/admin-activity';
-import { registerQuerySchema, schoolCreateSchema, schoolEditSchema, schoolIssues, schoolTotals, type RegisterFacets, type RegisterSort, type SchoolInput } from '@/lib/school-register';
+import { registerQuerySchema, schoolCreateSchema, schoolSelectionSchema, type SchoolDeleteResult, schoolEditSchema, schoolIssues, schoolTotals, type RegisterFacets, type RegisterSort, type SchoolInput } from '@/lib/school-register';
 import { findConflict, lockManager, managerMessage, matchLga, noStoreJson, registerActor, registerFieldsSql, stateLgas } from '@/lib/school-register-server';
 
 const sortColumns: Record<RegisterSort, string> = {
@@ -78,3 +78,34 @@ async function save(request: NextRequest, creating: boolean) {
 
 export const POST = (request: NextRequest) => save(request, true);
 export const PATCH = (request: NextRequest) => save(request, false);
+
+/** Deletes ticked schools from the state register; schools already used in any plan are kept and listed. */
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await registerActor(request, { write: true });
+    if ('error' in auth) return auth.error;
+    const parsed = schoolSelectionSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return noStoreJson({ error: 'Choose the schools to delete.' }, 400);
+    const { workspace } = auth, { ids } = parsed.data;
+    return await getPostgres().transaction(async db => {
+      if (!await lockManager(db, workspace)) return noStoreJson({ error: `Your access has changed. ${managerMessage}` }, 403);
+      const schools = (await db.query<{ id: number; name: string }>('SELECT id, name FROM schools WHERE state_code=$1 AND id = ANY($2::int[]) FOR UPDATE', [workspace.stateCode, ids])).rows;
+      // Every table that references a school (plans, packages, documents...), read from the catalogue so new ones are covered.
+      const references = (await db.query<{ tbl: string; col: string }>(`SELECT c.conrelid::regclass::text AS tbl, a.attname AS col FROM pg_constraint c
+        JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1] WHERE c.contype = 'f' AND c.confrelid = 'schools'::regclass`)).rows;
+      const used = new Set<number>();
+      for (const { tbl, col } of references) {
+        const rows = (await db.query<{ id: number }>(`SELECT DISTINCT "${col.replaceAll('"', '""')}" AS id FROM ${tbl} WHERE "${col.replaceAll('"', '""')}" = ANY($1::int[])`, [schools.map(school => school.id)])).rows;
+        rows.forEach(row => used.add(row.id));
+      }
+      const removable = schools.filter(school => !used.has(school.id)).map(school => school.id);
+      const deleted = removable.length ? (await db.query('DELETE FROM schools WHERE state_code=$1 AND id = ANY($2::int[])', [workspace.stateCode, removable])).rowCount ?? 0 : 0;
+      const result: SchoolDeleteResult = { deleted, kept: schools.filter(school => used.has(school.id)) };
+      return noStoreJson(result);
+    });
+  } catch (cause) {
+    if ((cause as { code?: string }).code === '23503') return noStoreJson({ error: 'A selected school was just added to a plan. Please try again.' }, 409);
+    console.error('School register delete failed', cause);
+    return noStoreJson({ error: 'The schools could not be deleted. Please try again.' }, 503);
+  }
+}

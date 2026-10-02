@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
-import { schoolClasses, schoolLevels, schoolLocations, schoolTypes, maxImportRows, type SchoolClassKey } from './school-register';
+import { schoolClasses, schoolLevels, schoolLocations, schoolTypes, maxImportRows, type RegisterSchool, type SchoolClassKey } from './school-register';
 
 // Server-only: builds the sample template and reads filled templates for /api/schools.
 // Layout follows the client's school template: two header rows (class names over Male / Female / Total).
@@ -52,7 +52,8 @@ const templateHeaders: Record<BaseKey, string> = {
   category: 'TYPE OF SCHOOL(PUBLIC OR PRIVATE)', location: 'LOCATION (URBAN OR RURAL)', level: 'LEVEL (ECCDE, PRIMARY OR JSS)', schoolCode: 'SCHOOL CODE (EMIS/DNEMIS)',
 };
 const firstDataRow = 7;
-export async function buildSchoolTemplate(stateName: string, lgas: string[]) {
+/** `schools` pre-fills the data rows (an export of selected schools in the same layout, so it can be edited and re-used). */
+export async function buildSchoolTemplate(stateName: string, lgas: string[], schools: RegisterSchool[] = []) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'BEAPMS';
   const sheet = workbook.addWorksheet('Schools', { views: [{ state: 'frozen', xSplit: 4, ySplit: firstDataRow - 1 }] });
@@ -105,7 +106,17 @@ export async function buildSchoolTemplate(stateName: string, lgas: string[]) {
   const letter = (index: number) => guide.getColumn(index).letter;
   const listRange = (index: number, length: number) => `Guide!$${letter(5 + index)}$2:$${letter(5 + index)}$${Math.max(2, length + 1)}`;
   const validations: [BaseKey, number, number][] = [['lga', 0, lgas.length], ['category', 1, schoolTypes.length], ['location', 2, schoolLocations.length], ['level', 3, schoolLevels.length]];
-  for (let rowNumber = firstDataRow; rowNumber < firstDataRow + templateRows; rowNumber++) {
+  schools.forEach((school, index) => {
+    const row = sheet.getRow(firstDataRow + index);
+    const text: [BaseKey, string | number | null][] = [['sn', index + 1], ['longitude', school.longitude || null], ['latitude', school.latitude || null], ['name', school.name], ['town', school.town || null], ['lga', school.lga], ['category', school.category || null], ['location', school.location || null], ['level', school.level || null], ['schoolCode', school.schoolCode || null]];
+    for (const [key, value] of text) row.getCell(column[key]).value = value;
+    schoolClasses.forEach((item, classIndex) => {
+      const counts = school.enrolment?.[item.key];
+      if (!counts) return;
+      row.getCell(classStart + classIndex * 3).value = counts.male; row.getCell(classStart + classIndex * 3 + 1).value = counts.female;
+    });
+  });
+  for (let rowNumber = firstDataRow; rowNumber < firstDataRow + Math.max(templateRows, schools.length); rowNumber++) {
     const row = sheet.getRow(rowNumber);
     for (const [key, index, length] of validations) {
       if (key === 'lga' && !lgas.length) continue;

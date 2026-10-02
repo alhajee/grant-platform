@@ -96,6 +96,11 @@ export const registerQuerySchema = z.object({
   dir: z.enum(['asc', 'desc']).optional(),
 }).transform(query => ({ ...query, dir: query.dir ?? (query.sort === 'learners' || query.sort === 'updated' ? 'desc' : 'asc') as 'asc' | 'desc' }));
 
+/** Ticked schools for a bulk action (export or delete). */
+export const schoolSelectionSchema = z.object({ ids: z.array(z.number().int().positive()).min(1).max(maxImportRows) }).strict()
+  .transform(value => ({ ids: [...new Set(value.ids)] }));
+export type SchoolDeleteResult = { deleted: number; kept: { id: number; name: string }[] };
+
 /** Lenient spellings accepted from uploaded templates. */
 export function canonicalLevel(value: string) {
   const text = collapseSpaces(value).toLowerCase().replace(/[.]/g, '');

@@ -101,7 +101,7 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
     </div>
     <div className="overflow-hidden rounded-md border bg-card">
       <Table className="min-w-[720px]" aria-busy={server?.loading || undefined}>
-        <TableHeader>{table.getHeaderGroups().map(group => <TableRow key={group.id}>
+        <TableHeader className="bg-muted/60 [&_tr]:hover:bg-transparent">{table.getHeaderGroups().map(group => <TableRow key={group.id}>
           {group.headers.map(header => <TableHead key={header.id} className="px-4" aria-sort={header.column.getIsSorted() === 'asc' ? 'ascending' : header.column.getIsSorted() === 'desc' ? 'descending' : undefined}>
             {header.isPlaceholder ? null : <table.FlexRender header={header} />}
           </TableHead>)}

@@ -133,6 +133,29 @@ try {
   const again = ok(await api('officer', '/api/schools/import?mode=commit', upload(bytes)));
   assert.deepEqual([again.created, again.duplicates.length], [0, 2], 'Re-uploading the same file adds nothing');
 
+  // Bulk actions on ticked schools: export them in the template layout, delete those not used in a plan.
+  const foreignSchool = (await db.query('SELECT id FROM schools WHERE state_code=$1', [foreignState])).rows[0].id;
+  ok(await api('chair', '/api/schools/export', { ids: [seeded[0]] }, 'POST', { origin: false }), 403);
+  ok(await api('director', '/api/schools/export', { ids: [seeded[0]] }), 403);
+  ok(await api('chair', '/api/schools/export', { ids: [] }), 400);
+  assert.equal(ok(await api('chair', '/api/schools/export', { ids: [foreignSchool] }), 404).error, 'None of the selected schools are in your state register.');
+  const exported = await api('chair', '/api/schools/export', { ids: [seeded[0], foreignSchool, committed.schools[0].id] });
+  ok(exported); assert.match(exported.type, /spreadsheetml/);
+  const exportBook = new ExcelJS.Workbook(); await exportBook.xlsx.load(exported.data);
+  const exportSheet = exportBook.getWorksheet('Schools');
+  assert.deepEqual([7, 8, 9].map(row => exportSheet.getCell(row, 4).text), ['QA Existing School', 'QA Bulk ECCDE Centre', ''], 'Only this state\'s ticked schools, by LGA then name');
+  assert.deepEqual([exportSheet.getCell(8, 9).value, exportSheet.getCell(8, 10).value, exportSheet.getCell(8, 41).text], [10, 12, 'QA-BULK-1']);
+  const reread = ok(await api('chair', '/api/schools/import?mode=preview', upload(await exportBook.xlsx.writeBuffer())));
+  assert.deepEqual([reread.rows, reread.errorCount, reread.duplicates.length], [2, 0, 2], 'An export uploads back cleanly as duplicates');
+
+  await db.query('INSERT INTO tlm_distribution(plan_id,school_id) VALUES($1,$2)', [plan, seeded[1]]);
+  ok(await api('chair', '/api/schools', { ids: [seeded[0]] }, 'DELETE', { origin: false }), 403);
+  ok(await api('director', '/api/schools', { ids: [seeded[0]] }, 'DELETE'), 403);
+  const removed = ok(await api('chair', '/api/schools', { ids: [seeded[0], seeded[1], foreignSchool] }, 'DELETE'));
+  assert.deepEqual(removed, { deleted: 1, kept: [{ id: seeded[1], name: 'QA South JSS' }] });
+  assert.deepEqual((await db.query('SELECT id FROM schools WHERE id=ANY($1::int[]) ORDER BY id', [[seeded[0], seeded[1], foreignSchool]])).rows.map(row => row.id), [seeded[1], foreignSchool].sort((a, b) => a - b));
+  await db.query('DELETE FROM tlm_distribution WHERE plan_id=$1', [plan]);
+
   // Revoking the grant removes access immediately.
   ok(await api('chair', '/api/users', { ...profile('officer'), canManageSchools: false }, 'PATCH'));
   ok(await api('officer', '/api/schools'), 401);
@@ -140,6 +163,7 @@ try {
 } finally {
   const ids = Object.values(accounts).map(account => account.id);
   await db.query('DELETE FROM user_management_events WHERE state_code=ANY($1::text[]) OR actor_id=ANY($2::int[]) OR target_id=ANY($2::int[])', [states, ids]);
+  await db.query('DELETE FROM tlm_distribution WHERE plan_id IN (SELECT id FROM action_plans WHERE state_code=ANY($1::text[]))', [states]);
   await db.query('DELETE FROM action_plans WHERE state_code=ANY($1::text[])', [states]);
   await db.query('DELETE FROM schools WHERE state_code=ANY($1::text[])', [states]);
   await db.query('DELETE FROM sessions WHERE user_id=ANY($1::int[])', [ids]);
