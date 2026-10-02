@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       if (input.action !== 'request_changes' && input.pillar==='infrastructure') { const problem=infrastructureDocumentProblem(snapshot); if(problem)return error(problem); }
       if (input.action !== 'request_changes' && input.pillar==='tlm' && !snapshot.tlmDistribution?.length) return error('Add at least one school to the TLM distribution list before sending it.');
       if (input.action !== 'request_changes' && input.pillar==='curriculum' && !snapshot.curriculumDistribution?.length) return error('Add at least one school to the Curriculum distribution list before sending it.');
-      if (input.action !== 'request_changes' && isCapped(input.pillar)) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,kobo:lineKobo(line)})),plan); if(problem)return error(problem); }
+      if (input.action !== 'request_changes' && (isCapped(input.pillar) || input.pillar === 'sbmc')) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,kobo:lineKobo(line)})),plan); if(problem)return error(problem); }
       await db.query('INSERT INTO plan_pillar_reviews(plan_id,pillar,status) VALUES($1,$2,$3) ON CONFLICT(plan_id,pillar) DO UPDATE SET status=EXCLUDED.status,updated_at=NOW()', [plan.id,input.pillar,status]);
       const number = plan.submissionNumber + 1;
       await db.query('INSERT INTO plan_submissions(plan_id,number,snapshot) VALUES($1,$2,$3::jsonb)', [plan.id,number,JSON.stringify(snapshot)]);

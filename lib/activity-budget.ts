@@ -1,5 +1,5 @@
 import { componentEnvelope, toKobo, type EnvelopePlan } from './funding-policy';
-import { activityNames, activityTitles, curriculumActivityShares, type ActivityWorkstream } from './activity-plans';
+import { activityNames, activityShareCaps, activityTitles, type ActivityWorkstream } from './activity-plans';
 
 /** Components whose saved lines may not exceed their funding envelope (UBEC26-32). */
 export const cappedWorkstreams = ['monitoring', 'gscci', 'curriculum'] as const;
@@ -19,18 +19,21 @@ export function componentEnvelopeKobo(plan: EnvelopePlan, workstream: ActivityWo
   return envelope == null ? null : toKobo(envelope);
 }
 
-/** Each Curriculum activity's cap: its share of the envelope, rounded to the kobo. */
-export const curriculumCapKobo = (envelope: bigint, activity: number) => (envelope * BigInt(curriculumActivityShares[activity] ?? 0) + BigInt(5000)) / BigInt(10000);
+/** An activity's cap: its share of the envelope, rounded to the kobo (Curriculum activities, SBMC monitoring). */
+export const activityCapKobo = (workstream: ActivityWorkstream, envelope: bigint, activity: number) => (envelope * BigInt(activityShareCaps[workstream]?.[activity] ?? 0) + BigInt(5000)) / BigInt(10000);
+export const curriculumCapKobo = (envelope: bigint, activity: number) => activityCapKobo('curriculum', envelope, activity);
 
-/** Why these lines cannot be saved or sent, or null. Lines above the envelope (or a Curriculum activity above its share) are blocked. */
+/** Why these lines cannot be saved or sent, or null. Lines above the envelope (capped components) or an activity above its share are blocked. */
 export function activityBudgetProblem(workstream: ActivityWorkstream, lines: readonly BudgetLine[], plan: EnvelopePlan): string | null {
-  if (!isCapped(workstream)) return null;
+  const shares = activityShareCaps[workstream];
+  if (!isCapped(workstream) && !shares) return null;
   const title = activityTitles[workstream], envelope = componentEnvelopeKobo(plan, workstream);
   if (envelope === null) return `Set the plan funding before allocating the ${title} budget.`;
-  if (workstream === 'curriculum') for (const [activity, share] of curriculumActivityShares.entries()) {
-    const cap = curriculumCapKobo(envelope, activity), total = lines.filter(l => l.activity === activity).reduce((sum, l) => sum + l.kobo, BigInt(0));
-    if (total > cap) return `“${activityNames.curriculum[activity]}” may use up to ${share / 100}% of the Curriculum allocation (${formatKobo(cap)}). Its items exceed this by ${formatKobo(total - cap)}. Reduce them to continue.`;
+  for (const [key, share] of Object.entries(shares ?? {})) {
+    const activity = Number(key), cap = activityCapKobo(workstream, envelope, activity), total = lines.filter(l => l.activity === activity).reduce((sum, l) => sum + l.kobo, BigInt(0));
+    if (total > cap) return `“${activityNames[workstream][activity]}” may use up to ${share / 100}% of the ${title} allocation (${formatKobo(cap)}). Its items exceed this by ${formatKobo(total - cap)}. Reduce them to continue.`;
   }
+  if (!isCapped(workstream)) return null;
   const total = lines.reduce((sum, l) => sum + l.kobo, BigInt(0));
   if (total > envelope) return `You have exceeded the ${title} allocation (${formatKobo(envelope)}) by ${formatKobo(total - envelope)}. Reduce the budget to continue.`;
   return null;

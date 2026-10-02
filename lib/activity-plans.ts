@@ -2,7 +2,8 @@ import { z } from 'zod';
 export const activityWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum'] as const;
 export type ActivityWorkstream = typeof activityWorkstreams[number];
 export const activityNames = {
-  sbmc: ['School-Based Management Committees', 'Low-cost rehabilitation of community ECCDE centres', 'Small-scale school improvement projects', 'School operations and development planning', 'Capacity building of SBMC members', 'Sensitization campaigns', 'Support to private/community schools and stakeholders', 'Others'],
+  // UBEC's modified allowable social mobilisation activities (Oct 2026); the earlier SBMC list was retired and its lines cleared (migration 037).
+  sbmc: ['Out-of-School Children (OOSC)', 'Capacity building and training', 'School/Centre Improvement Programme (SBMC-SIP/CBMC-CIP)', 'Advocacy and sensitisation', 'Community engagement and stakeholders’ coordination', 'Stakeholder engagement', 'Enrolment campaign/drive and post-enrolment follow-up', 'Establishment/support of non-formal learning centres', 'Media engagement', 'Advocacy and sensitisation tools', 'Annual School Grant', 'Learner support and retention interventions', 'Monitoring, tracking and accountability', 'Community-based data collection and reporting', 'Social mobilisation in IDP camps and emergency settings', 'Provision of working tools and materials'],
   // Lines are stored by index: TLM 0-4 are the earlier activities (kept so saved lines still render), 5-22 are the UBEC allowable-materials checklist.
   tlm: ['Purchase of TLMs to Schools', 'Capacity Building of Teachers on the Implementation of the Revised TLMs', 'Distribution of TLMs to Schools', 'Monitoring of TLMs', 'Others',
     'Textbooks', 'Supplementary books', 'Teacher resources', 'Visual aids', 'Language materials', 'Mathematics materials', 'Science materials', 'Social Studies/Geography materials', 'Basic Technology materials', 'Computer Studies resources', 'Educational games', 'Writing and teaching aids', 'Art and creativity supplies', 'Audio materials', 'Digital/basic devices', 'Projection equipment', 'Interactive learning boards', 'Other TLMs'],
@@ -11,7 +12,8 @@ export const activityNames = {
   gscci: ['Training on environmental and social safeguarding in schools', 'Awareness and sensitisation campaigns', 'Provision of waste disposal equipment in schools', 'Provision of a well-equipped safe space environment/centre', 'Monitoring and evaluation of safeguarding activities'],
   curriculum: ['Purchase and distribution of copies of the revised NERDC curriculum to schools', 'Capacity building of teachers on the implementation of the revised curriculum', 'Distribution of curriculum to schools', 'Monitoring of implementation of the revised curriculum'],
 } as const;
-/** Each Curriculum activity's share of the Curriculum envelope, in basis points (UBEC30-32). */
+/** Per-activity caps as a share of the component envelope, in basis points: Curriculum (UBEC30-32) and SBMC monitoring (5%). */
+export const activityShareCaps: Partial<Record<ActivityWorkstream, Record<number, number>>> = { curriculum: { 0: 6000, 1: 2000, 2: 1000, 3: 1000 }, sbmc: { 12: 500 } };
 export const curriculumActivityShares = [6000, 2000, 1000, 1000] as const;
 /** Workstreams with a school distribution list (stored in tlm_distribution by workstream). */
 export const distributionWorkstreams = ['tlm', 'curriculum'] as const;
@@ -22,14 +24,15 @@ export const documentWorkstreams = ['monitoring'] as const;
 export const activityTitles: Record<ActivityWorkstream, string> = { sbmc: 'SBMC', tlm: 'Teaching & Learning Materials', monitoring: 'Supervision & Monitoring', gscci: 'Greening Schools, Climate Change & Safeguards', curriculum: 'Curriculum' };
 /** Example items shown under each TLM checklist activity. */
 export const activityHints: Partial<Record<ActivityWorkstream, Record<number, string>>> = {
+ sbmc: {0: 'Mapping, profiling and other activities to identify and support out-of-school children', 1: 'State-level capacity building, and training for SBMCs and CBMCs', 2: 'School Improvement Programme and Centre Improvement Programme, consolidated', 3: 'Advocacy and sensitisation in marketplaces, communities and with other target groups', 4: 'Town hall meetings and other structured community engagement', 5: 'Engaging relevant stakeholders in support of social mobilisation and basic education', 6: 'Enrolment campaigns and drives, with post-enrolment follow-up', 7: 'Part of the HOPE-EDU initiative', 8: 'Radio programmes, jingles, media advocacy and media sensitisation', 9: 'Development and production of posters and IEC materials', 10: 'Retained as an allowable intervention', 11: 'Starter kits and other learner retention support', 12: 'Monitoring, tracking, accountability and related M&E (up to 5% of the SBMC allocation)', 13: 'Community-based data collection and reporting', 14: 'Scope and classification to be confirmed by UBEC', 15: 'Working tools and materials for social mobilisation' },
  gscci: { 0: 'SUBEB/LGEA desk officers, head-teachers, teachers, guidance counsellors, SBMC/PTA and non-teaching staff', 1: 'Community sensitisation, SEA & GBV, grievance redress mechanism, drugs and substance abuse prevention', 3: 'First aid, sanitary materials, fans, beds, furniture, cabinets' },
  tlm: {
   5: 'English Studies, Mathematics, Basic Science/Technology, Social Studies', 6: 'Story books, supplementary readers, graded readers', 7: 'Teacher guides, lesson and activity resources', 8: 'Charts, posters, diagrams, maps, globes', 9: 'Flashcards, picture, word and alphabet cards', 10: 'Counting blocks, abacus, number cards, geometric shapes, manipulatives', 11: 'Models, specimens, magnifying glasses, simple microscopes', 12: 'Maps, globes, charts, models', 13: 'Models, demonstration materials, practical learning resources', 14: 'Basic computers and learning resources', 15: 'Educational games', 16: 'Blackboards, whiteboards, rulers, protractors, scales', 17: 'Art and craft supplies', 18: 'Radios, tape recorders, CD players', 19: 'Tablets, where justified', 20: 'Overhead projectors', 21: 'Smart interactive boards', 22: 'Must be justified and meet UBEC standards',
 } };
-export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22], monitoring: [0,1,2,3], gscci: [0,1,2,3,4], curriculum: [0,1,2,3] } as const;
+export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22], monitoring: [0,1,2,3], gscci: [0,1,2,3,4], curriculum: [0,1,2,3] } as const;
 /** The selectable "other" activity that needs a custom name. */
-export const otherActivityIndex: Partial<Record<ActivityWorkstream, number>> = { sbmc: 7, tlm: 22 };
-const customActivityIndexes: Partial<Record<ActivityWorkstream, readonly number[]>> = { sbmc: [7], tlm: [4, 22] };
+export const otherActivityIndex: Partial<Record<ActivityWorkstream, number>> = { tlm: 22 };
+const customActivityIndexes: Partial<Record<ActivityWorkstream, readonly number[]>> = { tlm: [4, 22] };
 /** TLM activity whose lines record textbook classes and subject. */
 export const textbookActivityIndex = 5;
 export const activityLabel = (workstream: ActivityWorkstream, activity: number, customActivity = '') => (customActivityIndexes[workstream] ?? []).includes(activity) && customActivity ? customActivity : activityNames[workstream][activity] ?? 'Unknown activity';

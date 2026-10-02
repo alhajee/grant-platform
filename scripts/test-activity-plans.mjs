@@ -23,7 +23,7 @@ try{
  ok(await api('anonymous',url),401);ok(await api('foreign',url),404);
  ok(await api('academic',url,line),403);ok(await api('chair',url,line),403);
  ok(await api('social',url,{...line,quantity:0}),400);ok(await api('social',url,{...line,activity:99}),400);
- ok(await api('social',url,{...line,activity:7,customActivity:''}),400);
+ ok(await api('social',url,{...line,activity:16}),400);
  ok(await api('social',url,{...line,location:'Remote'}),400);
  ok(await api('social',url,line));let saved=ok(await api('social',url));assert.equal(saved.lines.length,1);assert.equal(saved.lines[0].location,'');
  assert.equal(saved.lines[0].rationale,line.rationale);assert.equal(saved.lines[0].implementationApproach,line.implementationApproach);
@@ -33,7 +33,7 @@ try{
  const underReview=ok(await api('social',`/api/plans/review?plan=${plan}`));
  const under=await api('social',`/api/plans/review?plan=${plan}`,{action:'submit',pillar:'sbmc',version:underReview.plan.version});ok(under,400);assert.match(under.data.error,/₦125.25/);
  ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:4}),400);
- ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:7,customActivity:'Community-led reading programme'}));
+ ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3}));
  const tlmUrl=`/api/activities?plan=${plan}&workstream=tlm`;
  const tlm={...line,workstream:'tlm',activity:5,description:'Textbooks',textbookClasses:['Primary 1','Primary 2'],textbookSubject:'English/literacy (Core)'};
  for(const [field,value] of [['description',''],['quantity',0],['unitCost',0],['strategy',''],['targetGroup',''],['activity',0],['activity',23],['equipment','Textbooks']]) ok(await api('academic',tlmUrl,{...tlm,[field]:value}),400);
@@ -74,7 +74,7 @@ try{
  const scoped=ok(await api('social',`/api/plans/review?plan=${plan}`));
  assert.deepEqual(scoped.visiblePillars,['sbmc']);
  assert.deepEqual(scoped.pillarReviews.map(r=>r.pillar),['sbmc']);
- assert.equal(scoped.snapshot.sbmc[0].custom_activity,'Community-led reading programme');
+ assert.equal(scoped.snapshot.sbmc[0].activity,3);
  assert.equal(scoped.snapshot.infrastructure.length,0);
  assert.equal(scoped.snapshot.tlm,undefined);
  assert.equal(scoped.events.length,0);

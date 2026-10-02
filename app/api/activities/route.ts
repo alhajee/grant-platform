@@ -6,7 +6,7 @@ import { resolveActionPlan } from '@/lib/plan-workspace';
 import { getPostgres } from '@/lib/postgres';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { mayEditPillar, readPillarReviews } from '@/lib/pillar-review';
-import { activityLineSchema, activityWorkstreams, hasDistribution } from '@/lib/activity-plans';
+import { activityLineSchema, activityWorkstreams, hasDistribution, activityShareCaps } from '@/lib/activity-plans';
 import { activityBudgetProblem, isCapped } from '@/lib/activity-budget';
 import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
@@ -64,7 +64,7 @@ export async function POST(req:NextRequest){
       const problem=sbmcBudgetProblem(budgetKobo(existing)+budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity),plan);
       if(problem)return error(problem);
      }
-     if(isCapped(workstream)) {
+     if(isCapped(workstream)||activityShareCaps[workstream]) {
       const others=(await db.query<{activity:number;total:string}>('SELECT activity,SUM(quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 AND ($3::bigint IS NULL OR id<>$3) GROUP BY activity',[plan.id,workstream,action==='update'?id:null])).rows;
       const problem=activityBudgetProblem(workstream,[...others.map(r=>({activity:r.activity,kobo:budgetKobo(r.total)})),{activity:v.activity,kobo:budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity)}],plan);
       if(problem)return error(problem);
