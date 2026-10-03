@@ -98,7 +98,10 @@
 
 /* Funding summary with the status panel beside it. */
 .plan-glance { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 350px); align-items: start; gap: 18px; }
-.plan-glance-main { display: flex; min-width: 0; flex-direction: column; gap: 18px; }
+.plan-glance { grid-template-areas: "head ." "main side"; row-gap: 12px; }
+.plan-glance-head { grid-area: head; margin: 0; }
+.plan-glance-main { grid-area: main; display: flex; min-width: 0; flex-direction: column; gap: 18px; }
+.plan-glance-side { grid-area: side; }
 .plan-glance-side { position: sticky; top: 16px; display: flex; min-width: 0; flex-direction: column; gap: 14px; }
 .plan-glance .component-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 1280px) { .plan-glance .component-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -137,7 +140,7 @@
 .status-history-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; }
 .status-history-link svg { width: 14px; height: 14px; }
 .status-history-link:hover { text-decoration: underline; text-underline-offset: 3px; }
-@media (max-width: 1000px) { .plan-glance { grid-template-columns: minmax(0, 1fr); } .plan-glance-side { position: static; order: -1; } }
+@media (max-width: 1000px) { .plan-glance { grid-template-columns: minmax(0, 1fr); grid-template-areas: "side" "head" "main"; } .plan-glance-side { position: static; } }
 
 /* Documents beside the review history. */
 .plan-records { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: start; gap: 18px; }

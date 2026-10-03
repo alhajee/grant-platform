@@ -121,8 +121,9 @@ export default function PlanPage() {
         {selected !== 'current' && <Alert><AlertTitle>Saved submission {data.selectedSubmission}</AlertTitle><AlertDescription>This version is read-only. Select the current version to take action.</AlertDescription></Alert>}
         {/* Components in the main column; the plan's funding and status sit in a sticky column on the right. */}
         <div className="plan-glance">
+          {/* The heading has its own row, so the cards and the right-hand cards start on the same line. */}
+          <h2 id="plan-components-title" className="plan-section-title plan-glance-head">Components</h2>
           <section className="plan-components plan-glance-main" id="plan-components" aria-labelledby="plan-components-title">
-            <h2 id="plan-components-title" className="plan-section-title">Components</h2>
             <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
             <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} />
           </section>
