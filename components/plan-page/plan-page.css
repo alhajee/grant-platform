@@ -184,3 +184,10 @@
   .component-card:is(:hover, :focus-within) .card-pill-count { opacity: 0; transform: scale(.5); }
 }
 @media (prefers-reduced-motion: reduce) { .component-card .card-pill, .component-card .card-pill-label, .component-card .card-pill-count { transition: none; } }
+/* The send step shows only its text once open: the arrow shrinks away as the label slides in. */
+.component-card .card-pill-step > svg { transition: width 220ms cubic-bezier(.23, 1, .32, 1), opacity 140ms ease; }
+@media (hover: none) { .component-card .card-pill-step { gap: 0; padding: 0 14px; } .component-card .card-pill-step > svg { width: 0; opacity: 0; } }
+@media (hover: hover) {
+  .component-card:is(:hover, :focus-within) .card-pill-step { gap: 0; padding: 0 14px; }
+  .component-card:is(:hover, :focus-within) .card-pill-step > svg { width: 0; opacity: 0; }
+}
