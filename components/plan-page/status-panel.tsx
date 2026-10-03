@@ -2,6 +2,7 @@
 
 import { ArrowRightIcon, MessageSquareIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ReviewPath } from './review-path';
 import { reviewEventAnchor, timeAgo } from '@/lib/notifications';
 import { reviewActionLabels, type ReviewEvent } from '@/lib/plan-review';
 
@@ -39,7 +40,7 @@ export function StatusPanel({ feedback, events, scopeLabel, compact = false }: S
           <small>{event.actorName} · <time dateTime={event.createdAt}>{timeAgo(event.createdAt)}</time></small>
         </a></li>)}
       </ol>}
-      {!feedback && !recent.length && <p className="status-empty">No review steps yet. Components move from Data Entry to Directors, the BEAP Chair and the Executive Chairman.</p>}
+      {!feedback && !recent.length && <div className="status-empty"><ReviewPath /><p>No review steps yet. Every component starts with Data Entry.</p></div>}
       {events.length > 0 && <a className="status-history-link" href="#review-history">Full review history<ArrowRightIcon aria-hidden="true" /></a>}
     </CardContent>
   </Card>;

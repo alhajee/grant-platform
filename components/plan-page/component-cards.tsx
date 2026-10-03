@@ -67,9 +67,3 @@ export function ComponentCards({ data, totals, comments, actionsFor }: { data: P
     {data.pillarReviews.map(review => <ComponentCard key={review.pillar} plan={data.plan} review={review} summary={totals[review.pillar]} comments={comments} actions={actionsFor(review)} />)}
   </ul>;
 }
-
-/** Placeholder components are listed in one quiet line until their editors exist. */
-export function PlannedComponents({ names }: { names: string[] }) {
-  if (!names.length) return null;
-  return <p className="planned-components"><span>Coming soon</span>{names.join(' · ')}</p>;
-}

@@ -18,10 +18,9 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectI
 import { Skeleton } from '@/components/ui/skeleton';
 import { currentPlanHref, planHref, planPeriod } from '@/lib/action-plans';
 import type { PlanReview } from '@/lib/plan-review';
-import { beapComponents, componentSections, implementedPillars, subebComponentDepartments as pillarDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
+import { componentSections, implementedPillars, subebComponentDepartments as pillarDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
 import { mayEditPillar, statePlanOpen, type PillarReview } from '@/lib/pillar-review';
 import { summarizeSnapshot } from '@/lib/plan-summary';
-import { canViewWholeStatePlan } from '@/lib/subeb-access';
 import { hasDepartment } from '@/lib/user-departments';
 import { usePlanComments } from '@/components/plan-workbook/comments-context';
 
