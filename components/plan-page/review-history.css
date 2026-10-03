@@ -37,5 +37,5 @@
 .trail-more svg { width: 13px; height: 13px; }
 .review-history-empty { font-size: 13px; color: var(--muted-foreground); }
 /* Glyph colour on the icon itself (a global svg colour rule would otherwise win): white on the solid latest circle. */
-.review-history .trail-entry .trail-dot > svg { width: 19px; height: 19px; color: var(--dot) !important; stroke: var(--dot) !important; }
+.review-history .trail-entry .trail-dot > svg { color: var(--dot) !important; stroke: var(--dot) !important; }
 .review-history .trail-entry[data-latest] .trail-dot > svg { color: #fff !important; stroke: #fff !important; }

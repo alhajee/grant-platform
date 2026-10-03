@@ -2,8 +2,7 @@
 import './review-history.css';
 
 import { useEffect, useMemo, useState } from 'react';
-import { EllipsisIcon } from 'lucide-react';
-import { reviewStepIcons } from './review-step-icons';
+import { CornerUpLeftIcon, CrownIcon, EllipsisIcon, FilePenLineIcon, SendHorizontalIcon, ShieldCheckIcon, UserCheckIcon, type LucideIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { reviewEventAnchor, timeAgo } from '@/lib/notifications';
@@ -11,6 +10,8 @@ import { reviewActionLabels, type ReviewAction, type ReviewEvent } from '@/lib/p
 
 const stamp = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const full = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+// One glyph per step: sent by Data Entry, endorsed by a Director, forwarded by the BEAP Chair, and so on.
+const icons: Record<ReviewAction, LucideIcon> = { submit: SendHorizontalIcon, endorse: UserCheckIcon, forward: CrownIcon, request_changes: CornerUpLeftIcon, approve: ShieldCheckIcon, edit: FilePenLineIcon };
 const tone = (action: ReviewAction) => action === 'request_changes' ? 'changes' : action === 'approve' ? 'approved' : action === 'edit' ? 'edited' : action === 'forward' ? 'forwarded' : 'sent';
 const label = (event: ReviewEvent) => event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action];
 const initials = (name: string) => name.split(/\s+/).filter(word => /^[A-Za-z]/.test(word)).slice(0, 2).map(word => word[0]).join('').toUpperCase();
@@ -26,7 +27,7 @@ function runs(events: ReviewEvent[]): Run[] {
 }
 
 function Entry({ event, latest = false, scopeLabel }: { event: ReviewEvent; latest?: boolean; scopeLabel: (scope: string) => string }) {
-  const Icon = reviewStepIcons[event.action];
+  const Icon = icons[event.action];
   return <li id={reviewEventAnchor(event.id).slice(1)} data-tone={tone(event.action)} data-latest={latest || undefined} className="trail-entry">
     <span className="trail-dot" aria-hidden="true"><Icon /></span>
     <div className="trail-body">
