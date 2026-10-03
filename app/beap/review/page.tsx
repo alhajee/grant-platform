@@ -7,7 +7,7 @@ import { PlanStatusBadge } from '@/components/plan-status';
 import { PlanReviewContent } from '@/components/plan-review-content';
 import { EditPlanDialog } from '@/components/edit-plan-dialog';
 import { PlanSummary } from '@/components/plan-page/plan-summary';
-import { ComponentCards, PlannedComponents, type CardActions } from '@/components/plan-page/component-cards';
+import { ComponentCards, type CardActions } from '@/components/plan-page/component-cards';
 import { WorkflowBar } from '@/components/plan-page/workflow-bar';
 import { ReviewHistory } from '@/components/plan-page/review-history';
 import { StatusPanel } from '@/components/plan-page/status-panel';
@@ -28,13 +28,6 @@ import { usePlanComments } from '@/components/plan-workbook/comments-context';
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
 const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (pillar === 'tlm' && !data.snapshot.tlmDistribution?.length) || (pillar === 'curriculum' && !data.snapshot.curriculumDistribution?.length);
-
-/** Placeholder components (no editor yet) the viewer would work on: all of them for whole-state roles, else their departments'. */
-function plannedNames(data: PlanReview) {
-  const whole = canViewWholeStatePlan(data);
-  return beapComponents.filter(c => !(implementedPillars as readonly string[]).includes(c.id))
-    .flatMap(c => componentSections[c.id].filter(s => whole || (['Data Entry Staff', 'Director'].includes(data.role) && hasDepartment(data.departments, s.department))).map(s => s.name));
-}
 
 /** The plan page: summary, components, workflow steps, the plan workbook and its review history. */
 export default function PlanPage() {
@@ -130,7 +123,6 @@ export default function PlanPage() {
         <section className="plan-components" id="plan-components" aria-labelledby="plan-components-title">
           <h2 id="plan-components-title" className="plan-section-title">Components</h2>
           <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
-          <PlannedComponents names={plannedNames(data)} />
           <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} />
         </section>
         <div className="review-layout">
