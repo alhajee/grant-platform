@@ -59,3 +59,9 @@
 .ict-allocation-summary div { display:flex;flex-direction:column; }
 .ict-allocation-summary span, .ict-allocation-summary small { color:var(--muted-foreground);font-size:12px; }
 .activity-picked-meta > span:last-child { color:var(--muted-foreground);font-size:13px; }
+
+/* Save button explanation and the envelope's remaining amount. */
+.save-button-wrap{display:inline-flex;border-radius:999px;outline:none;cursor:not-allowed}
+.save-button-wrap:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 45%,transparent)}
+.envelope-left{font-weight:600;color:var(--primary)}
+.envelope-left[data-empty]{color:var(--warning-foreground)}

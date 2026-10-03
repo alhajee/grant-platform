@@ -84,9 +84,6 @@
   .component-card:is(:hover, :focus-within) .component-card-sheet { width: 30px; margin-right: 0; opacity: 1; transform: none; }
 }
 @media (hover: hover) and (prefers-reduced-motion: reduce) { .component-card .component-card-sheet { transition: opacity 120ms ease; } }
-/* A light tooltip for quiet card controls (the default one is near-black). */
-.soft-tip[data-slot=tooltip-content] { border: 1px solid rgb(0 69 64 / 12%); background: #fff; color: var(--foreground); box-shadow: 0 8px 24px -12px rgb(0 40 30 / 30%); }
-.soft-tip[data-slot=tooltip-content] svg { background: #fff; fill: #fff; }
 
 /* Placeholders: one quiet line, like "Not started" on the dashboard. */
 
