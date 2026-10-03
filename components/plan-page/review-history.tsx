@@ -31,7 +31,7 @@ function Entry({ event, latest = false, scopeLabel }: { event: ReviewEvent; late
   return <li id={reviewEventAnchor(event.id).slice(1)} data-tone={tone(event.action)} data-latest={latest || undefined} className="trail-entry">
     <span className="trail-dot" aria-hidden="true"><Icon /></span>
     <div className="trail-body">
-      <p className="trail-time"><time dateTime={event.createdAt} title={full.format(new Date(event.createdAt))}>{stamp.format(new Date(event.createdAt))}</time>{latest && <span className="trail-live" aria-label="Latest" />}<span className="trail-ago">{timeAgo(event.createdAt)}</span></p>
+      <p className="trail-time"><time dateTime={event.createdAt} title={full.format(new Date(event.createdAt))}>{stamp.format(new Date(event.createdAt))}</time><span className="trail-ago">{timeAgo(event.createdAt)}</span></p>
       <p className="trail-title">{label(event)}{event.scope !== 'general' && <span className="trail-scope">{scopeLabel(event.scope)}</span>}</p>
       <p className="trail-actor"><Avatar className="trail-avatar"><AvatarFallback>{initials(event.actorName) || '·'}</AvatarFallback></Avatar>{event.actorName}{event.actorName !== event.actorRole && <><span aria-hidden="true">·</span><span className="trail-role">{event.actorRole}</span></>}<span className="trail-submission">Submission {event.submissionNumber}</span></p>
       {event.comment && <blockquote className="review-comment">{event.comment}</blockquote>}
