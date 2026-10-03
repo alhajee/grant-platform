@@ -137,7 +137,7 @@ export default function DashboardPage() {
           </div>}
         </section>
         <aside className="dashboard-aside">
-          <div className="investment-filter-bar"><InvestmentFilter plans={plans} value={investmentFilters} onChange={setInvestmentFilters} /></div>
+          <div className="investment-filter-bar"><InvestmentFilter plans={plans} value={investmentFilters} onChange={setInvestmentFilters} matchCount={dashboardPlans.length} /></div>
           <div className="dashboard-aside-content">
           <Card className="budget-allocation"><CardHeader><CardTitle><h2>Where your plans invest</h2></CardTitle><CardDescription>{activeInvestmentFilters ? `${dashboardPlans.length} matching ${dashboardPlans.length === 1 ? "plan" : "plans"}` : "Share of each component's funding already proposed"}</CardDescription></CardHeader><CardContent>
             <ComponentBudgets plans={dashboardPlans} areas={allAreas} amounts={areaAmounts} totalFunding={totalFunding} unavailable={unavailable} selected={investmentFilters.areas} onToggle={area => setInvestmentFilters(current => ({ ...current, areas: current.areas.length === 1 && current.areas[0] === area ? [] : [area] }))} />

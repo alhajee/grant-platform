@@ -59,26 +59,6 @@
 .investment-filter-trigger [data-slot=badge] { min-width: 20px; margin-left: auto; justify-content: center; padding-inline: 5px; }
 .dashboard-aside-content { grid-row: 2; display: flex; flex-direction: column; gap: 20px; }
 .budget-allocation { border-radius: 14px; box-shadow: none; gap: 20px; }
-.investment-filter-sheet { width: min(480px, 100vw); max-width: none; gap: 0; overflow: hidden; box-shadow: -24px 0 70px -38px color-mix(in srgb, var(--foreground) 45%, transparent); }
-.investment-filter-header { display: block; padding: 20px 58px 8px 20px; }
-.investment-filter-header [data-slot=sheet-title] { font-size: 17px; letter-spacing: -.02em; }
-.investment-filter-header [data-slot=sheet-description] { margin-top: 4px; font-size: 13px; line-height: 1.45; }
-.investment-filter-header [data-slot=badge] { flex: none; }
-.investment-filter-scroll { min-height: 0; flex: 1; }
-.investment-filter-accordion { padding: 0 20px 20px; }
-.investment-filter-accordion [data-slot=accordion-trigger] { padding-block: 15px; text-decoration: none; }
-.investment-filter-accordion [data-slot=accordion-trigger]:hover { color: var(--primary); text-decoration: none; }
-.investment-filter-section-label { display: flex; min-width: 0; align-items: center; gap: 9px; font-size: 14px; }
-.investment-filter-section-label > svg { width: 17px; height: 17px; color: var(--muted-foreground); }
-.investment-filter-section-label [data-slot=badge] { min-width: 20px; justify-content: center; padding-inline: 5px; }
-.investment-filter-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
-.investment-filter-options [data-slot=toggle-group-item] { width: 100%; min-height: 36px; height: auto; justify-content: flex-start; padding: 7px 10px; border-radius: 9px; white-space: normal; text-align: left; line-height: 1.25; }
-.investment-filter-options-wide { grid-template-columns: 1fr; }
-.investment-filter-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.investment-filter-checks [data-slot=field] { min-height: 44px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; background: color-mix(in srgb, var(--muted) 35%, transparent); }
-.investment-filter-checks [data-slot=field-label] { font-size: 13px; line-height: 1.35; }
-.investment-filter-footer { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; background: color-mix(in srgb, var(--muted) 42%, var(--background)); }
-.investment-filter-footer [data-slot=button] { border-radius: 9px; }
 .budget-allocation h2 { font-size: 15px; letter-spacing: -.025em; }
 .budget-allocation [data-slot=card-description] { font-size: 14px; }
 .dashboard-footer-separator { margin-top: 44px; }
@@ -184,3 +164,34 @@
 .activity-copy small { font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
 .recent-activity-empty { font-size: 13px; line-height: 1.6; color: var(--muted-foreground); }
 
+
+/* Filter dashboard dialog: chips for what is active, then collapsible checkbox sections. */
+.investment-filter-dialog { gap: 0; padding: 6px; border: 0; border-radius: 24px; background: #f4f3ef; box-shadow: 0 30px 80px -30px rgb(30 40 30 / 35%), 0 0 0 1px rgb(30 40 30 / 6%); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; }
+@media (min-width: 640px) { .investment-filter-dialog { max-width: 27rem; } }
+.filter-dialog-header { display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 18px 20px 6px; border-radius: 19px 19px 0 0; background: #fff; text-align: left; }
+.filter-dialog-header [data-slot=dialog-title] { font-size: 17px; font-weight: 600; letter-spacing: -.02em; }
+.filter-clear { height: auto; padding: 0; color: var(--muted-foreground); font-weight: 400; }
+.filter-clear:not(:disabled):hover { color: var(--foreground); }
+.filter-dialog-body { min-height: 0; flex: 1; overflow-y: auto; padding: 6px 20px 14px; border-radius: 0 0 19px 19px; background: #fff; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; padding: 0; list-style: none; }
+.filter-chips li { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 10px; border-radius: 8px; background: #f1f0eb; font-size: 13px; }
+.filter-chips button { display: grid; place-items: center; width: 20px; height: 20px; border: 0; border-radius: 6px; background: none; color: var(--muted-foreground); cursor: pointer; }
+.filter-chips button:hover { background: #e4e2db; color: var(--foreground); }
+.filter-chips button svg { width: 13px; height: 13px; }
+.filter-sections [data-slot=accordion-item] { border-bottom: 0; }
+.filter-sections [data-slot=accordion-trigger] { align-items: center; gap: 8px; padding-block: 11px; font-size: 15px; font-weight: 500; text-decoration: none; }
+.filter-sections [data-slot=accordion-trigger]:hover { text-decoration: none; }
+.filter-section-title { display: inline-flex; align-items: baseline; gap: 7px; }
+.filter-section-title small { font-size: 13px; font-weight: 400; color: var(--muted-foreground); }
+.filter-section-active { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
+.filter-sections [data-slot=accordion-content] > div { padding-bottom: 8px; }
+.filter-checks { gap: 2px; }
+.filter-checks[data-columns="2"] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.filter-checks [data-slot=field] { gap: 10px; padding: 6px 2px; }
+.filter-checks [data-slot=field-label] { font-size: 14px; font-weight: 400; color: color-mix(in srgb, var(--foreground) 80%, transparent); cursor: pointer; }
+.filter-checks [data-slot=checkbox] { width: 18px; height: 18px; border-radius: 5px; border-color: #dcdad3; background: #f4f3ef; }
+.filter-checks [data-slot=checkbox][data-state=checked] { border-color: var(--primary); background: var(--primary); }
+.filter-dialog-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px 6px 14px; }
+.filter-keys { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--muted-foreground); }
+.filter-keys [data-slot=kbd] { background: #fff; }
+.filter-keys [data-slot=kbd] + [data-slot=kbd], .filter-keys [data-slot=kbd]:not(:first-child) { margin-left: 6px; }
