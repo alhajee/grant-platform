@@ -79,20 +79,33 @@ export function LineSchoolPicker({ workstream, draft, schools, onChange, disable
 }
 
 /** Documents of a saved line that needs one (ICT specification, supporting document, Bill of Quantities). */
-export function LineDocumentsField({ workstream, activity, lineId, documents, disabled, onChanged }: { workstream: ActivityWorkstream; activity: number; lineId?: number; documents: LineDocument[]; disabled: boolean; onChanged: () => Promise<void> }) {
+/** Uploads files to a saved budget line, one at a time; returns how many were added (throws on the first failure). */
+export async function uploadLineDocuments(workstream: ActivityWorkstream, lineId: number, files: readonly File[]) {
+  const endpoint = currentPlanHref('/api/activities/line-documents');
+  let added = 0;
+  for (const file of files) {
+    const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); form.set('file', file);
+    const r = await fetch(endpoint, { method: 'POST', body: form }); const result = await r.json().catch(() => ({})) as { error?: string };
+    if (!r.ok) throw new Error(result.error || `Unable to upload ${file.name}.`);
+    added++;
+  }
+  return added;
+}
+
+/**
+ * Documents for one budget line. On a saved line files upload straight away; on a new line they wait in the
+ * form (pending) and the editor uploads them right after the item is added.
+ */
+export function LineDocumentsField({ workstream, activity, lineId, documents, pending, onPendingChange, disabled, onChanged }: { workstream: ActivityWorkstream; activity: number; lineId?: number; documents: LineDocument[]; pending: File[]; onPendingChange: (files: File[]) => void; disabled: boolean; onChanged: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const label = lineDocumentLabel(workstream, activity), hint = workstream === 'teachers' ? `${teacherDocumentHint}. ` : '';
   if (!label) return null;
   const endpoint = currentPlanHref('/api/activities/line-documents');
   async function upload(files: File[]) {
-    if (!lineId) return;
-    setBusy(true); let added = 0;
+    if (!lineId) { onPendingChange([...pending, ...files]); return; }
+    setBusy(true);
     try {
-      for (const file of files) {
-        const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); form.set('file', file);
-        const r = await fetch(endpoint, { method: 'POST', body: form }); const result = await r.json() as { error?: string };
-        if (!r.ok) throw new Error(result.error || 'Unable to upload.'); added++;
-      }
+      const added = await uploadLineDocuments(workstream, lineId, files);
       toast.success(`Uploaded ${added} file${added === 1 ? '' : 's'}.`);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to upload.'); }
     finally { setBusy(false); await onChanged().catch(() => undefined); }
@@ -104,10 +117,10 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, di
     finally { setBusy(false); await onChanged().catch(() => undefined); }
   }
   return <Field><FieldLabel htmlFor="line-document">{label} {required}</FieldLabel>
-    {lineId ? <>
-      <FileUpload compact id="line-document" label={label} multiple accept={lineDocumentAccept} disabled={disabled} busy={busy} onFiles={upload} />
-      {documents.length > 0 && <DocumentFiles compact documents={documents.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: label }))} disabled={disabled || busy} onRemove={disabled ? undefined : id => void remove(id)} />}
-      <FieldDescription>{hint}PDF or Excel only, up to 5 MB each. Required before sending.</FieldDescription>
-    </> : <FieldDescription>{hint}Add the item first, then attach the {label.toLowerCase()} (PDF or Excel). It is required before sending.</FieldDescription>}
+    <FileUpload compact id="line-document" label={label} multiple accept={lineDocumentAccept} disabled={disabled} busy={busy} onFiles={upload} />
+    {lineId
+      ? documents.length > 0 && <DocumentFiles compact documents={documents.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: label }))} disabled={disabled || busy} onRemove={disabled ? undefined : id => void remove(id)} />
+      : pending.length > 0 && <DocumentFiles compact documents={pending.map((file, index) => ({ id: `pending-${index}`, name: file.name, size: file.size, file }))} disabled={disabled} onRemove={disabled ? undefined : id => onPendingChange(pending.filter((_, index) => `pending-${index}` !== id))} />}
+    <FieldDescription>{hint}PDF or Excel only, up to 5 MB each. Required before sending.</FieldDescription>
   </Field>;
 }
