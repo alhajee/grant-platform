@@ -47,6 +47,7 @@
 .plan-card-actions { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px; margin-left: auto; }
 .plan-card-actions [data-slot=button] { height: 30px; border-radius: 999px; font-size: 13px; }
 .plan-open { color: var(--primary); font-weight: 600; }
+.plan-card-actions [data-slot=button]:hover { background: var(--primary); color: var(--primary-foreground); }
 
 /* Rosette: a faint banknote pattern in the top-right corner. */
 .plan-guilloche { position: absolute; z-index: -1; top: -74px; right: -70px; width: 280px; height: 280px; pointer-events: none; fill: none; stroke: #5f7d45; stroke-width: .6; mask-image: radial-gradient(circle at 62% 38%, #000 0 30%, transparent 64%); transition: transform 400ms ease-out; }
