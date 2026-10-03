@@ -117,6 +117,11 @@
 .status-steps small { font-size: 12px; color: var(--muted-foreground); }
 .status-empty { display: grid; gap: 8px; }
 /* Review path diagram: numbered steps on one track, the first (where components start) in the brand green. */
+.review-path-wrap { position: relative; }
+.review-path-hit { position: absolute; top: 0; bottom: 0; padding: 0; border: 0; border-radius: 12px; background: transparent; cursor: help; outline: none; }
+.review-path-hit:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 50%, transparent); }
+.review-path-tip { display: grid; gap: 2px; max-width: 220px; line-height: 1.45; }
+.review-path-tip strong { font-weight: 600; }
 .review-path { display: block; width: 100%; height: auto; color: color-mix(in srgb, var(--primary) 35%, #fff); }
 .review-path-link { stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 3 3; }
 .review-path-step circle { fill: #f6f5f0; stroke: color-mix(in srgb, var(--primary) 22%, #fff); stroke-width: 1.5; }
