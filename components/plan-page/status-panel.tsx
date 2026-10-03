@@ -40,7 +40,7 @@ export function StatusPanel({ feedback, events, scopeLabel, compact = false }: S
           <small>{event.actorName} · <time dateTime={event.createdAt}>{timeAgo(event.createdAt)}</time></small>
         </a></li>)}
       </ol>}
-      {!feedback && !recent.length && <div className="status-empty"><ReviewPath /><p>No review steps yet. Every component starts with Data Entry.</p></div>}
+      {!feedback && !recent.length && <div className="status-empty"><ReviewPath /></div>}
       {events.length > 0 && <a className="status-history-link" href="#review-history">Full review history<ArrowRightIcon aria-hidden="true" /></a>}
     </CardContent>
   </Card>;

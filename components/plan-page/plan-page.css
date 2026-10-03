@@ -116,7 +116,6 @@
 .status-steps a:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 40%, transparent); }
 .status-steps small { font-size: 12px; color: var(--muted-foreground); }
 .status-empty { display: grid; gap: 8px; }
-.status-empty p { font-size: 12px; color: var(--muted-foreground); }
 /* Review path diagram: numbered steps on one track, the first (where components start) in the brand green. */
 .review-path { display: block; width: 100%; height: auto; color: color-mix(in srgb, var(--primary) 35%, #fff); }
 .review-path-link { stroke: currentColor; stroke-width: 1.5; stroke-dasharray: 3 3; }
