@@ -100,7 +100,7 @@ export default function DashboardPage() {
     gscci: dashboardPlans.reduce((sum, plan) => sum + (plan.gscciBudget ?? 0), 0),
     curriculum: dashboardPlans.reduce((sum, plan) => sum + (plan.curriculumBudget ?? 0), 0),
   };
-  const selectedAreas = investmentFilters.areas.length ? investmentFilters.areas : ["infrastructure", "sports", "sbmc", "tlm", "monitoring", "gscci", "curriculum"] as InvestmentArea[];
+  const allAreas: InvestmentArea[] = ["infrastructure", "sports", "sbmc", "tlm", "monitoring", "gscci", "curriculum"];
   const visiblePlans = dashboardPlans.filter((p) => `${planPeriod(p)} action plan ${p.status}`.includes(query.toLowerCase().trim()) || (/^\d{4}$/.test(query.trim()) && Number(query) >= p.startYear && Number(query) <= p.endYear));
   const unavailable = loading || Boolean(error);
 
@@ -140,7 +140,7 @@ export default function DashboardPage() {
           <div className="investment-filter-bar"><InvestmentFilter plans={plans} value={investmentFilters} onChange={setInvestmentFilters} /></div>
           <div className="dashboard-aside-content">
           <Card className="budget-allocation"><CardHeader><CardTitle><h2>Where your plans invest</h2></CardTitle><CardDescription>{activeInvestmentFilters ? `${dashboardPlans.length} matching ${dashboardPlans.length === 1 ? "plan" : "plans"}` : "Share of each component's funding already proposed"}</CardDescription></CardHeader><CardContent>
-            <ComponentBudgets plans={dashboardPlans} areas={selectedAreas} amounts={areaAmounts} totalFunding={totalFunding} unavailable={unavailable} />
+            <ComponentBudgets plans={dashboardPlans} areas={allAreas} amounts={areaAmounts} totalFunding={totalFunding} unavailable={unavailable} selected={investmentFilters.areas} onToggle={area => setInvestmentFilters(current => ({ ...current, areas: current.areas.length === 1 && current.areas[0] === area ? [] : [area] }))} />
           </CardContent></Card>
           {!unavailable && <RecentActivity items={recentActivity} />}
           </div>

@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import type { InvestmentArea } from '@/components/investment-filter';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { componentEnvelope } from '@/lib/funding-policy';
 import type { PlanOverview } from '@/lib/action-plans';
 
@@ -25,7 +26,11 @@ type Tile = { area: InvestmentArea; amount: number; ceiling: number; share: numb
  * "Where your plans invest" as sized tiles: each component with proposals shows how much of its funding
  * ceiling (across the shown plans) is already proposed. Components with nothing proposed collapse into one line.
  */
-export function ComponentBudgets({ plans, areas, amounts, totalFunding, unavailable }: { plans: PlanOverview[]; areas: InvestmentArea[]; amounts: Record<InvestmentArea, number>; totalFunding: number; unavailable: boolean }) {
+export function ComponentBudgets({ plans, areas, amounts, totalFunding, unavailable, selected = [], onToggle }: {
+  plans: PlanOverview[]; areas: InvestmentArea[]; amounts: Record<InvestmentArea, number>; totalFunding: number; unavailable: boolean;
+  /** Components the dashboard is filtered to; clicking a tile toggles it. */
+  selected?: InvestmentArea[]; onToggle?: (area: InvestmentArea) => void;
+}) {
   const total = areas.reduce((sum, area) => sum + amounts[area], 0);
   const tiles: Tile[] = areas.filter(area => amounts[area] > 0).map(area => {
     const ceiling = plans.reduce((sum, plan) => sum + Number(componentEnvelope(plan, area) ?? 0), 0);
@@ -39,18 +44,31 @@ export function ComponentBudgets({ plans, areas, amounts, totalFunding, unavaila
       <strong>{unavailable ? '—' : compact.format(total)}</strong>
       <span>{unavailable ? 'Unavailable' : overall === null ? 'proposed' : <>proposed · <b>{overall}%</b> of {compact.format(totalFunding)}</>}</span>
     </div>
-    {!unavailable && tiles.length > 0 && <ul className="component-tiles">
+    {!unavailable && tiles.length > 0 && <ul className="component-tiles" data-filtered={selected.length > 0 || undefined}>
       {tiles.map(tile => {
-        const { label, fill, ink } = componentPalette[tile.area];
+        const { label, fill, ink } = componentPalette[tile.area], on = selected.includes(tile.area);
         // The column is the ceiling; the solid block rises to the share proposed (never so short the text cannot fit).
         const level = tile.share === null ? 100 : Math.max(Math.min(tile.share, 100), 60);
-        return <li key={tile.area} title={`${label}: ${compact.format(tile.amount)}${tile.share === null ? '' : ` of ${compact.format(tile.ceiling)}`}`} style={{ '--tile-fill': fill, '--tile-ink': ink } as CSSProperties}
-          aria-label={`${label}: ${compact.format(tile.amount)} proposed${tile.share === null ? '' : `, ${tile.share}% of ${compact.format(tile.ceiling)}`}`}>
-          <div className="tile-block" style={{ height: `${level}%` }}>
-            <p className="tile-share">{tile.share === null ? compact.format(tile.amount) : <>{tile.share}<small>%</small></>}</p>
-            <p className="tile-label">{label}</p>
-            <p className="tile-amount">{compact.format(tile.amount)}</p>
-          </div>
+        const left = Math.max(tile.ceiling - tile.amount, 0);
+        return <li key={tile.area} data-selected={on || undefined} style={{ '--tile-fill': fill, '--tile-ink': ink } as CSSProperties}>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button type="button" aria-pressed={on} onClick={() => onToggle?.(tile.area)}
+                aria-label={`${label}: ${compact.format(tile.amount)} proposed${tile.share === null ? '' : ` of ${compact.format(tile.ceiling)}, ${compact.format(left)} left`}. ${on ? 'Showing only plans with it; select to show all plans' : 'Select to show only plans with it'}`}>
+                <span className="tile-block" style={{ height: `${level}%` }}>
+                  <span className="tile-share">{tile.share === null ? compact.format(tile.amount) : <>{tile.share}<small>%</small></>}</span>
+                  <span className="tile-label">{label}</span>
+                  <span className="tile-amount">{compact.format(tile.amount)}</span>
+                </span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6} className="tile-tip">
+              <strong>{label}</strong>
+              <span>{compact.format(tile.amount)} proposed{tile.share === null ? '' : ` of ${compact.format(tile.ceiling)}`}</span>
+              {tile.share !== null && <span>{compact.format(left)} left</span>}
+              <small>{on ? 'Click to show all plans' : 'Click to show plans with it'}</small>
+            </TooltipContent>
+          </Tooltip>
         </li>;
       })}
     </ul>}

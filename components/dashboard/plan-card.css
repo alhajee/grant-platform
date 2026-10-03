@@ -20,7 +20,15 @@
 /* Tick gauge: 32 slim bars, coloured by component up to the proposed amount. */
 .plan-proposed { margin-top: 14px; }
 .plan-gauge { display: flex; gap: 3px; height: 18px; }
-.plan-gauge span { flex: 1; border-radius: 2px; background: #ecefe2; }
+.plan-gauge span { flex: 1; border-radius: 2px; background: #ecefe2; transition: transform 150ms ease, opacity 150ms ease; }
+.gauge-group { display: flex; flex-basis: 0; gap: 3px; min-width: 0; padding: 0; border: 0; border-radius: 3px; background: none; cursor: default; outline: none; }
+.gauge-group:focus-visible { box-shadow: 0 0 0 2px #fff, 0 0 0 4px color-mix(in srgb, var(--ring) 60%, transparent); }
+.plan-gauge[data-active] .gauge-group:not([data-current]) span { opacity: .32; }
+.plan-gauge .gauge-group[data-current] span { transform: scaleY(1.18); }
+.gauge-tip { display: flex; align-items: center; gap: 6px; }
+.gauge-tip-swatch { width: 8px; height: 8px; border-radius: 2px; }
+.gauge-tip b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.gauge-tip small { opacity: .7; font-variant-numeric: tabular-nums; }
 .plan-proposed p { display: flex; align-items: baseline; gap: 4px; margin-top: 8px; font-size: 13px; color: var(--muted-foreground); }
 .plan-proposed p strong { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
 .plan-proposed p span { margin-left: auto; font-variant-numeric: tabular-nums; }

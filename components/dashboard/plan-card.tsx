@@ -1,6 +1,7 @@
 'use client';
 import './plan-card.css';
 
+import { useState } from 'react';
 import { ArrowUpRightIcon, HandCoinsIcon, PencilIcon, SchoolIcon } from 'lucide-react';
 import { componentPalette } from '@/components/dashboard/component-budgets';
 import { OtherFundingInfo } from '@/components/funding-sources-field';
@@ -9,6 +10,7 @@ import { PlanCardGuilloche, planCardTilt } from '@/components/plan-card-surface'
 import { PlanStatusBadge } from '@/components/plan-status';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { planHref, planPeriod, type PlanOverview } from '@/lib/action-plans';
 import { statePlanOpen } from '@/lib/pillar-review';
 import { otherFundingTotal } from '@/lib/plan-setup';
@@ -36,20 +38,42 @@ function Amount({ value }: { value: number }) {
 
 const planAmounts = (plan: PlanOverview): Record<InvestmentArea, number> => ({ infrastructure: plan.infrastructureBudget, tlm: plan.tlmBudget ?? 0, sports: plan.sportsBudget, sbmc: plan.sbmcBudget ?? 0, curriculum: plan.curriculumBudget ?? 0, monitoring: plan.monitoringBudget ?? 0, gscci: plan.gscciBudget ?? 0 });
 
+type GaugeGroup = { area: InvestmentArea | null; ticks: number; amount: number };
+
+/** Ticks per component (at least one each, so small components still show), then the unspent rest. */
+function gaugeGroups(plan: PlanOverview, funding: number): GaugeGroup[] {
+  const amounts = planAmounts(plan), base = Math.max(funding, plan.budget, 1);
+  const parts = mixOrder.filter(area => amounts[area] > 0).map(area => ({ area, amount: amounts[area], ticks: Math.max(1, Math.round(amounts[area] / base * TICKS)) }));
+  while (parts.reduce((sum, part) => sum + part.ticks, 0) > TICKS) { const largest = parts.reduce((max, part) => part.ticks > max.ticks ? part : max); largest.ticks -= 1; }
+  const used = parts.reduce((sum, part) => sum + part.ticks, 0);
+  return [...parts, ...(used < TICKS ? [{ area: null, amount: Math.max(funding - plan.budget, 0), ticks: TICKS - used }] : [])];
+}
+
 /**
- * Proposed spend as a tick gauge: each tick is 1/32 of the available funding, coloured by the component
- * whose proposals reach that far; unspent ticks stay pale.
+ * Proposed spend as a tick gauge: 32 ticks of the available funding, grouped by component. Hovering or
+ * focusing a group highlights it and shows its amount; the pale group is what is still unallocated.
  */
 function FundingGauge({ plan, funding }: { plan: PlanOverview; funding: number }) {
-  const amounts = planAmounts(plan), base = Math.max(funding, plan.budget, 1);
-  const parts = mixOrder.filter(area => amounts[area] > 0);
-  const ends = parts.reduce<number[]>((list, area) => [...list, (list.at(-1) ?? 0) + amounts[area]], []);
-  const ticks = Array.from({ length: TICKS }, (_, index) => {
-    const at = (index + 0.5) / TICKS * base, slot = ends.findIndex(end => at <= end);
-    return slot === -1 ? null : parts[slot];
-  });
-  return <div className="plan-gauge" role="img" aria-label={`Proposed by component: ${parts.map(area => `${componentPalette[area].label} ${compact.format(amounts[area])}`).join(', ')}`}>
-    {ticks.map((area, index) => <span key={index} title={area ? `${componentPalette[area].label}: ${compact.format(amounts[area])}` : undefined} style={area ? { background: componentPalette[area].fill } : undefined} />)}
+  const [active, setActive] = useState<string | null>(null);
+  const groups = gaugeGroups(plan, funding);
+  const percent = (amount: number) => funding > 0 ? `${Math.round(amount / funding * 100)}%` : '';
+  return <div className="plan-gauge" data-active={active ?? undefined} onPointerLeave={() => setActive(null)}>
+    {groups.map(group => {
+      const key = group.area ?? 'unallocated', label = group.area ? componentPalette[group.area].label : 'Not yet proposed';
+      return <Tooltip key={key} delayDuration={0} open={active === key} onOpenChange={open => setActive(current => open ? key : current === key ? null : current)}>
+        <TooltipTrigger asChild>
+          <button type="button" className="gauge-group" data-key={key} data-current={active === key || undefined} style={{ flexGrow: group.ticks }}
+            aria-label={`${label}: ${compact.format(group.amount)}${percent(group.amount) ? `, ${percent(group.amount)} of funding` : ''}`}
+            onPointerEnter={() => setActive(key)} onFocus={() => setActive(key)} onBlur={() => setActive(null)}>
+            {Array.from({ length: group.ticks }, (_, index) => <span key={index} style={group.area ? { background: componentPalette[group.area].fill } : undefined} />)}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={8} className="gauge-tip">
+          <span className="gauge-tip-swatch" style={{ background: group.area ? componentPalette[group.area].fill : '#dfe3d3' }} />
+          <span>{label}</span><b>{compact.format(group.amount)}</b>{percent(group.amount) && <small>{percent(group.amount)}</small>}
+        </TooltipContent>
+      </Tooltip>;
+    })}
   </div>;
 }
 
