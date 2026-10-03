@@ -194,3 +194,9 @@
 .wb-comments-item[data-ubec] { box-shadow: inset 3px 0 0 #1a73e8; }
 .wb-comments-sources { margin-top: 8px; }
 .plan-workbook-ubec-count { border: 0; display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .02em; font-variant-numeric: tabular-nums; color: var(--wb-ubec-ink); background: color-mix(in srgb, var(--wb-ubec) 16%, var(--background)); }
+/* The workbook is the page's main surface: crisp white cells, a light header and gutter, and a lifted card edge. */
+.plan-workbook[data-slot=card]:not([data-expanded]) { border-color: rgb(0 50 40 / 14%); background: #fff; box-shadow: 0 1px 2px rgb(0 40 30 / 6%), 0 20px 44px -26px rgb(0 40 30 / 30%); }
+.plan-workbook { --wb-gutter-bg: #f4f6f3; --wb-grid-line: #e7ebe7; }
+.plan-workbook .wb-scroll { background: #fff; }
+.plan-workbook .wb-grid tbody td { background: #fff; }
+.plan-workbook .wb-grid tbody tr:not(.has-row-comment):hover > td:not(.is-selected):not(.has-comment) { background: #f3f8f5; }
