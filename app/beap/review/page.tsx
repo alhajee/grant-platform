@@ -21,11 +21,14 @@ import type { PlanReview } from '@/lib/plan-review';
 import { componentSections, implementedPillars, subebComponentDepartments as pillarDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
 import { mayEditPillar, statePlanOpen, type PillarReview } from '@/lib/pillar-review';
 import { summarizeSnapshot } from '@/lib/plan-summary';
+import { componentReadinessProblem, hasReadinessRules } from '@/lib/component-readiness';
 import { hasDepartment } from '@/lib/user-departments';
 import { usePlanComments } from '@/components/plan-workbook/comments-context';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
+// Quality Assurance and ICT: compulsory activities, line schools and documents must be in place before any send step.
+const readiness = (data: PlanReview, pillar: ImplementedPillar) => hasReadinessRules(pillar) ? componentReadinessProblem(pillar, data.snapshot[pillar] ?? []) : null;
 const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (pillar === 'tlm' && !data.snapshot.tlmDistribution?.length) || (pillar === 'curriculum' && !data.snapshot.curriculumDistribution?.length);
 
 /** The plan page: summary, components, workflow steps, the plan workbook and its review history. */
@@ -95,9 +98,9 @@ export default function PlanPage() {
     if (!data || !open) return actions;
     const owns = hasDepartment(data.departments, pillarDepartments[pillar]);
     // Nothing saved yet means nothing to send: the card then only offers its editor.
-    if (data.role === 'Data Entry Staff' && owns && ['draft', 'changes_requested'].includes(status)) return nothingToSend(data, pillar) ? actions : { ...actions, step: { label: 'Send to Director', run: () => setRequest({ action: 'submit', pillar }) } };
-    if (data.role === 'Director' && !data.isBeapChair && owns && status === 'director_review') return { ...actions, step: { label: 'Send to BEAP Chair', run: () => setRequest({ action: 'endorse', pillar }) } };
-    if (data.role === 'Director' && data.isBeapChair && status === 'beap_review' && data.beapChairSubmissionMode === 'individual_components') return { ...actions, step: { label: 'Send to Executive Chairman', run: () => setRequest({ action: 'forward', pillar }) } };
+    if (data.role === 'Data Entry Staff' && owns && ['draft', 'changes_requested'].includes(status)) return nothingToSend(data, pillar) ? actions : { ...actions, step: { label: 'Send to Director', run: () => setRequest({ action: 'submit', pillar }), blocked: readiness(data, pillar) } };
+    if (data.role === 'Director' && !data.isBeapChair && owns && status === 'director_review') return { ...actions, step: { label: 'Send to BEAP Chair', run: () => setRequest({ action: 'endorse', pillar }), blocked: readiness(data, pillar) } };
+    if (data.role === 'Director' && data.isBeapChair && status === 'beap_review' && data.beapChairSubmissionMode === 'individual_components') return { ...actions, step: { label: 'Send to Executive Chairman', run: () => setRequest({ action: 'forward', pillar }), blocked: readiness(data, pillar) } };
     return actions;
   };
   const workbookLinks = data ? Object.fromEntries(implementedPillars.map(p => [`${p}EditHref`, editHref(p)])) : {};

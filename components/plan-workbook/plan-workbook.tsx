@@ -23,8 +23,8 @@ const hashSheet = (hash: string, sheets: WorkbookSheet[]) => sheets.find(s => `#
 export type RequestChangesHandlers = Partial<Record<ImplementedPillar, () => void>>;
 
 export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null, requestChanges = {} }: { snapshot: Snapshot; visiblePillars: readonly string[]; links: SheetLinks; comments?: CommentsController | null; requestChanges?: RequestChangesHandlers }) {
-  const { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref } = links;
-  const sheets = useMemo(() => buildSheets(snapshot, visiblePillars, { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref }), [snapshot, visiblePillars, infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref]);
+  const { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref, qualityEditHref, ictEditHref } = links;
+  const sheets = useMemo(() => buildSheets(snapshot, visiblePillars, { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref, qualityEditHref, ictEditHref }), [snapshot, visiblePillars, infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref, qualityEditHref, ictEditHref]);
   const cardRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
   const expandRef = useRef<HTMLButtonElement>(null);

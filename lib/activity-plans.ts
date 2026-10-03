@@ -1,5 +1,6 @@
 import { z } from 'zod';
-export const activityWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum'] as const;
+import { ictActivityNames, qualityActivityNames, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, qualityEquipmentActivity, subscriptionTypes, websiteTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
+export const activityWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict'] as const;
 export type ActivityWorkstream = typeof activityWorkstreams[number];
 export const activityNames = {
   // UBEC's modified allowable social mobilisation activities (Oct 2026); the earlier SBMC list was retired and its lines cleared (migration 037).
@@ -11,7 +12,21 @@ export const activityNames = {
   // Activities from UBEC's environmental and social safeguarding guidance.
   gscci: ['Training on environmental and social safeguarding in schools', 'Awareness and sensitisation campaigns', 'Provision of waste disposal equipment in schools', 'Provision of a well-equipped safe space environment/centre', 'Monitoring and evaluation of safeguarding activities'],
   curriculum: ['Purchase and distribution of copies of the revised NERDC curriculum to schools', 'Capacity building of teachers on the implementation of the revised curriculum', 'Distribution of curriculum to schools', 'Monitoring of implementation of the revised curriculum'],
+  // Quality Assurance and ICT (DDPA) activity forms (migration 038); compulsory ones are in lib/activity-extras.ts.
+  quality: qualityActivityNames,
+  ict: ictActivityNames,
 } as const;
+/** Explanations shown as an info hint beside an activity (Quality Assurance). */
+export const activityInfo: Partial<Record<ActivityWorkstream, Record<number, string>>> = {
+  quality: {
+    0: 'Procurement of motorcycles, vehicles and any other means of transportation, and office equipment.',
+    2: 'Capacity strengthening for Principals and Headteachers on the conduct of school self-evaluation and quality assurance practices and procedures.',
+    3: 'Capacity building for new M&E Officers on quality assurance practices and procedures.',
+    6: 'Conduct of CQA for 9 weeks to visit schools by UBEC, SUBEBs and LGEAs for evaluation of 324 schools over 3 terms (108 schools per term).',
+    8: 'Follow-up by UBEC, SUBEB and LGEAs for evaluation of 162 schools.',
+  },
+  ict: { 2: 'All Model Smart Schools lines together may use up to ₦30,000,000.' },
+};
 /** Per-activity caps as a share of the component envelope, in basis points: Curriculum (UBEC30-32) and SBMC monitoring (5%). */
 export const activityShareCaps: Partial<Record<ActivityWorkstream, Record<number, number>>> = { curriculum: { 0: 6000, 1: 2000, 2: 1000, 3: 1000 }, sbmc: { 12: 500 } };
 export const curriculumActivityShares = [6000, 2000, 1000, 1000] as const;
@@ -21,7 +36,7 @@ export type DistributionWorkstream = typeof distributionWorkstreams[number];
 export const hasDistribution = (workstream: string): workstream is DistributionWorkstream => (distributionWorkstreams as readonly string[]).includes(workstream);
 /** Workstreams that collect documents in component_documents (the Supervision & Monitoring proforma invoices). */
 export const documentWorkstreams = ['monitoring'] as const;
-export const activityTitles: Record<ActivityWorkstream, string> = { sbmc: 'SBMC', tlm: 'Teaching & Learning Materials', monitoring: 'Supervision & Monitoring', gscci: 'Greening Schools, Climate Change & Safeguards', curriculum: 'Curriculum' };
+export const activityTitles: Record<ActivityWorkstream, string> = { sbmc: 'SBMC', tlm: 'Teaching & Learning Materials', monitoring: 'Supervision & Monitoring', gscci: 'Greening Schools, Climate Change & Safeguards', curriculum: 'Curriculum', quality: 'Quality Assurance', ict: 'ICT' };
 /** Example items shown under each TLM checklist activity. */
 export const activityHints: Partial<Record<ActivityWorkstream, Record<number, string>>> = {
  sbmc: {0: 'Mapping, profiling and other activities to identify and support out-of-school children', 1: 'State-level capacity building, and training for SBMCs and CBMCs', 2: 'School Improvement Programme and Centre Improvement Programme, consolidated', 3: 'Advocacy and sensitisation in marketplaces, communities and with other target groups', 4: 'Town hall meetings and other structured community engagement', 5: 'Engaging relevant stakeholders in support of social mobilisation and basic education', 6: 'Enrolment campaigns and drives, with post-enrolment follow-up', 7: 'Part of the HOPE-EDU initiative', 8: 'Radio programmes, jingles, media advocacy and media sensitisation', 9: 'Development and production of posters and IEC materials', 10: 'Retained as an allowable intervention', 11: 'Starter kits and other learner retention support', 12: 'Monitoring, tracking, accountability and related M&E (up to 5% of the SBMC allocation)', 13: 'Community-based data collection and reporting', 14: 'Scope and classification to be confirmed by UBEC', 15: 'Working tools and materials for social mobilisation' },
@@ -29,7 +44,7 @@ export const activityHints: Partial<Record<ActivityWorkstream, Record<number, st
  tlm: {
   5: 'English Studies, Mathematics, Basic Science/Technology, Social Studies', 6: 'Story books, supplementary readers, graded readers', 7: 'Teacher guides, lesson and activity resources', 8: 'Charts, posters, diagrams, maps, globes', 9: 'Flashcards, picture, word and alphabet cards', 10: 'Counting blocks, abacus, number cards, geometric shapes, manipulatives', 11: 'Models, specimens, magnifying glasses, simple microscopes', 12: 'Maps, globes, charts, models', 13: 'Models, demonstration materials, practical learning resources', 14: 'Basic computers and learning resources', 15: 'Educational games', 16: 'Blackboards, whiteboards, rulers, protractors, scales', 17: 'Art and craft supplies', 18: 'Radios, tape recorders, CD players', 19: 'Tablets, where justified', 20: 'Overhead projectors', 21: 'Smart interactive boards', 22: 'Must be justified and meet UBEC standards',
 } };
-export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22], monitoring: [0,1,2,3], gscci: [0,1,2,3,4], curriculum: [0,1,2,3] } as const;
+export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22], monitoring: [0,1,2,3], gscci: [0,1,2,3,4], curriculum: [0,1,2,3], quality: [0,1,2,3,4,5,6,7,8,9,10], ict: [0,1,2,3,4,5,6,7,8] } as const;
 /** The selectable "other" activity that needs a custom name. */
 export const otherActivityIndex: Partial<Record<ActivityWorkstream, number>> = { tlm: 22 };
 const customActivityIndexes: Partial<Record<ActivityWorkstream, readonly number[]>> = { tlm: [4, 22] };
@@ -54,7 +69,25 @@ export const activityLineSchema = z.object({
   customActivity: z.string().trim().max(160).default(''),
   textbookClasses: z.array(z.enum(textbookClasses)).max(textbookClasses.length).default([]),
   textbookSubject: z.string().max(100).default(''),
+  equipmentType: z.string().max(100).default(''),
+  subscriptionTypes: z.array(z.enum(subscriptionTypes)).max(subscriptionTypes.length).default([]),
+  websiteType: z.string().max(100).default(''),
+  schoolIds: z.array(z.number().int().positive()).max(maxLineSchools, `Choose up to ${maxLineSchools.toLocaleString()} schools.`).default([]),
 }).superRefine((v,ctx)=>{
+  const needsEquipment=v.workstream==='quality'&&v.activity===qualityEquipmentActivity;
+  if(needsEquipment&&!equipmentTypes.some(t=>t===v.equipmentType))ctx.addIssue({code:'custom',path:['equipmentType'],message:'Choose the equipment type.'});
+  if(!needsEquipment&&v.equipmentType)ctx.addIssue({code:'custom',path:['equipmentType'],message:'Equipment type only applies to Mobility and Office Equipment.'});
+  const needsSubscriptions=v.workstream==='ict'&&v.activity===ictSubscriptionActivity;
+  if(needsSubscriptions&&!v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Choose at least one subscription type.'});
+  if(!needsSubscriptions&&v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Subscription types only apply to internet subscriptions.'});
+  if(new Set(v.subscriptionTypes).size!==v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Choose each subscription type once.'});
+  const needsWebsite=v.workstream==='ict'&&v.activity===ictWebsiteActivity;
+  if(needsWebsite&&!websiteTypes.some(t=>t===v.websiteType))ctx.addIssue({code:'custom',path:['websiteType'],message:'Choose the website type.'});
+  if(!needsWebsite&&v.websiteType)ctx.addIssue({code:'custom',path:['websiteType'],message:'Website type only applies to the website activity.'});
+  const needsSchools=hasLineSchools(v.workstream,v.activity);
+  if(needsSchools&&!v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose at least one school.'});
+  if(!needsSchools&&v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Schools only apply to activities that target schools.'});
+  if(new Set(v.schoolIds).size!==v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose each school once.'});
   if(v.workstream==='sbmc') for(const field of ['rationale','implementationApproach'] as const) if(!v[field])ctx.addIssue({code:'custom',path:[field],message:field==='rationale'?'Enter a rationale.':'Enter an implementation approach.'});
   if(!(selectableActivityIndexes[v.workstream] as readonly number[]).includes(v.activity))ctx.addIssue({code:'custom',path:['activity'],message:'Choose a valid allowable activity.'});
   const isOther=v.activity===otherActivityIndex[v.workstream];
@@ -67,8 +100,8 @@ export const activityLineSchema = z.object({
   if(!isTextbook&&(v.textbookClasses.length||v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Class and subject only apply to textbooks.'});
   if(!Number.isSafeInteger(Math.round(v.unitCost*100)*v.quantity))ctx.addIssue({code:'custom',path:['unitCost'],message:'Line total is too large.'});
 });
-export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number};
-export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string};
+export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number;schools?:LineSchool[];documents?:LineDocument[]};
+export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'|'equipmentType'|'subscriptionTypes'|'websiteType'|'schoolIds'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string;equipment_type?:string;subscription_types?:string[];website_type?:string};
 export type ComponentDocument = {id:string;component:typeof documentWorkstreams[number];name:string;size:number};
 export type DistributionSchool = {id:number;name:string;lga:string;level:string;location:string;enrolment?:number};
 /** Splits a budget (kobo) across schools in proportion to enrolment; remainders go to the largest fractions so shares sum exactly. Empty when no school has learners. */

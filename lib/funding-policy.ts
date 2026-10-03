@@ -29,7 +29,9 @@ export type FundingComponent = typeof fundingComponentIds[number];
 export const fundingComponentLabels: Record<FundingComponent,string> = {infrastructure:'Infrastructure',tlm:'TLM',quality:'Quality Assurance',teachers:'Teacher Development & ICT',sbmc:'SBMC',sports:'Sports',monitoring:'Supervision & Monitoring',curriculum:'Curriculum',planning:'Planning, EMIS & Data',gscci:'Greening, Climate & Safeguarding'};
 export type FundingSource = { id?: number; component: FundingComponent; funder: string; amount: string };
 /** The plan fields the envelope helpers read; every plan loaded with planFields/planSetupFields has them. */
-export type EnvelopePlan = { stateLodgment?: string | null; otherFunding?: string | null; fundingPolicy?: FundingPolicy | null; fundingSources?: readonly FundingSource[] | null };
+export type EnvelopePlan = { stateLodgment?: string | null; otherFunding?: string | null; fundingPolicy?: FundingPolicy | null; fundingSources?: readonly FundingSource[] | null; ictAllocation?: string | null };
+/** Ceilings: every funding component plus ICT, which takes its allocation out of the shared Teacher Development and ICT envelope. */
+export type EnvelopeComponent = FundingComponent | 'ict';
 
 export const toKobo = (amount: string) => { const [whole, fraction = ''] = amount.split('.'); return BigInt(whole || '0') * BigInt(100) + BigInt(fraction.padEnd(2, '0').slice(0, 2)); };
 export const fromKobo = (kobo: bigint) => `${kobo < 0 ? '-' : ''}${(kobo < 0 ? -kobo : kobo) / BigInt(100)}.${String((kobo < 0 ? -kobo : kobo) % BigInt(100)).padStart(2, '0')}`;
@@ -46,10 +48,19 @@ export function sharedEnvelope(plan: EnvelopePlan) {
  * Budget ceiling of one component, in naira as a "123.45" string, or null until the plan funding is set.
  *   ceiling = component's policy share of sharedEnvelope(plan) + sum of the plan's funding sources for that component.
  * TLM gets tlmWithinInfrastructure of the infrastructure share (rounded once); Infrastructure gets the remainder.
- * 'teachers' is the shared Teacher Development and ICT allocation. Other components are unaffected by a source.
+ * 'teachers' is the shared Teacher Development and ICT envelope (teachersSharedEnvelope) less ICT's allocation, and
+ * 'ict' is that allocation (plan.ictAllocation, null until the ICT editor sets it). Other components are unaffected by a source.
  * Example: componentEnvelope(plan, 'monitoring'), with `plan` from resolveActionPlan/planFields or a snapshot's setup.
  */
-export function componentEnvelope(plan: EnvelopePlan, component: FundingComponent) {
+export function componentEnvelope(plan: EnvelopePlan, component: EnvelopeComponent) {
+  if (component === 'ict') return sharedEnvelope(plan) == null || plan.ictAllocation == null ? null : fromKobo(toKobo(plan.ictAllocation));
+  const ceiling = fundingEnvelope(plan, component);
+  if (ceiling == null || component !== 'teachers') return ceiling;
+  return fromKobo(toKobo(ceiling) - toKobo(plan.ictAllocation ?? '0'));
+}
+/** The whole Teacher Development and ICT envelope (policy share plus 'teachers' funding sources) that ICT and Teacher Development share. */
+export const teachersSharedEnvelope = (plan: EnvelopePlan) => fundingEnvelope(plan, 'teachers');
+function fundingEnvelope(plan: EnvelopePlan, component: FundingComponent) {
   const shared = sharedEnvelope(plan);
   if (shared == null) return null;
   const allocation = plan.fundingPolicy?.allocation ?? defaultAllocation;

@@ -14,7 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { CurrencyInput } from '@/components/currency-input';
 import { FieldHelp } from '@/components/field-help';
 import { FundingSourcesField, draftSourceErrors, fromDraftSources, toDraftSources, type DraftSource } from '@/components/funding-sources-field';
-import { envelopeShortfalls, fundingTotal, implementationYearError, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
+import { envelopeShortfalls, fundingTotal, sharedBelowIctProblem, implementationYearError, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
 import type { FundingComponent, FundingSource } from '@/lib/funding-policy';
 import type { ActionPlan } from '@/lib/action-plans';
 
@@ -65,8 +65,9 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
   const sourceErrors = draftSourceErrors(sources);
   const parsed = planEditSchema.safeParse(input());
   const shortfalls = data && parsed.success && validLodgment && lodgment ? envelopeShortfalls(data.plan, { ...data.plan, stateLodgment: lodgment, fundingSources }, data.proposed) : [];
+  const ictProblem = data && parsed.success && validLodgment && lodgment ? sharedBelowIctProblem({ ...data.plan, stateLodgment: lodgment, fundingSources }) : null;
   const implementationError = errors.implementationYear || (year.length === 4 && implementation.length === 4 ? implementationYearError(Number(year), Number(implementation)) : '');
-  const canSave = !!data && !locked && parsed.success && !Object.keys(sourceErrors).length && !shortfalls.length;
+  const canSave = !!data && !locked && parsed.success && !Object.keys(sourceErrors).length && !shortfalls.length && !ictProblem;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -75,7 +76,7 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
     if (!parsed.success) for (const issue of parsed.error.issues) issues[String(issue.path[0])] = issue.message;
     if (Object.keys(sourceErrors).length) issues.fundingSources = 'Complete or remove each other funding source.';
     setErrors(issues);
-    if (!parsed.success || Object.keys(issues).length || shortfalls.length) return;
+    if (!parsed.success || Object.keys(issues).length || shortfalls.length || ictProblem) return;
     pending.current = true; setSaving(true);
     try {
       const response = await fetch('/api/plans/setup', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed.data) });
@@ -124,6 +125,7 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
                 {errors.fundingSources && <FieldError>{errors.fundingSources}</FieldError>}
               </FieldGroup></FieldSet>
             </FieldGroup>
+            {ictProblem && <Alert variant="destructive"><AlertTitle>Funding is below ICT’s allocation</AlertTitle><AlertDescription>{ictProblem}</AlertDescription></Alert>}
             {shortfalls.length > 0 && <Alert variant="destructive"><AlertTitle>Funding is below what is already proposed</AlertTitle><AlertDescription><ul className="list-disc pl-4">{shortfalls.map(s => <li key={s.component}>{shortfallMessage(s)}</li>)}</ul></AlertDescription></Alert>}
           </>}
         </div>

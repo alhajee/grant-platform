@@ -16,19 +16,22 @@ function load(path) {
 }
 const { mayEditPillar, readyForExecutiveChairman, readyForUbec, readyForUbecSubmission, ubecSubmissionSnapshot, aggregateReviewStatus } = load('lib/pillar-review.ts');
 const { beapPillars, implementedPillars } = load('lib/beap-pillars.ts');
-// The activity-line components (migration 036) follow the Sports status unless a test sets them.
+// The activity-line components (migrations 036 and 038) follow the Sports status unless a test sets them.
 const reviews = (infrastructure, sports, sbmc= sports, tlm= sports, rest = sports) => [
   { pillar: 'infrastructure', status: infrastructure }, { pillar: 'sports', status: sports },
   { pillar: 'sbmc', status: sbmc }, { pillar: 'tlm', status: tlm },
-  ...['monitoring', 'gscci', 'curriculum'].map(pillar => ({ pillar, status: rest })),
+  ...['monitoring', 'gscci', 'curriculum', 'quality', 'ict'].map(pillar => ({ pillar, status: rest })),
 ];
 const completeSnapshot = {
   infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1}}}], sports:[{}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}], monitoring:[{}], gscci:[{}], curriculum:[{}], curriculumDistribution:[{}],
+  // Quality Assurance and ICT: every compulsory activity, line schools and line documents (migration 038).
+  quality:[2,3,6,7,8,9,10].map(activity=>({id:activity,activity,description:'QA'})),
+  ict:[{id:12,activity:2,description:'Smart',schools:[{id:1}]},{id:13,activity:3,description:'Connect',documents:[{id:'d'}]},{id:16,activity:6,description:'Website'}],
   infrastructureDocuments:[{kind:'drawings'},{kind:'boq',schoolId:1},{kind:'survey',schoolId:1}],
 };
 assert.equal(beapPillars.length, 9);
 assert.equal(beapPillars.reduce((sum,p) => sum+p.share,0), 100);
-assert.deepEqual(implementedPillars, ['infrastructure','sports','sbmc','tlm','monitoring','gscci','curriculum']);
+assert.deepEqual(implementedPillars, ['infrastructure','sports','sbmc','tlm','monitoring','gscci','curriculum','quality','ict']);
 for (const locked of ['submitted_ubec','ubec_review','ubec_approved']) {
   assert.equal(mayEditPillar('Director','physical','infrastructure',locked,reviews('director_review','draft')),false);
   assert.equal(mayEditPillar('Data Entry Staff','physical','infrastructure',locked,reviews('draft','draft')),false);
@@ -58,6 +61,11 @@ assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...complet
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),completeSnapshot),true);
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,curriculumDistribution:[]}),false);
 assert.equal(readyForExecutiveChairman(reviews('beap_review','beap_review','beap_review','beap_review','draft'),completeSnapshot),false);
+// Quality Assurance and ICT readiness: compulsory activities and line documents.
+assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,quality:completeSnapshot.quality.slice(1)}),false);
+assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,ict:[...completeSnapshot.ict.slice(0,1),{id:13,activity:3,description:'Connect'},...completeSnapshot.ict.slice(2)]}),false);
+assert.equal(readyForExecutiveChairman(reviews('beap_review','beap_review'),{...completeSnapshot,ict:completeSnapshot.ict.slice(1)}),false);
+assert.equal(readyForUbecSubmission('reviewed_components',reviews('draft','draft','draft','draft','chairman_ready'),{...completeSnapshot,ict:[]}),false);
 // The UBEC submission setting: complete plans only, or whatever reached the Executive Chairman.
 assert.equal(readyForUbecSubmission('complete_plan',reviews('chairman_ready','draft'),completeSnapshot),false);
 assert.equal(readyForUbecSubmission('complete_plan',reviews('chairman_ready','chairman_ready'),completeSnapshot),true);

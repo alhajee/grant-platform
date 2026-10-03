@@ -24,11 +24,13 @@ export function summarizeSnapshot(snapshot: Snapshot): PlanTotals {
     sports: snapshot.sports.flatMap(line => line.allocations.map(allocation => schoolKey(allocation.school))),
     tlm: (snapshot.tlmDistribution ?? []).map(schoolKey),
     curriculum: (snapshot.curriculumDistribution ?? []).map(schoolKey),
-    sbmc: [], monitoring: [], gscci: [],
+    ict: (snapshot.ict ?? []).flatMap(line => (line.schools ?? []).map(schoolKey)),
+    sbmc: [], monitoring: [], gscci: [], quality: [],
   };
   const lines: Record<ImplementedPillar, readonly Costed[]> = {
     infrastructure: snapshot.infrastructure, sports: snapshot.sports, sbmc: snapshot.sbmc ?? [], tlm: snapshot.tlm ?? [],
     monitoring: snapshot.monitoring ?? [], gscci: snapshot.gscci ?? [], curriculum: snapshot.curriculum ?? [],
+    quality: snapshot.quality ?? [], ict: snapshot.ict ?? [],
   };
   const parts = Object.fromEntries(implementedPillars.map(pillar => [pillar, summarize(lines[pillar], schools[pillar])])) as Record<ImplementedPillar, PillarSummary>;
   const total: PillarSummary = {

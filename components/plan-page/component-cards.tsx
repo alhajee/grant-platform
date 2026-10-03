@@ -21,7 +21,7 @@ import { commentCount, ubecCount } from './review-action-dialog';
 
 
 /** What the viewer can do with one component card: open its editor, and the workflow step they hold (if any). */
-export type CardActions = { editHref?: string; step?: { label: string; run: () => void } };
+export type CardActions = { editHref?: string; step?: { label: string; run: () => void; /** Why the step cannot run yet (Quality Assurance and ICT readiness); the button is then disabled. */ blocked?: string | null } };
 
 type CardProps = { plan: PlanReview['plan']; review: PillarReview; summary: PlanTotals[ImplementedPillar]; comments: CommentsController | null; actions: CardActions };
 
@@ -53,7 +53,9 @@ function ComponentCard({ plan, review, summary, comments, actions }: CardProps) 
       {actions.editHref && <Tooltip><TooltipTrigger asChild><Button asChild variant="ghost" size="icon-sm" className="component-card-sheet rounded-full"><a href={sheet} aria-label={`View ${section.name} in the workbook`}><Sheet /></a></Button></TooltipTrigger><TooltipContent side="top" className="soft-tip">View in the workbook</TooltipContent></Tooltip>}
       {own > 0 && <a className="review-open-comments" href={sheet} title={commentCount(own)}><MessageSquareTextIcon aria-hidden="true" />{own}<span className="sr-only"> open {own === 1 ? 'comment' : 'comments'}</span></a>}
       {ubec > 0 && <a className="review-open-comments review-ubec-comments" href={sheet} title={ubecCount(ubec)}><MessageSquareTextIcon aria-hidden="true" />UBEC {ubec}<span className="sr-only"> open {ubec === 1 ? 'comment' : 'comments'} shared by UBEC</span></a>}
-      {actions.step && <Button size="sm" className="component-card-step rounded-full" onClick={actions.step.run}>{actions.step.label}</Button>}
+      {actions.step && (actions.step.blocked
+        ? <Tooltip><TooltipTrigger asChild><span className="relative z-[1] ml-auto" tabIndex={0}><Button size="sm" className="h-[30px] rounded-full text-[13px]" disabled aria-describedby={`blocked-${pillar}`}>{actions.step.label}</Button></span></TooltipTrigger><TooltipContent side="top" className="soft-tip max-w-xs" id={`blocked-${pillar}`}>{actions.step.blocked}</TooltipContent></Tooltip>
+        : <Button size="sm" className="component-card-step rounded-full" onClick={actions.step.run}>{actions.step.label}</Button>)}
     </div>}
   </li>;
 }

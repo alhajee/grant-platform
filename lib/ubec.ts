@@ -14,7 +14,7 @@ export const departments = [
   { id: 'social', name: 'Social Mobilization' },
   { id: 'zonal', name: 'Zonal and State Offices' },
 ] as const;
-export const pillarDepartments: Record<PillarId, string> = { infrastructure: 'physical', tlm: 'academic', quality: 'quality', teachers: 'teachers', sbmc: 'social', sports: 'academic', monitoring: 'physical', curriculum: 'academic', planning: 'planning', gscci: 'academic' };
+export const pillarDepartments: Record<PillarId, string> = { infrastructure: 'physical', tlm: 'academic', quality: 'quality', teachers: 'teachers', sbmc: 'social', sports: 'academic', monitoring: 'physical', curriculum: 'academic', planning: 'planning', gscci: 'academic', ict: 'teachers' };
 export const isUbec = (role: string) => ['UBEC Executive Secretary', 'UBEC Department Reviewer'].includes(role);
 export const departmentName = (id: string) => departments.find(d => d.id === id)?.name ?? id;
 export const activePillars = (snapshot: Snapshot) => implementedPillars.filter(p => (snapshot[p]?.length ?? 0) > 0);

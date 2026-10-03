@@ -6,7 +6,8 @@ import { getPostgres } from '@/lib/postgres';
 import { activePillars, departments, isUbec, type UbecRound, type UbecAssignment } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
-import { readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot } from '@/lib/pillar-review';
+import { readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
+import { componentReadinessProblem } from '@/lib/component-readiness';
 import { readUbecSubmissionMode } from '@/lib/workflow-settings';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       let assignments: UbecAssignment[] = [];
       if (round) assignments = (await db.query<UbecAssignment>(`SELECT * FROM ubec_assignments WHERE round_id=$1 ${reviewer ? 'AND department=$2' : ''} ORDER BY pillar,department`, reviewer ? [round.id, user.department] : [round.id])).rows;
       if (!national && round && !['returned','approved'].includes(round.status)) assignments = [];
-      const snapshot = round ? reviewer ? { setup: round.snapshot.setup, infrastructureDocuments: assignments.some(a=>a.pillar==='infrastructure') ? round.snapshot.infrastructureDocuments : undefined, infrastructure: assignments.some(a => a.pillar === 'infrastructure') ? round.snapshot.infrastructure : [], sports: assignments.some(a => a.pillar === 'sports') ? round.snapshot.sports : [], sbmc: assignments.some(a=>a.pillar==='sbmc') ? round.snapshot.sbmc ?? [] : [], tlm: assignments.some(a=>a.pillar==='tlm') ? round.snapshot.tlm ?? [] : [], tlmDistribution: assignments.some(a=>a.pillar==='tlm') ? round.snapshot.tlmDistribution ?? [] : [], monitoring: assignments.some(a=>a.pillar==='monitoring') ? round.snapshot.monitoring ?? [] : [], gscci: assignments.some(a=>a.pillar==='gscci') ? round.snapshot.gscci ?? [] : [], curriculum: assignments.some(a=>a.pillar==='curriculum') ? round.snapshot.curriculum ?? [] : [], curriculumDistribution: assignments.some(a=>a.pillar==='curriculum') ? round.snapshot.curriculumDistribution ?? [] : [], componentDocuments: (round.snapshot.componentDocuments ?? []).filter(d=>assignments.some(a=>a.pillar===d.component)) } : round.snapshot : null;
+      const snapshot = round ? reviewer ? { setup: round.snapshot.setup, infrastructureDocuments: assignments.some(a=>a.pillar==='infrastructure') ? round.snapshot.infrastructureDocuments : undefined, infrastructure: assignments.some(a => a.pillar === 'infrastructure') ? round.snapshot.infrastructure : [], sports: assignments.some(a => a.pillar === 'sports') ? round.snapshot.sports : [], sbmc: assignments.some(a=>a.pillar==='sbmc') ? round.snapshot.sbmc ?? [] : [], tlm: assignments.some(a=>a.pillar==='tlm') ? round.snapshot.tlm ?? [] : [], tlmDistribution: assignments.some(a=>a.pillar==='tlm') ? round.snapshot.tlmDistribution ?? [] : [], monitoring: assignments.some(a=>a.pillar==='monitoring') ? round.snapshot.monitoring ?? [] : [], gscci: assignments.some(a=>a.pillar==='gscci') ? round.snapshot.gscci ?? [] : [], curriculum: assignments.some(a=>a.pillar==='curriculum') ? round.snapshot.curriculum ?? [] : [], curriculumDistribution: assignments.some(a=>a.pillar==='curriculum') ? round.snapshot.curriculumDistribution ?? [] : [], quality: assignments.some(a=>a.pillar==='quality') ? round.snapshot.quality ?? [] : [], ict: assignments.some(a=>a.pillar==='ict') ? round.snapshot.ict ?? [] : [], componentDocuments: (round.snapshot.componentDocuments ?? []).filter(d=>assignments.some(a=>a.pillar===d.component)) } : round.snapshot : null;
       const events = round ? (await db.query(`SELECT id,action,actor,comment,created_at FROM ubec_events WHERE round_id=$1 ${reviewer ? 'AND (actor_id=$2 OR action=\'assign\')' : !national ? "AND action IN ('submit','return','approve')" : ''} ORDER BY id DESC`, reviewer ? [round.id, user.userId] : [round.id])).rows : [];
       const ubecMode = await readUbecSubmissionMode(db);
       const reviews = user.role === 'Executive Chairman' ? await readPillarReviews(db, plan.id) : [];
@@ -72,6 +73,8 @@ export async function POST(request: NextRequest) {
         if (round && !input.comment) return error('Describe how the UBEC feedback was addressed.');
         const snapshot: Snapshot = await readPlanSnapshot(db, plan.id);
         const reviews = await readPillarReviews(db, plan.id);
+        const unready = unreadySentComponents(snapshot, reviews)[0];
+        if (unready) return error(componentReadinessProblem(unready, snapshot[unready] ?? [])!, 409);
         if (!readyForUbecSubmission(ubecMode, reviews, snapshot)) return error(partial ? 'At least one component must reach the Executive Chairman before sending to UBEC.' : 'Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(ubecSubmissionSnapshot(snapshot, reviews)), user.id])).rows[0];
         status = 'submitted_ubec';

@@ -1,6 +1,7 @@
 import type { QueryResult, QueryResultRow } from 'pg';
 import type { Snapshot } from './plan-review';
 import { planSetupFields } from './plan-workspace';
+import { readLineExtras } from './activity-line-extras';
 export async function readPlanSnapshot(db: { query<R extends QueryResultRow>(sql: string, values?: unknown[]): Promise<QueryResult<R>> }, planId: number): Promise<Snapshot> {
   const infrastructure: {rows:{item:Snapshot['infrastructure'][number]}[]} = {rows:[]};
   const sports = await db.query(`SELECT to_jsonb(b) || jsonb_build_object('allocations', COALESCE((SELECT jsonb_agg(to_jsonb(a) || jsonb_build_object('school', to_jsonb(s)) ORDER BY a.id)
@@ -15,6 +16,9 @@ export async function readPlanSnapshot(db: { query<R extends QueryResultRow>(sql
   const listFor = (workstream: string) => distribution.filter(r => r.workstream === workstream).map(r => ({ id: r.id, name: r.name, lga: r.lga, level: r.level, location: r.location, enrolment: r.enrolment })) as NonNullable<Snapshot['tlmDistribution']>;
   const componentDocuments = (await db.query('SELECT id,component,name,size FROM component_documents WHERE plan_id=$1 AND removed_at IS NULL ORDER BY created_at,id',[planId])).rows as Snapshot['componentDocuments'];
   const lines = (workstream: string) => activities.filter(r => r.workstream === workstream) as NonNullable<Snapshot['sbmc']>;
+  const extras = await readLineExtras(db, planId);
+  const withExtras = (workstream: string) => lines(workstream).map(line => ({ ...line, schools: extras.schools.get(line.id) ?? [], documents: extras.documents.get(line.id) ?? [] }));
   return { setup, infrastructureDocuments, infrastructure: infrastructure.rows.map(r => r.item), sports: sports.rows.map(r => r.item), sbmc: lines('sbmc'), tlm: lines('tlm'), tlmDistribution: listFor('tlm'),
-    monitoring: lines('monitoring'), gscci: lines('gscci'), curriculum: lines('curriculum'), curriculumDistribution: listFor('curriculum'), componentDocuments };
+    monitoring: lines('monitoring'), gscci: lines('gscci'), curriculum: lines('curriculum'), curriculumDistribution: listFor('curriculum'), componentDocuments,
+    quality: withExtras('quality'), ict: withExtras('ict') };
 }

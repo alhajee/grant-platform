@@ -1,4 +1,5 @@
-import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap } from 'lucide-react';
+import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap, BadgeCheck, Laptop } from 'lucide-react';
+import { LineExtrasDetail } from './line-extras-detail';
 import type { Snapshot } from '@/lib/plan-review';
 import { activityLabel, activityTitles, allocateByEnrolment, curriculumActivityShares } from '@/lib/activity-plans';
 import { kindNames } from '@/lib/infrastructure-model';
@@ -7,7 +8,7 @@ import { InfrastructurePackageDetails } from '@/components/infrastructure-packag
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import type { CellValue, WorkbookColumn, WorkbookRow, WorkbookSheet } from './types';
 
-export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string };
+export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string };
 const cost = (line: { unit_cost: string; quantity: number }) => Math.round(Number(line.unit_cost) * 100) * line.quantity / 100;
 const sectionNames: Record<string, string> = Object.fromEntries(sportsSections.map(section => [section.id, section.shortLabel]));
 const text = (id: string, header: string, size = 150, filter = false): WorkbookColumn => ({ id, header, kind: 'text', size, filter });
@@ -57,19 +58,26 @@ function sportsSheet(snapshot: Snapshot, editHref?: string): WorkbookSheet {
   };
 }
 
-type ActivitySheetKey = 'sbmc' | 'tlm' | 'monitoring' | 'gscci' | 'curriculum';
-const activityIcons = { sbmc: Users, tlm: BookOpen, monitoring: ClipboardCheck, gscci: Leaf, curriculum: GraduationCap };
+type ActivitySheetKey = 'sbmc' | 'tlm' | 'monitoring' | 'gscci' | 'curriculum' | 'quality' | 'ict';
+const activityIcons = { sbmc: Users, tlm: BookOpen, monitoring: ClipboardCheck, gscci: Leaf, curriculum: GraduationCap, quality: BadgeCheck, ict: Laptop };
 function activityExtras(key: ActivitySheetKey): WorkbookColumn[] {
   if (key === 'tlm') return [text('material', 'Material type', 170, true), text('subject', 'Subject', 190, true), text('classes', 'Classes', 170)];
   if (key === 'sbmc') return [text('rationale', 'Rationale', 260), text('approach', 'Implementation approach', 260)];
+  if (key === 'quality') return [text('equipment', 'Equipment type', 200, true)];
+  if (key === 'ict') return [text('details', 'Details', 200), qty('schools', 'Schools', true), qty('documents', 'Documents')];
   return key === 'curriculum' ? [text('share', 'Activity share', 120, true)] : [];
 }
 function activityExtraValues(key: ActivitySheetKey, line: NonNullable<Snapshot['sbmc']>[number]): Record<string, CellValue> {
   if (key === 'tlm') return { material: line.equipment || '', subject: line.textbook_subject || '', classes: line.textbook_classes?.join(', ') ?? '' };
   if (key === 'sbmc') return { rationale: line.rationale || '', approach: line.implementation_approach || '' };
+  if (key === 'quality') return { equipment: line.equipment_type || '' };
+  if (key === 'ict') return { details: line.subscription_types?.length ? line.subscription_types.join(', ') : line.website_type || '', schools: line.schools?.length || '', documents: line.documents?.length || '' };
   return key === 'curriculum' ? { share: `${(curriculumActivityShares[line.activity] ?? 0) / 100}%` } : {};
 }
 function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc']>, editHref?: string): WorkbookSheet {
+  // Quality Assurance and ICT rows expand to their extra details, chosen schools and documents.
+  const detailed = key === 'quality' || key === 'ict', byId = new Map(lines.map(line => [String(line.id), line]));
+  const expandable = (line: NonNullable<Snapshot['sbmc']>[number]) => detailed && Boolean(line.equipment_type || line.subscription_types?.length || line.website_type || line.schools?.length || line.documents?.length || (key === 'ict' && [0, 3, 4].includes(line.activity)));
   return {
     key, label: activityTitles[key], hash: `review-${key}`, icon: activityIcons[key], itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: activityTitles[key],
     columns: [text('activity', 'Allowable activity', 240, true), text('description', 'Description', 280), ...activityExtras(key), text('strategy', 'Strategy', 170, true), text('target', 'Target group', 170, true), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
@@ -77,7 +85,8 @@ function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc'
       activity: activityLabel(key, line.activity, line.custom_activity), description: line.description,
       ...activityExtraValues(key, line),
       strategy: line.strategy, target: line.target_group, quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
-    })),
+    }, expandable(line))),
+    ...(detailed ? { detail: (id: string) => { const line = byId.get(id); return line ? <LineExtrasDetail workstream={key} line={line} /> : null; } } : {}),
   };
 }
 
@@ -101,6 +110,8 @@ export function buildSheets(snapshot: Snapshot, visiblePillars: readonly string[
   if (visiblePillars.includes('tlm') && snapshot.tlm) sheets.push(activitySheet('tlm', snapshot.tlm, links.tlmEditHref), distributionSheet('tlm', snapshot.tlmDistribution ?? [], snapshot.tlm, links.tlmEditHref));
   if (visiblePillars.includes('monitoring') && snapshot.monitoring) sheets.push(activitySheet('monitoring', snapshot.monitoring, links.monitoringEditHref));
   if (visiblePillars.includes('gscci') && snapshot.gscci) sheets.push(activitySheet('gscci', snapshot.gscci, links.gscciEditHref));
+  if (visiblePillars.includes('quality') && snapshot.quality) sheets.push(activitySheet('quality', snapshot.quality, links.qualityEditHref));
+  if (visiblePillars.includes('ict') && snapshot.ict) sheets.push(activitySheet('ict', snapshot.ict, links.ictEditHref));
   if (visiblePillars.includes('curriculum') && snapshot.curriculum) sheets.push(activitySheet('curriculum', snapshot.curriculum, links.curriculumEditHref), distributionSheet('curriculum', snapshot.curriculumDistribution ?? [], snapshot.curriculum, links.curriculumEditHref));
   return sheets;
 }

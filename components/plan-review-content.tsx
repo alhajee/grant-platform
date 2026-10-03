@@ -11,7 +11,7 @@ import type { RequestChangesHandlers } from '@/components/plan-workbook/plan-wor
 import { implementedPillars } from '@/lib/beap-pillars';
 
 const allPillars = implementedPillars;
-type EditHrefs = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string };
+type EditHrefs = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string };
 
 export function PlanReviewContent({ snapshot, showPlanReference = true, visiblePillars = allPillars, comments = null, requestChanges, ...links }: { comments?: CommentsController | null; requestChanges?: RequestChangesHandlers; snapshot: Snapshot; showPlanReference?: boolean; visiblePillars?: readonly string[] } & EditHrefs) {
   const proformas = (snapshot.componentDocuments ?? []).filter(d => d.component === 'monitoring' && visiblePillars.includes('monitoring'));

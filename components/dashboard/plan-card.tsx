@@ -25,7 +25,7 @@ function updatedAgo(value: string) {
   return days >= 0 && days <= 30 ? relative.format(-days, 'day') : `on ${date.format(then)}`;
 }
 
-const planAmounts = (plan: PlanOverview): Record<InvestmentArea, number> => ({ infrastructure: plan.infrastructureBudget, tlm: plan.tlmBudget ?? 0, sports: plan.sportsBudget, sbmc: plan.sbmcBudget ?? 0, curriculum: plan.curriculumBudget ?? 0, monitoring: plan.monitoringBudget ?? 0, gscci: plan.gscciBudget ?? 0 });
+const planAmounts = (plan: PlanOverview): Record<InvestmentArea, number> => ({ infrastructure: plan.infrastructureBudget, tlm: plan.tlmBudget ?? 0, sports: plan.sportsBudget, sbmc: plan.sbmcBudget ?? 0, curriculum: plan.curriculumBudget ?? 0, monitoring: plan.monitoringBudget ?? 0, gscci: plan.gscciBudget ?? 0, quality: plan.qualityBudget ?? 0, ict: plan.ictBudget ?? 0 });
 
 function actionLabel(plan: PlanOverview, isOfficer: boolean) {
   if (!isOfficer && ['awaiting_review', 'awaiting_beap_chair'].includes(plan.status)) return 'Review plan';

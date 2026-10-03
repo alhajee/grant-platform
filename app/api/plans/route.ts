@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     if (!workspace) return NextResponse.json({ error: "Sign in to view your action plans." }, { status: 401 });
     const db = getPostgres();
     const [result, targets] = await Promise.all([db.query(`SELECT p.id, p.start_year AS "startYear", p.end_year AS "endYear", p.created_at AS "createdAt", p.status, p.version, p.submission_number AS "submissionNumber", ${planSetupFields('p')},
-      COALESCE(i.budget, 0)::float8 AS "infrastructureBudget", COALESCE(s.budget, 0)::float8 AS "sportsBudget", COALESCE(a.sbmc,0)::float8 AS "sbmcBudget", COALESCE(a.tlm,0)::float8 AS "tlmBudget", COALESCE(a.monitoring,0)::float8 AS "monitoringBudget", COALESCE(a.gscci,0)::float8 AS "gscciBudget", COALESCE(a.curriculum,0)::float8 AS "curriculumBudget",
+      COALESCE(i.budget, 0)::float8 AS "infrastructureBudget", COALESCE(s.budget, 0)::float8 AS "sportsBudget", COALESCE(a.sbmc,0)::float8 AS "sbmcBudget", COALESCE(a.tlm,0)::float8 AS "tlmBudget", COALESCE(a.monitoring,0)::float8 AS "monitoringBudget", COALESCE(a.gscci,0)::float8 AS "gscciBudget", COALESCE(a.curriculum,0)::float8 AS "curriculumBudget", COALESCE(a.quality,0)::float8 AS "qualityBudget", COALESCE(a.ict,0)::float8 AS "ictBudget",
       (COALESCE(i.budget, 0) + COALESCE(s.budget, 0) + COALESCE(a.budget, 0))::float8 AS budget,
       (COALESCE(i.lines, 0) + COALESCE(s.lines, 0) + COALESCE(a.lines, 0))::int AS "lineCount",
       COALESCE(beneficiaries.count, 0)::int AS "schoolCount",
@@ -24,11 +24,12 @@ export async function GET(request: NextRequest) {
       FROM action_plans p
       LEFT JOIN LATERAL (SELECT SUM(total_cost) AS budget, COUNT(*) AS lines, MAX(updated_at) AS updated FROM infrastructure_packages WHERE plan_id=p.id) i ON TRUE
       LEFT JOIN LATERAL (SELECT SUM(unit_cost * quantity) AS budget, COUNT(*) AS lines, MAX(updated_at) AS updated FROM sports_budget_lines WHERE plan_id = p.id) s ON TRUE
-      LEFT JOIN LATERAL (SELECT SUM(unit_cost*quantity) AS budget,SUM(unit_cost*quantity) FILTER(WHERE workstream='sbmc') AS sbmc,SUM(unit_cost*quantity) FILTER(WHERE workstream='tlm') AS tlm,SUM(unit_cost*quantity) FILTER(WHERE workstream='monitoring') AS monitoring,SUM(unit_cost*quantity) FILTER(WHERE workstream='gscci') AS gscci,SUM(unit_cost*quantity) FILTER(WHERE workstream='curriculum') AS curriculum,COUNT(*) AS lines,MAX(updated_at) AS updated FROM activity_plan_lines WHERE plan_id=p.id) a ON TRUE
+      LEFT JOIN LATERAL (SELECT SUM(unit_cost*quantity) AS budget,SUM(unit_cost*quantity) FILTER(WHERE workstream='sbmc') AS sbmc,SUM(unit_cost*quantity) FILTER(WHERE workstream='tlm') AS tlm,SUM(unit_cost*quantity) FILTER(WHERE workstream='monitoring') AS monitoring,SUM(unit_cost*quantity) FILTER(WHERE workstream='gscci') AS gscci,SUM(unit_cost*quantity) FILTER(WHERE workstream='curriculum') AS curriculum,SUM(unit_cost*quantity) FILTER(WHERE workstream='quality') AS quality,SUM(unit_cost*quantity) FILTER(WHERE workstream='ict') AS ict,COUNT(*) AS lines,MAX(updated_at) AS updated FROM activity_plan_lines WHERE plan_id=p.id) a ON TRUE
       LEFT JOIN LATERAL (SELECT COUNT(*)::int AS count, ARRAY_AGG(school_id ORDER BY school_id)::int[] AS ids FROM (
         SELECT school_id FROM infrastructure_packages WHERE plan_id=p.id
         UNION SELECT allocation.school_id FROM sports_allocations allocation JOIN sports_budget_lines line ON line.id=allocation.line_id JOIN schools school ON school.id=allocation.school_id WHERE line.plan_id=p.id AND line.state_code=p.state_code AND school.state_code=p.state_code
         UNION SELECT distribution.school_id FROM tlm_distribution distribution JOIN schools school ON school.id=distribution.school_id WHERE distribution.plan_id=p.id AND school.state_code=p.state_code
+        UNION SELECT chosen.school_id FROM activity_line_schools chosen JOIN activity_plan_lines line ON line.id=chosen.line_id JOIN schools school ON school.id=chosen.school_id WHERE line.plan_id=p.id AND school.state_code=p.state_code
       ) plan_beneficiaries WHERE school_id IS NOT NULL) beneficiaries ON TRUE
       WHERE p.state_code = $1 ORDER BY "updatedAt" DESC, p.id DESC`, [workspace.stateCode]),
       db.query<{ count: number }>(`SELECT COUNT(*)::int AS count FROM (
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
           JOIN schools s ON s.id = a.school_id
           WHERE p.state_code = $1 AND b.state_code = $1 AND s.state_code = $1
       UNION SELECT d.school_id FROM tlm_distribution d JOIN action_plans p ON p.id=d.plan_id JOIN schools s ON s.id=d.school_id WHERE p.state_code=$1 AND s.state_code=$1
+      UNION SELECT c.school_id FROM activity_line_schools c JOIN activity_plan_lines l ON l.id=c.line_id JOIN action_plans p ON p.id=l.plan_id JOIN schools s ON s.id=c.school_id WHERE p.state_code=$1 AND s.state_code=$1
       ) targeted_schools`, [workspace.stateCode]),
     ]);
     const reviews = (await db.query<PillarReviewRow>('SELECT r.plan_id,r.pillar,r.status FROM plan_pillar_reviews r JOIN action_plans p ON p.id=r.plan_id WHERE p.state_code=$1', [workspace.stateCode])).rows;

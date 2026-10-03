@@ -12,6 +12,9 @@ export type Snapshot = {
   gscci?: import('./activity-plans').ActivitySnapshotLine[];
   curriculum?: import('./activity-plans').ActivitySnapshotLine[];
   curriculumDistribution?: import('./activity-plans').DistributionSchool[];
+  /** Quality Assurance and ICT lines carry their chosen schools and documents (migration 038). */
+  quality?: import('./activity-plans').ActivitySnapshotLine[];
+  ict?: import('./activity-plans').ActivitySnapshotLine[];
   /** Component documents (component_documents): the Supervision & Monitoring proforma invoices. */
   componentDocuments?: import('./activity-plans').ComponentDocument[];
   setup?: import('./plan-setup').PlanSetup;

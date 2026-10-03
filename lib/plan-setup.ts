@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { formatQuarters } from './format-quarters';
-import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabels, toKobo, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
+import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabels, teachersSharedEnvelope, toKobo, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
 
 const year = z.number().int().min(2004).max(2100);
 export const implementationYearError = (fundingYear: number, implementationYear: number) => Number.isInteger(fundingYear) && Number.isInteger(implementationYear) && implementationYear < fundingYear ? `Implementation year can't be earlier than the funding year (${fundingYear}).` : '';
@@ -49,6 +49,12 @@ export function envelopeShortfalls(before: EnvelopePlan, after: EnvelopePlan, pr
   });
 }
 const naira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+/** Why an edit cannot shrink the shared Teacher Development and ICT envelope: it may not fall below ICT's allocation. */
+export function sharedBelowIctProblem(after: EnvelopePlan) {
+  const shared = teachersSharedEnvelope(after);
+  if (after.ictAllocation == null || shared == null || toKobo(shared) >= toKobo(after.ictAllocation)) return null;
+  return `Teacher Development & ICT would have ${naira.format(Number(shared))} available, but ICT has already been allocated ${naira.format(Number(after.ictAllocation))}. Ask ICT to reduce its allocation first or keep this funding.`;
+}
 export const shortfallMessage = (s: EnvelopeShortfall) => `${fundingComponentLabels[s.component]} would have ${naira.format(Number(s.ceiling))} available, but ${naira.format(Number(s.proposed))} is already proposed. Reduce its lines first or keep its funding.`;
 export function beapName(state: string, year: number, quarters: number[]) {
   return `${state.replace(/ State$/, '').replace(/\s+/g,'')}-${year}-${formatQuarters(quarters)}-BEAP`;
@@ -61,6 +67,8 @@ export type PlanSetup = {
   // fundingTotal is the whole envelope: state contribution ×2 + otherFunding + every funding source.
   stateLodgment: string | null; otherFunding: string | null; fundingTotal: string | null;
   fundingSources?: FundingSource[];
+  /** ICT's share of the shared Teacher Development and ICT envelope (migration 038); null until the ICT editor sets it. */
+  ictAllocation?: string | null;
   beapName: string | null; documents: PlanDocument[];
 };
 export const maxRatFileBytes = 5 * 1024 * 1024;
