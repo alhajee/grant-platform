@@ -119,15 +119,20 @@ export default function PlanPage() {
       {error && <Alert variant="destructive"><AlertTitle>Plan unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
       {loading && !data ? <div className="plan-page-loading"><Skeleton className="h-36 w-full rounded-3xl" /><Skeleton className="h-64 w-full rounded-3xl" /></div> : data && totals && !error && <>
         {selected !== 'current' && <Alert><AlertTitle>Saved submission {data.selectedSubmission}</AlertTitle><AlertDescription>This version is read-only. Select the current version to take action.</AlertDescription></Alert>}
+        {/* Summary and components in the main column; the plan's status stays beside them as you scroll. */}
         <div className="plan-glance">
-          <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
-          <StatusPanel compact={!detailsOpen} feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} />
+          <div className="plan-glance-main">
+            <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
+            <section className="plan-components" id="plan-components" aria-labelledby="plan-components-title">
+              <h2 id="plan-components-title" className="plan-section-title">Components</h2>
+              <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
+              <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} />
+            </section>
+          </div>
+          <aside className="plan-glance-side" aria-label="Where the plan is">
+            <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} />
+          </aside>
         </div>
-        <section className="plan-components" id="plan-components" aria-labelledby="plan-components-title">
-          <h2 id="plan-components-title" className="plan-section-title">Components</h2>
-          <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
-          <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} />
-        </section>
         <div className="review-layout">
           <PlanReviewContent showPlanReference={false} showDocuments={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} {...workbookLinks} />
           {/* Documents and the review history share a row; each takes the full width on narrow screens. */}
