@@ -1,7 +1,7 @@
 "use client";
 import "./notifications.css";
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
-import { ArrowRightIcon, BellIcon, BellOffIcon, BellRingIcon, CheckCheckIcon, CheckIcon, ClipboardCheckIcon, InboxIcon, MessageSquareTextIcon, RotateCcwIcon, SendIcon, UserPlusIcon } from 'lucide-react';
+import { ArrowRightIcon, BellIcon, BellOffIcon, BellRingIcon, CheckCheckIcon, CheckIcon, ClipboardCheckIcon, InboxIcon, MessageSquareTextIcon, RotateCcwIcon, SendIcon, UserPlusIcon, Volume2Icon, VolumeXIcon } from 'lucide-react';
 import { Avatar, AvatarBadge, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { describeNotification, groupByPlan, timeAgo, type NotificationItem, type NotificationKind, type NotificationTodo } from '@/lib/notifications';
+import { useNotificationSound } from './notification-sound';
 import { useNotifications, type AlertPermission } from './use-notifications';
 
 type View = 'all' | 'unread' | 'todo';
@@ -97,6 +98,14 @@ function AlertSetting({ permission, onEnable }: { permission: AlertPermission; o
   return <Button variant="ghost" size="sm" className="notification-footer-action notification-alerts-cta" onClick={onEnable} title="Get an alert when something new arrives, even while this window is minimised."><BellRingIcon className="notification-alerts-icon" /><span className="shimmer shimmer-duration-2800">Turn on desktop alerts</span></Button>;
 }
 
+function SoundSetting() {
+  const { enabled, toggle } = useNotificationSound();
+  const label = enabled ? 'Sound on: a chime plays when a notification arrives. Click to mute.' : 'Sound off. Click to play a chime when a notification arrives.';
+  return <Button variant="ghost" size="icon-sm" className="notification-footer-action notification-sound" onClick={toggle} aria-pressed={enabled} aria-label="Notification sound" title={label} data-muted={!enabled || undefined}>
+    {enabled ? <Volume2Icon /> : <VolumeXIcon />}
+  </Button>;
+}
+
 export function NotificationBell() {
   const { feed, failed, ringing, permission, reload, markRead, requestPermission } = useNotifications();
   const [open, setOpen] = useState(false);
@@ -159,13 +168,12 @@ export function NotificationBell() {
       <Separator />
       {/* shadcn scroll-fade-b (as in MessageScroller): the last rows fade out until the list is scrolled to the end. */}
       <div className="notification-scroll scroll-fade-b scroll-fade-b-16 overflow-y-auto overscroll-contain">{body()}</div>
-      {(unread > 0 || permission === 'default' || permission === 'denied') && <>
-        <Separator />
-        <div className="notification-footer">
-          {unread > 0 && <Button variant="ghost" size="sm" className="notification-footer-action notification-mark-all" onClick={() => void markRead('all')}><CheckCheckIcon />Mark all as read</Button>}
-          <AlertSetting permission={permission} onEnable={() => void requestPermission()} />
-        </div>
-      </>}
+      <Separator />
+      <div className="notification-footer">
+        {unread > 0 && <Button variant="ghost" size="sm" className="notification-footer-action notification-mark-all" onClick={() => void markRead('all')}><CheckCheckIcon />Mark all as read</Button>}
+        <AlertSetting permission={permission} onEnable={() => void requestPermission()} />
+        <SoundSetting />
+      </div>
     </PopoverContent>
   </Popover>;
 }

@@ -84,6 +84,9 @@
 .notification-alerts-icon { transform-origin: 50% 8%; animation: notification-swing 4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .notification-alerts-icon { animation: none; } }
 .notification-footer-action svg { width: 15px; height: 15px; }
+/* Sound toggle: a quiet icon button at the end of the footer; muted reads as dimmed. */
+.notification-sound { width: 32px; padding-inline: 0; flex: 0 0 32px; }
+.notification-sound[data-muted] { color: #9a9d9f; }
 .notification-alert-state { display: inline-flex; align-items: center; gap: 6px; padding-inline: 10px; color: #9a9d9f; font-size: 12.5px; }
 .notification-alert-state svg { width: 14px; height: 14px; }
 

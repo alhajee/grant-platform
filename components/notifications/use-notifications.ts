@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { describeNotification, notificationText, type NotificationFeed, type NotificationItem } from '@/lib/notifications';
+import { installAudioUnlock, isSoundEnabled, playChime } from './notification-sound';
 
 const POLL_MS = 30_000;
-// Shared by every tab so only one of them raises a browser alert for a notification.
+// Shared by every tab so only one of them chimes and raises a browser alert for a notification.
 const ALERTED_KEY = 'beapms:notifications:alerted-through';
 const MAX_ALERTS = 3;
 
@@ -81,7 +82,9 @@ export function useNotifications() {
         baseline.current = newest;
         writeAlerted(newest);
         if (fresh.length) {
+          // One chime per poll however many arrived; it plays whether or not the window has focus.
           setRinging(count => count + 1);
+          if (isSoundEnabled()) playChime();
           if (document.visibilityState !== 'visible' || !document.hasFocus()) showBrowserAlerts(fresh, openFromAlert);
         }
       }
@@ -100,6 +103,8 @@ export function useNotifications() {
   }, [load]);
 
   useEffect(() => { if (feed) syncTitle(feed.unreadCount); }, [feed]);
+  // The bell is always mounted, so this is where the first click or key press unlocks audio for the chime.
+  useEffect(() => { installAudioUnlock(); }, []);
 
   const requestPermission = useCallback(async () => {
     if (currentPermission() !== 'default') return;
