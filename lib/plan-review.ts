@@ -10,6 +10,7 @@ export type Snapshot = {
   tlmDistribution?: import('./activity-plans').DistributionSchool[];
   monitoring?: import('./activity-plans').ActivitySnapshotLine[];
   gscci?: import('./activity-plans').ActivitySnapshotLine[];
+  gscciDistribution?: import('./activity-plans').DistributionSchool[];
   curriculum?: import('./activity-plans').ActivitySnapshotLine[];
   curriculumDistribution?: import('./activity-plans').DistributionSchool[];
   /** Quality Assurance and ICT lines carry their chosen schools and documents (migration 038). */

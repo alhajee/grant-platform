@@ -95,17 +95,20 @@ try {
   assert.deepEqual(monitoring.documents.map(d => d.name), ['invoice-2.pdf']);
   step('Proforma invoices: multiple uploads, type checks, download access, removal');
 
-  // Greening Schools, Climate Change & Safeguards: Academic Services, five activities, no upload.
+  // Greening Schools, Climate Change & Safeguards: Academic Services, nine activities (migration 039), no upload.
   fails(await api('physical', url('gscci'), line('gscci', 0, 100)), 403);
-  fails(await api('academic', url('gscci'), line('gscci', 5, 100)), 400);
-  for (const activity of [0, 1, 2, 3, 4]) ok(await api('academic', url('gscci'), line('gscci', activity, 100)));
+  fails(await api('academic', url('gscci'), line('gscci', 9, 100)), 400, /valid allowable activity/);
+  await assert.rejects(db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,'gscci',9,'QA',1,1,'NCB','Schools')", [planId]), /activity_plan_lines_activity_check/);
+  for (const activity of [0, 1, 2, 3, 4, 5, 6, 7, 8]) ok(await api('academic', url('gscci'), line('gscci', activity, 100)));
   const gscci = ok(await api('academic', url('gscci')));
-  assert.equal(gscci.lines.length, 5); assert.deepEqual(gscci.documents, []);
-  ok(await api('academic', url('gscci'), { ...line('gscci', 4, 250, { quantity: 3 }), action: 'update', id: gscci.lines[4].id }));
+  assert.equal(gscci.lines.length, 9); assert.deepEqual(gscci.documents, []); assert.equal(gscci.schools.length, 2); assert.deepEqual(gscci.distribution, []);
+  ok(await api('academic', url('gscci'), { ...line('gscci', 8, 250, { quantity: 3 }), action: 'update', id: gscci.lines[8].id }));
   ok(await api('academic', url('gscci'), { workstream: 'gscci', entity: 'line', action: 'delete', id: gscci.lines[0].id }));
-  assert.equal(ok(await api('academic', url('gscci'))).lines.length, 4);
+  assert.equal(ok(await api('academic', url('gscci'))).lines.length, 8);
   fails(await api('academic', url('gscci'), line('gscci', 1, 3000)), 400, /exceeded the Greening/);
-  step('Greening & Safeguards lines: five activities, create, edit, delete and ₦ ceiling');
+  // The distribution list is required: GSCCI cannot reach the Director without at least one school.
+  fails(await review('academic', { action: 'submit', pillar: 'gscci' }), 400, /Greening distribution list/);
+  step('Greening & Safeguards lines: nine activities (8 accepted, 9 refused), edit, delete, ₦ ceiling, distribution required');
 
   // Curriculum: each activity limited to its share (60/20/10/10%) of the ₦4,000.00 envelope.
   ok(await api('academic', url('curriculum'), line('curriculum', 1, 800)));
@@ -138,18 +141,28 @@ try {
   assert.equal(ok(await api('academic', url('tlm'))).distribution.length, 0);
   step('Curriculum distribution: bulk add, duplicate skip, single add/remove, kept apart from TLM');
 
+  // GSCCI distribution list: the schools that get the interventions, kept apart from Curriculum and TLM.
+  const greened = ok(await api('academic', url('gscci'), { workstream: 'gscci', entity: 'school', action: 'create', schoolIds: [schoolIds[1], schoolIds[1]] }));
+  assert.equal(greened.added, 1); assert.equal(greened.skipped, 0);
+  fails(await api('academic', url('gscci'), { workstream: 'gscci', entity: 'school', action: 'create', schoolId: schoolIds[1] }), 409);
+  fails(await api('physical', url('gscci'), { workstream: 'gscci', entity: 'school', action: 'create', schoolId: schoolIds[0] }), 403);
+  assert.deepEqual(ok(await api('academic', url('gscci'))).distribution.map(s => [s.id, s.enrolment]), [[schoolIds[1], 300]]);
+  assert.equal(ok(await api('academic', url('curriculum'))).distribution.length, 2);
+  step('GSCCI distribution: add, duplicate refused, department access, kept apart from Curriculum');
+
   // Snapshot, visibility and overview totals.
   const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
   assert.ok(['monitoring', 'gscci', 'curriculum'].every(p => chairView.visiblePillars.includes(p)));
   assert.equal(chairView.snapshot.curriculum.length, 4); assert.equal(chairView.snapshot.curriculumDistribution.length, 2);
   assert.equal(chairView.snapshot.componentDocuments.length, 1); assert.equal(chairView.snapshot.tlmDistribution.length, 0);
+  assert.equal(chairView.snapshot.gscci.length, 8); assert.deepEqual(chairView.snapshot.gscciDistribution.map(s => s.id), [schoolIds[1]]);
   const academicView = ok(await api('academic', `/api/plans/review?plan=${planId}`));
-  assert.equal(academicView.snapshot.monitoring, undefined); assert.deepEqual(academicView.snapshot.componentDocuments, []);
+  assert.equal(academicView.snapshot.monitoring, undefined); assert.equal(academicView.snapshot.gscciDistribution.length, 1); assert.deepEqual(academicView.snapshot.componentDocuments, []);
   assert.deepEqual(academicView.visiblePillars, ['sports', 'tlm', 'gscci', 'curriculum']);
   const overview = ok(await api('physical', `/api/beap?plan=${planId}`));
   assert.equal(overview.monitoring.budget, 3900); assert.ok(overview.editablePillars.includes('monitoring'));
   const academicOverview = ok(await api('academic', `/api/beap?plan=${planId}`));
-  assert.equal(academicOverview.curriculum.budget, 4000); assert.equal(academicOverview.curriculum.schoolCount, 2); assert.equal(academicOverview.gscci.budget, 1050);
+  assert.equal(academicOverview.curriculum.budget, 4000); assert.equal(academicOverview.curriculum.schoolCount, 2); assert.equal(academicOverview.gscci.budget, 1450); assert.equal(academicOverview.gscci.schoolCount, 1);
   step('Snapshots, department visibility, proforma documents and overview totals');
 
   // Workflow: Data Entry → department Director → BEAP Chair → Executive Chairman, for Curriculum.
@@ -191,7 +204,7 @@ try {
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));
   const esView = ok(await api('es', ubecPath));
   assert.equal(esView.round.snapshot.monitoring.length, 2); assert.equal(esView.round.snapshot.curriculum.length, 4);
-  assert.equal(esView.round.snapshot.curriculumDistribution.length, 2); assert.deepEqual(esView.round.snapshot.gscci, []);
+  assert.equal(esView.round.snapshot.curriculumDistribution.length, 2); assert.deepEqual(esView.round.snapshot.gscci, []); assert.deepEqual(esView.round.snapshot.gscciDistribution, []);
   assert.deepEqual(esView.round.snapshot.componentDocuments.map(d => d.id), [kept.id]);
   ok(await api('es', `/api/activities/documents?id=${kept.id}`));
   ok(await api('es', ubecPath, { action: 'assign', version: esView.plan.version, roundId: esView.round.id, assignments: [{ pillar: 'monitoring', department: 'physical' }, { pillar: 'curriculum', department: 'academic' }] }));

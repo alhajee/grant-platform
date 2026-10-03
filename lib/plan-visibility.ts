@@ -16,7 +16,7 @@ export function visibleSnapshot(snapshot: Snapshot, user: Parameters<typeof canV
     ...(canViewComponent(user, 'sbmc') ? { sbmc: snapshot.sbmc ?? [] } : {}),
     ...(canViewComponent(user, 'tlm') ? { tlm: snapshot.tlm ?? [], tlmDistribution: snapshot.tlmDistribution ?? [] } : {}),
     ...(canViewComponent(user, 'monitoring') ? { monitoring: snapshot.monitoring ?? [] } : {}),
-    ...(canViewComponent(user, 'gscci') ? { gscci: snapshot.gscci ?? [] } : {}),
+    ...(canViewComponent(user, 'gscci') ? { gscci: snapshot.gscci ?? [], gscciDistribution: snapshot.gscciDistribution ?? [] } : {}),
     ...(canViewComponent(user, 'curriculum') ? { curriculum: snapshot.curriculum ?? [], curriculumDistribution: snapshot.curriculumDistribution ?? [] } : {}),
     ...(canViewComponent(user, 'quality') ? { quality: snapshot.quality ?? [] } : {}),
     ...(canViewComponent(user, 'ict') ? { ict: snapshot.ict ?? [] } : {}),

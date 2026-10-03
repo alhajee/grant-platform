@@ -30,7 +30,7 @@ export async function GET(req:NextRequest){
   const distribution=listed?(await db.query(`SELECT ${schoolFields} FROM tlm_distribution d JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.workstream=$3 AND s.state_code=$2 ORDER BY s.name`,[plan.id,user.stateCode,workstream])).rows:[];
   const documents=workstream==='monitoring'?(await db.query("SELECT id,name,size FROM component_documents WHERE plan_id=$1 AND component=$2 AND removed_at IS NULL ORDER BY created_at,id",[plan.id,workstream])).rows:[];
   // Schools in this plan's Whole School Renovation/Expansion packages: listed first and offered for distribution.
-  const renovated=(workstream==='tlm'||workstream==='curriculum')?(await db.query<{id:number}>("SELECT DISTINCT p.school_id AS id FROM infrastructure_packages p JOIN schools s ON s.id=p.school_id WHERE p.plan_id=$1 AND p.kind='whole' AND s.state_code=$2",[plan.id,user.stateCode])).rows.map(r=>r.id):[];
+  const renovated=listed?(await db.query<{id:number}>("SELECT DISTINCT p.school_id AS id FROM infrastructure_packages p JOIN schools s ON s.id=p.school_id WHERE p.plan_id=$1 AND p.kind='whole' AND s.state_code=$2",[plan.id,user.stateCode])).rows.map(r=>r.id):[];
   return NextResponse.json({plan,lines:withExtras,schools,distribution,renovated,documents,canEdit:mayEditPillar(user.role,user.departments ?? user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load this component.',503);}
 }

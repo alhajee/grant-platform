@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { currentPlanHref, planHref, planPeriod } from '@/lib/action-plans';
 import type { PlanReview } from '@/lib/plan-review';
 import { componentSections, implementedPillars, subebComponentDepartments as pillarDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
+import { distributionSnapshotKeys, hasDistribution } from '@/lib/activity-plans';
 import { mayEditPillar, statePlanOpen, type PillarReview } from '@/lib/pillar-review';
 import { summarizeSnapshot } from '@/lib/plan-summary';
 import { componentReadinessProblem, hasReadinessRules } from '@/lib/component-readiness';
@@ -31,7 +32,7 @@ const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 
 const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
 // Quality Assurance and ICT: compulsory activities, line schools and documents must be in place before any send step.
 const readiness = (data: PlanReview, pillar: ImplementedPillar) => hasReadinessRules(pillar) ? componentReadinessProblem(pillar, data.snapshot[pillar] ?? []) : null;
-const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (pillar === 'tlm' && !data.snapshot.tlmDistribution?.length) || (pillar === 'curriculum' && !data.snapshot.curriculumDistribution?.length);
+const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length);
 
 /** The plan page: summary, components, workflow steps, the plan workbook and its review history. */
 export default function PlanPage() {

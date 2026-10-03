@@ -155,6 +155,18 @@ try {
   ok(await review('dirSocial', 'request_changes', 'sbmc'));
   step('SBMC Director comments on their own component and requests changes without a note');
 
+  // GSCCI distribution list (migration 039): its own commentable sheet, owned by the GSCCI component.
+  ok(await api('des', `/api/activities${q}`, { workstream: 'gscci', entity: 'line', action: 'create', activity: 8, description: 'Monitor school gardens', quantity: 1, unitCost: 10000, strategy: 'Request for quotation', targetGroup: 'Schools' }));
+  expect(await review('des', 'submit', 'gscci'), 400, /Greening distribution list/);
+  ok(await api('des', `/api/activities${q}`, { workstream: 'gscci', entity: 'school', action: 'create', schoolIds: [schoolId] }));
+  ok(await review('des', 'submit', 'gscci'));
+  const greenRoot = ok(await cell('dir', schoolId, 'learners', 'Confirm the learner count for this school.', 'gscciDistribution'), 201).id;
+  expect(await cell('dir', 987654321, 'learners', 'x', 'gscciDistribution'), 400, /no longer in the plan/);
+  expect(await cell('dir', schoolId, 'learners', 'x', 'curriculumDistribution'), 403, /holding/); // Curriculum is still a draft
+  assert.equal((await db.query('SELECT pillar FROM plan_comments WHERE id=$1', [greenRoot])).rows[0].pillar, 'gscci');
+  ok(await review('dir', 'request_changes', 'gscci'));
+  step('GSCCI: distribution list required to send; Director comments on a Greening distribution cell (pillar gscci)');
+
   ok(await review('dir', 'endorse', 'sports'));
   const chairRoot = ok(await cell('chair', balls, 'amount', 'Amount exceeds the equipment benchmark.'), 201).id;
   expect(await cell('dir', balls, 'quantity', 'x'), 403, /holding/);

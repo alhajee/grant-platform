@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       const tlm = !reviewer || assigned.some(a=>a.pillar==='tlm') ? r.snapshot.tlm ?? [] : [];
       const tlmSchools = !reviewer || assigned.some(a=>a.pillar==='tlm') ? r.snapshot.tlmDistribution ?? [] : [];
       const extra = (['monitoring','gscci','curriculum','quality','ict'] as const).flatMap(p => !reviewer || assigned.some(a=>a.pillar===p) ? r.snapshot[p] ?? [] : []);
-      const distribution = [...tlmSchools, ...(!reviewer || assigned.some(a=>a.pillar==='curriculum') ? r.snapshot.curriculumDistribution ?? [] : [])];
+      const distribution = [...tlmSchools, ...(['curriculum','gscci'] as const).flatMap(p => !reviewer || assigned.some(a=>a.pillar===p) ? r.snapshot[`${p}Distribution`] ?? [] : [])];
       const budget = (lines: {unit_cost:string;quantity:number}[]) => lines.reduce((sum,l) => sum + Math.round(Number(l.unit_cost)*100)*l.quantity/100,0);
       const schoolKey = (s: { name: string; lga: string; level: string }) => JSON.stringify([r.state_code,s.name,s.lga,s.level]);
       return { id:r.id,planId:r.plan_id,state:stateDisplayName(r.state_code),stateCode:r.state_code,startYear:r.start_year,endYear:r.end_year,fundingQuarters:r.funding_quarters,status:r.status,round:r.number,submittedAt:r.submitted_at,decidedAt:r.decided_at,budget:budget(infra)+budget(sports)+budget(sbmc)+budget(tlm)+budget(extra),infrastructure:budget(infra),sports:budget(sports),schools:[...new Set([...distribution.map(schoolKey),...infra.map(l=>schoolKey(l.school)),...sports.flatMap(l=>l.allocations.map(a=>schoolKey(a.school)))])],pending:['received','reviewing'].includes(r.status)?assigned.filter(a=>!a.completed_at).length:0,completed:assigned.filter(a=>a.completed_at).length };

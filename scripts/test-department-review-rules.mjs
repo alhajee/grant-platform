@@ -23,7 +23,7 @@ const reviews = (infrastructure, sports, sbmc= sports, tlm= sports, rest = sport
   ...['monitoring', 'gscci', 'curriculum', 'quality', 'ict'].map(pillar => ({ pillar, status: rest })),
 ];
 const completeSnapshot = {
-  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1}}}], sports:[{}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}], monitoring:[{}], gscci:[{}], curriculum:[{}], curriculumDistribution:[{}],
+  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1}}}], sports:[{}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}], monitoring:[{}], gscci:[{}], gscciDistribution:[{}], curriculum:[{}], curriculumDistribution:[{}],
   // Quality Assurance and ICT: every compulsory activity, line schools and line documents (migration 038).
   quality:[2,3,6,7,8,9,10].map(activity=>({id:activity,activity,description:'QA'})),
   ict:[{id:12,activity:2,description:'Smart',schools:[{id:1}]},{id:13,activity:3,description:'Connect',documents:[{id:'d'}]},{id:16,activity:6,description:'Website'}],
@@ -60,6 +60,9 @@ assert.equal(readyForUbec(reviews('chairman_ready','draft'),completeSnapshot),fa
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,sports:[]}),false);
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),completeSnapshot),true);
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,curriculumDistribution:[]}),false);
+// GSCCI's distribution list is required too (migration 039).
+assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,gscciDistribution:[]}),false);
+assert.equal(readyForExecutiveChairman(reviews('beap_review','beap_review'),{...completeSnapshot,gscciDistribution:undefined}),false);
 assert.equal(readyForExecutiveChairman(reviews('beap_review','beap_review','beap_review','beap_review','draft'),completeSnapshot),false);
 // Quality Assurance and ICT readiness: compulsory activities and line documents.
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,quality:completeSnapshot.quality.slice(1)}),false);
@@ -76,6 +79,7 @@ assert.deepEqual(partialSnapshot.setup,{id:1});
 assert.equal(partialSnapshot.sports.length,1);
 assert.deepEqual([partialSnapshot.infrastructure,partialSnapshot.sbmc,partialSnapshot.tlm,partialSnapshot.tlmDistribution],[[],[],[],[]]);
 assert.equal('infrastructureDocuments' in partialSnapshot,false);
-assert.deepEqual([partialSnapshot.monitoring,partialSnapshot.curriculumDistribution,partialSnapshot.componentDocuments],[[],[],[]]);
+assert.deepEqual([partialSnapshot.monitoring,partialSnapshot.curriculumDistribution,partialSnapshot.gscciDistribution,partialSnapshot.componentDocuments],[[],[],[],[]]);
+assert.equal(ubecSubmissionSnapshot(completeSnapshot,reviews('chairman_ready','chairman_ready')).gscciDistribution.length,1);
 assert.equal(ubecSubmissionSnapshot(completeSnapshot,reviews('chairman_ready','chairman_ready')).infrastructureDocuments.length,3);
 console.log('PASS: department isolation, Director, BEAP Chair and Executive Chairman stages, UBEC locks, implemented-component readiness, UBEC submission modes, nine components and 100% shares.');

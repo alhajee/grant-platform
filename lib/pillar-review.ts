@@ -7,6 +7,7 @@ import { infrastructureDocumentProblem } from './infrastructure-documents';
 import { componentReadinessProblem } from './component-readiness';
 import type { DepartmentAccess } from './user-departments';
 import type { UbecSubmissionMode } from './workflow-settings';
+import { distributionSnapshotKeys, distributionWorkstreams } from './distribution-lists';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'beap_review' | 'chairman_ready';
 export type PillarReview = { pillar: ImplementedPillar; status: PillarReviewStatus };
@@ -46,6 +47,7 @@ export function ubecSubmissionSnapshot(snapshot: Snapshot, reviews: PillarReview
     tlmDistribution: sent.includes('tlm') ? snapshot.tlmDistribution ?? [] : [],
     monitoring: sent.includes('monitoring') ? snapshot.monitoring ?? [] : [],
     gscci: sent.includes('gscci') ? snapshot.gscci ?? [] : [],
+    gscciDistribution: sent.includes('gscci') ? snapshot.gscciDistribution ?? [] : [],
     curriculum: sent.includes('curriculum') ? snapshot.curriculum ?? [] : [],
     curriculumDistribution: sent.includes('curriculum') ? snapshot.curriculumDistribution ?? [] : [],
     quality: sent.includes('quality') ? snapshot.quality ?? [] : [],
@@ -58,7 +60,7 @@ export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Sna
     reviews.some(r => r.status === 'beap_review') && planIsComplete(snapshot);
 }
 function planIsComplete(snapshot: Snapshot) {
-  return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && (snapshot.tlmDistribution?.length ?? 0)>0 && (snapshot.curriculumDistribution?.length ?? 0)>0 && !infrastructureDocumentProblem(snapshot)
+  return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot)
     && !componentReadinessProblem('quality', snapshot.quality ?? []) && !componentReadinessProblem('ict', snapshot.ict ?? []);
 }
 /** Components with the Executive Chairman that are not ready to reach UBEC (compulsory activities, line schools and documents). */
