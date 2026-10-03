@@ -6,7 +6,7 @@ const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 
 
 /** Every review step on the plan, newest first. Each entry is a notification anchor (#review-event-<id>). */
 export function ReviewHistory({ events, scopeLabel }: { events: ReviewEvent[]; scopeLabel: (scope: string) => string }) {
-  return <Card className="review-history">
+  return <Card className="review-history" id="review-history">
     <CardHeader><CardTitle>Review history</CardTitle></CardHeader>
     <CardContent>
       {!events.length ? <p>No submissions yet.</p> : <ol>{events.map(event => <li key={event.id} id={reviewEventAnchor(event.id).slice(1)}>

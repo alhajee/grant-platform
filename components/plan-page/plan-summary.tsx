@@ -40,7 +40,7 @@ export function PlanSummary({ plan, totals }: { plan: ActionPlan; totals: PlanTo
           {plan.implementationYear != null && <li><CalendarDaysIcon aria-hidden="true" />Implementation<b>{plan.implementationYear}</b></li>}
         </ul>
       </div>
-      {plan.beapName && <Collapsible className="plan-summary-details">
+      {plan.beapName && <Collapsible className="plan-summary-details" defaultOpen>
         <CollapsibleTrigger className="plan-summary-details-trigger"><ChevronDownIcon aria-hidden="true" />Funding details & documents</CollapsibleTrigger>
         <CollapsibleContent><FundingDetails setup={plan} /></CollapsibleContent>
       </Collapsible>}

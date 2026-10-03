@@ -1,7 +1,7 @@
 "use client";
 import '@/components/plan-page/plan-page.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftIcon, HistoryIcon, MessageSquareIcon, PencilIcon } from 'lucide-react';
+import { ArrowLeftIcon, HistoryIcon, PencilIcon } from 'lucide-react';
 import { SubebHeader } from '@/components/subeb-header';
 import { PlanStatusBadge } from '@/components/plan-status';
 import { PlanReviewContent } from '@/components/plan-review-content';
@@ -10,6 +10,7 @@ import { PlanSummary } from '@/components/plan-page/plan-summary';
 import { ComponentCards, PlannedComponents, type CardActions } from '@/components/plan-page/component-cards';
 import { WorkflowBar } from '@/components/plan-page/workflow-bar';
 import { ReviewHistory } from '@/components/plan-page/review-history';
+import { StatusPanel } from '@/components/plan-page/status-panel';
 import { ReviewActionDialog, type ReviewRequest } from '@/components/plan-page/review-action-dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -119,9 +120,11 @@ export default function PlanPage() {
       </div>
       {error && <Alert variant="destructive"><AlertTitle>Plan unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
       {loading && !data ? <div className="plan-page-loading"><Skeleton className="h-36 w-full rounded-3xl" /><Skeleton className="h-64 w-full rounded-3xl" /></div> : data && totals && !error && <>
-        {plan?.status === 'changes_requested' && latestFeedback && <Alert><MessageSquareIcon /><AlertTitle>Changes requested · {scopeLabel(latestFeedback.scope)}</AlertTitle><AlertDescription><p className="review-comment">{latestFeedback.comment}</p></AlertDescription></Alert>}
         {selected !== 'current' && <Alert><AlertTitle>Saved submission {data.selectedSubmission}</AlertTitle><AlertDescription>This version is read-only. Select the current version to take action.</AlertDescription></Alert>}
-        <PlanSummary plan={data.plan} totals={totals} />
+        <div className="plan-glance">
+          <PlanSummary plan={data.plan} totals={totals} />
+          <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} />
+        </div>
         <section className="plan-components" id="plan-components" aria-labelledby="plan-components-title">
           <h2 id="plan-components-title" className="plan-section-title">Components</h2>
           <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
