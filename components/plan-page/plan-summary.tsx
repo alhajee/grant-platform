@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowLeftIcon, CalendarDaysIcon, FileTextIcon, HandCoinsIcon, ListIcon, SchoolIcon } from 'lucide-react';
 import { Amount, FundingGauge, amountFormat, compactNaira, mixOrder } from '@/components/dashboard/plan-figures';
@@ -13,6 +13,36 @@ import type { PlanTotals } from '@/lib/plan-summary';
 import { FundingDetails } from './funding-details';
 
 const plural = (n: number, one: string, many: string) => n === 1 ? one : many;
+// Things that open outside the card but belong to it (document preview dialog, tooltips, menus).
+const PORTALS = '[data-slot=dialog-overlay], [data-slot=dialog-content], [role=dialog], [data-radix-popper-content-wrapper]';
+const inPortal = (target: EventTarget | null) => target instanceof Element && !!target.closest(PORTALS);
+
+/**
+ * While the card is flipped, a click or tap outside it, focus moving elsewhere on the page, or Escape turns it
+ * back. Focus follows the visible face so keyboard users land on Back, and on the trigger again afterwards.
+ */
+function useFlipBack(flipped: boolean, onClose: () => void) {
+  const ref = useRef<HTMLDivElement>(null), wasFlipped = useRef(flipped);
+  useEffect(() => {
+    const card = ref.current;
+    if (wasFlipped.current !== flipped) {
+      wasFlipped.current = flipped;
+      const target = card?.querySelector<HTMLElement>(flipped ? '[data-flip-back]' : '.plan-summary-details-trigger');
+      requestAnimationFrame(() => target?.focus({ preventScroll: true }));
+    }
+    if (!flipped || !card) return;
+    const outside = (target: EventTarget | null) => target instanceof Node && !card.contains(target) && !inPortal(target);
+    const onPointer = (event: PointerEvent) => { if (outside(event.target)) onClose(); };
+    // relatedTarget is the element receiving focus; null (focus left the page or an inert face) is not a move away.
+    const onFocusOut = (event: FocusEvent) => { if (event.relatedTarget && outside(event.relatedTarget)) onClose(); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape' && !document.querySelector('[role=dialog]')) onClose(); };
+    document.addEventListener('pointerdown', onPointer);
+    card.addEventListener('focusout', onFocusOut);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', onPointer); card.removeEventListener('focusout', onFocusOut); document.removeEventListener('keydown', onKey); };
+  }, [flipped, onClose]);
+  return ref;
+}
 // A soft spring: the flip settles without overshooting past the edge-on point.
 const FLIP = { type: 'spring', stiffness: 170, damping: 24, mass: 0.9 } as const;
 
@@ -64,6 +94,7 @@ export function PlanSummary({ plan, totals, detailsOpen, onDetailsOpenChange }: 
   const { budget, schoolCount, lineCount } = totals.total;
   const amounts = Object.fromEntries(mixOrder.map(area => [area, totals[area].budget]));
   const share = funding ? Math.round(budget / funding * 100) : null;
+  const cardRef = useFlipBack(detailsOpen, () => onDetailsOpenChange(false));
   const facts = [
     { key: 'schools', Icon: SchoolIcon, value: String(schoolCount), label: plural(schoolCount, 'school', 'schools') },
     { key: 'lines', Icon: ListIcon, value: String(lineCount), label: plural(lineCount, 'budget line', 'budget lines') },
@@ -89,13 +120,13 @@ export function PlanSummary({ plan, totals, detailsOpen, onDetailsOpenChange }: 
 
   const back = <>
     <div className="plan-summary-back-head">
-      <Button type="button" variant="ghost" size="sm" className="rounded-full" onClick={() => onDetailsOpenChange(false)}><ArrowLeftIcon data-icon="inline-start" />Back</Button>
+      <Button type="button" variant="ghost" size="sm" className="rounded-full" data-flip-back onClick={() => onDetailsOpenChange(false)}><ArrowLeftIcon data-icon="inline-start" />Back</Button>
       <p className="plan-summary-label">Funding details & documents</p>
     </div>
     <FundingDetails setup={plan} />
   </>;
 
-  return <Card className="plan-summary">
+  return <Card ref={cardRef} className="plan-summary">
     <CardContent>
       {plan.beapName ? <FlipCard flipped={detailsOpen} front={front} back={back} /> : <div className="flip-face" data-side="front">{front}</div>}
     </CardContent>

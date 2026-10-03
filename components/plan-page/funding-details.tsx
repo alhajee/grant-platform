@@ -1,35 +1,15 @@
 'use client';
 
-import { CheckIcon, CopyIcon } from 'lucide-react';
-import { useState } from 'react';
-import { toast } from 'sonner';
 import { amountFormat } from '@/components/dashboard/plan-figures';
 import { DocumentFiles } from '@/components/document-files';
 import { OtherFundingInfo } from '@/components/funding-sources-field';
-import { Button } from '@/components/ui/button';
-import { formatQuarters } from '@/lib/format-quarters';
 import { otherFundingTotal, type PlanSetup } from '@/lib/plan-setup';
 
 type Source = { key: string; label: string; amount: number; tone: string; info?: boolean };
 
-/** The plan reference as written on its documents, with the selected quarters spelled out. */
-function planReference(setup: Partial<PlanSetup>) {
-  if (!setup.beapName) return '';
-  return setup.fundingQuarters?.length ? setup.beapName.replace(/Q[1-4](?:\+Q[1-4])+/g, formatQuarters(setup.fundingQuarters)) : setup.beapName;
-}
-
-function CopyReference({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    try { await navigator.clipboard.writeText(value); setCopied(true); window.setTimeout(() => setCopied(false), 1500); }
-    catch { toast.error('The reference could not be copied.'); }
-  };
-  return <Button type="button" variant="ghost" size="icon-xs" className="rounded-full" onClick={() => void copy()} aria-label={copied ? 'Reference copied' : 'Copy reference'} title={copied ? 'Copied' : 'Copy reference'}>{copied ? <CheckIcon /> : <CopyIcon />}</Button>;
-}
-
 /**
  * Funding details for the plan summary card: where the money comes from (state, UBEC match, other funding)
- * as one split bar with its legend, and the plan reference with its assessment documents. The total is the
+ * as one split bar with its legend, and the assessment documents. The total is the
  * summary's headline figure, so it is not repeated here.
  */
 export function FundingDetails({ setup }: { setup: Partial<PlanSetup> }) {
@@ -42,7 +22,6 @@ export function FundingDetails({ setup }: { setup: Partial<PlanSetup> }) {
   const total = sources.reduce((sum, source) => sum + source.amount, 0);
   const share = (amount: number) => total > 0 ? Math.round(amount / total * 100) : 0;
   const documents = (setup.documents ?? []).map(document => ({ ...document, url: `/api/plans/documents?id=${document.id}` }));
-  const reference = planReference(setup);
 
   return <div className="funding-details">
     <section aria-labelledby="funding-sources-title">
@@ -58,8 +37,7 @@ export function FundingDetails({ setup }: { setup: Partial<PlanSetup> }) {
       </dl>
     </section>
     <section aria-labelledby="funding-documents-title">
-      <h3 id="funding-documents-title">Reference & documents</h3>
-      {reference && <p className="funding-reference"><span>{reference}</span><CopyReference value={reference} /></p>}
+      <h3 id="funding-documents-title">Documents</h3>
       {documents.length ? <DocumentFiles compact documents={documents} /> : <p className="funding-none">No assessment documents attached.</p>}
     </section>
   </div>;

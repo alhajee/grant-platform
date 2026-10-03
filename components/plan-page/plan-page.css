@@ -39,7 +39,6 @@
 .funding-legend dd { display: inline-flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
 .funding-legend b { font-weight: 600; }
 .funding-legend small { min-width: 32px; text-align: right; font-size: 12px; color: var(--muted-foreground); }
-.funding-reference { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
 .funding-none { font-size: 13px; color: var(--muted-foreground); }
 /* Documents as full-width rows under the reference, names and sizes visible. */
 .funding-details .document-files { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: minmax(0, 1fr); justify-content: stretch; margin: 0; padding: 0; overflow: visible; }
