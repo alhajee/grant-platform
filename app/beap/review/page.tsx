@@ -45,6 +45,8 @@ export default function PlanPage() {
   const [request, setRequest] = useState<ReviewRequest | null>(null);
   const [canEditSetup, setCanEditSetup] = useState(false);
   const [editing, setEditing] = useState(false);
+  // One toggle opens the funding details and the full status panel together, so the two cards stay level.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const requestId = useRef(0);
   const load = useCallback(async (version = 'current') => {
     const id = ++requestId.current;
@@ -122,8 +124,8 @@ export default function PlanPage() {
       {loading && !data ? <div className="plan-page-loading"><Skeleton className="h-36 w-full rounded-3xl" /><Skeleton className="h-64 w-full rounded-3xl" /></div> : data && totals && !error && <>
         {selected !== 'current' && <Alert><AlertTitle>Saved submission {data.selectedSubmission}</AlertTitle><AlertDescription>This version is read-only. Select the current version to take action.</AlertDescription></Alert>}
         <div className="plan-glance">
-          <PlanSummary plan={data.plan} totals={totals} />
-          <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} />
+          <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
+          <StatusPanel compact={!detailsOpen} feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} />
         </div>
         <section className="plan-components" id="plan-components" aria-labelledby="plan-components-title">
           <h2 id="plan-components-title" className="plan-section-title">Components</h2>

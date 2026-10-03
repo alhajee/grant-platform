@@ -98,6 +98,7 @@
 .status-feedback:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 40%, transparent); }
 .status-feedback-title { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
 .status-feedback-title svg { width: 14px; height: 14px; }
+.plan-status-panel[data-compact] .status-feedback-note { -webkit-line-clamp: 2; }
 .status-feedback-note { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 3; -webkit-box-orient: vertical; font-size: 13px; line-height: 1.5; color: #7a4a22; }
 .status-feedback small { font-size: 12px; color: #9a6a42; }
 .status-steps { display: grid; margin: 0 -8px; padding: 0; list-style: none; }

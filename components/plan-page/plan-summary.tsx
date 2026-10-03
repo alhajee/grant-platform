@@ -16,7 +16,7 @@ const plural = (n: number, one: string, many: string) => n === 1 ? one : many;
  * The plan at a glance: available funding as the key figure, the proposed amount as a component-coloured
  * gauge, and small pills for schools, lines and other funding. Funding details and documents fold away below.
  */
-export function PlanSummary({ plan, totals }: { plan: ActionPlan; totals: PlanTotals }) {
+export function PlanSummary({ plan, totals, detailsOpen, onDetailsOpenChange }: { plan: ActionPlan; totals: PlanTotals; detailsOpen: boolean; onDetailsOpenChange: (open: boolean) => void }) {
   const funding = plan.fundingTotal != null ? Number(plan.fundingTotal) : null;
   const other = Number(otherFundingTotal(plan));
   const { budget, schoolCount, lineCount } = totals.total;
@@ -40,7 +40,7 @@ export function PlanSummary({ plan, totals }: { plan: ActionPlan; totals: PlanTo
           {plan.implementationYear != null && <li><CalendarDaysIcon aria-hidden="true" />Implementation<b>{plan.implementationYear}</b></li>}
         </ul>
       </div>
-      {plan.beapName && <Collapsible className="plan-summary-details" defaultOpen>
+      {plan.beapName && <Collapsible className="plan-summary-details" open={detailsOpen} onOpenChange={onDetailsOpenChange}>
         <CollapsibleTrigger className="plan-summary-details-trigger"><ChevronDownIcon aria-hidden="true" />Funding details & documents</CollapsibleTrigger>
         <CollapsibleContent><FundingDetails setup={plan} /></CollapsibleContent>
       </Collapsible>}

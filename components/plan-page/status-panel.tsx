@@ -10,6 +10,8 @@ const RECENT_STEPS = 2;
 export type StatusPanelProps = {
   /** The change request the plan is waiting on, if any. */
   feedback?: ReviewEvent;
+  /** Collapsed with the funding details: only the change request (shorter) and the history link. */
+  compact?: boolean;
   events: ReviewEvent[];
   scopeLabel: (scope: string) => string;
 };
@@ -20,9 +22,10 @@ const stepLabel = (event: ReviewEvent) => event.action === 'approve' && event.ac
  * Beside the funding summary: what the plan is waiting on (the latest change request) and the last few review
  * steps, each linking to its Review history entry. Component stages are on the component cards below.
  */
-export function StatusPanel({ feedback, events, scopeLabel }: StatusPanelProps) {
-  const recent = events.filter(event => event.id !== feedback?.id).slice(0, RECENT_STEPS);
-  return <Card className="plan-status-panel">
+export function StatusPanel({ feedback, events, scopeLabel, compact = false }: StatusPanelProps) {
+  // Collapsed, a pending change request is enough; otherwise keep one step so the panel still says something.
+  const recent = events.filter(event => event.id !== feedback?.id).slice(0, compact ? (feedback ? 0 : 1) : RECENT_STEPS);
+  return <Card className="plan-status-panel" data-compact={compact || undefined}>
     <CardHeader><CardTitle><h2>Where the plan is</h2></CardTitle></CardHeader>
     <CardContent>
       {feedback && <a className="status-feedback" href={reviewEventAnchor(feedback.id)}>
