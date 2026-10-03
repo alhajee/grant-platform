@@ -131,3 +131,8 @@
 .status-history-link svg { width: 14px; height: 14px; }
 .status-history-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 1000px) { .plan-glance { grid-template-columns: minmax(0, 1fr); } }
+
+/* Documents beside the review history. */
+.plan-records { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: start; gap: 18px; }
+.plan-records > :only-child { grid-column: 1 / -1; }
+@media (max-width: 1100px) { .plan-records { grid-template-columns: minmax(0, 1fr); } }

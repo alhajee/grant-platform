@@ -10,6 +10,7 @@ import { PlanSummary } from '@/components/plan-page/plan-summary';
 import { ComponentCards, type CardActions } from '@/components/plan-page/component-cards';
 import { WorkflowBar } from '@/components/plan-page/workflow-bar';
 import { ReviewHistory } from '@/components/plan-page/review-history';
+import { PlanDocuments } from '@/components/plan-page/plan-documents';
 import { StatusPanel } from '@/components/plan-page/status-panel';
 import { ReviewActionDialog, type ReviewRequest } from '@/components/plan-page/review-action-dialog';
 import { Button } from '@/components/ui/button';
@@ -128,8 +129,12 @@ export default function PlanPage() {
           <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} />
         </section>
         <div className="review-layout">
-          <PlanReviewContent showPlanReference={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} {...workbookLinks} />
-          <ReviewHistory events={data.events} scopeLabel={scopeLabel} />
+          <PlanReviewContent showPlanReference={false} showDocuments={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} {...workbookLinks} />
+          {/* Documents and the review history share a row; each takes the full width on narrow screens. */}
+          <div className="plan-records">
+            <PlanDocuments snapshot={data.snapshot} visiblePillars={data.visiblePillars} />
+            <ReviewHistory events={data.events} scopeLabel={scopeLabel} />
+          </div>
         </div>
       </>}
     </main>

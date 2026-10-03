@@ -11,10 +11,10 @@ import { implementedPillars } from '@/lib/beap-pillars';
 const allPillars = implementedPillars;
 type EditHrefs = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string };
 
-export function PlanReviewContent({ snapshot, showPlanReference = true, visiblePillars = allPillars, comments = null, requestChanges, ...links }: { comments?: CommentsController | null; requestChanges?: RequestChangesHandlers; snapshot: Snapshot; showPlanReference?: boolean; visiblePillars?: readonly string[] } & EditHrefs) {
+export function PlanReviewContent({ snapshot, showPlanReference = true, showDocuments = true, visiblePillars = allPillars, comments = null, requestChanges, ...links }: { /** The plan page lays the documents out beside its review history instead. */ showDocuments?: boolean; comments?: CommentsController | null; requestChanges?: RequestChangesHandlers; snapshot: Snapshot; showPlanReference?: boolean; visiblePillars?: readonly string[] } & EditHrefs) {
   return <div className="review-sections">
     {showPlanReference && snapshot.setup && <PlanSetupSummary setup={snapshot.setup} compact />}
     <PlanWorkbook snapshot={snapshot} visiblePillars={visiblePillars} links={links} comments={comments} requestChanges={requestChanges} />
-    <PlanDocuments snapshot={snapshot} visiblePillars={visiblePillars} />
+    {showDocuments && <PlanDocuments snapshot={snapshot} visiblePillars={visiblePillars} />}
   </div>;
 }

@@ -44,7 +44,7 @@ export function PlanDocuments({ snapshot, visiblePillars }: { snapshot: Snapshot
   return <Card className="plan-documents">
     <CardHeader className="plan-documents-header">
       <CardTitle><h2>Documents <span>{documents.length}</span></h2></CardTitle>
-      {types.length > 1 && <ToggleGroup type="single" size="sm" variant="outline" value={type} onValueChange={value => setType(value || ALL)} aria-label="Filter documents by type" className="plan-documents-filter">
+      {types.length > 1 && <ToggleGroup type="single" size="sm" variant="outline" spacing={1} value={type} onValueChange={value => setType(value || ALL)} aria-label="Filter documents by type" className="plan-documents-filter">
         <ToggleGroupItem value={ALL}>All</ToggleGroupItem>
         {types.map(item => <ToggleGroupItem key={item.name} value={item.name}>{item.name}<span>{item.count}</span></ToggleGroupItem>)}
       </ToggleGroup>}

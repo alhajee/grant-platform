@@ -3,7 +3,8 @@
 .plan-documents-header[data-slot=card-header] { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .plan-documents h2 { display: inline-flex; align-items: baseline; gap: 8px; font-size: 16px; font-weight: 600; letter-spacing: -.02em; }
 .plan-documents h2 span { font-size: 13px; font-weight: 500; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
-.plan-documents-filter [data-slot=toggle-group-item] { height: 28px; padding: 0 10px; border-radius: 999px !important; font-size: 12px; }
+.plan-documents-filter { flex-wrap: wrap; gap: 6px; }
+.plan-documents-filter [data-slot=toggle-group-item] { flex: none; height: 28px; border-width: 1px !important; padding: 0 10px; border-radius: 999px !important; font-size: 12px; }
 .plan-documents-filter [data-slot=toggle-group-item] span { margin-left: 5px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
 .plan-documents-filter [data-slot=toggle-group-item][data-state=on] { border-color: var(--primary); background: var(--primary); color: var(--primary-foreground); }
 .plan-documents-filter [data-slot=toggle-group-item][data-state=on] span { color: inherit; opacity: .75; }
