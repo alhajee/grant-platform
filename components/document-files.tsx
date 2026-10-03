@@ -42,7 +42,7 @@ export function DocumentFiles({documents,onRemove,disabled=false,compact=false}:
  return <><ul className="document-files" data-compact={compact||undefined}>{documents.map(doc=><li key={doc.id} className="document-file"><a href={doc.url??'#'} className="document-open" onClick={e=>{e.preventDefault();setSelected(doc);}} aria-label={'Preview '+doc.name}><FileArtwork name={doc.name}/><span className="document-label"><span className="document-name">{doc.name}</span><span className="document-meta">{extension(doc.name).toUpperCase()} · {fileSize(doc.size)}{doc.description&&' · '+doc.description}</span></span><EyeIcon className="document-eye" aria-hidden="true"/></a>{onRemove&&<Button type="button" variant="ghost" size="icon" aria-label={'Remove '+doc.name} disabled={disabled} onClick={()=>onRemove(doc.id)}><XIcon/></Button>}</li>)}</ul>{selected&&<DocumentPreview document={selected} onClose={()=>setSelected(null)}/>}</>;
 }
 
-function DocumentPreview({document:doc,onClose}:{document:DocumentFile;onClose:()=>void}) {
+export function DocumentPreview({document:doc,onClose}:{document:DocumentFile;onClose:()=>void}) {
  const [url,setUrl]=useState(''),[text,setText]=useState(''),[sheets,setSheets]=useState<{name:string;rows:string[][]}[]>([]),[sheet,setSheet]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState('');
  const ext=extension(doc.name);
  useEffect(()=>{let active=true,objectUrl='';const controller=new AbortController();

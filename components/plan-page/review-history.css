@@ -1,0 +1,20 @@
+/* Review history: a timeline grouped by submission, an icon per kind of step. */
+.review-history .review-history-group + .review-history-group { margin-top: 18px; }
+.review-history .review-history-group h3 { margin-bottom: 8px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--muted-foreground); }
+.review-history .review-history-group ol { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; list-style: none; }
+.review-history .review-history-group li { position: relative; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 12px; padding: 0 6px 16px 0; font-size: 14px; }
+.review-history .review-history-group li:not(:last-child)::before { content: ''; position: absolute; top: 32px; bottom: 2px; left: 14.5px; width: 1px; background: color-mix(in srgb, var(--border) 85%, transparent); }
+.review-history-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; background: #edf4ef; color: var(--primary); }
+.review-history-icon svg { width: 14px; height: 14px; }
+.review-history li[data-tone=changes] .review-history-icon { background: #fdf0e3; color: #9a4d12; }
+.review-history li[data-tone=approved] .review-history-icon { background: #e3f3e9; color: #1d6b45; }
+.review-history li[data-tone=edited] .review-history-icon { background: var(--muted); color: var(--muted-foreground); }
+.review-history-body { min-width: 0; padding-top: 4px; }
+.review-history-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.review-history-title strong { font-weight: 600; }
+.review-history-title [data-slot=badge] { font-size: 11px; font-weight: 500; }
+.review-history-meta { margin-top: 2px; font-size: 12.5px; color: var(--muted-foreground); }
+.review-history-body blockquote { margin-top: 8px; padding: 8px 12px; border-left: 3px solid color-mix(in srgb, var(--primary) 30%, var(--border)); border-radius: 0 10px 10px 0; background: #f6f5f0; font-size: 13px; }
+.review-history li[data-tone=changes] blockquote { border-left-color: #f0b77d; background: #fdf6ee; }
+.review-history-more { margin-left: 36px; color: var(--primary); }
+.review-history-empty { font-size: 13px; color: var(--muted-foreground); }
