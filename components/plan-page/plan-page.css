@@ -75,7 +75,7 @@
 .component-card-amount b { font-weight: 600; color: var(--foreground); }
 .component-card[data-over] .component-card-amount, .component-card[data-over] .component-card-amount b { color: var(--destructive); }
 .component-card-foot { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; margin-top: 10px; }
-.component-card-step[data-slot=button] { margin-left: auto; }
+
 .component-card-foot :is(a, button) { position: relative; z-index: 1; }
 .component-card .component-card-sheet { flex: none; width: 30px; min-width: 0; padding: 0; height: 30px; color: color-mix(in srgb, var(--primary) 75%, #fff); background: rgb(255 255 255 / 70%); box-shadow: inset 0 0 0 1px rgb(0 69 64 / 10%); transition: opacity 150ms ease, background 150ms ease; }
 .component-card .component-card-sheet:hover { background: #fff; color: var(--primary); }
@@ -175,7 +175,7 @@
 .component-card .card-pill-count { position: absolute; top: -4px; right: -5px; display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: currentColor; font-size: 10px; line-height: 1; transition: opacity 160ms ease, transform 160ms ease; }
 .component-card .review-ubec-comments .card-pill-count { background: #1a73e8; color: #fff; }
 .component-card .review-open-comments:not(.review-ubec-comments) .card-pill-count { background: #e37400; color: #fff; }
-.component-card .card-pill-step { margin-left: auto; padding: 0 8px; }
+.component-card .card-pill-step { padding: 0 8px; }
 .component-card .card-pill-step[data-slot=button] { height: 30px; }
 @media (hover: none) { .component-card .card-pill { grid-template-columns: auto 1fr; gap: 6px; padding: 0 11px; } .component-card .card-pill-label { opacity: 1; } .component-card .card-pill-count { opacity: 0; transform: scale(.5); } }
 @media (hover: hover) {
