@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowLeftIcon, CalendarDaysIcon, FileTextIcon, HandCoinsIcon, ListIcon, SchoolIcon } from 'lucide-react';
 import { Amount, FundingGauge, amountFormat, compactNaira, mixOrder } from '@/components/dashboard/plan-figures';
@@ -46,41 +46,23 @@ function useFlipBack(flipped: boolean, onClose: () => void) {
 // A soft spring: the flip settles without overshooting past the edge-on point.
 const FLIP = { type: 'spring', stiffness: 170, damping: 24, mass: 0.9 } as const;
 
-/** Tracks an element's rendered height, so the card can animate between its two faces. */
-function useHeight() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    // The full border box (padding included): the faces carry their own padding.
-    const observer = new ResizeObserver(() => setHeight(element.offsetHeight));
-    observer.observe(element);
-    setHeight(element.offsetHeight);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, height] as const;
-}
-
 /**
- * A card with two faces that flips on its vertical axis (Motion spring); its height follows the visible face.
- * The hidden face is inert, so keyboard and screen readers only reach the side that is showing. Reduced
- * motion swaps the faces with a short crossfade instead of rotating.
+ * A card with two faces that flips on its vertical axis (Motion spring). The front sets the card's height and
+ * the back fills the same box, scrolling if it holds more. The hidden face is inert, so keyboard and screen
+ * readers only reach the side that is showing. Reduced motion swaps the faces with a short crossfade.
  */
 function FlipCard({ flipped, front, back }: { flipped: boolean; front: ReactNode; back: ReactNode }) {
   const reduce = useReducedMotion();
-  const [frontRef, frontHeight] = useHeight(), [backRef, backHeight] = useHeight();
-  const height = flipped ? backHeight : frontHeight;
   const face = (side: 'front' | 'back') => {
     const showing = (side === 'back') === flipped;
     return reduce
       ? { initial: false, animate: { opacity: showing ? 1 : 0 }, transition: { duration: 0.18 } }
       : { initial: false, animate: { rotateY: side === 'front' ? (flipped ? 180 : 0) : (flipped ? 0 : -180) }, transition: FLIP };
   };
-  return <motion.div className="flip-card" style={{ perspective: 1400 }} initial={false} animate={height == null ? undefined : { height }} transition={reduce ? { duration: 0 } : FLIP}>
-    <motion.div ref={frontRef} className="flip-face" data-side="front" inert={flipped} aria-hidden={flipped} {...face('front')}>{front}</motion.div>
-    <motion.div ref={backRef} className="flip-face" data-side="back" inert={!flipped} aria-hidden={!flipped} {...face('back')}>{back}</motion.div>
-  </motion.div>;
+  return <div className="flip-card" style={{ perspective: 1400 }}>
+    <motion.div className="flip-face" data-side="front" inert={flipped} aria-hidden={flipped} {...face('front')}>{front}</motion.div>
+    <motion.div className="flip-face" data-side="back" inert={!flipped} aria-hidden={!flipped} {...face('back')}>{back}</motion.div>
+  </div>;
 }
 
 /**

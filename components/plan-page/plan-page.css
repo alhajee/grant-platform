@@ -157,8 +157,9 @@
 .plan-summary[data-slot=card]:has(.flip-card) { padding: 0; background: transparent; box-shadow: none; overflow: visible; }
 .plan-summary:has(.flip-card) > [data-slot=card-content] { padding: 0; }
 .flip-card { position: relative; transform-style: preserve-3d; }
-.flip-card > .flip-face { position: absolute; inset: 0 0 auto; padding: 18px 20px; border-radius: 22px; background: #fff; box-shadow: 0 0 0 1px rgb(74 60 30 / 6%), 0 1px 2px rgb(74 60 30 / 4%), 0 18px 40px -30px rgb(74 60 30 / 30%); backface-visibility: hidden; -webkit-backface-visibility: hidden; transform-style: preserve-3d; will-change: transform; }
+.flip-card > .flip-face { position: absolute; inset: 0; padding: 18px 20px; border-radius: 22px; background: #fff; box-shadow: 0 0 0 1px rgb(74 60 30 / 6%), 0 1px 2px rgb(74 60 30 / 4%), 0 18px 40px -30px rgb(74 60 30 / 30%); backface-visibility: hidden; -webkit-backface-visibility: hidden; transform-style: preserve-3d; will-change: transform; }
 .flip-card > .flip-face[data-side=front] { position: relative; }
+.flip-card > .flip-face[data-side=back] { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .flip-card > .flip-face[aria-hidden=true] { pointer-events: none; }
 .plan-summary-back-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -4px -8px 4px -8px; }
 .plan-summary-back-head .plan-summary-label { margin-right: 8px; }
