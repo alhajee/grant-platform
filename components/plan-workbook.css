@@ -137,7 +137,7 @@
 .wb-comment-preview em { font-style: normal; color: var(--muted-foreground); }
 .plan-workbook-comments { border: 0; display: inline-flex; align-items: center; gap: 3px; height: 20px; padding: 0 7px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--wb-comment-ink); background: color-mix(in srgb, var(--wb-comment) 18%, var(--background)); }
 .plan-workbook .plan-workbook-tabs [data-slot=tabs-trigger] > .plan-workbook-comments svg { width: 12px; height: 12px; }
-.wb-comments-count { border: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; margin-left: 2px; padding: 0 6px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; background: var(--wb-comment); }
+.wb-comments-count { border: 0; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; margin-left: 2px; padding: 0 6px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #3b1d00; background: var(--wb-comment); }
 .wb-comments-panel { gap: 0; }
 .wb-comments-filter { padding: 0 16px 12px; border-bottom: 1px solid var(--border); }
 .wb-comments-list { display: flex; flex-direction: column; overflow-y: auto; }
