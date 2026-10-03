@@ -46,15 +46,15 @@ function ComponentCard({ plan, review, summary, comments, actions }: CardProps) 
       </div>
       <p className="component-card-department">{subebDepartmentName(subebComponentDepartments[pillar])}</p>
       <CeilingBar proposed={summary.budget} ceiling={ceiling} />
-      <div className="component-card-foot">
-        <p className="component-card-amount"><b>{compactNaira.format(summary.budget)}</b>{ceiling != null && <> of {compactNaira.format(ceiling)}</>}</p>
-        {own > 0 && <a className="review-open-comments" href={sheet}><MessageSquareTextIcon aria-hidden="true" />{commentCount(own)}</a>}
-        {ubec > 0 && <a className="review-open-comments review-ubec-comments" href={sheet} title="Open comments shared by UBEC"><MessageSquareTextIcon aria-hidden="true" />{ubecCount(ubec)}</a>}
-        {actions.step && <span className="component-card-actions"><Button size="sm" className="rounded-full" onClick={actions.step.run}>{actions.step.label}</Button></span>}
-      </div>
+      <p className="component-card-amount"><b>{compactNaira.format(summary.budget)}</b>{ceiling != null && <> of {compactNaira.format(ceiling)}</>}</p>
     </div>
-    {/* When the card opens the editor, its sheet is one hover away in the bottom-left corner. */}
-    {actions.editHref && <Tooltip><TooltipTrigger asChild><Button asChild variant="ghost" size="icon-sm" className="component-card-sheet rounded-full"><a href={sheet} aria-label={`View ${section.name} in the workbook`}><Sheet /></a></Button></TooltipTrigger><TooltipContent side="top" className="soft-tip">View in the workbook</TooltipContent></Tooltip>}
+    {/* One row across the card: workbook link (on hover), comment chips, then the viewer's step. */}
+    {(actions.editHref || own > 0 || ubec > 0 || actions.step) && <div className="component-card-foot">
+      {actions.editHref && <Tooltip><TooltipTrigger asChild><Button asChild variant="ghost" size="icon-sm" className="component-card-sheet rounded-full"><a href={sheet} aria-label={`View ${section.name} in the workbook`}><Sheet /></a></Button></TooltipTrigger><TooltipContent side="top" className="soft-tip">View in the workbook</TooltipContent></Tooltip>}
+      {own > 0 && <a className="review-open-comments" href={sheet} title={commentCount(own)}><MessageSquareTextIcon aria-hidden="true" />{own}<span className="sr-only"> open {own === 1 ? 'comment' : 'comments'}</span></a>}
+      {ubec > 0 && <a className="review-open-comments review-ubec-comments" href={sheet} title={ubecCount(ubec)}><MessageSquareTextIcon aria-hidden="true" />UBEC {ubec}<span className="sr-only"> open {ubec === 1 ? 'comment' : 'comments'} shared by UBEC</span></a>}
+      {actions.step && <Button size="sm" className="component-card-step rounded-full" onClick={actions.step.run}>{actions.step.label}</Button>}
+    </div>}
   </li>;
 }
 
