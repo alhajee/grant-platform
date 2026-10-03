@@ -74,11 +74,16 @@
 .component-card-foot { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; margin-top: 10px; }
 .component-card-step[data-slot=button] { height: 30px; margin-left: auto; font-size: 13px; }
 .component-card-foot :is(a, button) { position: relative; z-index: 1; }
-.component-card .component-card-sheet { flex: none; width: 30px; height: 30px; color: color-mix(in srgb, var(--primary) 75%, #fff); background: rgb(255 255 255 / 70%); box-shadow: inset 0 0 0 1px rgb(0 69 64 / 10%); transition: opacity 150ms ease, background 150ms ease; }
+.component-card .component-card-sheet { flex: none; width: 30px; min-width: 0; padding: 0; height: 30px; color: color-mix(in srgb, var(--primary) 75%, #fff); background: rgb(255 255 255 / 70%); box-shadow: inset 0 0 0 1px rgb(0 69 64 / 10%); transition: opacity 150ms ease, background 150ms ease; }
 .component-card .component-card-sheet:hover { background: #fff; color: var(--primary); }
 .component-card-sheet svg { width: 15px; height: 15px; }
 /* Shown on hover or keyboard focus where a pointer can hover; touch screens always show it. */
-@media (hover: hover) { .component-card .component-card-sheet { opacity: 0; } .component-card:is(:hover, :focus-within) .component-card-sheet { opacity: 1; } }
+@media (hover: hover) {
+  /* At rest it takes no room (the negative margin cancels the row gap); on hover it grows in and pushes the chips right. */
+  .component-card .component-card-sheet { width: 0; margin-right: -6px; overflow: hidden; opacity: 0; transform: scale(.6); transition: width 220ms cubic-bezier(.23, 1, .32, 1), margin 220ms cubic-bezier(.23, 1, .32, 1), opacity 160ms ease, transform 220ms cubic-bezier(.23, 1, .32, 1); }
+  .component-card:is(:hover, :focus-within) .component-card-sheet { width: 30px; margin-right: 0; opacity: 1; transform: none; }
+}
+@media (hover: hover) and (prefers-reduced-motion: reduce) { .component-card .component-card-sheet { transition: opacity 120ms ease; } }
 /* A light tooltip for quiet card controls (the default one is near-black). */
 .soft-tip[data-slot=tooltip-content] { border: 1px solid rgb(0 69 64 / 12%); background: #fff; color: var(--foreground); box-shadow: 0 8px 24px -12px rgb(0 40 30 / 30%); }
 .soft-tip[data-slot=tooltip-content] svg { background: #fff; fill: #fff; }
