@@ -44,8 +44,8 @@
 .dashboard-section-title h2 span { font-size: 14px; display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 6px; background: #e7eeea; color: var(--primary); }
 .dashboard-section-title p { font-size: 14px; color: var(--muted-foreground); margin-top: 6px; }
 .plan-search { position: relative; margin: 22px 0 18px; }
-.plan-search > svg { width: 15px; height: 15px; position: absolute; top: 12px; left: 12px; color: var(--muted-foreground); }
-.plan-search input { padding-left: 36px; height: 40px; background: var(--background); box-shadow: none; font-size: 14px; }
+.plan-search > svg { width: 15px; height: 15px; position: absolute; top: 12px; left: 14px; color: var(--muted-foreground); }
+.plan-search input { padding-left: 38px; height: 40px; border-radius: 999px; background: var(--background); box-shadow: none; font-size: 14px; }
 .dashboard-plan-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .dashboard-new-plan { height: auto; min-height: 280px; white-space: normal; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; background: transparent; border-style: dashed; border-radius: 14px; box-shadow: none; padding: 30px 20px; }
 .dashboard-new-plan:hover { background: #eff3ee; }
@@ -55,7 +55,7 @@
 .new-plan-link { display: inline-flex; gap: 8px; align-items: center; color: var(--primary); font-size: 14px; margin-top: 5px; }
 .dashboard-aside { display: grid; grid-template-rows: subgrid; grid-column: 2; grid-row: 2 / span 2; }
 .investment-filter-bar { grid-row: 1; display: flex; align-items: center; margin: 22px 0 18px; }
-.investment-filter-trigger { width: 100%; height: 40px; justify-content: flex-start; border-radius: var(--radius-md); background: var(--background); box-shadow: none; }
+.investment-filter-trigger { width: 100%; height: 40px; justify-content: flex-start; border-radius: 999px; background: var(--background); box-shadow: none; }
 .investment-filter-trigger [data-slot=badge] { min-width: 20px; margin-left: auto; justify-content: center; padding-inline: 5px; }
 .dashboard-aside-content { grid-row: 2; display: flex; flex-direction: column; gap: 20px; }
 .budget-allocation { border-radius: 14px; box-shadow: none; gap: 20px; }
