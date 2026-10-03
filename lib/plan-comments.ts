@@ -4,6 +4,7 @@ import { subebComponentDepartments as pillarDepartments } from './beap-pillars';
 import { canViewComponent } from './subeb-access';
 import { hasDepartment, normalizeDepartments, type DepartmentAccess } from './user-departments';
 import type { Snapshot } from './plan-review';
+import { qualityIctActivityNames } from './activity-extras';
 
 // Google-Sheets-style review comments on the plan workbook (migration 028).
 // A thread is a root comment on one cell (column_id set) or a whole row (column_id NULL);
@@ -11,10 +12,10 @@ import type { Snapshot } from './plan-review';
 // threads are written at UBEC on a submitted round and reach the state only when the UBEC ES shares them
 // on return (migration 029, lib/ubec-comments.ts).
 
-export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution', 'monitoring', 'gscci', 'gscciDistribution', 'curriculum', 'curriculumDistribution', 'quality', 'ict'] as const;
+export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution', 'monitoring', 'gscci', 'gscciDistribution', 'curriculum', 'curriculumDistribution', 'quality', 'ict', 'teachers'] as const;
 export type CommentSheet = typeof commentSheets[number];
 /** The component each sheet belongs to; each distribution list is part of its component (TLM, GSCCI, Curriculum). */
-export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm', monitoring: 'monitoring', gscci: 'gscci', gscciDistribution: 'gscci', curriculum: 'curriculum', curriculumDistribution: 'curriculum', quality: 'quality', ict: 'ict' };
+export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm', monitoring: 'monitoring', gscci: 'gscci', gscciDistribution: 'gscci', curriculum: 'curriculum', curriculumDistribution: 'curriculum', quality: 'quality', ict: 'ict', teachers: 'teachers' };
 export const commentBodyLimit = 2000;
 export const commentScopes = ['state', 'ubec'] as const;
 export type CommentScope = typeof commentScopes[number];
@@ -37,13 +38,14 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   curriculumDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
   quality: { ...activityColumns, equipment: 'Equipment type', ...activityTail },
   ict: { ...activityColumns, details: 'Details', schools: 'Schools', documents: 'Documents', ...activityTail },
+  teachers: { activity: 'Allowable activity', provider: 'Training provider', participants: 'Target participants', levels: 'School level', days: 'Training days', venue: 'Venue', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' },
 };
 
 /**
  * Durable row references: the workbook's row.id for each sheet. All are database ids that the
  * editors update in place (they never delete and recreate a line on save):
  * infrastructure = negative infrastructure_packages.id (see lib/plan-snapshot.ts), sports = sports_budget_lines.id,
- * sbmc/tlm/monitoring/gscci/curriculum/quality/ict = activity_plan_lines.id, distribution/gscciDistribution/curriculumDistribution = schools.id on the
+ * sbmc/tlm/monitoring/gscci/curriculum/quality/ict/teachers = activity_plan_lines.id, distribution/gscciDistribution/curriculumDistribution = schools.id on the
  * plan's tlm_distribution list for that workstream.
  */
 export function sheetRows(snapshot: Snapshot, sheet: CommentSheet): Map<string, string> {
@@ -53,7 +55,8 @@ export function sheetRows(snapshot: Snapshot, sheet: CommentSheet): Map<string, 
     sheet === 'distribution' ? (snapshot.tlmDistribution ?? []).map(school => [String(school.id), school.name]) :
     sheet === 'gscciDistribution' ? (snapshot.gscciDistribution ?? []).map(school => [String(school.id), school.name]) :
     sheet === 'curriculumDistribution' ? (snapshot.curriculumDistribution ?? []).map(school => [String(school.id), school.name]) :
-    (snapshot[sheet] ?? []).map(line => [String(line.id), line.description]);
+    // Teacher Development descriptions are optional, so its rows fall back to the activity name.
+    (snapshot[sheet] ?? []).map(line => [String(line.id), line.description || line.custom_activity || qualityIctActivityNames[sheet]?.[line.activity] || `Line ${line.id}`]);
   return new Map(pairs);
 }
 export const targetLabel = (sheet: CommentSheet, columnId: string | null, rowLabel: string) =>

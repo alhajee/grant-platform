@@ -10,16 +10,14 @@ import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from '@/co
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { CurrencyInput } from '@/components/currency-input';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, lineDocumentAccept, lineDocumentLabel, qualityEquipmentActivity, subscriptionGroups, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { compulsoryActivities, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, lineDocumentAccept, lineDocumentLabel, qualityEquipmentActivity, subscriptionGroups, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { compulsoryNames, missingCompulsory } from '@/lib/component-readiness';
-import { teachersSharedEnvelope, type EnvelopePlan } from '@/lib/funding-policy';
 import { currentPlanHref } from '@/lib/action-plans';
+import { teacherDocumentHint } from '@/lib/teacher-development';
 
 // Quality Assurance and ICT pieces of the activity editor (migration 038), kept out of activity-plan-editor.tsx.
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' });
 const count = new Intl.NumberFormat('en-NG');
 const pickerLimit = 200;
 const required = <span className="text-destructive" aria-label="required">*</span>;
@@ -40,7 +38,7 @@ export function ActivityInfoHint({ workstream, activity }: { workstream: Activit
 /** What is still missing before the component can be sent: compulsory activities without a line. */
 export function CompulsoryChecklist({ workstream, lines }: { workstream: ActivityWorkstream; lines: readonly { activity: number }[] }) {
   const missing = missingCompulsory(workstream, lines);
-  if (!['quality', 'ict'].includes(workstream)) return null;
+  if (!['quality', 'ict', 'teachers'].includes(workstream) || !(compulsoryActivities[workstream]?.length)) return null;
   if (!missing.length) return <p className="activity-compulsory-done"><CheckIcon aria-hidden="true" />Every required activity has a budget line.</p>;
   return <Alert className="activity-compulsory"><CircleAlertIcon /><AlertTitle>Required before sending · {missing.length} missing</AlertTitle><AlertDescription><ul>{compulsoryNames(workstream, missing).map(name => <li key={name}>{name}</li>)}</ul></AlertDescription></Alert>;
 }
@@ -83,7 +81,7 @@ export function LineSchoolPicker({ workstream, draft, schools, onChange, disable
 /** Documents of a saved line that needs one (ICT specification, supporting document, Bill of Quantities). */
 export function LineDocumentsField({ workstream, activity, lineId, documents, disabled, onChanged }: { workstream: ActivityWorkstream; activity: number; lineId?: number; documents: LineDocument[]; disabled: boolean; onChanged: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
-  const label = lineDocumentLabel(workstream, activity);
+  const label = lineDocumentLabel(workstream, activity), hint = workstream === 'teachers' ? `${teacherDocumentHint}. ` : '';
   if (!label) return null;
   const endpoint = currentPlanHref('/api/activities/line-documents');
   async function upload(files: File[]) {
@@ -109,34 +107,7 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, di
     {lineId ? <>
       <FileUpload compact id="line-document" label={label} multiple accept={lineDocumentAccept} disabled={disabled} busy={busy} onFiles={upload} />
       {documents.length > 0 && <DocumentFiles compact documents={documents.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: label }))} disabled={disabled || busy} onRemove={disabled ? undefined : id => void remove(id)} />}
-      <FieldDescription>PDF or Excel only, up to 5 MB each. Required before sending.</FieldDescription>
-    </> : <FieldDescription>Add the item first, then attach the {label.toLowerCase()} (PDF or Excel). It is required before sending.</FieldDescription>}
+      <FieldDescription>{hint}PDF or Excel only, up to 5 MB each. Required before sending.</FieldDescription>
+    </> : <FieldDescription>{hint}Add the item first, then attach the {label.toLowerCase()} (PDF or Excel). It is required before sending.</FieldDescription>}
   </Field>;
-}
-
-/** ICT's share of the shared Teacher Development and ICT budget: asked before any ICT activity, editable while ICT is editable. */
-export function IctAllocationPanel({ plan, proposed, canEdit, onSaved }: { plan: EnvelopePlan; proposed: number; canEdit: boolean; onSaved: () => Promise<void> }) {
-  const shared = teachersSharedEnvelope(plan), current = plan.ictAllocation ?? null;
-  const [editing, setEditing] = useState(false), [value, setValue] = useState(current ?? ''), [busy, setBusy] = useState(false);
-  const open = current == null || editing;
-  async function save() {
-    setBusy(true);
-    try {
-      const r = await fetch(currentPlanHref('/api/activities/ict-allocation'), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount: value }) });
-      const result = await r.json() as { error?: string }; if (!r.ok) throw new Error(result.error || 'Unable to save.');
-      toast.success('ICT allocation saved.'); setEditing(false); await onSaved();
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to save.'); }
-    finally { setBusy(false); }
-  }
-  if (shared == null) return <Alert><AlertTitle>Plan funding not set</AlertTitle><AlertDescription>Set the plan funding before allocating the ICT budget.</AlertDescription></Alert>;
-  const amount = Number(value || 0), sharedValue = Number(shared);
-  const invalid = !value || amount <= 0 ? 'Enter an amount greater than zero.' : amount > sharedValue ? `ICT can use up to ${money.format(sharedValue)}.` : amount < proposed ? `ICT lines already propose ${money.format(proposed)}.` : '';
-  if (!open) return <div className="ict-allocation-summary"><div><span>ICT allocation</span><strong>{money.format(Number(current))}</strong><small>of the shared Teacher Development & ICT budget ({money.format(sharedValue)}) · Teacher Development keeps {money.format(sharedValue - Number(current))}</small></div>{canEdit && <Button type="button" variant="outline" size="sm" onClick={() => { setValue(current ?? ''); setEditing(true); }}>Change</Button>}</div>;
-  return <section className="ict-allocation" aria-labelledby="ict-allocation-title">
-    <h2 id="ict-allocation-title">How much of the shared Teacher Development & ICT budget will ICT use?</h2>
-    <p>The shared budget is <b>{money.format(sharedValue)}</b>. Teacher Development keeps whatever ICT does not use.{current == null ? ' Set this before choosing ICT activities.' : ''}</p>
-    <Field><FieldLabel htmlFor="ict-allocation">ICT allocation (₦) {required}</FieldLabel><CurrencyInput id="ict-allocation" placeholder="0.00" maxIntegerDigits={12} value={value} disabled={!canEdit || busy} onValueChange={setValue} aria-invalid={!!value && !!invalid} />
-      {value && invalid ? <FieldDescription className="text-destructive">{invalid}</FieldDescription> : <FieldDescription>Teacher Development would keep {money.format(Math.max(sharedValue - amount, 0))}.</FieldDescription>}</Field>
-    <div className="flex gap-2">{current != null && <Button type="button" variant="ghost" disabled={busy} onClick={() => setEditing(false)}>Cancel</Button>}<Button type="button" disabled={!canEdit || busy || !!invalid} onClick={() => void save()}>{busy ? 'Saving…' : 'Save ICT allocation'}</Button></div>
-  </section>;
 }

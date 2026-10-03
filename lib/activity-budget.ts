@@ -3,7 +3,7 @@ import { activityNames, activityShareCaps, activityTitles, type ActivityWorkstre
 import { ictModelSchoolsActivity, ictModelSchoolsCapKobo } from './activity-extras';
 
 /** Components whose saved lines may not exceed their funding envelope (UBEC26-32). */
-export const cappedWorkstreams = ['monitoring', 'gscci', 'curriculum', 'quality', 'ict'] as const;
+export const cappedWorkstreams = ['monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers'] as const;
 export type CappedWorkstream = typeof cappedWorkstreams[number];
 export const isCapped = (workstream: string): workstream is CappedWorkstream => (cappedWorkstreams as readonly string[]).includes(workstream);
 export type BudgetLine = { activity: number; kobo: bigint };
@@ -14,8 +14,12 @@ export const formatKobo = (kobo: bigint) => {
 };
 export const lineKobo = (line: { unit_cost?: string; unitCost?: number; quantity: number }) => toKobo(line.unit_cost ?? Number(line.unitCost ?? 0).toFixed(2)) * BigInt(line.quantity);
 
-/** The component's budget ceiling in kobo (policy share plus its own funding sources), or null until the plan funding is set. */
+/**
+ * The component's budget ceiling in kobo (policy share plus its own funding sources), or null until the plan funding is set.
+ * ICT and Teacher Development stay null until the shared Teacher Development & ICT budget is split (action_plans.ict_allocation).
+ */
 export function componentEnvelopeKobo(plan: EnvelopePlan, workstream: ActivityWorkstream): bigint | null {
+  if (workstream === 'teachers' && plan.ictAllocation == null) return null;
   const envelope = componentEnvelope(plan, workstream);
   return envelope == null ? null : toKobo(envelope);
 }
@@ -27,6 +31,7 @@ export const curriculumCapKobo = (envelope: bigint, activity: number) => activit
 /** Fixed naira caps on one activity's lines together, in kobo: ICT Maintenance of Model Smart Schools (₦30,000,000). */
 export const activityFixedCaps: Partial<Record<ActivityWorkstream, Record<number, bigint>>> = { ict: { [ictModelSchoolsActivity]: ictModelSchoolsCapKobo } };
 export const ictAllocationNeeded = 'Set how much of the shared Teacher Development & ICT budget ICT will use before adding ICT items.';
+export const teachersSplitNeeded = 'Set how much of the shared Teacher Development & ICT budget Teacher Development will use before adding Teacher Development items.';
 
 /** Why these lines cannot be saved or sent, or null. Lines above the envelope (capped components) or an activity above its share or fixed cap are blocked. */
 export function activityBudgetProblem(workstream: ActivityWorkstream, lines: readonly BudgetLine[], plan: EnvelopePlan): string | null {
@@ -34,6 +39,7 @@ export function activityBudgetProblem(workstream: ActivityWorkstream, lines: rea
   if (!isCapped(workstream) && !shares) return null;
   const title = activityTitles[workstream], envelope = componentEnvelopeKobo(plan, workstream);
   if (envelope === null && workstream === 'ict' && plan.stateLodgment != null) return ictAllocationNeeded;
+  if (envelope === null && workstream === 'teachers' && plan.stateLodgment != null) return teachersSplitNeeded;
   if (envelope === null) return `Set the plan funding before allocating the ${title} budget.`;
   for (const [key, cap] of Object.entries(activityFixedCaps[workstream] ?? {})) {
     const activity = Number(key), total = lines.filter(l => l.activity === activity).reduce((sum, l) => sum + l.kobo, BigInt(0));

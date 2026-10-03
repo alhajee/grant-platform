@@ -4,7 +4,7 @@ import { canEditPillar } from './subeb-access';
 import type { PlanStatus } from './action-plans';
 import type { Snapshot } from './plan-review';
 import { infrastructureDocumentProblem } from './infrastructure-documents';
-import { componentReadinessProblem } from './component-readiness';
+import { componentReadinessProblem, readinessWorkstreams, hasReadinessRules } from './component-readiness';
 import type { DepartmentAccess } from './user-departments';
 import type { UbecSubmissionMode } from './workflow-settings';
 import { distributionSnapshotKeys, distributionWorkstreams } from './distribution-lists';
@@ -51,6 +51,7 @@ export function ubecSubmissionSnapshot(snapshot: Snapshot, reviews: PillarReview
     curriculum: sent.includes('curriculum') ? snapshot.curriculum ?? [] : [],
     curriculumDistribution: sent.includes('curriculum') ? snapshot.curriculumDistribution ?? [] : [],
     quality: sent.includes('quality') ? snapshot.quality ?? [] : [],
+    teachers: sent.includes('teachers') ? snapshot.teachers ?? [] : [],
     ict: sent.includes('ict') ? snapshot.ict ?? [] : [],
     componentDocuments: (snapshot.componentDocuments ?? []).filter(d => sent.includes(d.component)),
   };
@@ -61,11 +62,11 @@ export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Sna
 }
 function planIsComplete(snapshot: Snapshot) {
   return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot)
-    && !componentReadinessProblem('quality', snapshot.quality ?? []) && !componentReadinessProblem('ict', snapshot.ict ?? []);
+    && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup));
 }
-/** Components with the Executive Chairman that are not ready to reach UBEC (compulsory activities, line schools and documents). */
+/** Components with the Executive Chairman that are not ready to reach UBEC (compulsory activities, line schools and documents, the Teacher Development split). */
 export function unreadySentComponents(snapshot: Snapshot, reviews: PillarReview[]) {
-  return componentsWithExecutiveChairman(reviews).flatMap(p => (p === 'quality' || p === 'ict') && componentReadinessProblem(p, snapshot[p] ?? []) ? [p] : []);
+  return componentsWithExecutiveChairman(reviews).flatMap(p => hasReadinessRules(p) && componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup) ? [p] : []);
 }
 export function aggregateReviewStatus(reviews: PillarReview[]): PlanStatus {
   if (implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready'))) return 'awaiting_chairman';

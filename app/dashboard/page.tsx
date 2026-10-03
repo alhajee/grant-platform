@@ -77,6 +77,7 @@ export default function DashboardPage() {
       gscci: plan.gscciBudget ?? 0,
       curriculum: plan.curriculumBudget ?? 0,
       quality: plan.qualityBudget ?? 0,
+      teachers: plan.teachersBudget ?? 0,
       ict: plan.ictBudget ?? 0,
     })[area] > 0);
     return (!investmentFilters.years.length || investmentFilters.years.some(year => year >= plan.startYear && year <= plan.endYear))
@@ -102,9 +103,10 @@ export default function DashboardPage() {
     gscci: dashboardPlans.reduce((sum, plan) => sum + (plan.gscciBudget ?? 0), 0),
     curriculum: dashboardPlans.reduce((sum, plan) => sum + (plan.curriculumBudget ?? 0), 0),
     quality: dashboardPlans.reduce((sum, plan) => sum + (plan.qualityBudget ?? 0), 0),
+    teachers: dashboardPlans.reduce((sum, plan) => sum + (plan.teachersBudget ?? 0), 0),
     ict: dashboardPlans.reduce((sum, plan) => sum + (plan.ictBudget ?? 0), 0),
   };
-  const allAreas: InvestmentArea[] = ["infrastructure", "sports", "sbmc", "tlm", "monitoring", "gscci", "curriculum", "quality", "ict"];
+  const allAreas: InvestmentArea[] = ["infrastructure", "sports", "sbmc", "tlm", "monitoring", "gscci", "curriculum", "quality", "teachers", "ict"];
   const visiblePlans = dashboardPlans.filter((p) => `${planPeriod(p)} action plan ${p.status}`.includes(query.toLowerCase().trim()) || (/^\d{4}$/.test(query.trim()) && Number(query) >= p.startYear && Number(query) <= p.endYear));
   const unavailable = loading || Boolean(error);
 

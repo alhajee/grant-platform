@@ -7,10 +7,14 @@ const fieldLabels: Record<string, string> = {
   implementationApproach: 'Implementation approach', customActivity: 'Activity name', textbookClasses: 'Classes',
   textbookSubject: 'Subject', equipmentType: 'Equipment type', websiteType: 'Website type',
   subscriptionTypes: 'Subscription types', schoolIds: 'Schools',
+  trainingProvider: 'Training provider', targetParticipants: 'Target participants', schoolLevels: 'School level',
+  venueType: 'Venue type',
 };
 
 export type SaveState = {
   busy: boolean; canEdit: boolean; failed: boolean; needsIctAllocation: boolean;
+  /** Whose share of the shared Teacher Development & ICT budget must be saved first. */
+  splitName?: string;
   view: 'budget' | 'distribution'; pickedSchools: number;
   /** Validation issues of the item being added or edited (empty when it is complete). */
   issues: readonly ZodIssue[];
@@ -22,7 +26,7 @@ export function saveBlockedReason(state: SaveState): string | null {
   if (state.busy) return null;
   if (state.failed) return 'This component could not be loaded. Reload the page and try again.';
   if (!state.canEdit) return 'You can’t change this component now: it is with a reviewer or outside your departments.';
-  if (state.needsIctAllocation) return 'Save ICT’s share of the shared budget first.';
+  if (state.needsIctAllocation) return `Save ${state.splitName ?? 'ICT'}’s share of the shared budget first.`;
   if (state.view === 'distribution') return state.pickedSchools ? null : 'Tick at least one school to add.';
   if (state.issues.length) {
     const fields = [...new Set(state.issues.map(issue => fieldLabels[String(issue.path[0] ?? '')] ?? issue.message))];

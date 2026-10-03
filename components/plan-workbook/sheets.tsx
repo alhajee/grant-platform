@@ -1,4 +1,4 @@
-import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap, BadgeCheck, Laptop } from 'lucide-react';
+import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap, BadgeCheck, Laptop, Presentation } from 'lucide-react';
 import { LineExtrasDetail } from './line-extras-detail';
 import type { Snapshot } from '@/lib/plan-review';
 import { activityLabel, activityTitles, allocateByEnrolment, curriculumActivityShares, distributionNames, distributionSnapshotKeys, type DistributionWorkstream } from '@/lib/activity-plans';
@@ -8,7 +8,7 @@ import { InfrastructurePackageDetails } from '@/components/infrastructure-packag
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import type { CellValue, WorkbookColumn, WorkbookRow, WorkbookSheet } from './types';
 
-export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string };
+export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string; teachersEditHref?: string };
 const cost = (line: { unit_cost: string; quantity: number }) => Math.round(Number(line.unit_cost) * 100) * line.quantity / 100;
 const sectionNames: Record<string, string> = Object.fromEntries(sportsSections.map(section => [section.id, section.shortLabel]));
 const text = (id: string, header: string, size = 150, filter = false): WorkbookColumn => ({ id, header, kind: 'text', size, filter });
@@ -90,6 +90,20 @@ function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc'
   };
 }
 
+/** Teacher Development (migration 040): training details instead of description, strategy and target group; rows expand to the description and supporting documents. */
+function teacherSheet(lines: NonNullable<Snapshot['teachers']>, editHref?: string): WorkbookSheet {
+  const byId = new Map(lines.map(line => [String(line.id), line]));
+  return {
+    key: 'teachers', label: activityTitles.teachers, hash: 'review-teachers', icon: Presentation, itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: activityTitles.teachers,
+    columns: [text('activity', 'Allowable activity', 260, true), text('provider', 'Training provider', 240, true), text('participants', 'Target participants', 170, true), text('levels', 'School level', 150, true), qty('days', 'Training days'), text('venue', 'Venue', 110, true), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
+    rows: lines.map(line => row(String(line.id), {
+      activity: activityLabel('teachers', line.activity, line.custom_activity), provider: line.training_provider ?? '', participants: line.target_participants ?? '',
+      levels: line.school_levels?.join(', ') ?? '', days: line.training_days ?? '', venue: line.venue_type ?? '', quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
+    }, true)),
+    detail: (id: string) => { const line = byId.get(id); return line ? <LineExtrasDetail workstream="teachers" line={line} /> : null; },
+  };
+}
+
 /** Allocation = the component budget (TLM, GSCCI or Curriculum) shared across the listed schools by enrolment (snapshots before enrolment was recorded show blanks). */
 function distributionSheet(component: DistributionWorkstream, schools: NonNullable<Snapshot['tlmDistribution']>, lines: NonNullable<Snapshot['tlm']>, editHref?: string): WorkbookSheet {
   const shares = allocateByEnrolment(Math.round(lines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
@@ -111,6 +125,7 @@ export function buildSheets(snapshot: Snapshot, visiblePillars: readonly string[
   if (visiblePillars.includes('monitoring') && snapshot.monitoring) sheets.push(activitySheet('monitoring', snapshot.monitoring, links.monitoringEditHref));
   if (visiblePillars.includes('gscci') && snapshot.gscci) sheets.push(activitySheet('gscci', snapshot.gscci, links.gscciEditHref), distributionSheet('gscci', snapshot.gscciDistribution ?? [], snapshot.gscci, links.gscciEditHref));
   if (visiblePillars.includes('quality') && snapshot.quality) sheets.push(activitySheet('quality', snapshot.quality, links.qualityEditHref));
+  if (visiblePillars.includes('teachers') && snapshot.teachers) sheets.push(teacherSheet(snapshot.teachers, links.teachersEditHref));
   if (visiblePillars.includes('ict') && snapshot.ict) sheets.push(activitySheet('ict', snapshot.ict, links.ictEditHref));
   if (visiblePillars.includes('curriculum') && snapshot.curriculum) sheets.push(activitySheet('curriculum', snapshot.curriculum, links.curriculumEditHref), distributionSheet('curriculum', snapshot.curriculumDistribution ?? [], snapshot.curriculum, links.curriculumEditHref));
   return sheets;

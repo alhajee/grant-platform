@@ -16,6 +16,8 @@ export type Snapshot = {
   /** Quality Assurance and ICT lines carry their chosen schools and documents (migration 038). */
   quality?: import('./activity-plans').ActivitySnapshotLine[];
   ict?: import('./activity-plans').ActivitySnapshotLine[];
+  /** Teacher Development lines carry their training details and documents (migration 040). */
+  teachers?: import('./activity-plans').ActivitySnapshotLine[];
   /** Component documents (component_documents): the Supervision & Monitoring proforma invoices. */
   componentDocuments?: import('./activity-plans').ComponentDocument[];
   setup?: import('./plan-setup').PlanSetup;

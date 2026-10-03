@@ -4,11 +4,12 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { lineDocumentLabel } from '@/lib/activity-extras';
 import type { ActivitySnapshotLine } from '@/lib/activity-plans';
 
-/** Expanded row of a Quality Assurance or ICT line: its extra details, chosen schools and documents (download links). */
-export function LineExtrasDetail({ workstream, line }: { workstream: 'quality' | 'ict'; line: ActivitySnapshotLine }) {
+/** Expanded row of a Quality Assurance, ICT or Teacher Development line: its extra details, chosen schools and documents (download links). */
+export function LineExtrasDetail({ workstream, line }: { workstream: 'quality' | 'ict' | 'teachers'; line: ActivitySnapshotLine }) {
   const schools = line.schools ?? [], documents = line.documents ?? [], label = lineDocumentLabel(workstream, line.activity);
   const facts = [
     ['Equipment type', line.equipment_type], ['Subscription types', line.subscription_types?.join(', ')], ['Website type', line.website_type],
+    ...(workstream === 'teachers' ? [['Description', line.description]] : []),
   ].filter((fact): fact is [string, string] => Boolean(fact[1]));
   return <>
     {facts.length > 0 && <dl className="review-facts">{facts.map(([term, value]) => <div key={term}><dt>{term}</dt><dd>{value}</dd></div>)}</dl>}

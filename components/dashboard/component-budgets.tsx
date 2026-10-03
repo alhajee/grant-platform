@@ -17,6 +17,7 @@ export const componentPalette: Record<InvestmentArea, { label: string; fill: str
   monitoring: { label: 'Supervision & Monitoring', fill: '#d5e68c', ink: '#3a4810' },
   gscci: { label: 'Greening & Safeguards', fill: '#a4dcc4', ink: '#123f30' },
   quality: { label: 'Quality Assurance', fill: '#3d6b4f', ink: '#ffffff' },
+  teachers: { label: 'Teacher Development', fill: '#5c9a4a', ink: '#ffffff' },
   ict: { label: 'ICT', fill: '#c3e3a8', ink: '#24420f' },
 };
 

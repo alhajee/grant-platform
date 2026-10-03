@@ -20,5 +20,5 @@ export async function readPlanSnapshot(db: { query<R extends QueryResultRow>(sql
   const withExtras = (workstream: string) => lines(workstream).map(line => ({ ...line, schools: extras.schools.get(line.id) ?? [], documents: extras.documents.get(line.id) ?? [] }));
   return { setup, infrastructureDocuments, infrastructure: infrastructure.rows.map(r => r.item), sports: sports.rows.map(r => r.item), sbmc: lines('sbmc'), tlm: lines('tlm'), tlmDistribution: listFor('tlm'),
     monitoring: lines('monitoring'), gscci: lines('gscci'), gscciDistribution: listFor('gscci'), curriculum: lines('curriculum'), curriculumDistribution: listFor('curriculum'), componentDocuments,
-    quality: withExtras('quality'), ict: withExtras('ict') };
+    quality: withExtras('quality'), ict: withExtras('ict'), teachers: withExtras('teachers') };
 }

@@ -86,12 +86,12 @@ try{
  const historic=ok(await api('director',`/api/plans/review?plan=${plan}&submission=${submission}`));
  assert.equal(historic.snapshot.sbmc,undefined);
  const chairman=ok(await api('chair',`/api/plans/review?plan=${plan}`));
- assert.equal(chairman.visiblePillars.length,9);
+ assert.equal(chairman.visiblePillars.length,10);
  assert.equal(chairman.snapshot.sbmc.length,1);
  assert.equal(chairman.snapshot.tlm.length,2);
  await db.query('UPDATE users SET is_beap_chair=true WHERE id=$1',[ids[3]]);
  const beapChair=ok(await api('director',`/api/plans/review?plan=${plan}`));
- assert.equal(beapChair.visiblePillars.length,9);
+ assert.equal(beapChair.visiblePillars.length,10);
  assert.equal(beapChair.snapshot.sbmc.length,1);
  ok(await api('director',url));
  await db.query('UPDATE users SET is_beap_chair=false WHERE id=$1',[ids[3]]);

@@ -12,7 +12,7 @@ export const compactNaira = new Intl.NumberFormat('en-NG', { style: 'currency', 
 
 const TICKS = 32;
 /** Gauge order: largest envelopes first, matching the dashboard tiles. */
-export const mixOrder = ['infrastructure', 'tlm', 'quality', 'sbmc', 'ict', 'sports', 'curriculum', 'monitoring', 'gscci'] as const satisfies readonly InvestmentArea[];
+export const mixOrder = ['infrastructure', 'tlm', 'quality', 'sbmc', 'teachers', 'ict', 'sports', 'curriculum', 'monitoring', 'gscci'] as const satisfies readonly InvestmentArea[];
 export type ComponentAmounts = Partial<Record<InvestmentArea, number>>;
 
 /** The amount with a quieter naira sign and kobo, so the figure itself carries the weight. */
