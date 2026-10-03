@@ -50,12 +50,11 @@ function ComponentCard({ plan, review, summary, comments, actions }: CardProps) 
         <p className="component-card-amount"><b>{compactNaira.format(summary.budget)}</b>{ceiling != null && <> of {compactNaira.format(ceiling)}</>}</p>
         {own > 0 && <a className="review-open-comments" href={sheet}><MessageSquareTextIcon aria-hidden="true" />{commentCount(own)}</a>}
         {ubec > 0 && <a className="review-open-comments review-ubec-comments" href={sheet} title="Open comments shared by UBEC"><MessageSquareTextIcon aria-hidden="true" />{ubecCount(ubec)}</a>}
-        {(actions.editHref || actions.step) && <span className="component-card-actions">
-          {actions.editHref && <Tooltip><TooltipTrigger asChild><Button asChild variant="ghost" size="icon-sm" className="rounded-full"><a href={sheet} aria-label={`View ${section.name} in the workbook`}><Sheet /></a></Button></TooltipTrigger><TooltipContent>View in the workbook</TooltipContent></Tooltip>}
-          {actions.step && <Button size="sm" className="rounded-full" onClick={actions.step.run}>{actions.step.label}</Button>}
-        </span>}
+        {actions.step && <span className="component-card-actions"><Button size="sm" className="rounded-full" onClick={actions.step.run}>{actions.step.label}</Button></span>}
       </div>
     </div>
+    {/* When the card opens the editor, its sheet is one hover away in the bottom-left corner. */}
+    {actions.editHref && <Tooltip><TooltipTrigger asChild><Button asChild variant="ghost" size="icon-sm" className="component-card-sheet rounded-full"><a href={sheet} aria-label={`View ${section.name} in the workbook`}><Sheet /></a></Button></TooltipTrigger><TooltipContent side="top" className="soft-tip">View in the workbook</TooltipContent></Tooltip>}
   </li>;
 }
 
