@@ -1,135 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
+import { Spinner } from "@/components/ui/spinner";
 
-import { useCallback, useEffect, useState } from "react";
-import { currentPlanHref, planHref, planPeriod } from "@/lib/action-plans";
-import { PlanSetupSummary } from '@/components/plan-setup-summary';
-import { ArrowRightIcon, ChevronDownIcon, PencilIcon } from "lucide-react";
-import { EditPlanDialog } from "@/components/edit-plan-dialog";
-import { OtherFundingInfo } from "@/components/funding-sources-field";
-import { otherFundingTotal } from "@/lib/plan-setup";
-import { PillarIllustration } from "@/components/pillar-illustration";
-import { InfrastructureIllustration } from "@/components/infrastructure-illustration";
-import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
-import { SubebHeader } from "@/components/subeb-header";
-import { defaultAllocation, infrastructureSplit, percent } from "@/lib/funding-policy";
-import { subebDepartmentName } from "@/lib/subeb-departments";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Skeleton } from "@/components/ui/skeleton";
-import { PlanStatusBadge } from '@/components/plan-status';
-import { beapComponents, strategicPillars, componentSections, type BeapSummary, type PillarId, type PillarSummary } from "@/lib/beap-pillars";
-import type { LocalUser } from "@/lib/local-session";
-import { hasDepartment } from '@/lib/user-departments';
-
-const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const pillarDescriptions: Record<string, string> = { quality: 'Better teaching. Richer learning.', access: 'Welcoming schools. Stronger communities.', system: 'Better data. Smarter decisions.' };
-
-export default function BeapPage() {
-  const [user, setUser] = useState<LocalUser | null>(null);
-  const [summary, setSummary] = useState<BeapSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [canEditSetup, setCanEditSetup] = useState(false);
-  const [editing, setEditing] = useState(false);
-
-  const loadOverview = useCallback(async () => {
-    try {
-      const [sessionResponse, planResponse] = await Promise.all([
-        fetch("/api/auth/session", { cache: "no-store" }),
-        fetch(currentPlanHref("/api/beap"), { cache: "no-store" }),
-      ]);
-      if (sessionResponse.status === 401 || planResponse.status === 401) { window.location.replace("/"); return; }
-      if (!sessionResponse.ok || !planResponse.ok) throw new Error();
-      const session = await sessionResponse.json() as { user: LocalUser };
-      setUser(session.user);
-      const next = await planResponse.json() as BeapSummary;
-      setSummary(next);
-      // Plan details (period and funding) can be edited by plan creators; the dialog explains any lock.
-      const setup = await fetch(`/api/plans/setup?plan=${next.plan.id}`, { cache: "no-store" }).then(r => r.ok ? r.json() as Promise<{ allowed?: boolean }> : null).catch(() => null);
-      setCanEditSetup(Boolean(setup?.allowed));
-    } catch { setError("We couldn't load your saved plan. Check your connection and try again."); }
-    finally { setLoading(false); }
+/**
+ * The plan overview now lives on the plan page (/beap/review). Older links, bookmarks and notifications
+ * that still open /beap?plan=N are replaced with the same plan (and anchor) there.
+ */
+export default function BeapRedirect() {
+  useEffect(() => {
+    const { search, hash } = window.location;
+    window.location.replace(`/beap/review${search}${hash}`);
   }, []);
-
-  useEffect(() => { void Promise.resolve().then(loadOverview); }, [loadOverview]);
-  const total = summary?.total;
-  const allocation = summary?.plan.fundingPolicy?.allocation ?? defaultAllocation;
-  const split = infrastructureSplit(allocation);
-  const pillarSummaries: Partial<Record<PillarId, PillarSummary>> = summary ?? {};
-
-  const canSeeSection = (_id: PillarId, department: string) => !!summary && (summary.wholeState || (['Data Entry Staff','Director'].includes(summary.role) && hasDepartment(summary.departments, department)));
-  const visiblePillars = strategicPillars.map(p => ({...p, components:p.components.filter(id=>componentSections[id].some(section=>canSeeSection(id,section.department)))})).filter(p=>p.components.length);
-
-  return (
-    <div className="beap-page">
-      <SubebHeader user={user} plan />
-      <main className="beap-main pillar-overview" id="main-content">
-        <Button asChild variant="ghost" size="sm" className="mb-3"><a href="/dashboard">← Dashboard</a></Button>
-        <header className="beap-heading">
-          <div>
-            <div className="beap-title"><h1>{summary ? `${planPeriod(summary.plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{summary && <PlanStatusBadge status={summary.plan.status} />}</div>
-            <p className="beap-intro">{summary?.canEdit ? 'Choose a component to start or continue your plan.' : 'View your saved plan and review history.'}</p>
-          </div>
-          {summary && !error && <div className="flex flex-wrap gap-2">{canEditSetup && <Button variant="outline" onClick={() => setEditing(true)}><PencilIcon />Edit plan</Button>}<Button asChild><a href={planHref('/beap/review', summary.plan.id)}>Review plan<ArrowRightIcon /></a></Button></div>}
-        </header>
-        <section className="plan-kpis" aria-label="Plan at a glance">
-          {[
-            {label:'Proposed budget',value:total ? money.format(total.budget) : '—',Artwork:BudgetArtwork,tone:'sage'},
-            {label:'Available funding',value:summary?.plan.fundingTotal != null ? money.format(Number(summary.plan.fundingTotal)) : '—',Artwork:BudgetArtwork,tone:'peach'},
-            {label:'Other funding',value:summary ? money.format(Number(otherFundingTotal(summary.plan))) : '—',Artwork:BudgetArtwork,tone:'peach',info:true},
-            {label:'Schools',value:total ? String(total.schoolCount) : '—',Artwork:SchoolsArtwork,tone:'lilac'},
-            {label:'Budget lines',value:total ? String(total.lineCount) : '—',Artwork:PlansArtwork,tone:'blue'},
-          ].map(({label,value,Artwork,tone,info})=><div className="plan-kpi" data-tone={tone} key={label}><Artwork /><dl><dt>{label}{info && summary && <OtherFundingInfo setup={summary.plan} />}</dt><dd>{loading ? <Skeleton className="h-7 w-24" /> : error ? '—' : value}</dd></dl></div>)}
-        </section>
-        {summary && !error && <Collapsible className="pillar-plan-details plan-details-disclosure"><CollapsibleTrigger><span className="plan-details-summary-label"><ChevronDownIcon aria-hidden="true" />Funding details & assessment documents</span><span>Implementation · {summary.plan.implementationYear ?? '—'}</span></CollapsibleTrigger><CollapsibleContent><PlanSetupSummary setup={summary.plan} compact /></CollapsibleContent></Collapsible>}
-
-        {error && <Alert variant="destructive" className="mb-6"><AlertTitle>Unable to load your plan</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => { setLoading(true); setError(""); void loadOverview(); }}>Try again</Button></AlertDescription></Alert>}
-
-        <section aria-labelledby="pillars-title">
-          <div className="beap-section-heading"><h2 id="pillars-title">Plan by pillar</h2></div>
-          <div className="pillar-sections">
-            {loading && <div className="pillar-card-grid">{[1,2,3,4].map(n => <Skeleton key={n} className="aspect-square rounded-2xl" />)}</div>}
-            {visiblePillars.map((pillar)=><section key={pillar.id} className="pillar-section" data-pillar={pillar.id} aria-labelledby={'pillar-'+pillar.id}>
-              <header className="pillar-section-header">
-                <div><h3 id={'pillar-'+pillar.id}>{pillar.name}</h3><p>{pillarDescriptions[pillar.id]}</p></div>
-                <span className="pillar-share">{percent(pillar.components.reduce((sum,id)=>sum+allocation.shares[id],0))}% <small>allocation</small></span>
-              </header>
-              <div className="pillar-card-grid">
-                {pillar.components.flatMap(id => componentSections[id].map((section,sectionIndex) => {
-                  if (!canSeeSection(id,section.department)) return null;
-                  const key = id === 'infrastructure' && sectionIndex === 1 ? 'tlm' : id;
-                  const stats = pillarSummaries[key];
-                  const share = id === 'infrastructure' ? percent(sectionIndex === 0 ? split.infrastructure : split.tlm) : percent(allocation.shares[id]);
-                  const canOpen = !!section.href && !!summary && !error;
-                  const canEdit = !!summary?.editablePillars.some(pillarId => pillarId === key);
-                  const cardHref = canOpen
-                    ? canEdit
-                      ? planHref(section.href!, summary!.plan.id)
-                      : `${planHref('/beap/review', summary!.plan.id)}#review-${key}`
-                    : undefined;
-                  return <Card key={id+'-'+sectionIndex} className="pillar-component-card" data-component={key} data-available={canOpen}>
-                    <CardHeader>
-                      <div className="pillar-card-top"><div className="pillar-card-artwork">{key === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={key} standalone />}</div><span className="component-allocation" title={id === 'teachers' ? 'Shared allocation for Teacher Development and ICT' : 'Share of total funding'}>{share}%{id === 'teachers' ? ' shared' : ''}</span></div>
-                      <CardTitle><h4>{section.name}</h4></CardTitle>
-                      <p className="pillar-department">{subebDepartmentName(section.department)}</p>
-                    </CardHeader>
-                    <CardContent>
-                      {section.href ? <div className="pillar-card-budget"><span>Proposed</span><strong>{stats ? money.format(stats.budget) : '—'}</strong></div> : <p className="pillar-coming-soon">{beapComponents.find(c=>c.id===id)?.description}</p>}
-                      {!canOpen && <Badge variant="secondary" className="pillar-unavailable">Coming soon</Badge>}
-                    </CardContent>
-                    {cardHref && <a className="pillar-card-link" href={cardHref}><span className="sr-only">{canEdit ? 'Open' : 'Review'} {section.name}</span></a>}
-                  </Card>;
-                }))}
-              </div>
-            </section>)}
-          </div>
-        </section>
-      </main>
-      {editing && summary && <EditPlanDialog planId={summary.plan.id} onClose={() => setEditing(false)} onSaved={() => void loadOverview()} />}
-    </div>
-  );
+  return <main className="beap-main" id="main-content" aria-busy="true"><p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />Opening the plan…</p></main>;
 }

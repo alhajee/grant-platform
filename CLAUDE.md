@@ -82,6 +82,14 @@ These settings apply across every SUBEB, not per state. The implementation lives
 
 Implemented blocking components (`implementedPillars` in `lib/beap-pillars.ts`): Infrastructure, TLM, Sports, SBMC, Supervision & Monitoring (`monitoring`), Greening Schools, Climate Change & Safeguards (`gscci`) and Curriculum (`curriculum`). Quality Assurance, Teacher development/ICT and Planning/EMIS are still placeholders. The SBMC/TLM activity editor (`components/activity-plan-editor.tsx`, `lib/activity-plans.ts`, `activity_plan_lines.workstream`) also drives the three newer components (migration 036): Monitoring has optional Proforma Invoice uploads (`component_documents`, `app/api/activities/documents/route.ts`); Curriculum has per-activity caps (60/20/10/10% of its envelope) and a distribution list (`tlm_distribution.workstream = 'curriculum'`). Test: `node scripts/test-activity-components.mjs [baseUrl]`.
 
+## Plan page (one page per plan)
+
+`/beap/review?plan=N` is the single plan page for every state role; the old pillar overview `/beap?plan=N` only redirects there (client-side `location.replace`, keeping the query and hash). Dashboard plan cards, plan creation, notifications, Recent activity, pending actions and every editor's back/Done link point at `/beap/review`.
+
+- Top to bottom: Dashboard back link; title, status, version picker, Edit plan (`EditPlanDialog`, shown when `GET /api/plans/setup` says `allowed`), View UBEC review (locked plans); change-request and saved-submission alerts; summary card (`components/plan-page/plan-summary.tsx`: available funding, component-coloured tick gauge, pills for schools/lines/other funding/implementation year, folded "Funding details & documents" = `PlanSetupSummary`); compact component cards (`component-cards.tsx`); placeholder components in one "Coming soon" line; BEAP Chair / Executive Chairman bar (`workflow-bar.tsx`); the workbook (`PlanReviewContent`) and Review history (`review-history.tsx`). The send/request-changes dialog is `review-action-dialog.tsx`; styles in `components/plan-page/plan-page.css`.
+- Component card: the original illustration (`PillarIllustration` / `InfrastructureIllustration`, 72px) on its tinted wash (peach/sage/lilac), status, open SUBEB/UBEC comment chips, proposed amount against `componentEnvelope` (bar turns red over the ceiling). The card opens the editor when `mayEditPillar` allows it (with a small "View in the workbook" icon), otherwise its sheet (`#review-<pillar>`). The workflow step the viewer holds (Send to Director / BEAP Chair / Executive Chairman) sits on the card; Send to Director is hidden while the component has nothing saved.
+- Figures come from the loaded snapshot via `summarizeSnapshot` (`lib/plan-summary.ts`, also used by `GET /api/beap`), so a selected saved submission shows its own amounts. The gauge, `Amount` and pills are shared with the dashboard plan card (`components/dashboard/plan-figures.tsx/.css`).
+
 ## Plan workbook comments (migration 028)
 
 Google-Sheets-style review comments on cells and whole rows of the review-page plan workbook. These are the state review chain's (`scope = 'state'`) rules; UBEC comments share the table and UI, see the next section.
@@ -129,7 +137,7 @@ A bell sits left of the account pill in `SubebHeader` and `UbecShell` (not the S
 
 - Other funding is component-specific: `plan_funding_sources` rows {component, funder, amount}. A component's ceiling = its policy share of `state contribution ×2 + legacy other_funding` + its own sources (`componentEnvelope(plan, component)` in `lib/funding-policy.ts`). Older plans keep `other_funding` as shared funding; new plans store 0 there. API `fundingTotal` = base + legacy other funding + sources.
 - Plans can be edited (year, implementation year, quarters, state contribution, funding sources) by anyone `canCreateStatePlan` allows while `statePlanOpen`, via `components/edit-plan-dialog.tsx` and `app/api/plans/setup/route.ts`; edits that would drop a component's ceiling below its proposed lines are refused, and each edit adds a `plan_review_events` 'edit' entry ("Plan details updated").
-- Dashboard cards, the hero total and the BEAP overview show "Other funding" with a per-component tooltip (`OtherFundingInfo` in `components/funding-sources-field.tsx`). Test: `node scripts/test-funding-sources.mjs [baseUrl]`.
+- Dashboard cards, the hero total and the plan page summary show "Other funding" with a per-component tooltip (`OtherFundingInfo` in `components/funding-sources-field.tsx`). Test: `node scripts/test-funding-sources.mjs [baseUrl]`.
 
 ## School register (migration 034)
 

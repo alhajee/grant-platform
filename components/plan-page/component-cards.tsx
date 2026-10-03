@@ -1,0 +1,76 @@
+'use client';
+
+import type { CSSProperties } from 'react';
+import { MessageSquareTextIcon, Sheet } from 'lucide-react';
+import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
+import { PillarIllustration } from '@/components/pillar-illustration';
+import { componentPalette } from '@/components/dashboard/component-budgets';
+import { compactNaira } from '@/components/dashboard/plan-figures';
+import type { CommentsController } from '@/components/plan-workbook/comments-context';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { componentSections, subebComponentDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
+import { componentEnvelope } from '@/lib/funding-policy';
+import { pillarReviewLabels, type PillarReview } from '@/lib/pillar-review';
+import type { PlanReview } from '@/lib/plan-review';
+import type { PlanTotals } from '@/lib/plan-summary';
+import { subebDepartmentName } from '@/lib/subeb-departments';
+import { commentCount, ubecCount } from './review-action-dialog';
+
+
+/** What the viewer can do with one component card: open its editor, and the workflow step they hold (if any). */
+export type CardActions = { editHref?: string; step?: { label: string; run: () => void } };
+
+type CardProps = { plan: PlanReview['plan']; review: PillarReview; summary: PlanTotals[ImplementedPillar]; comments: CommentsController | null; actions: CardActions };
+
+/** Proposed amount against the component's ceiling (policy share plus its own funding sources): a slim bar, then "₦X of ₦Y". */
+function CeilingBar({ proposed, ceiling }: { proposed: number; ceiling: number | null }) {
+  if (ceiling == null) return null;
+  const share = ceiling > 0 ? proposed / ceiling * 100 : 0;
+  return <Progress className="component-ceiling" value={Math.min(share, 100)} aria-label={`${Math.round(share)}% of ceiling proposed`} />;
+}
+
+function ComponentCard({ plan, review, summary, comments, actions }: CardProps) {
+  const { pillar } = review, section = componentSections[pillar][0];
+  const ceilingValue = componentEnvelope(plan, pillar), ceiling = ceilingValue == null ? null : Number(ceilingValue);
+  const sheet = `#review-${pillar}`, own = comments?.openCount(pillar) ?? 0, ubec = comments?.openCount(pillar, 'ubec') ?? 0;
+  const palette = componentPalette[pillar];
+  return <li className="component-card" data-component={pillar} data-over={ceiling != null && summary.budget > ceiling || undefined} style={{ '--component-fill': palette.fill, '--component-ink': palette.ink } as CSSProperties}>
+    <span className="component-card-art" aria-hidden="true">{pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={pillar} standalone />}</span>
+    <div className="component-card-body">
+      <div className="component-card-title">
+        <h3><a className="component-card-link" href={actions.editHref ?? sheet}>{section.name}<span className="sr-only">{actions.editHref ? ', open editor' : ', view sheet'}</span></a></h3>
+        <Badge variant={review.status === 'changes_requested' ? 'warning' : 'secondary'}>{pillarReviewLabels[review.status]}</Badge>
+      </div>
+      <p className="component-card-department">{subebDepartmentName(subebComponentDepartments[pillar])}</p>
+      <CeilingBar proposed={summary.budget} ceiling={ceiling} />
+      <div className="component-card-foot">
+        <p className="component-card-amount"><b>{compactNaira.format(summary.budget)}</b>{ceiling != null && <> of {compactNaira.format(ceiling)}</>}</p>
+        {own > 0 && <a className="review-open-comments" href={sheet}><MessageSquareTextIcon aria-hidden="true" />{commentCount(own)}</a>}
+        {ubec > 0 && <a className="review-open-comments review-ubec-comments" href={sheet} title="Open comments shared by UBEC"><MessageSquareTextIcon aria-hidden="true" />{ubecCount(ubec)}</a>}
+        {(actions.editHref || actions.step) && <span className="component-card-actions">
+          {actions.editHref && <Tooltip><TooltipTrigger asChild><Button asChild variant="ghost" size="icon-sm" className="rounded-full"><a href={sheet} aria-label={`View ${section.name} in the workbook`}><Sheet /></a></Button></TooltipTrigger><TooltipContent>View in the workbook</TooltipContent></Tooltip>}
+          {actions.step && <Button size="sm" className="rounded-full" onClick={actions.step.run}>{actions.step.label}</Button>}
+        </span>}
+      </div>
+    </div>
+  </li>;
+}
+
+/**
+ * The plan's components as compact cards: status, comments and proposed amount against the ceiling. The card
+ * opens the component editor when the viewer may edit it, otherwise its sheet in the workbook below.
+ */
+export function ComponentCards({ data, totals, comments, actionsFor }: { data: PlanReview; totals: PlanTotals; comments: CommentsController | null; actionsFor: (review: PillarReview) => CardActions }) {
+  return <ul className="component-cards">
+    {data.pillarReviews.map(review => <ComponentCard key={review.pillar} plan={data.plan} review={review} summary={totals[review.pillar]} comments={comments} actions={actionsFor(review)} />)}
+  </ul>;
+}
+
+/** Placeholder components are listed in one quiet line until their editors exist. */
+export function PlannedComponents({ names }: { names: string[] }) {
+  if (!names.length) return null;
+  return <p className="planned-components"><span>Coming soon</span>{names.join(' · ')}</p>;
+}

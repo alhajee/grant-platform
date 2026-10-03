@@ -1,0 +1,21 @@
+/* Plan figures shared by the dashboard plan card and the plan page: the large amount, the tick gauge and the pills. */
+.plan-funding { display: flex; align-items: baseline; margin-top: 2px; font-size: clamp(28px, 2.5vw, 34px); font-weight: 600; line-height: 1.1; letter-spacing: -.045em; font-variant-numeric: tabular-nums; }
+.plan-amount-sign { margin-right: 3px; font-size: .55em; font-weight: 500; letter-spacing: 0; color: var(--muted-foreground); }
+.plan-amount-minor { font-size: .55em; font-weight: 500; letter-spacing: 0; color: var(--muted-foreground); }
+/* Tick gauge: 32 slim bars, coloured by component up to the proposed amount. */
+.plan-gauge { display: flex; gap: 3px; height: 18px; }
+.plan-gauge span { flex: 1; border-radius: 2px; background: #ecefe2; transition: transform 150ms ease, opacity 150ms ease; }
+.gauge-group { display: flex; flex-basis: 0; gap: 3px; min-width: 0; padding: 0; border: 0; border-radius: 3px; background: none; cursor: default; outline: none; }
+.gauge-group:focus-visible { box-shadow: 0 0 0 2px #fff, 0 0 0 4px color-mix(in srgb, var(--ring) 60%, transparent); }
+.plan-gauge[data-active] .gauge-group:not([data-current]) span { opacity: .32; }
+.plan-gauge .gauge-group[data-current] span { transform: scaleY(1.18); }
+.gauge-tip { display: flex; align-items: center; gap: 6px; }
+.gauge-tip-swatch { width: 8px; height: 8px; border-radius: 2px; }
+.gauge-tip b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.gauge-tip small { opacity: .7; font-variant-numeric: tabular-nums; }
+/* Pills: icon, label and value, the value in the brand green. */
+.plan-pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 0; padding: 0; list-style: none; }
+.plan-pills li { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px; background: #f4f3ee; font-size: 12px; color: var(--muted-foreground); }
+.plan-pills li svg { width: 13px; height: 13px; opacity: .7; }
+.plan-pills b { font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; }
+.plan-pills .field-help-trigger { width: 16px; height: 16px; flex-basis: 16px; margin-left: -2px; }

@@ -97,7 +97,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
   return()=>cancelAnimationFrame(frame);
  },[draft.id]);
  return <div className="portal-shell activity-shell" data-workstream={workstream}><div className="portal-workspace">
-  <header className="workspace-header editor-page-header"><div className="editor-header-heading"><Button variant="ghost" onClick={()=>guard(()=>window.location.assign(currentPlanHref('/beap')))}>← Basic Education Action Plan</Button><span className="editor-plan-title">{title}{data?' · '+planPeriod(data.plan):''}</span></div><Button variant="outline" disabled={busy} onClick={review}>Review & send</Button></header>
+  <header className="workspace-header editor-page-header"><div className="editor-header-heading"><Button variant="ghost" onClick={()=>guard(()=>window.location.assign(currentPlanHref('/beap/review')))}>← Basic Education Action Plan</Button><span className="editor-plan-title">{title}{data?' · '+planPeriod(data.plan):''}</span></div><Button variant="outline" disabled={busy} onClick={review}>Review & send</Button></header>
   {withDistribution&&<Tabs value={view} onValueChange={v=>guard(()=>{reset();setView(v);})}><TabsList className="m-3"><TabsTrigger value="budget">Budget activities</TabsTrigger><TabsTrigger value="distribution">Distribution list</TabsTrigger></TabsList></Tabs>}
   <div className="activity-split">
    <section className="workspace-pane editor-pane" aria-label={`${title} editor`}><ScrollArea className="pane-scroll"><div className="editor-canvas">

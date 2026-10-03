@@ -81,7 +81,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
       const response = await fetch('/api/plans', { method: 'POST', body });
       const result = await response.json() as { error?: string; plan: { id: number } };
       if (!response.ok) throw new Error(result.error || 'Could not create your plan.');
-      window.location.assign(planHref('/beap', result.plan.id));
+      window.location.assign(planHref('/beap/review', result.plan.id));
     } catch (cause) {
       setErrors({ form: cause instanceof Error ? cause.message : 'Please try again.' });
       pending.current = false; setSaving(false);

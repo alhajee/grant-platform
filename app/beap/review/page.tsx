@@ -1,50 +1,49 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftIcon, MessageSquareIcon, MessageSquareTextIcon, SendIcon, HistoryIcon } from 'lucide-react';
+import '@/components/plan-page/plan-page.css';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeftIcon, HistoryIcon, MessageSquareIcon, PencilIcon } from 'lucide-react';
 import { SubebHeader } from '@/components/subeb-header';
 import { PlanStatusBadge } from '@/components/plan-status';
 import { PlanReviewContent } from '@/components/plan-review-content';
+import { EditPlanDialog } from '@/components/edit-plan-dialog';
+import { PlanSummary } from '@/components/plan-page/plan-summary';
+import { ComponentCards, PlannedComponents, type CardActions } from '@/components/plan-page/component-cards';
+import { WorkflowBar } from '@/components/plan-page/workflow-bar';
+import { ReviewHistory } from '@/components/plan-page/review-history';
+import { ReviewActionDialog, type ReviewRequest } from '@/components/plan-page/review-action-dialog';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Field, FieldGroup, FieldLabel, FieldError } from '@/components/ui/field';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Spinner } from '@/components/ui/spinner';
 import { currentPlanHref, planHref, planPeriod } from '@/lib/action-plans';
-import { reviewActionLabels, type PlanReview, type ReviewAction } from '@/lib/plan-review';
-import { toast } from 'sonner';
-import { componentSections, implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
-import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
-import { subebDepartmentName as departmentName } from '@/lib/subeb-departments';
-import { mayEditPillar, pillarReviewLabels, statePlanOpen } from '@/lib/pillar-review';
-import { Badge } from '@/components/ui/badge';
-import { PillarIllustration } from '@/components/pillar-illustration';
-import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
+import type { PlanReview } from '@/lib/plan-review';
+import { beapComponents, componentSections, implementedPillars, subebComponentDepartments as pillarDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
+import { mayEditPillar, statePlanOpen, type PillarReview } from '@/lib/pillar-review';
+import { summarizeSnapshot } from '@/lib/plan-summary';
+import { canViewWholeStatePlan } from '@/lib/subeb-access';
 import { hasDepartment } from '@/lib/user-departments';
 import { usePlanComments } from '@/components/plan-workbook/comments-context';
-import { reviewEventAnchor } from '@/lib/notifications';
-
-const commentCount = (n: number) => `${n} open ${n === 1 ? 'comment' : 'comments'}`;
-const ubecCount = (n: number) => `${n} UBEC ${n === 1 ? 'comment' : 'comments'}`;
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-export default function ReviewPage() {
+const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
+const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (pillar === 'tlm' && !data.snapshot.tlmDistribution?.length) || (pillar === 'curriculum' && !data.snapshot.curriculumDistribution?.length);
+
+/** Placeholder components (no editor yet) the viewer would work on: all of them for whole-state roles, else their departments'. */
+function plannedNames(data: PlanReview) {
+  const whole = canViewWholeStatePlan(data);
+  return beapComponents.filter(c => !(implementedPillars as readonly string[]).includes(c.id))
+    .flatMap(c => componentSections[c.id].filter(s => whole || (['Data Entry Staff', 'Director'].includes(data.role) && hasDepartment(data.departments, s.department))).map(s => s.name));
+}
+
+/** The plan page: summary, components, workflow steps, the plan workbook and its review history. */
+export default function PlanPage() {
   const [data, setData] = useState<PlanReview | null>(null);
   const [selected, setSelected] = useState('current');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [action, setAction] = useState<ReviewAction | null>(null);
-  const [dialogAction, setDialogAction] = useState<ReviewAction>('submit');
-  const [dialogResubmit, setDialogResubmit] = useState(false);
-  const [comment, setComment] = useState('');
-  const [scope, setScope] = useState('general');
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState('');
-  const pending = useRef(false);
+  const [request, setRequest] = useState<ReviewRequest | null>(null);
+  const [canEditSetup, setCanEditSetup] = useState(false);
+  const [editing, setEditing] = useState(false);
   const requestId = useRef(0);
   const load = useCallback(async (version = 'current') => {
     const id = ++requestId.current;
@@ -63,6 +62,12 @@ export default function ReviewPage() {
     finally { if (id === requestId.current) setLoading(false); }
   }, []);
   useEffect(() => { void Promise.resolve().then(() => load()); }, [load]);
+  const planId = data?.plan.id;
+  // Plan details (period and funding) can be edited by plan creators; the dialog explains any lock.
+  useEffect(() => {
+    if (!planId) return;
+    void fetch(`/api/plans/setup?plan=${planId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<{ allowed?: boolean }> : null).catch(() => null).then(setup => setCanEditSetup(Boolean(setup?.allowed)));
+  }, [planId]);
   // Notification links target a history entry (#review-event-N), which only exists once the review has loaded.
   useEffect(() => {
     if (!data) return;
@@ -77,95 +82,59 @@ export default function ReviewPage() {
   const plan = data?.plan;
   // Comments belong to the current working plan only; saved submissions hide them.
   const comments = usePlanComments(data?.plan.id, !!data && !error && selected === 'current', data?.plan.version);
-  const dialogOpen = comments?.threads.filter(t => !t.resolvedAt && (scope === 'general' || t.pillar === scope)) ?? [];
-  // State comments travel with a change request; shared UBEC comments are only mentioned.
-  const dialogThreads = dialogOpen.filter(t => t.scope === 'state'), dialogUbec = dialogOpen.filter(t => t.scope === 'ubec');
-  const noteOptional = dialogAction === 'request_changes' && dialogThreads.length > 0;
-  const editable = data && implementedPillars.some(p => mayEditPillar(data.role,data.departments,p,data.plan.status,data.pillarReviews));
+  const totals = useMemo(() => data && summarizeSnapshot(data.snapshot), [data]);
   const available = !loading && !error && selected === 'current';
+  const open = !!data && available && statePlanOpen(data.plan.status);
   const latestFeedback = data?.events.find(e => e.action === 'request_changes');
-  const actionReviewStatus = data?.pillarReviews.find(review => review.pillar === scope)?.status;
-  const openAction = (value: ReviewAction, pillar?: ImplementedPillar) => { setDialogResubmit(pillar ? data?.pillarReviews.find(r=>r.pillar===pillar)?.status === 'changes_requested' : false); setDialogAction(value); setAction(value); setComment(''); setScope(pillar ?? 'general'); setFormError(''); };
+  const editHref = (pillar: ImplementedPillar) => data && available && mayEditPillar(data.role, data.departments, pillar, data.plan.status, data.pillarReviews) ? planHref(componentSections[pillar][0].href!, data.plan.id) : undefined;
   // Request changes lives in each sheet's toolbar, for whoever currently holds that component.
-  const canRequestChanges = (review: { pillar: ImplementedPillar; status: string }) => {
-    if (!data || !available || !statePlanOpen(data.plan.status)) return false;
+  const holds = (review: PillarReview) => {
+    if (!data || !open) return false;
     if (data.role === 'Director' && !data.isBeapChair) return review.status === 'director_review' && hasDepartment(data.departments, pillarDepartments[review.pillar]);
     if (data.role === 'Director' && data.isBeapChair) return review.status === 'beap_review';
     return data.role === 'Executive Chairman' && review.status === 'chairman_ready';
   };
-  const requestChangesHandlers = Object.fromEntries((data?.pillarReviews ?? []).filter(canRequestChanges).map(review => [review.pillar, () => openAction('request_changes', review.pillar)]));
-  async function confirm() {
-    if (!action || !data || pending.current) return;
-    pending.current = true; setSaving(true); setFormError('');
-    try {
-      const response = await fetch(currentPlanHref('/api/plans/review'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, version: data.plan.version, comment, ...(scope !== 'general' ? { pillar: scope } : {}) }) });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error);
-      setAction(null); toast.success(reviewActionLabels[action]); await load();
-    } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'Unable to save. Please try again.'); }
-    finally { pending.current = false; setSaving(false); }
-  }
-  const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
+  const requestChangesHandlers = Object.fromEntries((data?.pillarReviews ?? []).filter(holds).map(review => [review.pillar, () => setRequest({ action: 'request_changes', pillar: review.pillar })]));
+  const actionsFor = (review: PillarReview): CardActions => {
+    const { pillar, status } = review, actions: CardActions = { editHref: editHref(pillar) };
+    if (!data || !open) return actions;
+    const owns = hasDepartment(data.departments, pillarDepartments[pillar]);
+    // Nothing saved yet means nothing to send: the card then only offers its editor.
+    if (data.role === 'Data Entry Staff' && owns && ['draft', 'changes_requested'].includes(status)) return nothingToSend(data, pillar) ? actions : { ...actions, step: { label: 'Send to Director', run: () => setRequest({ action: 'submit', pillar }) } };
+    if (data.role === 'Director' && !data.isBeapChair && owns && status === 'director_review') return { ...actions, step: { label: 'Send to BEAP Chair', run: () => setRequest({ action: 'endorse', pillar }) } };
+    if (data.role === 'Director' && data.isBeapChair && status === 'beap_review' && data.beapChairSubmissionMode === 'individual_components') return { ...actions, step: { label: 'Send to Executive Chairman', run: () => setRequest({ action: 'forward', pillar }) } };
+    return actions;
+  };
+  const workbookLinks = data ? Object.fromEntries(implementedPillars.map(p => [`${p}EditHref`, editHref(p)])) : {};
+
   return <div className="beap-page beap-review-page"><SubebHeader plan />
-    <main className="beap-main review-main"><div className="review-page-summary"><Button asChild variant="ghost" size="sm" className="review-back"><a href={plan ? planHref('/beap', plan.id) : '/dashboard'}><ArrowLeftIcon data-icon="inline-start" />Back to pillars</a></Button>
-      <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan).replace(' · ', ' ')} BEAP` : 'BEAP review'}</h1>{plan && <PlanStatusBadge status={plan.status} />}</div><div className="review-actions">
-        {data && !error && <div className="review-version"><Select value={selected} onValueChange={value => void load(value)} disabled={saving || loading}><SelectTrigger id="submission-version" aria-label="Plan version" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">{'Current working plan'}</SelectItem>{data.submissions.map(s => <SelectItem key={s.number} value={String(s.number)}>Submission {s.number} · {date.format(new Date(s.createdAt))}</SelectItem>)}</SelectGroup></SelectContent></Select></div>}
-        {data && !error && !statePlanOpen(data.plan.status) && <Button asChild variant="outline" className="rounded-full"><a href={planHref('/ubec/review',data.plan.id)}>View UBEC review</a></Button>}
-      </div></div>
+    <main className="beap-main review-main plan-page" id="main-content">
+      <div className="review-page-summary">
+        <Button asChild variant="ghost" size="sm" className="review-back"><a href="/dashboard"><ArrowLeftIcon data-icon="inline-start" />Dashboard</a></Button>
+        <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{plan && <PlanStatusBadge status={plan.status} />}</div><div className="review-actions">
+          {data && !error && <div className="review-version"><Select value={selected} onValueChange={value => void load(value)} disabled={loading}><SelectTrigger id="submission-version" aria-label="Plan version" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">Current working plan</SelectItem>{data.submissions.map(s => <SelectItem key={s.number} value={String(s.number)}>Submission {s.number} · {date.format(new Date(s.createdAt))}</SelectItem>)}</SelectGroup></SelectContent></Select></div>}
+          {data && !error && canEditSetup && <Button variant="outline" className="rounded-full" onClick={() => setEditing(true)}><PencilIcon data-icon="inline-start" />Edit plan</Button>}
+          {data && !error && !statePlanOpen(data.plan.status) && <Button asChild variant="outline" className="rounded-full"><a href={planHref('/ubec/review', data.plan.id)}>View UBEC review</a></Button>}
+        </div></div>
       </div>
-      <Separator className="review-page-summary-separator" />
-      {error && <Alert variant="destructive"><AlertTitle>Review unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
-      {loading ? <Skeleton className="h-64 w-full" /> : data && !error && <>
-        {plan?.status === 'changes_requested' && latestFeedback && <Alert className="mb-6"><MessageSquareIcon /><AlertTitle>Changes requested · {scopeLabel(latestFeedback.scope)}</AlertTitle><AlertDescription><p className="review-comment">{latestFeedback.comment}</p>{editable && <Button asChild variant="outline"><a href={planHref('/beap', data.plan.id)}>Edit plan</a></Button>}</AlertDescription></Alert>}
-        {selected !== 'current' && <Alert className="mb-6"><AlertTitle>Saved submission {data.selectedSubmission}</AlertTitle><AlertDescription>This version is read-only. Select the current version to take action.</AlertDescription></Alert>}
-        <section className="department-reviews" aria-labelledby="department-reviews-title">
-          <div className="beap-section-heading"><h2 id="department-reviews-title">All budgeted activities</h2></div>
-          <div className="pillar-card-grid department-review-grid">
-            {data.pillarReviews.map(review => {
-              const pillar = componentSections[review.pillar][0];
-              const owns = hasDepartment(data.departments, pillarDepartments[review.pillar]);
-              const open = available && statePlanOpen(data.plan.status);
-              const staffCanSend = open && owns && data.role==='Data Entry Staff' && ['draft','changes_requested'].includes(review.status);
-              const directorCanReview = open && owns && data.role==='Director' && !data.isBeapChair && review.status==='director_review';
-              const beapChairCanReview = open && data.role==='Director' && data.isBeapChair && review.status==='beap_review';
-              return <Card key={review.pillar} className="pillar-component-card department-review-card" data-component={review.pillar}>
-                <CardHeader>
-                  <div className="pillar-card-artwork">{review.pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={review.pillar} standalone />}</div>
-                  <CardTitle><h3>{pillar.name}</h3></CardTitle>
-                  <p className="pillar-department">{departmentName(pillarDepartments[review.pillar])}</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="department-review-status"><Badge variant="secondary">{pillarReviewLabels[review.status]}</Badge>
-                  {!!comments?.openCount(review.pillar) && <a className="review-open-comments" href={`#review-${review.pillar}`}><MessageSquareTextIcon aria-hidden="true" />{commentCount(comments.openCount(review.pillar))}</a>}
-                  {!!comments?.openCount(review.pillar, 'ubec') && <a className="review-open-comments review-ubec-comments" href={`#review-${review.pillar}`} title="Open comments shared by UBEC"><MessageSquareTextIcon aria-hidden="true" />{ubecCount(comments.openCount(review.pillar, 'ubec'))}</a>}</div>
-                  <div className="department-review-actions">
-                  {directorCanReview && <Button asChild variant="outline" size="sm"><a href={planHref(pillar.href!,data.plan.id)}>Edit component</a></Button>}
-                  {staffCanSend && <Button size="sm" disabled={!data.snapshot[review.pillar]?.length || (review.pillar==='tlm'&&!data.snapshot.tlmDistribution?.length) || (review.pillar==='curriculum'&&!data.snapshot.curriculumDistribution?.length)} onClick={()=>openAction('submit',review.pillar)}>Send to Director</Button>}
-                  {directorCanReview && <Button size="sm" onClick={()=>openAction('endorse',review.pillar)}>Send to BEAP Chair</Button>}
-                  {beapChairCanReview && data.beapChairSubmissionMode==='individual_components' && <Button size="sm" onClick={()=>openAction('forward',review.pillar)}>Send to Executive Chairman</Button>}
-                  </div>
-                </CardContent>
-              </Card>;
-            })}
-          </div>
-            {data.role==='Director' && data.isBeapChair && statePlanOpen(data.plan.status) && <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              {data.beapChairSubmissionMode==='complete_plan' ? <><div className="flex flex-col gap-1"><p className="text-sm font-medium">Collate all department components into the complete SUBEB BEAP.</p><p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>['beap_review','chairman_ready'].includes(r.status)).length} of {implementedPillars.length} components reviewed by Directors. All components are sent together in one submission.</p></div>
-              <Button disabled={!data.readyForExecutiveChairman || !available} onClick={()=>openAction('forward')}><SendIcon data-icon="inline-start" />Send to Executive Chairman</Button></> : <div className="flex flex-col gap-1"><p className="text-sm font-medium">Send reviewed components individually.</p><p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components have been sent to the Executive Chairman.</p></div>}
-            </div>}
-            {data.role==='Executive Chairman' && statePlanOpen(data.plan.status) && <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <p className="text-sm text-muted-foreground">{data.pillarReviews.filter(r=>r.status==='chairman_ready').length} of {implementedPillars.length} components ready{data.ubecSubmissionMode==='reviewed_components'?'. Only ready components are sent to UBEC.':''}</p>
-              {data.readyForUbec && available ? <Button asChild><a href={planHref('/ubec/review',data.plan.id)}><SendIcon data-icon="inline-start" />Send to UBEC</a></Button> : <Button disabled>Send to UBEC</Button>}
-            </div>}
+      {error && <Alert variant="destructive"><AlertTitle>Plan unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
+      {loading && !data ? <div className="plan-page-loading"><Skeleton className="h-36 w-full rounded-3xl" /><Skeleton className="h-64 w-full rounded-3xl" /></div> : data && totals && !error && <>
+        {plan?.status === 'changes_requested' && latestFeedback && <Alert><MessageSquareIcon /><AlertTitle>Changes requested · {scopeLabel(latestFeedback.scope)}</AlertTitle><AlertDescription><p className="review-comment">{latestFeedback.comment}</p></AlertDescription></Alert>}
+        {selected !== 'current' && <Alert><AlertTitle>Saved submission {data.selectedSubmission}</AlertTitle><AlertDescription>This version is read-only. Select the current version to take action.</AlertDescription></Alert>}
+        <PlanSummary plan={data.plan} totals={totals} />
+        <section className="plan-components" id="plan-components" aria-labelledby="plan-components-title">
+          <h2 id="plan-components-title" className="plan-section-title">Components</h2>
+          <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
+          <PlannedComponents names={plannedNames(data)} />
+          <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} />
         </section>
-        <div className="review-layout"><PlanReviewContent showPlanReference={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} infrastructureEditHref={available && mayEditPillar(data.role, data.departments, 'infrastructure', data.plan.status, data.pillarReviews) ? planHref('/beap/infrastructure', data.plan.id) : undefined} sportsEditHref={available && mayEditPillar(data.role, data.departments, 'sports', data.plan.status, data.pillarReviews) ? planHref('/beap/sports', data.plan.id) : undefined} tlmEditHref={available && mayEditPillar(data.role, data.departments, 'tlm', data.plan.status, data.pillarReviews) ? planHref('/beap/tlm', data.plan.id) : undefined} sbmcEditHref={available && mayEditPillar(data.role, data.departments, 'sbmc', data.plan.status, data.pillarReviews) ? planHref('/beap/sbmc', data.plan.id) : undefined} {...Object.fromEntries((['monitoring','gscci','curriculum'] as const).map(p => [`${p}EditHref`, available && mayEditPillar(data.role, data.departments, p, data.plan.status, data.pillarReviews) ? planHref(`/beap/${p}`, data.plan.id) : undefined]))} /><Card className="review-history"><CardHeader><CardTitle>Review history</CardTitle></CardHeader><CardContent>{!data.events.length ? <p>No submissions yet.</p> : <ol>{data.events.map(event => <li key={event.id} id={reviewEventAnchor(event.id).slice(1)}><strong>{event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action]}</strong><span>Submission {event.submissionNumber} · {event.actorName}</span><span>{event.actorRole} · {date.format(new Date(event.createdAt))}</span>{event.scope !== 'general' && <span>{scopeLabel(event.scope)}</span>}{event.comment && <p className="review-comment">{event.comment}</p>}</li>)}</ol>}</CardContent></Card></div>
+        <div className="review-layout">
+          <PlanReviewContent showPlanReference={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} {...workbookLinks} />
+          <ReviewHistory events={data.events} scopeLabel={scopeLabel} />
+        </div>
       </>}
     </main>
-    <Dialog open={Boolean(action)} onOpenChange={open => { if (!open && !saving) setAction(null); }}><DialogContent variant="inset-footer" className="sm:max-w-sm" showCloseButton={!saving} onEscapeKeyDown={e => { if (saving) e.preventDefault(); }} onInteractOutside={e => { if (saving) e.preventDefault(); }}><DialogHeader><DialogTitle>{dialogAction === 'submit' ? dialogResubmit ? 'Resubmit to Director' : 'Submit to Director' : dialogAction === 'endorse' ? 'Send to BEAP Chair' : dialogAction === 'forward' ? 'Send to Executive Chairman' : 'Request changes'}</DialogTitle><DialogDescription>{dialogAction === 'submit' ? 'Saved entries in this component will be sent to your department Director. Other departments can continue working.' : dialogAction === 'endorse' ? 'Send this department’s reviewed component to the nominated BEAP Chair for state-level consolidation.' : dialogAction === 'forward' ? data?.beapChairSubmissionMode==='individual_components' ? 'This reviewed component will be sent to the Executive Chairman. Other components will remain with the BEAP Chair until they are sent separately.' : 'All reviewed components will be sent together as one collated SUBEB BEAP to the Executive Chairman for final state-level review before submission to UBEC.' : actionReviewStatus === 'chairman_ready' ? 'Return this component to the BEAP Chair with the changes required by the Executive Chairman.' : actionReviewStatus === 'beap_review' ? 'Return this component to its department Director with the changes required by the BEAP Chair.' : 'Return this component to the department’s Data Entry Staff with the Director’s required changes.'}</DialogDescription></DialogHeader>
-      <form onSubmit={e => { e.preventDefault(); void confirm(); }}><FieldGroup className="px-4 pb-5">
-        {dialogThreads.length > 0 && <div className="review-dialog-comments" data-action={dialogAction}><p>{dialogAction === 'request_changes' ? `${commentCount(dialogThreads.length)} will be sent with this request:` : `${commentCount(dialogThreads.length)} on ${scope === 'general' ? 'this plan are' : 'this component are'} not resolved yet.`}</p>
-          {dialogAction === 'request_changes' && <ul aria-label="Open comments">{dialogThreads.map(t => <li key={t.id}><strong>{t.targetLabel}</strong><span>{t.body}</span></li>)}</ul>}</div>}
-        {dialogUbec.length > 0 && <p className="review-dialog-ubec">{ubecCount(dialogUbec.length)} from UBEC {dialogUbec.length === 1 ? 'is' : 'are'} still open on {scope === 'general' ? 'this plan' : 'this component'}. {dialogAction === 'request_changes' ? 'They stay on the plan for Data Entry Staff to answer.' : 'Reply to or resolve them before the plan goes back to UBEC; UBEC sees your replies once it is resubmitted.'}</p>}
-        <Field data-invalid={Boolean(formError)}><FieldLabel htmlFor="review-comment">{noteOptional ? 'Note (optional)' : dialogAction === 'request_changes' ? 'Required changes' : dialogAction === 'submit' && dialogResubmit ? 'Changes made' : 'Comment (optional)'}</FieldLabel><Textarea id="review-comment" value={comment} onChange={e => setComment(e.target.value)} disabled={saving} required={(dialogAction === 'request_changes' && !noteOptional) || (dialogAction === 'submit' && dialogResubmit)} maxLength={5000} aria-invalid={Boolean(formError)} />{formError && <FieldError>{formError}</FieldError>}</Field></FieldGroup><DialogFooter><DialogClose asChild><Button variant="outline" type="button" disabled={saving}>Cancel</Button></DialogClose><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{dialogAction === 'submit' ? 'Submit to Director' : dialogAction === 'endorse' ? 'Send to BEAP Chair' : dialogAction === 'forward' ? 'Send to Executive Chairman' : 'Send feedback'}</Button></DialogFooter></form>
-    </DialogContent></Dialog>
+    {data && <ReviewActionDialog request={request} data={data} comments={comments} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} />}
+    {editing && data && <EditPlanDialog planId={data.plan.id} onClose={() => setEditing(false)} onSaved={() => void load(selected)} />}
   </div>;
 }
