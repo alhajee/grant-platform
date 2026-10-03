@@ -3,7 +3,7 @@
 import { CalendarDaysIcon, ChevronDownIcon, HandCoinsIcon, ListIcon, SchoolIcon } from 'lucide-react';
 import { Amount, FundingGauge, amountFormat, compactNaira, mixOrder } from '@/components/dashboard/plan-figures';
 import { OtherFundingInfo } from '@/components/funding-sources-field';
-import { PlanSetupSummary } from '@/components/plan-setup-summary';
+import { FundingDetails } from './funding-details';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { ActionPlan } from '@/lib/action-plans';
@@ -42,7 +42,7 @@ export function PlanSummary({ plan, totals }: { plan: ActionPlan; totals: PlanTo
       </div>
       {plan.beapName && <Collapsible className="plan-summary-details">
         <CollapsibleTrigger className="plan-summary-details-trigger"><ChevronDownIcon aria-hidden="true" />Funding details & documents</CollapsibleTrigger>
-        <CollapsibleContent><PlanSetupSummary setup={plan} compact /></CollapsibleContent>
+        <CollapsibleContent><FundingDetails setup={plan} /></CollapsibleContent>
       </Collapsible>}
     </CardContent>
   </Card>;

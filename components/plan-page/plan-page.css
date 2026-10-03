@@ -21,7 +21,26 @@
 .plan-summary-details-trigger:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .plan-summary-details-trigger svg { width: 15px; height: 15px; transition: transform 180ms cubic-bezier(.23,1,.32,1); }
 .plan-summary-details[data-state=open] .plan-summary-details-trigger svg { transform: rotate(180deg); }
-.plan-summary-details [data-slot=collapsible-content] { padding-top: 10px; }
+.plan-summary-details [data-slot=collapsible-content] { padding-top: 14px; }
+/* Funding details: two halves inside the summary card, divided by a hairline instead of a nested box. */
+.funding-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 40px; padding-top: 16px; border-top: 1px solid rgb(74 60 30 / 8%); }
+.funding-details h3 { margin-bottom: 10px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--muted-foreground); }
+.funding-split { display: flex; gap: 3px; height: 10px; margin-bottom: 12px; }
+.funding-split span { min-width: 4px; border-radius: 3px; }
+.funding-legend { display: grid; gap: 7px; }
+.funding-legend > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+.funding-legend dt { display: inline-flex; align-items: center; gap: 8px; color: var(--muted-foreground); }
+.funding-swatch { width: 8px; height: 8px; border-radius: 2px; }
+.funding-legend dd { display: inline-flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+.funding-legend b { font-weight: 600; }
+.funding-legend small { min-width: 32px; text-align: right; font-size: 12px; color: var(--muted-foreground); }
+.funding-reference { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
+.funding-none { font-size: 13px; color: var(--muted-foreground); }
+/* Documents as full-width rows under the reference, names and sizes visible. */
+.funding-details .document-files { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); justify-content: stretch; margin: 0; padding: 0; overflow: visible; }
+.funding-details .document-files .document-meta { display: block; font-size: 11px; }
+.funding-details .document-files .document-name { font-size: 13px; }
+@media (max-width: 760px) { .funding-details { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 760px) { .plan-summary > [data-slot=card-content] { grid-template-columns: minmax(0, 1fr); } }
 
 /* Component cards: the original illustrated cards (artwork and tinted wash), made compact. The title link covers the card. */
