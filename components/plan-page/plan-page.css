@@ -7,15 +7,20 @@
 
 /* Summary: the funding figure, then the gauge and pills, in one white card like the dashboard plan card. */
 .plan-summary[data-slot=card] { padding: 18px 0; border: 0; border-radius: 22px; background: #fff; box-shadow: 0 0 0 1px rgb(74 60 30 / 6%), 0 1px 2px rgb(74 60 30 / 4%), 0 18px 40px -30px rgb(74 60 30 / 30%); }
-.plan-summary > [data-slot=card-content] { display: grid; grid-template-columns: minmax(220px, auto) minmax(0, 1fr); align-items: center; gap: 12px 40px; padding: 0 22px; }
+.plan-summary > [data-slot=card-content] { display: flex; flex-direction: column; padding: 0 20px; }
 .plan-summary-label { font-size: 13px; color: var(--muted-foreground); }
-.plan-summary .plan-funding { margin-top: 2px; }
-.plan-summary-mix { min-width: 0; }
+.plan-summary .plan-funding { margin-top: 2px; font-size: clamp(26px, 2.3vw, 32px); }
+.plan-summary-mix { margin-top: 14px; }
 .plan-summary-proposed { display: flex; align-items: baseline; gap: 4px; margin-top: 8px; font-size: 13px; color: var(--muted-foreground); }
 .plan-summary-proposed strong { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
 .plan-summary-proposed span { margin-left: auto; font-variant-numeric: tabular-nums; }
-.plan-summary .plan-pills { margin-top: 10px; }
-.plan-summary-details { grid-column: 1 / -1; }
+.plan-summary-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 14px 0 0; }
+.plan-summary-facts > div { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 2px; padding: 9px 11px; border-radius: 12px; background: #f6f7f5; }
+.plan-summary-facts dt { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted-foreground); }
+.plan-summary-facts dt svg { width: 13px; height: 13px; opacity: .75; }
+.plan-summary-facts dt .field-help-trigger { width: 16px; height: 16px; flex-basis: 16px; }
+.plan-summary-facts dd { font-size: 15px; font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; }
+.plan-summary-details { margin-top: 12px; }
 .plan-summary-details-trigger { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 6px; margin-left: -6px; border: 0; border-radius: 999px; background: none; font-size: 13px; color: var(--muted-foreground); cursor: pointer; }
 .plan-summary-details-trigger:hover { background: var(--accent); color: var(--foreground); }
 .plan-summary-details-trigger:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
@@ -23,7 +28,7 @@
 .plan-summary-details[data-state=open] .plan-summary-details-trigger svg { transform: rotate(180deg); }
 .plan-summary-details [data-slot=collapsible-content] { padding-top: 14px; }
 /* Funding details: two halves inside the summary card, divided by a hairline instead of a nested box. */
-.funding-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 40px; padding-top: 16px; border-top: 1px solid rgb(74 60 30 / 8%); }
+.funding-details { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; padding-top: 14px; border-top: 1px solid rgb(74 60 30 / 8%); }
 .funding-details h3 { margin-bottom: 10px; font-size: 12px; font-weight: 500; letter-spacing: .02em; color: var(--muted-foreground); }
 .funding-split { display: flex; gap: 3px; height: 10px; margin-bottom: 12px; }
 .funding-split span { min-width: 4px; border-radius: 3px; }
@@ -37,11 +42,10 @@
 .funding-reference { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; font-size: 14px; font-weight: 600; letter-spacing: -.01em; }
 .funding-none { font-size: 13px; color: var(--muted-foreground); }
 /* Documents as full-width rows under the reference, names and sizes visible. */
-.funding-details .document-files { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); justify-content: stretch; margin: 0; padding: 0; overflow: visible; }
+.funding-details .document-files { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: minmax(0, 1fr); justify-content: stretch; margin: 0; padding: 0; overflow: visible; }
 .funding-details .document-files .document-meta { display: block; font-size: 11px; }
 .funding-details .document-files .document-name { font-size: 13px; }
 @media (max-width: 760px) { .funding-details { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 760px) { .plan-summary > [data-slot=card-content] { grid-template-columns: minmax(0, 1fr); } }
 
 /* Component cards: the original illustrated cards (artwork and tinted wash), made compact. The title link covers the card. */
 .component-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
@@ -59,8 +63,8 @@
   .component-card:hover .component-card-art { transform: translateY(-2px) rotate(-2deg); }
 }
 .component-card-body { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
-.component-card-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.component-card-title h3 { min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
+.component-card-title { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 4px 8px; }
+.component-card-title h3 { flex: 1 1 8.5rem; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
 .component-card-title [data-slot=badge] { flex-shrink: 0; font-size: 11px; font-weight: 500; padding: 1px 8px; }
 .component-card-link { color: inherit; text-decoration: none; outline: none; }
 .component-card-link::after { content: ''; position: absolute; inset: 0; z-index: 0; border-radius: inherit; }
@@ -94,9 +98,9 @@
 @media (max-width: 600px) { .workflow-bar { border-radius: 18px; } }
 
 /* Funding summary with the status panel beside it. */
-.plan-glance { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); align-items: start; gap: 18px; }
+.plan-glance { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 350px); align-items: start; gap: 18px; }
 .plan-glance-main { display: flex; min-width: 0; flex-direction: column; gap: 18px; }
-.plan-glance-side { position: sticky; top: 16px; min-width: 0; }
+.plan-glance-side { position: sticky; top: 16px; display: flex; min-width: 0; flex-direction: column; gap: 14px; }
 .plan-glance .component-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 1280px) { .plan-glance .component-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .plan-glance .component-cards { grid-template-columns: minmax(0, 1fr); } }

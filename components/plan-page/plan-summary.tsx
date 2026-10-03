@@ -13,8 +13,8 @@ import type { PlanTotals } from '@/lib/plan-summary';
 const plural = (n: number, one: string, many: string) => n === 1 ? one : many;
 
 /**
- * The plan at a glance: available funding as the key figure, the proposed amount as a component-coloured
- * gauge, and small pills for schools, lines and other funding. Funding details and documents fold away below.
+ * The plan's funding in a narrow side card: available funding as the key figure, the proposed amount as a
+ * component-coloured gauge, a 2x2 list of facts, and funding details and documents folding open below.
  */
 export function PlanSummary({ plan, totals, detailsOpen, onDetailsOpenChange }: { plan: ActionPlan; totals: PlanTotals; detailsOpen: boolean; onDetailsOpenChange: (open: boolean) => void }) {
   const funding = plan.fundingTotal != null ? Number(plan.fundingTotal) : null;
@@ -22,24 +22,26 @@ export function PlanSummary({ plan, totals, detailsOpen, onDetailsOpenChange }: 
   const { budget, schoolCount, lineCount } = totals.total;
   const amounts = Object.fromEntries(mixOrder.map(area => [area, totals[area].budget]));
   const share = funding ? Math.round(budget / funding * 100) : null;
+  const facts = [
+    { key: 'schools', Icon: SchoolIcon, value: String(schoolCount), label: plural(schoolCount, 'school', 'schools') },
+    { key: 'lines', Icon: ListIcon, value: String(lineCount), label: plural(lineCount, 'budget line', 'budget lines') },
+    ...(other > 0 ? [{ key: 'other', Icon: HandCoinsIcon, value: `+${compactNaira.format(other)}`, label: 'other funding', info: true }] : []),
+    ...(plan.implementationYear != null ? [{ key: 'year', Icon: CalendarDaysIcon, value: String(plan.implementationYear), label: 'implementation' }] : []),
+  ];
   return <Card className="plan-summary">
     <CardContent>
-      <div className="plan-summary-figure">
-        <p className="plan-summary-label">Available funding</p>
-        <p className="plan-funding" aria-label={funding == null ? 'Not set' : amountFormat.format(funding)}>{funding == null ? '—' : <Amount value={funding} />}</p>
-      </div>
-      <div className="plan-summary-mix">
-        {budget > 0 ? <>
-          <FundingGauge amounts={amounts} budget={budget} funding={funding ?? 0} />
-          <p className="plan-summary-proposed"><strong>{compactNaira.format(budget)}</strong> proposed{share != null && <span>{share}% of funding</span>}</p>
-        </> : <p className="plan-summary-proposed">Nothing proposed yet</p>}
-        <ul className="plan-pills" aria-label="Plan contents">
-          <li><SchoolIcon aria-hidden="true" /><b>{schoolCount}</b>{plural(schoolCount, 'school', 'schools')}</li>
-          <li><ListIcon aria-hidden="true" /><b>{lineCount}</b>{plural(lineCount, 'budget line', 'budget lines')}</li>
-          {other > 0 && <li><HandCoinsIcon aria-hidden="true" /><b>+{compactNaira.format(other)}</b>other funding<OtherFundingInfo setup={plan} /></li>}
-          {plan.implementationYear != null && <li><CalendarDaysIcon aria-hidden="true" />Implementation<b>{plan.implementationYear}</b></li>}
-        </ul>
-      </div>
+      <p className="plan-summary-label">Available funding</p>
+      <p className="plan-funding" aria-label={funding == null ? 'Not set' : amountFormat.format(funding)}>{funding == null ? '—' : <Amount value={funding} />}</p>
+      {budget > 0 ? <div className="plan-summary-mix">
+        <FundingGauge amounts={amounts} budget={budget} funding={funding ?? 0} />
+        <p className="plan-summary-proposed"><strong>{compactNaira.format(budget)}</strong> proposed{share != null && <span>{share}%</span>}</p>
+      </div> : <p className="plan-summary-proposed">Nothing proposed yet</p>}
+      <dl className="plan-summary-facts">
+        {facts.map(({ key, Icon, value, label, info }) => <div key={key}>
+          <dt><Icon aria-hidden="true" />{label}{info && <OtherFundingInfo setup={plan} />}</dt>
+          <dd>{value}</dd>
+        </div>)}
+      </dl>
       {plan.beapName && <Collapsible className="plan-summary-details" open={detailsOpen} onOpenChange={onDetailsOpenChange}>
         <CollapsibleTrigger className="plan-summary-details-trigger"><ChevronDownIcon aria-hidden="true" />Funding details & documents</CollapsibleTrigger>
         <CollapsibleContent><FundingDetails setup={plan} /></CollapsibleContent>

@@ -119,17 +119,15 @@ export default function PlanPage() {
       {error && <Alert variant="destructive"><AlertTitle>Plan unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
       {loading && !data ? <div className="plan-page-loading"><Skeleton className="h-36 w-full rounded-3xl" /><Skeleton className="h-64 w-full rounded-3xl" /></div> : data && totals && !error && <>
         {selected !== 'current' && <Alert><AlertTitle>Saved submission {data.selectedSubmission}</AlertTitle><AlertDescription>This version is read-only. Select the current version to take action.</AlertDescription></Alert>}
-        {/* Summary and components in the main column; the plan's status stays beside them as you scroll. */}
+        {/* Components in the main column; the plan's funding and status sit in a sticky column on the right. */}
         <div className="plan-glance">
-          <div className="plan-glance-main">
+          <section className="plan-components plan-glance-main" id="plan-components" aria-labelledby="plan-components-title">
+            <h2 id="plan-components-title" className="plan-section-title">Components</h2>
+            <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
+            <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} />
+          </section>
+          <aside className="plan-glance-side" aria-label="Plan funding and status">
             <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
-            <section className="plan-components" id="plan-components" aria-labelledby="plan-components-title">
-              <h2 id="plan-components-title" className="plan-section-title">Components</h2>
-              <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
-              <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} />
-            </section>
-          </div>
-          <aside className="plan-glance-side" aria-label="Where the plan is">
             <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} />
           </aside>
         </div>
