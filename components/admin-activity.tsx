@@ -13,8 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { DataTableFacetedFilter } from '@/components/data-table-faceted-filter';
-import { DataTableFilterGroup } from '@/components/data-table-filter-group';
+import { FilterDialog } from '@/components/filter-dialog';
 import { useSessionState } from '@/components/use-session-state';
 import { activityPageSizes, defaultActivityPageSize, type ActivityFacets, type ActivitySession, type ActivitySort, type ActivityStatus, type Paged, type SessionStatus } from '@/lib/admin-activity';
 import { stateDisplayName } from '@/lib/state-names';
@@ -104,10 +103,13 @@ export function AdminActivity() {
       itemLabel="sessions"
       columnLabels={{ admin: 'Administrator', started: 'Started', ends: 'Ended / Expires', duration: 'Duration', status: 'Status', writes: 'Write attempts' }}
       empty={empty}
-      filters={<DataTableFilterGroup activeCount={Number(statuses.length > 0) + Number(admins.length > 0)} filterCount={adminFacet.length > 0 ? 2 : 1} onReset={() => { setStatuses([]); setAdmins([]); setPagination(state => ({ ...state, pageIndex: 0 })); }}>
-        <DataTableFacetedFilter title="Status" options={statusFacet} selected={statuses} onChange={setFilter(setStatuses)} />
-        {adminFacet.length > 0 && <DataTableFacetedFilter title="Administrator" options={adminFacet} selected={admins} onChange={setFilter(setAdmins)} />}
-      </DataTableFilterGroup>}
+      filters={<FilterDialog inlineChips
+        sections={[
+          { id: 'status', title: 'Status', options: statusFacet, selected: statuses, onChange: setFilter(setStatuses) },
+          ...(adminFacet.length > 0 ? [{ id: 'admin', title: 'Administrator', options: adminFacet, selected: admins, onChange: setFilter(setAdmins) }] : []),
+        ]}
+        onClearAll={() => { setStatuses([]); setAdmins([]); setPagination(state => ({ ...state, pageIndex: 0 })); }}
+        showLabel={`Show ${(lastData?.total ?? 0).toLocaleString()} sessions`} />}
       server={{
         rowCount: error ? 0 : lastData?.total ?? 0,
         pagination, onPaginationChange: setPagination,

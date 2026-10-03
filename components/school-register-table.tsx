@@ -8,8 +8,7 @@ import { SchoolMapDialog } from '@/components/school-map-dialog';
 import { SchoolBulkBar, useSchoolActions } from '@/components/school-register-bulk-bar';
 import { DataTableColumnHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
-import { DataTableFacetedFilter } from '@/components/data-table-faceted-filter';
-import { DataTableFilterGroup } from '@/components/data-table-filter-group';
+import { FilterDialog } from '@/components/filter-dialog';
 import { toast } from 'sonner';
 import { useSessionState } from '@/components/use-session-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -148,9 +147,10 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
       rowSelected={school => selected.has(school.id)}
       stickyHeader
       rowLabel={school => `Edit ${school.name}`}
-      filters={<DataTableFilterGroup activeCount={filters.filter(item => item.selected.length).length} filterCount={filters.length} onReset={() => { filters.forEach(item => item.set([])); setPagination(state => ({ ...state, pageIndex: 0 })); }}>
-        {filters.map(item => <DataTableFacetedFilter key={item.title} title={item.title} options={item.options} selected={item.selected} onChange={setFilter(item.set)} />)}
-      </DataTableFilterGroup>}
+      filters={<FilterDialog inlineChips
+        sections={filters.map(item => ({ id: item.title.toLowerCase().replace(/\s+/g, '-'), title: item.title, options: item.options, selected: item.selected, onChange: setFilter(item.set) }))}
+        onClearAll={() => { filters.forEach(item => item.set([])); setPagination(state => ({ ...state, pageIndex: 0 })); }}
+        showLabel={`Show ${total.toLocaleString()} ${total === 1 ? 'school' : 'schools'}`} />}
       server={{
         rowCount: error ? 0 : lastData?.total ?? 0,
         pagination, onPaginationChange: setPagination,

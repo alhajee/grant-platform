@@ -12,9 +12,8 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { features, type DataTableFeatures } from './data-table-features';
-import { DataTableFacetedFilter, type DataTableFacet } from './data-table-faceted-filter';
+import { FilterDialog, type DataTableFacet } from './filter-dialog';
 import { useSessionState } from './use-session-state';
-import { DataTableFilterGroup } from './data-table-filter-group';
 
 /** Server-side mode: the parent fetches one page at a time and owns paging, sorting and search. */
 export type DataTableServer = {
@@ -90,9 +89,10 @@ export function DataTable<TData extends { id: string | number }>({ data, columns
         </InputGroup>
       </Field>
       {filters}
-      {!server && facets.length > 0 && <DataTableFilterGroup activeCount={facets.filter(facet => table.getColumn(facet.column)?.getFilterValue()).length} filterCount={facets.length} onReset={() => { facets.forEach(facet => table.getColumn(facet.column)?.setFilterValue(undefined)); table.setPageIndex(0); }}>
-        {facets.map(facet => { const column = table.getColumn(facet.column); return column && <DataTableFacetedFilter key={facet.column} title={facet.title} options={facet.options} selected={(column.getFilterValue() as string[] | undefined) ?? []} onChange={values => { column.setFilterValue(values.length ? values : undefined); table.setPageIndex(0); }} />; })}
-      </DataTableFilterGroup>}
+      {!server && facets.length > 0 && <FilterDialog inlineChips
+        sections={facets.flatMap(facet => { const column = table.getColumn(facet.column); return column ? [{ id: facet.column, title: facet.title, options: facet.options, selected: (column.getFilterValue() as string[] | undefined) ?? [], onChange: (values: string[]) => { column.setFilterValue(values.length ? values : undefined); table.setPageIndex(0); } }] : []; })}
+        onClearAll={() => { facets.forEach(facet => table.getColumn(facet.column)?.setFilterValue(undefined)); table.setPageIndex(0); }}
+        showLabel={`Show ${table.getFilteredRowModel().rows.length} ${itemLabel}`} />}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {toolbar}
