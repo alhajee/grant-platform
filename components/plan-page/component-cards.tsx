@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { MessageSquareTextIcon, Sheet } from 'lucide-react';
+import { MessageSquareTextIcon, SendHorizontalIcon, Sheet } from 'lucide-react';
 import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
 import { PillarIllustration } from '@/components/pillar-illustration';
 import { componentPalette } from '@/components/dashboard/component-budgets';
@@ -51,11 +51,11 @@ function ComponentCard({ plan, review, summary, comments, actions }: CardProps) 
     {/* One row across the card: workbook link (on hover), comment chips, then the viewer's step. */}
     {(actions.editHref || own > 0 || ubec > 0 || actions.step) && <div className="component-card-foot">
       {actions.editHref && <Tooltip><TooltipTrigger asChild><Button asChild variant="ghost" size="icon-sm" className="component-card-sheet rounded-full"><a href={sheet} aria-label={`View ${section.name} in the workbook`}><Sheet /></a></Button></TooltipTrigger><TooltipContent side="top" className="soft-tip">View in the workbook</TooltipContent></Tooltip>}
-      {own > 0 && <a className="review-open-comments" href={sheet} title={commentCount(own)}><MessageSquareTextIcon aria-hidden="true" />{own}<span className="sr-only"> open {own === 1 ? 'comment' : 'comments'}</span></a>}
-      {ubec > 0 && <a className="review-open-comments review-ubec-comments" href={sheet} title={ubecCount(ubec)}><MessageSquareTextIcon aria-hidden="true" />UBEC {ubec}<span className="sr-only"> open {ubec === 1 ? 'comment' : 'comments'} shared by UBEC</span></a>}
+      {own > 0 && <a className="review-open-comments card-pill" href={sheet} title={commentCount(own)} aria-label={commentCount(own)}><MessageSquareTextIcon aria-hidden="true" /><span className="card-pill-count" aria-hidden="true">{own}</span><span className="card-pill-label">{own} open</span></a>}
+      {ubec > 0 && <a className="review-open-comments review-ubec-comments card-pill" href={sheet} title={ubecCount(ubec)} aria-label={ubecCount(ubec)}><MessageSquareTextIcon aria-hidden="true" /><span className="card-pill-count" aria-hidden="true">{ubec}</span><span className="card-pill-label">UBEC {ubec}</span></a>}
       {actions.step && (actions.step.blocked
-        ? <Tooltip><TooltipTrigger asChild><span className="relative z-[1] ml-auto" tabIndex={0}><Button size="sm" className="h-[30px] rounded-full text-[13px]" disabled aria-describedby={`blocked-${pillar}`}>{actions.step.label}</Button></span></TooltipTrigger><TooltipContent side="top" className="soft-tip max-w-xs" id={`blocked-${pillar}`}>{actions.step.blocked}</TooltipContent></Tooltip>
-        : <Button size="sm" className="component-card-step rounded-full" onClick={actions.step.run}>{actions.step.label}</Button>)}
+        ? <Tooltip><TooltipTrigger asChild><span className="relative z-[1] ml-auto" tabIndex={0}><Button size="sm" className="card-pill card-pill-step rounded-full" disabled aria-describedby={`blocked-${pillar}`}><SendHorizontalIcon aria-hidden="true" /><span className="card-pill-label">{actions.step.label}</span></Button></span></TooltipTrigger><TooltipContent side="top" className="soft-tip max-w-xs" id={`blocked-${pillar}`}>{actions.step.blocked}</TooltipContent></Tooltip>
+        : <Button size="sm" className="component-card-step card-pill card-pill-step rounded-full" onClick={actions.step.run} aria-label={actions.step.label}><SendHorizontalIcon aria-hidden="true" /><span className="card-pill-label">{actions.step.label}</span></Button>)}
     </div>}
   </li>;
 }
