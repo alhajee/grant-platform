@@ -141,3 +141,5 @@
 .plan-records > [data-slot=card] [data-slot=card-title] h2 { font-size: 15px; font-weight: 600; }
 .plan-records .plan-documents-group li { border-top-color: rgb(0 50 40 / 7%); }
 .plan-records .plan-document-name { font-size: 13px; }
+/* The plan page sits on plain soft grey (no graph-paper texture), so its white cards stand out. */
+.beap-page.beap-review-page { background-color: #f1f2f1; background-image: none; }
