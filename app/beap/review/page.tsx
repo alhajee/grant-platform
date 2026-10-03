@@ -12,6 +12,7 @@ import { WorkflowBar } from '@/components/plan-page/workflow-bar';
 import { ReviewHistory } from '@/components/plan-page/review-history';
 import { PlanDocuments } from '@/components/plan-page/plan-documents';
 import { StatusPanel } from '@/components/plan-page/status-panel';
+import { SendToUbecDialog } from '@/components/plan-page/send-to-ubec-dialog';
 import { ReviewActionDialog, type ReviewRequest } from '@/components/plan-page/review-action-dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -42,7 +43,7 @@ export default function PlanPage() {
   const [canEditSetup, setCanEditSetup] = useState(false);
   const [editing, setEditing] = useState(false);
   // One toggle opens the funding details and the full status panel together, so the two cards stay level.
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false), [sendingToUbec, setSendingToUbec] = useState(false);
   const requestId = useRef(0);
   const load = useCallback(async (version = 'current') => {
     const id = ++requestId.current;
@@ -113,7 +114,6 @@ export default function PlanPage() {
         <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{plan && <PlanStatusBadge status={plan.status} />}</div><div className="review-actions">
           {data && !error && <div className="review-version"><Select value={selected} onValueChange={value => void load(value)} disabled={loading}><SelectTrigger id="submission-version" aria-label="Plan version" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">Current working plan</SelectItem>{data.submissions.map(s => <SelectItem key={s.number} value={String(s.number)}>Submission {s.number} · {date.format(new Date(s.createdAt))}</SelectItem>)}</SelectGroup></SelectContent></Select></div>}
           {data && !error && canEditSetup && <Button variant="outline" className="rounded-full" onClick={() => setEditing(true)}><PencilIcon data-icon="inline-start" />Edit plan</Button>}
-          {data && !error && !statePlanOpen(data.plan.status) && <Button asChild variant="outline" className="rounded-full"><a href={planHref('/ubec/review', data.plan.id)}>View UBEC review</a></Button>}
         </div></div>
       </div>
       {error && <Alert variant="destructive"><AlertTitle>Plan unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
@@ -125,7 +125,7 @@ export default function PlanPage() {
           <h2 id="plan-components-title" className="plan-section-title plan-glance-head">Components</h2>
           <section className="plan-components plan-glance-main" id="plan-components" aria-labelledby="plan-components-title">
             <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
-            <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} />
+            <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} onSendToUbec={() => setSendingToUbec(true)} />
           </section>
           <aside className="plan-glance-side" aria-label="Plan funding and status">
             <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
@@ -143,6 +143,7 @@ export default function PlanPage() {
       </>}
     </main>
     {data && <ReviewActionDialog request={request} data={data} comments={comments} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} />}
+    {data && <SendToUbecDialog key={sendingToUbec ? 'open' : 'closed'} planId={data.plan.id} open={sendingToUbec} openUbecComments={comments?.threads.filter(thread => thread.scope === 'ubec' && !thread.resolvedAt).length ?? 0} onClose={() => setSendingToUbec(false)} onSent={() => { setSendingToUbec(false); void load(); }} />}
     {editing && data && <EditPlanDialog planId={data.plan.id} onClose={() => setEditing(false)} onSaved={() => void load(selected)} />}
   </div>;
 }
