@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {Client} from 'pg';
 import {hashSync} from 'bcryptjs';
 import {packageSchema,calculateInfrastructure} from '../lib/infrastructure-model.ts';
-const base=process.env.TEST_BASE_URL||'http://localhost:5174';
+const base=process.argv[2]||process.env.TEST_BASE_URL||'http://localhost:5174';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost','127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
 const db=new Client({connectionString:process.env.DATABASE_URL});await db.connect();
@@ -11,7 +11,8 @@ async function api(who,path,body){const r=await fetch(base+path,{method:body?'PO
 function ok(r,status=200){assert.equal(r.status,status,JSON.stringify(r.data));return r.data;}
 try{
  for(const [who,role,department]of [['officer','Data Entry Staff','physical'],['director','Director','physical'],['social','Data Entry Staff','social'],['chair','Executive Chairman',null]]){
-  const email=`${who}.${marker.toLowerCase()}@test.local`;users.push((await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[who,email,role,department,marker,hashSync(password,4)])).rows[0].id);
+  const email=`${who}.${marker.toLowerCase()}@test.local`;const id=(await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[who,email,role,department,marker,hashSync(password,4)])).rows[0].id;users.push(id);
+  if(department)await db.query('INSERT INTO user_departments(user_id,department) VALUES($1,$2)',[id,department]);
   const r=await api(who,'/api/auth/login',{email,password});ok(r);cookies[who]=r.cookie;
  }
  plan=(await db.query('INSERT INTO action_plans(state_code,start_year,end_year) VALUES($1,2028,2028) RETURNING id',[marker])).rows[0].id;
@@ -51,7 +52,7 @@ try{
  const furnitureRecord=ok(await api('officer',path)).packages.find(p=>p.school_id===secondSchool);
  ok(await api('officer',path,{action:'delete',id:furnitureRecord.id,version:furnitureRecord.version}));
  ok(await api('social','/api/infrastructure/documents?id='+docs[0]),404);ok(await api('chair','/api/infrastructure/documents?id='+docs[0]));
- const whole=packageSchema.parse({kind:'whole',schoolId:school,components:['Primary'],documentIds:[docs[1]]});
+ const whole=packageSchema.parse({kind:'whole',schoolId:school,components:['Primary'],observations:'QA site visit',conditionNotes:'QA condition',documentIds:[docs[1]]});
  for(const i of calculateInfrastructure(whole,400).items)whole.packageCosts[i.key]={cost:1,strategy:'NCB',duration:'8 weeks'};
  ok(await api('officer',path,{action:'save',input:whole}));current=ok(await api('officer',path));const assessment=current.packages.find(p=>p.kind==='whole');
  ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole}),400);

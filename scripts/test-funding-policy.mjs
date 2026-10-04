@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import {Client} from 'pg';
 import {hashSync} from 'bcryptjs';
-const base=process.env.TEST_BASE_URL||'http://localhost:5174';
+import ExcelJS from 'exceljs';
+const ratWorkbook=new ExcelJS.Workbook();ratWorkbook.addWorksheet('RAT').addRow(['Funding policy QA']);
+const ratFile=new Blob([await ratWorkbook.xlsx.writeBuffer()]);
+const base=process.argv[2]||process.env.TEST_BASE_URL||'http://localhost:5174';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost','127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
 const db=new Client({connectionString:process.env.DATABASE_URL});await db.connect();
@@ -11,7 +14,7 @@ async function api(who,path,body,method=body?'POST':'GET'){
  return {status:r.status,data:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]};
 }
 function expect(r,status=200){assert.equal(r.status,status,JSON.stringify(r.data));return r.data;}
-async function createPlan(year){const form=new FormData();form.set('setup',JSON.stringify({planningYear:year,implementationYear:year,quarters:[1],stateLodgment:'100',otherFunding:'0'}));form.append('rat',new Blob(['%PDF-1.4\n%%EOF']),'assessment.pdf');const r=await fetch(base+'/api/plans',{method:'POST',headers:{Cookie:users.chair.cookie},body:form});return expect({status:r.status,data:await r.json()},201).plan;}
+async function createPlan(year){const form=new FormData();form.set('setup',JSON.stringify({planningYear:year,implementationYear:year,quarters:[1],stateLodgment:'100',otherFunding:'0'}));form.append('rat',ratFile,'assessment.xlsx');const r=await fetch(base+'/api/plans',{method:'POST',headers:{Cookie:users.chair.cookie},body:form});return expect({status:r.status,data:await r.json()},201).plan;}
 try{
  for(const [key,role,department]of [['es','UBEC Executive Secretary',null],['reviewer','UBEC Department Reviewer','physical'],['chair','Executive Chairman',null],['director','Director','physical'],['officer','Data Entry Staff','physical'],['other','Director','academic']]){
   const email=`${key}.${marker.toLowerCase()}@test.local`;const id=(await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[`Test ${key}`,email,role,department,marker,hashSync(password,4)])).rows[0].id;
@@ -32,9 +35,10 @@ try{
  const after=await createPlan(2091);assert.equal(after.fundingPolicy.id,saved.id);
  const persisted=(await db.query('SELECT funding_policy_id FROM action_plans WHERE id=$1',[before.id])).rows[0];assert.equal(persisted.funding_policy_id,initial.id);
  const actions=async who=>expect(await api(who,'/api/plans')).plans.find(p=>p.id===before.id).pendingActions;
- assert.equal((await actions('officer')).length,1);assert.equal((await actions('director')).length,0);
+ // Physical Planning owns Infrastructure and Supervision & Monitoring, so its Data Entry Staff see both.
+ assert.deepEqual((await actions('officer')).map(a=>a.label),['Complete Infrastructure Projects','Complete Supervision & Monitoring']);assert.equal((await actions('director')).length,0);
  await db.query("INSERT INTO plan_pillar_reviews(plan_id,pillar,status) VALUES($1,'infrastructure','director_review'),($1,'sports','draft') ON CONFLICT(plan_id,pillar) DO UPDATE SET status=EXCLUDED.status",[before.id]);
- assert.equal((await actions('director')).length,1);assert.equal((await actions('officer')).length,0);assert.equal((await actions('other')).length,0);
+ assert.equal((await actions('director')).length,1);assert.deepEqual((await actions('officer')).map(a=>a.label),['Complete Supervision & Monitoring']);assert.equal((await actions('other')).length,0);
  await db.query("UPDATE plan_pillar_reviews SET status='changes_requested' WHERE plan_id=$1 AND pillar='infrastructure'",[before.id]);
  assert.match((await actions('officer'))[0].label,/Address feedback/);
  await db.query("UPDATE plan_pillar_reviews SET status='chairman_ready' WHERE plan_id=$1",[before.id]);
