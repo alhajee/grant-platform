@@ -120,7 +120,6 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
               </FieldGroup></FieldSet>
               <FieldSet disabled={disabled} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend>Funding</FieldLegend><FieldGroup className="gap-3">
                 <Field data-invalid={!!errors.stateLodgment} className="md:max-w-[calc(50%-6px)]"><FieldLabel htmlFor="edit-state-lodgment">State contribution (₦)<FieldHelp>The amount paid by the state. UBEC adds the same amount, and both are shared across components by the funding policy.</FieldHelp></FieldLabel><CurrencyInput id="edit-state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
-                {legacy > 0 && <FieldDescription>This plan also has {money.format(legacy)} of earlier other funding that is shared across components. It stays unchanged.</FieldDescription>}
                 <FundingSourcesField value={sources} onChange={next => { setSources(next); setErrors(current => ({ ...current, fundingSources: '' })); }} disabled={disabled} showErrors />
                 {errors.fundingSources && <FieldError>{errors.fundingSources}</FieldError>}
               </FieldGroup></FieldSet>
