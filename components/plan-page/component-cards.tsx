@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { MessageSquareTextIcon, SendHorizontalIcon, Sheet } from 'lucide-react';
+import { HandCoinsIcon, MessageSquareTextIcon, SendHorizontalIcon, Sheet } from 'lucide-react';
 import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
 import { PillarIllustration } from '@/components/pillar-illustration';
 import { componentPalette } from '@/components/dashboard/component-budgets';
@@ -32,6 +32,22 @@ function CeilingBar({ proposed, ceiling }: { proposed: number; ceiling: number |
   return <Progress className="component-ceiling" value={Math.min(share, 100)} aria-label={`${Math.round(share)}% of ceiling proposed`} />;
 }
 
+/** Other funding given to this component alone (it is already in the ceiling): one chip, each funder in the tooltip. */
+function ComponentFunding({ sources }: { sources: readonly { funder: string; amount: string }[] }) {
+  if (!sources.length) return null;
+  const total = sources.reduce((sum, source) => sum + Number(source.amount), 0);
+  const names = sources.map(source => source.funder);
+  return <Tooltip delayDuration={0}>
+    <TooltipTrigger asChild>
+      <span className="component-card-funding" tabIndex={0}><HandCoinsIcon aria-hidden="true" /><b>+{compactNaira.format(total)}</b>{names.length === 1 ? names[0] : `${names.length} funders`}</span>
+    </TooltipTrigger>
+    <TooltipContent side="top" className="soft-tip">
+      <p className="mb-1 font-medium">Other funding for this component</p>
+      <ul className="grid gap-0.5">{sources.map((source, index) => <li key={index} className="flex justify-between gap-4"><span>{source.funder}</span><b className="tabular-nums">{compactNaira.format(Number(source.amount))}</b></li>)}</ul>
+    </TooltipContent>
+  </Tooltip>;
+}
+
 function ComponentCard({ plan, review, summary, comments, actions }: CardProps) {
   const { pillar } = review, section = componentSections[pillar][0];
   const ceilingValue = componentEnvelope(plan, pillar), ceiling = ceilingValue == null ? null : Number(ceilingValue);
@@ -47,6 +63,7 @@ function ComponentCard({ plan, review, summary, comments, actions }: CardProps) 
       <p className="component-card-department">{subebDepartmentName(subebComponentDepartments[pillar])}</p>
       <CeilingBar proposed={summary.budget} ceiling={ceiling} />
       <p className="component-card-amount"><b>{compactNaira.format(summary.budget)}</b>{ceiling != null && <> of {compactNaira.format(ceiling)}</>}</p>
+      <ComponentFunding sources={(plan.fundingSources ?? []).filter(source => source.component === pillar)} />
     </div>
     {/* One row across the card: workbook link (on hover), comment chips, then the viewer's step. */}
     {(actions.editHref || own > 0 || ubec > 0 || actions.step) && <div className="component-card-foot">
