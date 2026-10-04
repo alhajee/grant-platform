@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { formatQuarters } from './format-quarters';
-import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabels, teachersSharedEnvelope, toKobo, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
+import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabels, fundingSourceTargets, teachersSharedEnvelope, toKobo, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
 
 const year = z.number().int().min(2004).max(2100);
 export const implementationYearError = (fundingYear: number, implementationYear: number) => Number.isInteger(fundingYear) && Number.isInteger(implementationYear) && implementationYear < fundingYear ? `Implementation year can't be earlier than the funding year (${fundingYear}).` : '';
 const amount = z.string().regex(/^\d{1,13}(\.\d{1,2})?$/, 'Enter an amount below ₦10 trillion, with up to two decimal places.');
 export const maxFundingSources = 20;
 export const fundingSourceSchema = z.object({
-  component: z.enum(fundingComponentIds, { errorMap: () => ({ message: 'Choose the component this funding is for.' }) }),
+  // 'all' is plan-wide funding, shared across every component by the policy shares (migration 041).
+  component: z.enum(fundingSourceTargets, { errorMap: () => ({ message: 'Choose the component this funding is for.' }) }),
   funder: z.string().trim().min(1, 'Enter the funder.').max(120, 'Keep the funder name under 120 characters.'),
   amount: amount.refine(v => toKobo(v) > BigInt(0), 'Enter an amount greater than zero.'),
 }).strict();
@@ -27,7 +28,7 @@ const checkSetup = (p: PeriodAndFunding, ctx: z.RefinementCtx) => {
   if (message) ctx.addIssue({code:'custom',message,path:['implementationYear']});
   if (/^\d{1,13}(\.\d{1,2})?$/.test(p.stateLodgment) && toKobo(fundingTotal(p.stateLodgment, sourcesSum(p.fundingSources))) <= BigInt(0)) ctx.addIssue({code:'custom',message:'Enter funding greater than zero.',path:['stateLodgment']});
 };
-// Other funding is entered per component (fundingSources); otherFunding is accepted only as zero for older clients.
+// Other funding is entered per component or for all components (fundingSources); otherFunding is accepted only as zero for older clients.
 export const planSetupSchema = z.object({ ...periodAndFunding, otherFunding: z.string().regex(/^0+(\.0{1,2})?$/, 'Enter other funding per component under Other funding sources.').optional() })
   .strict().superRefine(checkSetup);
 export const planEditSchema = z.object({ plan: z.number().int().positive(), version: z.number().int().nonnegative(), ...periodAndFunding }).strict().superRefine(checkSetup);
@@ -35,7 +36,7 @@ export const planEditSchema = z.object({ plan: z.number().int().positive(), vers
 export function fundingTotal(lodgment: string, other: string) {
   return fromKobo(toKobo(lodgment) * BigInt(2) + toKobo(other));
 }
-/** All other funding on a plan: legacy spread other_funding plus its component funding sources. */
+/** All other funding on a plan: legacy spread other_funding plus its funding sources (component and plan-wide). */
 export function otherFundingTotal(setup: Pick<Partial<PlanSetup>, 'otherFunding' | 'fundingSources'>) {
   return fromKobo(toKobo(setup.otherFunding ?? '0') + toKobo(sourcesSum(setup.fundingSources ?? [])));
 }

@@ -1,4 +1,4 @@
-import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap, BadgeCheck, Laptop, Presentation } from 'lucide-react';
+import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap, BadgeCheck, Laptop, Presentation, ChartColumn } from 'lucide-react';
 import { LineExtrasDetail } from './line-extras-detail';
 import type { Snapshot } from '@/lib/plan-review';
 import { activityLabel, activityTitles, allocateByEnrolment, curriculumActivityShares, distributionNames, distributionSnapshotKeys, type DistributionWorkstream } from '@/lib/activity-plans';
@@ -8,7 +8,7 @@ import { InfrastructurePackageDetails } from '@/components/infrastructure-packag
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import type { CellValue, WorkbookColumn, WorkbookRow, WorkbookSheet } from './types';
 
-export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string; teachersEditHref?: string };
+export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string; teachersEditHref?: string; planningEditHref?: string };
 const cost = (line: { unit_cost: string; quantity: number }) => Math.round(Number(line.unit_cost) * 100) * line.quantity / 100;
 const sectionNames: Record<string, string> = Object.fromEntries(sportsSections.map(section => [section.id, section.shortLabel]));
 const text = (id: string, header: string, size = 150, filter = false): WorkbookColumn => ({ id, header, kind: 'text', size, filter });
@@ -58,8 +58,8 @@ function sportsSheet(snapshot: Snapshot, editHref?: string): WorkbookSheet {
   };
 }
 
-type ActivitySheetKey = 'sbmc' | 'tlm' | 'monitoring' | 'gscci' | 'curriculum' | 'quality' | 'ict';
-const activityIcons = { sbmc: Users, tlm: BookOpen, monitoring: ClipboardCheck, gscci: Leaf, curriculum: GraduationCap, quality: BadgeCheck, ict: Laptop };
+type ActivitySheetKey = 'sbmc' | 'tlm' | 'monitoring' | 'gscci' | 'curriculum' | 'quality' | 'ict' | 'planning';
+const activityIcons = { sbmc: Users, tlm: BookOpen, monitoring: ClipboardCheck, gscci: Leaf, curriculum: GraduationCap, quality: BadgeCheck, ict: Laptop, planning: ChartColumn };
 function activityExtras(key: ActivitySheetKey): WorkbookColumn[] {
   if (key === 'tlm') return [text('material', 'Material type', 170, true), text('subject', 'Subject', 190, true), text('classes', 'Classes', 170)];
   if (key === 'sbmc') return [text('rationale', 'Rationale', 260), text('approach', 'Implementation approach', 260)];
@@ -128,6 +128,7 @@ export function buildSheets(snapshot: Snapshot, visiblePillars: readonly string[
   if (visiblePillars.includes('teachers') && snapshot.teachers) sheets.push(teacherSheet(snapshot.teachers, links.teachersEditHref));
   if (visiblePillars.includes('ict') && snapshot.ict) sheets.push(activitySheet('ict', snapshot.ict, links.ictEditHref));
   if (visiblePillars.includes('curriculum') && snapshot.curriculum) sheets.push(activitySheet('curriculum', snapshot.curriculum, links.curriculumEditHref), distributionSheet('curriculum', snapshot.curriculumDistribution ?? [], snapshot.curriculum, links.curriculumEditHref));
+  if (visiblePillars.includes('planning') && snapshot.planning) sheets.push(activitySheet('planning', snapshot.planning, links.planningEditHref));
   return sheets;
 }
 

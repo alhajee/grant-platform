@@ -18,10 +18,10 @@ export async function GET(request: NextRequest) {
     const db = getPostgres();
     const visiblePillars = visibleComponents(workspace);
     const snapshot = visibleSnapshot(await readPlanSnapshot(db, plan.id), workspace);
-    const { infrastructure, sports, sbmc, tlm, monitoring, gscci, curriculum, quality, teachers, ict, total } = summarizeSnapshot(snapshot);
+    const { infrastructure, sports, sbmc, tlm, monitoring, gscci, curriculum, quality, teachers, ict, planning, total } = summarizeSnapshot(snapshot);
     const reviews = await readPillarReviews(db, plan.id);
     const editablePillars = implementedPillars.filter(p => mayEditPillar(workspace.role,workspace.departments ?? workspace.department,p,plan.status,reviews));
-    return NextResponse.json({ wholeState: canViewWholeStatePlan(workspace), visiblePillars, sbmc, tlm, monitoring, gscci, curriculum, quality, teachers, ict, editablePillars, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, canEdit: editablePillars.length > 0, infrastructure, sports, total }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ wholeState: canViewWholeStatePlan(workspace), visiblePillars, sbmc, tlm, monitoring, gscci, curriculum, quality, teachers, ict, planning, editablePillars, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, canEdit: editablePillars.length > 0, infrastructure, sports, total }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Unable to load BEAP overview", cause);
     return NextResponse.json({ error: "Your annual plan could not be loaded. Please try again." }, { status: 503 });

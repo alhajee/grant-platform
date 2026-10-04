@@ -6,7 +6,9 @@ import { teacherActivityNames, teacherDocumentLabel } from './teacher-developmen
 /** Activity lists from the client's Quality Assurance and ICT (DDPA) activity forms, stored by index. */
 export const qualityActivityNames = ['Mobility and Office Equipment', 'Maintenance of motorcycles, vehicles and office equipment', 'Capacity strengthening for Principals and Headteachers', 'Capacity building for new M&E Officers', 'Literacy and Numeracy Assessment at LGEA', 'Maintenance of E-Quality Assurance platform / M&E', 'Conduct of CQA for 9 weeks to visit schools for evaluations', 'Transportation and fueling for CQA', 'Follow-up evaluation', 'Daily school monitoring by SUBEB and LGEA', 'Production of instruments, report writing and harmonization'] as const;
 export const ictActivityNames = ['Procurement of Digital/STEM Equipment', 'Compliance with Data Protection & Cybersecurity Policy (NDPA)', 'Maintenance of Model Smart Schools', 'Maintenance of UBEC-SUBEB Connect', 'Establishment of DLC (Digital Literacy Centre)/Smart Classrooms', 'Acquisition/Renewal of Internet Subscriptions', 'Development/maintenance of website', 'Provision of digital teaching & learning resources', 'Monitoring and verification'] as const;
-export const qualityIctActivityNames: Record<string, readonly string[]> = { quality: qualityActivityNames, ict: ictActivityNames, teachers: teacherActivityNames };
+/** Planning, Research & Statistics activities (migration 041), stored by index. */
+export const planningActivityNames = ['Conduct annual school census', 'Develop State Medium-Term Basic Education Strategic Plans (SMTBESP)', 'Review and track the implementation of SMTBESP', 'Capacity building of EMIS, ICT and planning officers at SUBEB & LGEA', 'Procure working tools and ICT resources for PRS officers', 'Provide technical assistance for planning activities'] as const;
+export const qualityIctActivityNames: Record<string, readonly string[]> = { quality: qualityActivityNames, ict: ictActivityNames, teachers: teacherActivityNames, planning: planningActivityNames };
 
 export const equipmentTypes = ['Motorcycles', 'Vehicles', 'Office equipment (printers, photocopiers, projectors etc.)'] as const;
 export const subscriptionTypes = ['Starlink', 'MTN', 'Airtel', 'Glo', 'T2', 'Fibre'] as const;
@@ -32,6 +34,7 @@ export const compulsoryActivities: Partial<Record<string, readonly number[]>> = 
   quality: [2, 3, 6, 7, 8, 9, 10],
   ict: [2, 3, 6],
   teachers: [],
+  planning: [0, 2, 3, 5],
 };
 export const isCompulsory = (workstream: string, activity: number) => (compulsoryActivities[workstream] ?? []).includes(activity);
 

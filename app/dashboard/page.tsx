@@ -79,6 +79,7 @@ export default function DashboardPage() {
       quality: plan.qualityBudget ?? 0,
       teachers: plan.teachersBudget ?? 0,
       ict: plan.ictBudget ?? 0,
+      planning: plan.planningBudget ?? 0,
     })[area] > 0);
     return (!investmentFilters.years.length || investmentFilters.years.some(year => year >= plan.startYear && year <= plan.endYear))
       && (!investmentFilters.quarters.length || investmentFilters.quarters.some(quarter => quarters.includes(quarter)))
@@ -105,8 +106,9 @@ export default function DashboardPage() {
     quality: dashboardPlans.reduce((sum, plan) => sum + (plan.qualityBudget ?? 0), 0),
     teachers: dashboardPlans.reduce((sum, plan) => sum + (plan.teachersBudget ?? 0), 0),
     ict: dashboardPlans.reduce((sum, plan) => sum + (plan.ictBudget ?? 0), 0),
+    planning: dashboardPlans.reduce((sum, plan) => sum + (plan.planningBudget ?? 0), 0),
   };
-  const allAreas: InvestmentArea[] = ["infrastructure", "sports", "sbmc", "tlm", "monitoring", "gscci", "curriculum", "quality", "teachers", "ict"];
+  const allAreas: InvestmentArea[] = ["infrastructure", "sports", "sbmc", "tlm", "monitoring", "gscci", "curriculum", "quality", "teachers", "ict", "planning"];
   const visiblePlans = dashboardPlans.filter((p) => `${planPeriod(p)} action plan ${p.status}`.includes(query.toLowerCase().trim()) || (/^\d{4}$/.test(query.trim()) && Number(query) >= p.startYear && Number(query) <= p.endYear));
   const unavailable = loading || Boolean(error);
 

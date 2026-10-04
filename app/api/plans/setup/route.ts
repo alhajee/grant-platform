@@ -8,7 +8,7 @@ import { canCreateStatePlan } from '@/lib/subeb-access';
 import { statePlanOpen } from '@/lib/pillar-review';
 import { isSameRequestOrigin } from '@/lib/request-origin';
 import { beapName, envelopeShortfalls, sharedBelowIctProblem, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
-import { fundingComponentIds, fundingComponentLabels, type FundingComponent, type FundingSource } from '@/lib/funding-policy';
+import { fundingComponentIds, fundingSourceLabels, type FundingComponent, type FundingSource } from '@/lib/funding-policy';
 import { formatQuarters } from '@/lib/format-quarters';
 import type { ActionPlan } from '@/lib/action-plans';
 
@@ -56,7 +56,7 @@ function describeChanges(before: ActionPlan, after: { planningYear: number; impl
   if (formatQuarters(before.fundingQuarters ?? []) !== formatQuarters(after.quarters)) changes.push(`quarters ${formatQuarters(before.fundingQuarters ?? [])} → ${formatQuarters(after.quarters)}`);
   if (Number(before.stateLodgment) !== Number(after.stateLodgment)) changes.push(`state contribution ${money.format(Number(before.stateLodgment ?? 0))} → ${money.format(Number(after.stateLodgment))}`);
   if (sourceKey(before.fundingSources ?? []) !== sourceKey(after.fundingSources)) {
-    const list = after.fundingSources.map(s => `${fundingComponentLabels[s.component]} · ${s.funder} · ${money.format(Number(s.amount))}`).join('; ');
+    const list = after.fundingSources.map(s => `${fundingSourceLabels[s.component]} · ${s.funder} · ${money.format(Number(s.amount))}`).join('; ');
     changes.push(`other funding sources ${money.format(Number(sourcesSum(before.fundingSources ?? [])))} → ${money.format(Number(sourcesSum(after.fundingSources)))}${list ? ` (${list})` : ' (none)'}`);
   }
   return changes;

@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
 import { compulsoryActivities, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, lineDocumentAccept, lineDocumentLabel, qualityEquipmentActivity, subscriptionGroups, websiteTypes, type LineDocument } from '@/lib/activity-extras';
-import { compulsoryNames, missingCompulsory } from '@/lib/component-readiness';
+import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
 import { teacherDocumentHint } from '@/lib/teacher-development';
 
@@ -38,7 +38,7 @@ export function ActivityInfoHint({ workstream, activity }: { workstream: Activit
 /** What is still missing before the component can be sent: compulsory activities without a line. */
 export function CompulsoryChecklist({ workstream, lines }: { workstream: ActivityWorkstream; lines: readonly { activity: number }[] }) {
   const missing = missingCompulsory(workstream, lines);
-  if (!['quality', 'ict', 'teachers'].includes(workstream) || !(compulsoryActivities[workstream]?.length)) return null;
+  if (!hasReadinessRules(workstream) || !(compulsoryActivities[workstream]?.length)) return null;
   if (!missing.length) return <p className="activity-compulsory-done"><CheckIcon aria-hidden="true" />Every required activity has a budget line.</p>;
   return <Alert className="activity-compulsory"><CircleAlertIcon /><AlertTitle>Required before sending · {missing.length} missing</AlertTitle><AlertDescription><ul>{compulsoryNames(workstream, missing).map(name => <li key={name}>{name}</li>)}</ul></AlertDescription></Alert>;
 }

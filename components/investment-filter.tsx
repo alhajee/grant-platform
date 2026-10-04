@@ -6,7 +6,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { CurrencyInput } from "@/components/currency-input";
 import { planStatusLabels, type PlanOverview, type PlanStatus } from "@/lib/action-plans";
 
-export type InvestmentArea = "infrastructure" | "sports" | "sbmc" | "tlm" | "monitoring" | "gscci" | "curriculum" | "quality" | "teachers" | "ict";
+export type InvestmentArea = "infrastructure" | "sports" | "sbmc" | "tlm" | "monitoring" | "gscci" | "curriculum" | "quality" | "teachers" | "ict" | "planning";
 export type InvestmentFilters = {
   years: number[];
   quarters: number[];
@@ -23,7 +23,7 @@ export const emptyInvestmentFilters: InvestmentFilters = {
 };
 
 const areaLabels: Record<InvestmentArea, string> = {
-  infrastructure: "Infrastructure", sports: "Sports development", sbmc: "SBMC", tlm: "TLM", monitoring: "Supervision & Monitoring", gscci: "Greening & Safeguards", curriculum: "Curriculum", quality: "Quality Assurance", teachers: "Teacher Development", ict: "ICT",
+  infrastructure: "Infrastructure", sports: "Sports development", sbmc: "SBMC", tlm: "TLM", monitoring: "Supervision & Monitoring", gscci: "Greening & Safeguards", curriculum: "Curriculum", quality: "Quality Assurance", teachers: "Teacher Development", ict: "ICT", planning: "Planning",
 };
 const contentLabels = { hasBudgetLines: "Has budgeted activities", hasSchools: "Targets schools" } as const;
 const compactMoney = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", notation: "compact", maximumFractionDigits: 2 });

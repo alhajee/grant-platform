@@ -6,7 +6,7 @@ export const beapComponents = [
   { id: "sports", name: "Sports activities", share: 2, description: "Create opportunities for children to play, participate and thrive.", areas: ["Equipment", "Competitions", "School sports"], href: "/beap/sports" },
   { id: "monitoring", name: "Supervision and monitoring", share: 2, description: "Track delivery and supervise school projects.", areas: ["Supervision", "Monitoring"], href: "/beap/monitoring" },
   { id: "curriculum", name: "Purchase and curriculum distribution", share: 2, description: "Plan curriculum purchases and distribution to schools.", areas: ["Curriculum", "Distribution"], href: "/beap/curriculum" },
-  { id: "planning", name: "Planning, EMIS & Data platforms", share: 2, description: "Strengthen education planning and data systems.", areas: ["Planning", "EMIS", "Data"], href: null },
+  { id: "planning", name: "Planning, Research & Statistics", share: 2, description: "Strengthen education planning, research and data systems.", areas: ["Planning", "EMIS", "Research", "Statistics"], href: "/beap/planning" },
   { id: "gscci", name: "Greening Schools, Climate Change & Safeguarding", share: 2, description: "Create safer, climate-resilient school environments.", areas: ["Greening schools", "Climate change", "Safeguarding"], href: "/beap/gscci" },
 ] as const;
 
@@ -31,12 +31,12 @@ export const componentSections: Record<PillarId,{name:string;department:string;h
   monitoring:[{name:'Supervision & Monitoring',department:'physical',href:'/beap/monitoring'}],
   curriculum:[{name:'Curriculum Purchase, Distribution & Training',department:'academic',href:'/beap/curriculum'}],
   sbmc:[{name:'SBMC',department:'social',href:'/beap/sbmc'}],
-  planning:[{name:'Planning, EMIS & Analytics',department:'planning'}],
+  planning:[{name:'Planning, Research & Statistics',department:'planning',href:'/beap/planning'}],
   gscci:[{name:'Greening Schools, Climate Change & Safeguards',department:'academic',href:'/beap/gscci'}],
 };
 export type PillarSummary = { lineCount: number; schoolCount: number; budget: number };
 // TLM is reviewed separately by Academic Services within the infrastructure allocation.
 export const subebComponentDepartments = Object.fromEntries(Object.entries(componentSections).map(([id,sections])=>[id,sections[0].department])) as Record<PillarId,string>;
-export const implementedPillars = ['infrastructure', 'sports', 'sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'teachers', 'ict'] as const;
+export const implementedPillars = ['infrastructure', 'sports', 'sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'teachers', 'ict', 'planning'] as const;
 export type ImplementedPillar = typeof implementedPillars[number];
-export type BeapSummary = { wholeState: boolean; visiblePillars: ImplementedPillar[]; plan: import("./action-plans").ActionPlan; role: string; department: string | null; departments: string[]; canEdit: boolean; editablePillars: ImplementedPillar[]; infrastructure: PillarSummary; sports: PillarSummary; sbmc: PillarSummary; tlm: PillarSummary; monitoring: PillarSummary; gscci: PillarSummary; curriculum: PillarSummary; quality: PillarSummary; teachers: PillarSummary; ict: PillarSummary; total: PillarSummary };
+export type BeapSummary = { wholeState: boolean; visiblePillars: ImplementedPillar[]; plan: import("./action-plans").ActionPlan; role: string; department: string | null; departments: string[]; canEdit: boolean; editablePillars: ImplementedPillar[]; infrastructure: PillarSummary; sports: PillarSummary; sbmc: PillarSummary; tlm: PillarSummary; monitoring: PillarSummary; gscci: PillarSummary; curriculum: PillarSummary; quality: PillarSummary; teachers: PillarSummary; ict: PillarSummary; planning: PillarSummary; total: PillarSummary };

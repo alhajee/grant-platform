@@ -9,7 +9,7 @@ import type { RequestChangesHandlers } from '@/components/plan-workbook/plan-wor
 import { implementedPillars } from '@/lib/beap-pillars';
 
 const allPillars = implementedPillars;
-type EditHrefs = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string; teachersEditHref?: string };
+type EditHrefs = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string; teachersEditHref?: string; planningEditHref?: string };
 
 export function PlanReviewContent({ snapshot, showPlanReference = true, showDocuments = true, visiblePillars = allPillars, comments = null, requestChanges, ...links }: { /** The plan page lays the documents out beside its review history instead. */ showDocuments?: boolean; comments?: CommentsController | null; requestChanges?: RequestChangesHandlers; snapshot: Snapshot; showPlanReference?: boolean; visiblePillars?: readonly string[] } & EditHrefs) {
   return <div className="review-sections">

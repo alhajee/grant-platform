@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       const sbmc = !reviewer || assigned.some(a=>a.pillar==='sbmc') ? r.snapshot.sbmc ?? [] : [];
       const tlm = !reviewer || assigned.some(a=>a.pillar==='tlm') ? r.snapshot.tlm ?? [] : [];
       const tlmSchools = !reviewer || assigned.some(a=>a.pillar==='tlm') ? r.snapshot.tlmDistribution ?? [] : [];
-      const extra = (['monitoring','gscci','curriculum','quality','teachers','ict'] as const).flatMap(p => !reviewer || assigned.some(a=>a.pillar===p) ? r.snapshot[p] ?? [] : []);
+      const extra = (['monitoring','gscci','curriculum','quality','teachers','ict','planning'] as const).flatMap(p => !reviewer || assigned.some(a=>a.pillar===p) ? r.snapshot[p] ?? [] : []);
       const distribution = [...tlmSchools, ...(['curriculum','gscci'] as const).flatMap(p => !reviewer || assigned.some(a=>a.pillar===p) ? r.snapshot[`${p}Distribution`] ?? [] : [])];
       const budget = (lines: {unit_cost:string;quantity:number}[]) => lines.reduce((sum,l) => sum + Math.round(Number(l.unit_cost)*100)*l.quantity/100,0);
       const schoolKey = (s: { name: string; lga: string; level: string }) => JSON.stringify([r.state_code,s.name,s.lga,s.level]);

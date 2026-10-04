@@ -21,6 +21,7 @@ export function visibleSnapshot(snapshot: Snapshot, user: Parameters<typeof canV
     ...(canViewComponent(user, 'quality') ? { quality: snapshot.quality ?? [] } : {}),
     ...(canViewComponent(user, 'teachers') ? { teachers: snapshot.teachers ?? [] } : {}),
     ...(canViewComponent(user, 'ict') ? { ict: snapshot.ict ?? [] } : {}),
+    ...(canViewComponent(user, 'planning') ? { planning: snapshot.planning ?? [] } : {}),
     componentDocuments: (snapshot.componentDocuments ?? []).filter(d => canViewComponent(user, d.component)),
   };
 }

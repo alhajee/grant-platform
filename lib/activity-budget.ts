@@ -3,7 +3,7 @@ import { activityNames, activityShareCaps, activityTitles, type ActivityWorkstre
 import { ictModelSchoolsActivity, ictModelSchoolsCapKobo } from './activity-extras';
 
 /** Components whose saved lines may not exceed their funding envelope (UBEC26-32). */
-export const cappedWorkstreams = ['monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers'] as const;
+export const cappedWorkstreams = ['monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
 export type CappedWorkstream = typeof cappedWorkstreams[number];
 export const isCapped = (workstream: string): workstream is CappedWorkstream => (cappedWorkstreams as readonly string[]).includes(workstream);
 export type BudgetLine = { activity: number; kobo: bigint };

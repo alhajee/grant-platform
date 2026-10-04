@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { FieldDescription, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import type { PlanCommentThread } from '@/lib/plan-comments';
 
-const sheetNames: Record<PlanCommentThread['sheet'], string> = { infrastructure: 'Infrastructure', sports: 'Sports', sbmc: 'SBMC', tlm: 'TLM', distribution: 'TLM distribution', monitoring: 'Supervision & Monitoring', gscci: 'Greening & Safeguards', gscciDistribution: 'Greening distribution', curriculum: 'Curriculum', curriculumDistribution: 'Curriculum distribution', quality: 'Quality Assurance', ict: 'ICT', teachers: 'Teacher Development' };
+const sheetNames: Record<PlanCommentThread['sheet'], string> = { infrastructure: 'Infrastructure', sports: 'Sports', sbmc: 'SBMC', tlm: 'TLM', distribution: 'TLM distribution', monitoring: 'Supervision & Monitoring', gscci: 'Greening & Safeguards', gscciDistribution: 'Greening distribution', curriculum: 'Curriculum', curriculumDistribution: 'Curriculum distribution', quality: 'Quality Assurance', ict: 'ICT', teachers: 'Teacher Development', planning: 'Planning' };
 
 /**
  * Return dialog checklist: the UBEC ES picks which open UBEC comments the SUBEB receives. Everything starts

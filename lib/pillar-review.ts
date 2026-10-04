@@ -53,6 +53,7 @@ export function ubecSubmissionSnapshot(snapshot: Snapshot, reviews: PillarReview
     quality: sent.includes('quality') ? snapshot.quality ?? [] : [],
     teachers: sent.includes('teachers') ? snapshot.teachers ?? [] : [],
     ict: sent.includes('ict') ? snapshot.ict ?? [] : [],
+    planning: sent.includes('planning') ? snapshot.planning ?? [] : [],
     componentDocuments: (snapshot.componentDocuments ?? []).filter(d => sent.includes(d.component)),
   };
 }

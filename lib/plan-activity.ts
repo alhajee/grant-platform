@@ -12,7 +12,7 @@ export type ActivityMessage = { text: string; kind: ActivityKind; plan: string; 
 
 export const RECENT_ACTIVITY_LIMIT = 5;
 // Short names: the list sits in a narrow sidebar.
-const shortNames: Partial<Record<PillarId, string>> = { infrastructure: 'Infrastructure', tlm: 'TLM', sports: 'Sports', sbmc: 'SBMC', monitoring: 'Supervision & Monitoring', gscci: 'Greening & Safeguards', curriculum: 'Curriculum', quality: 'Quality Assurance', teachers: 'Teacher Development', ict: 'ICT' };
+const shortNames: Partial<Record<PillarId, string>> = { infrastructure: 'Infrastructure', tlm: 'TLM', sports: 'Sports', sbmc: 'SBMC', monitoring: 'Supervision & Monitoring', gscci: 'Greening & Safeguards', curriculum: 'Curriculum', quality: 'Quality Assurance', teachers: 'Teacher Development', ict: 'ICT', planning: 'Planning' };
 const componentName = (scope: string | null) => scope && scope in componentSections ? shortNames[scope as PillarId] ?? componentSections[scope as PillarId][0].name : null;
 
 /** Action-first wording ("Sent Infrastructure to the BEAP Chair"), unlike notifications, which address the reader. */

@@ -1,14 +1,14 @@
 import { compulsoryActivities, hasLineSchools, lineDocumentLabel, qualityIctActivityNames } from './activity-extras';
 
-// What must be in place before a Quality Assurance, ICT or Teacher Development component can be sent on
-// (migrations 038 and 040): every compulsory activity has a line, every line that needs schools has some, every
+// What must be in place before a Quality Assurance, ICT, Teacher Development or Planning component can be sent on
+// (migrations 038, 040 and 041): every compulsory activity has a line, every line that needs schools has some, every
 // line that needs a document has one, and Teacher Development has its share of the shared budget set.
 // Shared by the editor, the plan page and every send step on the server.
 type ReadinessLine = { id: number; activity: number; description: string; custom_activity?: string; customActivity?: string; schools?: readonly unknown[]; documents?: readonly unknown[] };
 /** The plan setup fields readiness reads (a snapshot's setup or an ActionPlan). */
 type ReadinessSetup = { ictAllocation?: string | null } | null | undefined;
 
-export const readinessWorkstreams = ['quality', 'ict', 'teachers'] as const;
+export const readinessWorkstreams = ['quality', 'ict', 'teachers', 'planning'] as const;
 export type ReadinessWorkstream = typeof readinessWorkstreams[number];
 export const hasReadinessRules = (workstream: string): workstream is ReadinessWorkstream => (readinessWorkstreams as readonly string[]).includes(workstream);
 

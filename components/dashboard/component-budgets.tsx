@@ -19,6 +19,7 @@ export const componentPalette: Record<InvestmentArea, { label: string; fill: str
   quality: { label: 'Quality Assurance', fill: '#3d6b4f', ink: '#ffffff' },
   teachers: { label: 'Teacher Development', fill: '#5c9a4a', ink: '#ffffff' },
   ict: { label: 'ICT', fill: '#c3e3a8', ink: '#24420f' },
+  planning: { label: 'Planning', fill: '#5aa57a', ink: '#0d3a2b' },
 };
 
 const compact = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 2 });

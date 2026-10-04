@@ -12,10 +12,10 @@ import { qualityIctActivityNames } from './activity-extras';
 // threads are written at UBEC on a submitted round and reach the state only when the UBEC ES shares them
 // on return (migration 029, lib/ubec-comments.ts).
 
-export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution', 'monitoring', 'gscci', 'gscciDistribution', 'curriculum', 'curriculumDistribution', 'quality', 'ict', 'teachers'] as const;
+export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution', 'monitoring', 'gscci', 'gscciDistribution', 'curriculum', 'curriculumDistribution', 'quality', 'ict', 'teachers', 'planning'] as const;
 export type CommentSheet = typeof commentSheets[number];
 /** The component each sheet belongs to; each distribution list is part of its component (TLM, GSCCI, Curriculum). */
-export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm', monitoring: 'monitoring', gscci: 'gscci', gscciDistribution: 'gscci', curriculum: 'curriculum', curriculumDistribution: 'curriculum', quality: 'quality', ict: 'ict', teachers: 'teachers' };
+export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm', monitoring: 'monitoring', gscci: 'gscci', gscciDistribution: 'gscci', curriculum: 'curriculum', curriculumDistribution: 'curriculum', quality: 'quality', ict: 'ict', teachers: 'teachers', planning: 'planning' };
 export const commentBodyLimit = 2000;
 export const commentScopes = ['state', 'ubec'] as const;
 export type CommentScope = typeof commentScopes[number];
@@ -39,13 +39,14 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   quality: { ...activityColumns, equipment: 'Equipment type', ...activityTail },
   ict: { ...activityColumns, details: 'Details', schools: 'Schools', documents: 'Documents', ...activityTail },
   teachers: { activity: 'Allowable activity', provider: 'Training provider', participants: 'Target participants', levels: 'School level', days: 'Training days', venue: 'Venue', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' },
+  planning: { ...activityColumns, ...activityTail },
 };
 
 /**
  * Durable row references: the workbook's row.id for each sheet. All are database ids that the
  * editors update in place (they never delete and recreate a line on save):
  * infrastructure = negative infrastructure_packages.id (see lib/plan-snapshot.ts), sports = sports_budget_lines.id,
- * sbmc/tlm/monitoring/gscci/curriculum/quality/ict/teachers = activity_plan_lines.id, distribution/gscciDistribution/curriculumDistribution = schools.id on the
+ * sbmc/tlm/monitoring/gscci/curriculum/quality/ict/teachers/planning = activity_plan_lines.id, distribution/gscciDistribution/curriculumDistribution = schools.id on the
  * plan's tlm_distribution list for that workstream.
  */
 export function sheetRows(snapshot: Snapshot, sheet: CommentSheet): Map<string, string> {

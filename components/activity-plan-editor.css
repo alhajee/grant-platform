@@ -40,7 +40,7 @@
 .activity-documents h2 { font-size:15px;font-weight:600; }
 .activity-share-note { margin-top:-8px;margin-bottom:12px;color:var(--muted-foreground);font-size:13px; }
 /* Quality Assurance and ICT (components/activity-line-extras.tsx) */
-.activity-shell:is([data-workstream=quality],[data-workstream=ict],[data-workstream=teachers]) .activity-line-row[data-state=selected]{background:color-mix(in srgb,var(--peach) 42%,var(--card))}
+.activity-shell:is([data-workstream=quality],[data-workstream=ict],[data-workstream=teachers],[data-workstream=planning]) .activity-line-row[data-state=selected]{background:color-mix(in srgb,var(--peach) 42%,var(--card))}
 .activity-picked-meta { display:flex;align-items:center;gap:4px; }
 .activity-compulsory { margin-bottom:16px; }
 .activity-compulsory ul { margin-top:4px;padding-left:18px;list-style:disc; }
