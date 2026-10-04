@@ -9,6 +9,7 @@ import { EditPlanDialog } from "@/components/edit-plan-dialog";
 import { OtherFundingInfo } from "@/components/funding-sources-field";
 import { ComponentBudgets } from "@/components/dashboard/component-budgets";
 import { PlanCard } from "@/components/dashboard/plan-card";
+import { EmptyPlanArt } from "@/components/dashboard/empty-plan-art";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import type { PlanActivity } from "@/lib/plan-activity";
 import { otherFundingTotal } from "@/lib/plan-setup";
@@ -141,7 +142,7 @@ export default function DashboardPage() {
           {loading ? <div className="dashboard-plan-list"><Skeleton className="h-48 w-full rounded-xl" /><Skeleton className="h-48 w-full rounded-xl" /></div> : error ? <div className="dashboard-empty">Your plans will appear here when the connection is restored.</div> : <div className="dashboard-plan-list">
             {visiblePlans.map(plan => <PlanCard key={plan.id} plan={plan} isOfficer={isOfficer} canEdit={canCreatePlan} onEdit={setEditing} />)}
             {canCreatePlan && visiblePlans.length > 0 && !query && !activeInvestmentFilters && <Button variant="outline" className="dashboard-new-plan" onClick={beginPlan}><span className="new-plan-symbol"><PlusIcon /></span><strong>Plan what comes next.</strong><span>Choose your year and quarters.<br />Build your next action plan.</span><span className="new-plan-link">Create a new plan<ArrowRightIcon /></span></Button>}
-            {!visiblePlans.length && <div className="dashboard-empty"><FileTextIcon /><h3>{query ? "No matching plans" : activeInvestmentFilters ? "No plans match your filters" : "No action plans yet"}</h3><p>{query ? "Try a different year or clear your search." : activeInvestmentFilters ? "Adjust or clear the dashboard filters to see more plans." : canCreatePlan ? "Create an action plan so your state team can start filling its pillars." : "Your Executive Chairman or an authorized colleague must create a plan before you can start filling it."}</p>{(query || activeInvestmentFilters || canCreatePlan) && <Button variant="outline" onClick={query ? () => setQuery("") : activeInvestmentFilters ? () => setInvestmentFilters(emptyInvestmentFilters) : beginPlan}>{query ? "Clear search" : activeInvestmentFilters ? "Clear filters" : "Create action plan"}</Button>}</div>}
+            {!visiblePlans.length && <div className="dashboard-empty">{query || activeInvestmentFilters ? <FileTextIcon /> : <EmptyPlanArt />}<h3>{query ? "No matching plans" : activeInvestmentFilters ? "No plans match your filters" : "No action plans yet"}</h3>{(query || activeInvestmentFilters || !canCreatePlan) && <p>{query ? "Try a different year or clear your search." : activeInvestmentFilters ? "Adjust or clear the dashboard filters to see more plans." : "Waiting for your Executive Chairman to create one."}</p>}{(query || activeInvestmentFilters || canCreatePlan) && <Button variant="outline" onClick={query ? () => setQuery("") : activeInvestmentFilters ? () => setInvestmentFilters(emptyInvestmentFilters) : beginPlan}>{query ? "Clear search" : activeInvestmentFilters ? "Clear filters" : "Create action plan"}</Button>}</div>}
           </div>}
         </section>
         <aside className="dashboard-aside">

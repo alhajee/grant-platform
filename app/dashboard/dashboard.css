@@ -65,6 +65,7 @@
 .dashboard-footer { display: flex; justify-content: space-between; gap: 12px; padding: 22px 0 26px; font-size: 14px; color: var(--muted-foreground); }
 .dashboard-empty { grid-column: 1 / -1; text-align: center; padding: 45px 25px; background: var(--background); border: 1px dashed var(--border); border-radius: 14px; color: var(--muted-foreground); font-size: 14px; }
 .dashboard-empty > svg { margin: 0 auto 16px; color: var(--primary); }
+.dashboard-empty > .empty-plan-art { width: 200px; height: auto; margin-bottom: 18px; }
 .dashboard-empty h3 { color: var(--foreground); font-size: 18px; font-weight: 500; margin-bottom: 8px; }
 .dashboard-empty button { margin-top: 20px; }
 .plan-year-fields { display: flex; gap: 12px; }
@@ -126,7 +127,10 @@
 .component-budgets-total strong { display: block; font-size: 34px; font-weight: 600; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .component-budgets-total span { display: block; margin-top: 2px; font-size: 13px; color: var(--muted-foreground); }
 .component-budgets-total b { font-weight: 600; color: var(--primary); }
-[data-lead] .component-budgets-empty, .component-budgets-idle { font-size: 13px; line-height: 1.55; color: var(--muted-foreground); }
+.component-budgets-empty { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.component-budgets-empty svg { display: block; width: 100%; height: auto; }
+.component-budgets-empty figcaption { font-size: 13px; color: var(--muted-foreground); }
+.component-budgets-idle { font-size: 13px; line-height: 1.55; color: var(--muted-foreground); }
 .component-budgets-idle span { display: block; margin-bottom: 2px; font-size: 11px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: color-mix(in srgb, var(--muted-foreground) 80%, transparent); }
 
 .component-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
@@ -162,7 +166,8 @@
 .activity-icon[data-kind=edited] { background: var(--muted); color: var(--muted-foreground); }
 .activity-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; font-size: 13px; font-weight: 500; line-height: 1.4; }
 .activity-copy small { font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
-.recent-activity-empty { font-size: 13px; line-height: 1.6; color: var(--muted-foreground); }
+.recent-activity-empty { display: flex; flex-direction: column; gap: 6px; margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.recent-activity-empty svg { display: block; width: 100%; height: auto; }
 
 
 /* The title sits close to the total it introduces. */

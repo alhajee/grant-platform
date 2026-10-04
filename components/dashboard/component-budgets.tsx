@@ -24,6 +24,37 @@ export const componentPalette: Record<InvestmentArea, { label: string; fill: str
 
 const compact = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 2 });
 
+/** Empty state: the tile columns waiting to be filled, in the component greens. */
+function EmptyTiles() {
+  const columns = [
+    { x: 0, fill: componentPalette.infrastructure.fill, level: 0.62 },
+    { x: 1, fill: componentPalette.sbmc.fill, level: 0.4 },
+    { x: 2, fill: componentPalette.sports.fill, level: 0.78 },
+  ];
+  const width = 92, gap = 8, height = 132;
+  return <figure className="component-budgets-empty">
+    <svg viewBox={`0 0 ${width * 3 + gap * 2} ${height}`} role="img" aria-label="Nothing proposed yet">
+      <defs>
+        {columns.map(column => <pattern key={column.x} id={`empty-tile-${column.x}`} width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="12" height="12" fill={column.fill} fillOpacity=".07" />
+          <rect width="6" height="12" fill={column.fill} fillOpacity=".12" />
+        </pattern>)}
+      </defs>
+      {columns.map(column => {
+        const x = column.x * (width + gap), top = height * (1 - column.level);
+        return <g key={column.x}>
+          <rect x={x} y="0" width={width} height={height} rx="12" fill={`url(#empty-tile-${column.x})`} />
+          <rect x={x + 1} y={top} width={width - 2} height={height - top - 1} rx="11" fill="#fff" fillOpacity=".55"
+            stroke={column.fill} strokeOpacity=".45" strokeWidth="1.5" strokeDasharray="5 5" />
+          <rect x={x + 12} y={height - 34} width="34" height="7" rx="3.5" fill={column.fill} fillOpacity=".28" />
+          <rect x={x + 12} y={height - 21} width="52" height="6" rx="3" fill={column.fill} fillOpacity=".16" />
+        </g>;
+      })}
+    </svg>
+    <figcaption>Nothing proposed yet</figcaption>
+  </figure>;
+}
+
 type Tile = { area: InvestmentArea; amount: number; ceiling: number; share: number | null };
 
 /**
@@ -76,7 +107,7 @@ export function ComponentBudgets({ plans, areas, amounts, totalFunding, unavaila
         </li>;
       })}
     </ul>}
-    {!unavailable && !tiles.length && <p className="component-budgets-empty">Nothing proposed yet. Amounts appear here as components are filled.</p>}
+    {!unavailable && !tiles.length && <EmptyTiles />}
     {!unavailable && idle.length > 0 && <p className="component-budgets-idle"><span>Not started</span>{idle.map(area => componentPalette[area].label).join(' · ')}</p>}
   </div>;
 }
