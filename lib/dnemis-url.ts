@@ -94,7 +94,7 @@ export async function assertPublicDnemisHost(baseUrl: string) {
   if (isIpLiteral(host)) return;
   let addresses: { address: string }[];
   try { addresses = await lookup(host, { all: true, verbatim: true }); }
-  catch { throw new DnemisUrlError(`The server name ${host} could not be found. Check the address.`); }
+  catch { throw new DnemisUrlError(`Could not reach ${host} (the name lookup failed).`); }
   if (!addresses.length || addresses.some(entry => isPrivateAddress(entry.address))) {
     throw new DnemisUrlError('The DNEMIS address must be a public internet server, not a local or internal one.');
   }

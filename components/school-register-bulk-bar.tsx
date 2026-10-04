@@ -7,7 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
-import type { SchoolDeleteResult } from '@/lib/school-register';
+import { schoolApiPath, type SchoolDeleteResult } from '@/lib/school-register';
 
 export type SchoolBulkBarProps = { ids: number[]; actions: SchoolActions; onClear: () => void; selectAll?: { total: number; busy: boolean; onSelect: () => void } };
 
@@ -29,9 +29,9 @@ function download(blob: Blob, response: Response) {
 type Pending = { ids: number[]; title: string };
 
 /** Export and delete for one or more schools, with the delete confirmation; shared by the row menu and the bulk bar. */
-export function useSchoolActions({ onDeleted }: { onDeleted: (result: SchoolDeleteResult) => void }) {
+export function useSchoolActions({ onDeleted, stateCode }: { onDeleted: (result: SchoolDeleteResult) => void; stateCode?: string }) {
   const [busy, setBusy] = useState<'export' | 'delete' | null>(null), [pending, setPending] = useState<Pending | null>(null);
-  const request = (path: string, method: 'POST' | 'DELETE', ids: number[]) => fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
+  const request = (path: string, method: 'POST' | 'DELETE', ids: number[]) => fetch(schoolApiPath(path, stateCode), { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
 
   async function exportSchools(ids: number[]) {
     if (busy) return;

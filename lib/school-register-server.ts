@@ -6,6 +6,7 @@ import { canManageSchoolRegister, subebRoles } from './subeb-access';
 import { canonicalLevel, canonicalOption, collapseSpaces, schoolClasses, schoolInputSchema, schoolIssues, schoolLocations, schoolTypes, type ClassEnrolment, type SchoolInput } from './school-register';
 import type { ParsedSchoolRow } from './school-register-xlsx';
 import { cachedSchoolList, invalidateSchoolLists } from './school-cache';
+import { isStateCode } from './state-names';
 
 export const noStoreJson = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 export const registerFieldsSql = `id, school_code AS "schoolCode", name, town, ward, dnemis_id IS NOT NULL AS dnemis, lga, level, category, location, latitude, longitude,
@@ -17,12 +18,24 @@ export async function afterSchoolChange(response: NextResponse, stateCode: strin
   return response;
 }
 type Workspace = NonNullable<Awaited<ReturnType<typeof getWorkspaceState>>>;
+/**
+ * The register a request works on. `stateCode` is the user's own state; for a Super Admin it is the
+ * validated `?state=` they chose (`superAdmin` set). State users' `?state=` is ignored.
+ */
+export type RegisterWorkspace = Workspace & { superAdmin?: true };
+export const superAdminRole = 'Super Admin';
 
-/** Signed-in state user (writes: same origin) who may manage the register; `allowViewer` returns non-managers too. */
-export async function registerActor(request: NextRequest, { write = false, allowViewer = false } = {}): Promise<{ error: NextResponse } | { workspace: Workspace; canManage: boolean }> {
+/** Signed-in state user (writes: same origin) who may manage the register; `allowViewer` returns non-managers too. A Super Admin manages any state chosen with `?state=`. */
+export async function registerActor(request: NextRequest, { write = false, allowViewer = false } = {}): Promise<{ error: NextResponse } | { workspace: RegisterWorkspace; canManage: boolean }> {
   if (write && !isSameRequestOrigin(request)) return { error: noStoreJson({ error: 'This action must come from the portal.' }, 403) };
   const workspace = await getWorkspaceState(request);
   if (!workspace) return { error: noStoreJson({ error: 'Sign in to continue.' }, 401) };
+  // While switched into another account the request acts as that account, so only a real admin session gets here.
+  if (workspace.role === superAdminRole && !workspace.impersonation) {
+    const stateCode = request.nextUrl.searchParams.get('state')?.trim().toUpperCase() ?? '';
+    if (!isStateCode(stateCode)) return { error: noStoreJson({ error: 'Choose a state.' }, 400) };
+    return { workspace: { ...workspace, stateCode, superAdmin: true }, canManage: true };
+  }
   if (!(subebRoles as readonly string[]).includes(workspace.role)) return { error: noStoreJson({ error: 'The school register belongs to SUBEB workspaces.' }, 403) };
   const canManage = canManageSchoolRegister(workspace.role, workspace.isBeapChair, workspace.canManageSchools);
   if (!canManage && !allowViewer) return { error: noStoreJson({ error: managerMessage }, 403) };
@@ -30,8 +43,11 @@ export async function registerActor(request: NextRequest, { write = false, allow
 }
 
 /** Re-reads the actor inside a write transaction and serialises register changes per state. */
-export async function lockManager(db: Client, workspace: Workspace) {
+export async function lockManager(db: Client, workspace: RegisterWorkspace) {
   await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`schools:${workspace.stateCode}`]);
+  if (workspace.superAdmin) {
+    return (await db.query<{ full_name: string }>('SELECT full_name FROM users WHERE id=$1 AND active AND session_version=$2 AND role=$3 FOR SHARE', [workspace.userId, workspace.sessionVersion, superAdminRole])).rows[0] ?? null;
+  }
   const actor = (await db.query<{ role: string; is_beap_chair: boolean; can_manage_schools: boolean; full_name: string }>('SELECT role,is_beap_chair,can_manage_schools,full_name FROM users WHERE id=$1 AND active AND session_version=$2 AND state_code=$3 FOR SHARE', [workspace.userId, workspace.sessionVersion, workspace.stateCode])).rows[0];
   return actor && canManageSchoolRegister(actor.role, actor.is_beap_chair, actor.can_manage_schools) ? actor : null;
 }

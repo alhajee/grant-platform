@@ -27,3 +27,7 @@ export function stateCodesMatching(search: string) {
   if (!needle) return [];
   return [...Object.keys(stateNames), "FC"].filter(code => stateDisplayName(code).toLowerCase().includes(needle));
 }
+
+/** Every SUBEB/UBEB state code (36 states plus FCT as "FC"), as stored on users and schools. */
+export const stateCodes: readonly string[] = [...Object.keys(stateNames), "FC"];
+export const isStateCode = (value: unknown): value is string => typeof value === "string" && stateCodes.includes(value);

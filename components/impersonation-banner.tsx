@@ -29,7 +29,7 @@ export function ImpersonationBanner(){
         </>}
       </AlertDescription>
       <div className="impersonation-strip-actions">
-        <Button variant="ghost" size="sm" asChild><a href="/admin">Switch user</a></Button>
+        <Button variant="ghost" size="sm" asChild><a href="/admin/users">Switch user</a></Button>
         <Button size="sm" disabled={busy} onClick={stop}>{busy?'Returning…':'Return to admin'}</Button>
       </div>
     </Alert>

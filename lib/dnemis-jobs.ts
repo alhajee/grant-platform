@@ -11,6 +11,8 @@ type Db = { query<R extends QueryResultRow>(sql: string, values?: unknown[]): Pr
 export type SyncRun = {
   id: number; status: 'queued' | 'running' | 'ok' | 'failed'; scope: string; triggeredBy: string; queuedAt: string; startedAt: string | null;
   finishedAt: string | null; created: number; updated: number; unchanged: number; message: string | null;
+  /** States that failed in this run, read from the run message ("failed: AD (error); KN (error)", see `describe` in dnemis-sync). */
+  failedStates: { code: string; error: string }[];
 };
 export type SyncStatus = { latest: SyncRun | null; lastFinished: SyncRun | null; active: boolean; schedule: SyncSchedule; nextSync: string | null; worker: boolean };
 
@@ -46,11 +48,23 @@ export async function workerAlive() {
   try { return Boolean(await redis.get(workerKey)); } catch (cause) { redisReportError(cause); return false; }
 }
 
+export function failedStatesOf(message: string | null) {
+  const list = message?.split(' · failed: ')[1];
+  if (!list) return [];
+  return list.split('; ').flatMap(item => {
+    const match = /^([A-Z]{2}) \((.*)\)$/.exec(item.trim());
+    return match ? [{ code: match[1], error: match[2] }] : [];
+  });
+}
+
+type RunRow = Omit<SyncRun, 'failedStates'>;
+const withFailures = (row: RunRow | undefined): SyncRun | null => row ? { ...row, failedStates: failedStatesOf(row.message) } : null;
+
 export async function readSyncStatus(db: Db): Promise<SyncStatus> {
   await failStaleRuns(db);
-  const latest = (await db.query<SyncRun>(`SELECT ${runFields} FROM dnemis_sync_runs ORDER BY id DESC LIMIT 1`)).rows[0] ?? null;
+  const latest = withFailures((await db.query<RunRow>(`SELECT ${runFields} FROM dnemis_sync_runs ORDER BY id DESC LIMIT 1`)).rows[0]);
   const lastFinished = latest && ['ok', 'failed'].includes(latest.status) ? latest
-    : (await db.query<SyncRun>(`SELECT ${runFields} FROM dnemis_sync_runs WHERE status IN ('ok','failed') ORDER BY id DESC LIMIT 1`)).rows[0] ?? null;
+    : withFailures((await db.query<RunRow>(`SELECT ${runFields} FROM dnemis_sync_runs WHERE status IN ('ok','failed') ORDER BY id DESC LIMIT 1`)).rows[0]);
   const schedule = await readSchedule(db);
   const next = schedule.enabled ? nextSlot(schedule, new Date()) : null;
   return {

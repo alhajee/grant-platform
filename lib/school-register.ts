@@ -132,3 +132,11 @@ export function canonicalLevel(value: string) {
   return collapseSpaces(value);
 }
 export const canonicalOption = <T extends string>(options: readonly T[], value: string) => options.find(option => sameText(option, value)) ?? collapseSpaces(value);
+
+/** A school register API path; the Super Admin's national register adds the chosen `state`. */
+export function schoolApiPath(path: string, stateCode?: string) {
+  if (!stateCode) return path;
+  const url = new URL(path, 'http://register.local');
+  url.searchParams.set('state', stateCode);
+  return `${url.pathname}${url.search}`;
+}

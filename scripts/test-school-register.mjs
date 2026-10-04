@@ -10,6 +10,8 @@ assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname), 'Run agai
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname), 'Use a local database only');
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 const marker = `SR${Date.now()}`, foreignState = `${marker}B`, states = [marker, foreignState];
+// The Super Admin works on a real state (validated against the state codes); its test school is removed afterwards.
+const adminState = 'YO', adminSchoolName = `QA Admin School ${marker}`;
 const accounts = {}, password = crypto.randomUUID();
 
 async function api(who, path, body, method = body ? 'POST' : 'GET', { origin = true } = {}) {
@@ -26,7 +28,7 @@ const upload = (bytes, name = 'schools.xlsx') => { const form = new FormData(); 
 
 await db.connect();
 try {
-  for (const [who, role, state, department, isBeapChair] of [['chair', 'Executive Chairman', marker, null, false], ['beap', 'Director', marker, 'physical', true], ['director', 'Director', marker, 'social', false], ['officer', 'Data Entry Staff', marker, 'physical', false], ['foreign', 'Executive Chairman', foreignState, null, false]]) {
+  for (const [who, role, state, department, isBeapChair] of [['chair', 'Executive Chairman', marker, null, false], ['beap', 'Director', marker, 'physical', true], ['director', 'Director', marker, 'social', false], ['officer', 'Data Entry Staff', marker, 'physical', false], ['foreign', 'Executive Chairman', foreignState, null, false], ['admin', 'Super Admin', 'ADMIN', null, false]]) {
     const email = `${who}.${marker.toLowerCase()}@test.local`;
     const id = (await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash,is_beap_chair) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id', [`QA ${who}`, email, role, department, state, hashSync(password, 4), isBeapChair])).rows[0].id;
     accounts[who] = { id, email, role, department };
@@ -48,6 +50,43 @@ try {
   assert.equal(list.total, 2); assert.equal(list.items[0].name, 'QA Existing School');
   assert.deepEqual(list.facets.lgas.map(item => [item.value, item.count]), [['QA North', 1], ['QA South', 1]]);
   assert.equal(ok(await api('foreign', '/api/schools')).items.some(item => item.name.startsWith('QA')), false, 'Each state sees only its own schools');
+
+  // Super Admin: the national register, one state at a time through ?state=, with a manager's abilities there.
+  ok(await api('admin', '/api/schools'), 400);
+  ok(await api('admin', `/api/schools?state=${marker}`), 400);
+  ok(await api('admin', '/api/schools/options?state=XX'), 400);
+  const adminTotal = (await db.query('SELECT COUNT(*)::int AS n FROM schools WHERE state_code=$1', [adminState])).rows[0].n;
+  const adminList = ok(await api('admin', `/api/schools?state=${adminState.toLowerCase()}&pageSize=25`));
+  assert.equal(adminList.total, adminTotal); assert.ok(adminList.items.length > 0 && adminList.items.length <= 25);
+  const adminOptions = ok(await api('admin', `/api/schools/options?state=${adminState}`));
+  assert.equal(adminOptions.canManage, true); assert.equal(adminOptions.stateName, 'Yobe State'); assert.ok(adminOptions.lgas.length > 0);
+  const adminLga = adminOptions.lgas[0];
+  const adminSchool = school({ name: adminSchoolName, lga: adminLga.toLowerCase(), schoolCode: null });
+  ok(await api('admin', `/api/schools?state=${adminState}`, adminSchool, 'POST', { origin: false }), 403);
+  const adminCreated = ok(await api('admin', `/api/schools?state=${adminState}`, adminSchool, 'POST'), 201).school;
+  assert.deepEqual([adminCreated.lga, adminCreated.updatedBy], [adminLga, 'QA admin']);
+  assert.equal((await db.query('SELECT state_code FROM schools WHERE id=$1', [adminCreated.id])).rows[0].state_code, adminState);
+  ok(await api('admin', '/api/schools?state=KN', { ...adminSchool, lga: adminLga, id: adminCreated.id }, 'PATCH'), 404);
+  assert.equal(ok(await api('admin', `/api/schools?state=${adminState}`, { ...adminSchool, town: 'Admin Town', id: adminCreated.id }, 'PATCH')).school.town, 'Admin Town');
+  assert.equal(ok(await api('admin', `/api/schools?state=${adminState}&id=${adminCreated.id}`)).items[0].town, 'Admin Town');
+  assert.equal(ok(await api('admin', `/api/schools?state=${adminState}`)).total, adminTotal + 1, 'The cached facets and list reflect the new school');
+  const adminTemplate = await api('admin', `/api/schools/template?state=${adminState}`); ok(adminTemplate); assert.match(adminTemplate.type, /spreadsheetml/);
+  const adminExport = await api('admin', `/api/schools/export?state=${adminState}`, { ids: [adminCreated.id] }); ok(adminExport); assert.match(adminExport.type, /spreadsheetml/);
+  assert.match(ok(await api('admin', `/api/schools/import?mode=preview&state=${adminState}`, upload(adminTemplate.data)), 400).error, /no schools/);
+
+  // State users: ?state= is ignored, so another state stays out of reach.
+  const chairOwn = ok(await api('chair', '/api/schools')).total;
+  const chairOther = ok(await api('chair', `/api/schools?state=${adminState}`));
+  assert.equal(chairOther.total, chairOwn); assert.equal(chairOther.items.some(item => item.id === adminCreated.id), false);
+  assert.equal(ok(await api('chair', `/api/schools/options?state=${adminState}`)).stateName, marker);
+  ok(await api('chair', `/api/schools?state=${adminState}`, { ...adminSchool, lga: adminLga, id: adminCreated.id }, 'PATCH'), 404);
+  assert.deepEqual(ok(await api('chair', `/api/schools?state=${adminState}`, { ids: [adminCreated.id] }, 'DELETE')), { deleted: 0, kept: [] });
+  assert.equal(ok(await api('chair', `/api/schools/export?state=${adminState}`, { ids: [adminCreated.id] }), 404).error, 'None of the selected schools are in your state register.');
+  ok(await api('officer', `/api/schools?state=${adminState}`), 403);
+
+  ok(await api('admin', `/api/schools?state=${adminState}`, { ids: [adminCreated.id] }, 'DELETE', { origin: false }), 403);
+  assert.deepEqual(ok(await api('admin', `/api/schools?state=${adminState}`, { ids: [adminCreated.id] }, 'DELETE')), { deleted: 1, kept: [] });
+  assert.equal(ok(await api('admin', `/api/schools?state=${adminState}`)).total, adminTotal);
 
   // Single entry: validation, LGA spelling, totals from the class figures, school code normalised.
   ok(await api('chair', '/api/schools', school(), 'POST', { origin: false }), 403);
@@ -177,7 +216,7 @@ try {
   await db.query('DELETE FROM user_management_events WHERE state_code=ANY($1::text[]) OR actor_id=ANY($2::int[]) OR target_id=ANY($2::int[])', [states, ids]);
   await db.query('DELETE FROM tlm_distribution WHERE plan_id IN (SELECT id FROM action_plans WHERE state_code=ANY($1::text[]))', [states]);
   await db.query('DELETE FROM action_plans WHERE state_code=ANY($1::text[])', [states]);
-  await db.query('DELETE FROM schools WHERE state_code=ANY($1::text[])', [states]);
+  await db.query('DELETE FROM schools WHERE state_code=ANY($1::text[]) OR (state_code=$2 AND name=$3)', [states, adminState, adminSchoolName]);
   await db.query('DELETE FROM sessions WHERE user_id=ANY($1::int[])', [ids]);
   await db.query('DELETE FROM users WHERE id=ANY($1::int[])', [ids]);
   await db.end();

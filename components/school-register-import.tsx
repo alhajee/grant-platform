@@ -12,17 +12,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import type { ImportResult } from '@/lib/school-register';
+import { schoolApiPath, type ImportResult } from '@/lib/school-register';
 
 /** `dialog`: rendered straight inside an inset-footer DialogContent, so the actions become its footer bar. */
-export type SchoolBulkUploadProps = { onImported: (result: ImportResult) => void; dialog?: boolean };
+export type SchoolBulkUploadProps = { onImported: (result: ImportResult) => void; dialog?: boolean; stateCode?: string };
 type Checked = { file: File; result: ImportResult | null };
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
-async function send(file: File, mode: 'preview' | 'commit') {
+async function send(file: File, mode: 'preview' | 'commit', stateCode?: string) {
   const body = new FormData(); body.set('file', file);
-  const response = await fetch(`/api/schools/import?mode=${mode}`, { method: 'POST', body });
+  const response = await fetch(schoolApiPath(`/api/schools/import?mode=${mode}`, stateCode), { method: 'POST', body });
   if (response.status === 401) { window.location.replace('/'); throw Error('Sign in to continue.'); }
   const result = await response.json().catch(() => ({})) as ImportResult & { error?: string };
   return { ok: response.ok, result };
@@ -31,7 +31,7 @@ async function send(file: File, mode: 'preview' | 'commit') {
 const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
 
 /** Bulk entry: download the template, drop it back filled in, review the check, then add the new schools. */
-export function SchoolBulkUpload({ onImported, dialog = false }: SchoolBulkUploadProps) {
+export function SchoolBulkUpload({ onImported, dialog = false, stateCode }: SchoolBulkUploadProps) {
   const [checked, setChecked] = useState<Checked | null>(null), [done, setDone] = useState<ImportResult | null>(null);
   const [busy, setBusy] = useState<'preview' | 'commit' | null>(null), [error, setError] = useState('');
   const pending = useRef(false);
@@ -40,7 +40,7 @@ export function SchoolBulkUpload({ onImported, dialog = false }: SchoolBulkUploa
     pending.current = true; setBusy(mode); setError('');
     if (mode === 'preview') { setChecked({ file, result: null }); setDone(null); }
     try {
-      const { ok, result } = await send(file, mode);
+      const { ok, result } = await send(file, mode, stateCode);
       if (!ok && !result.rows) throw Error(result.error || 'The file could not be checked.');
       if (mode === 'preview' || !ok) { setChecked({ file, result }); if (!ok) setError(result.error || 'No schools were added.'); return; }
       setChecked(null); setDone(result);
@@ -79,7 +79,7 @@ export function SchoolBulkUpload({ onImported, dialog = false }: SchoolBulkUploa
   </div>;
 
   const actions: ReactNode = <>
-    <Button asChild variant="outline" className="rounded-full"><a href="/api/schools/template" download><DownloadIcon data-icon="inline-start" />Download template</a></Button>
+    <Button asChild variant="outline" className="rounded-full"><a href={schoolApiPath('/api/schools/template', stateCode)} download><DownloadIcon data-icon="inline-start" />Download template</a></Button>
     <Button type="button" className="rounded-full" disabled={!canAdd || !!busy} onClick={() => checked && run(checked.file, 'commit')}>{busy === 'commit' && <Spinner data-icon="inline-start" />}{addLabel}</Button>
   </>;
 

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { fieldIssues, schoolClasses, schoolInputSchema, schoolLevels, schoolLocations, schoolTypes, type ClassEnrolment, type RegisterSchool, type SchoolClassKey } from '@/lib/school-register';
+import { fieldIssues, schoolApiPath, schoolClasses, schoolInputSchema, schoolLevels, schoolLocations, schoolTypes, type ClassEnrolment, type RegisterSchool, type SchoolClassKey } from '@/lib/school-register';
 
 type Grid = Record<SchoolClassKey, { male: string; female: string }>;
 type Form = { schoolCode: string; name: string; town: string; lga: string; category: string; location: string; level: string; latitude: string; longitude: string };
@@ -20,6 +20,8 @@ export type SchoolEntryFormProps = {
   onSaved: (school: RegisterSchool) => void;
   onCancel?: () => void;
   saveLabel?: string;
+  /** The state a Super Admin is editing; state users omit it. */
+  stateCode?: string;
 };
 
 const RequiredMark = () => <><span className="text-destructive" aria-hidden="true">*</span><span className="sr-only"> (required)</span></>;
@@ -31,7 +33,7 @@ const count = (value: string) => value.trim() === '' ? 0 : Number(value);
  * Single school entry for the School register and the plan-creation step. It renders no <form>
  * element, so it can sit inside another form (the plan dialog); Enter in a text field saves.
  */
-export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel }: SchoolEntryFormProps) {
+export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, stateCode }: SchoolEntryFormProps) {
   const id = useId();
   const [form, setForm] = useState<Form>(() => formFor(school));
   const [grid, setGrid] = useState<Grid>(() => blankGrid(school?.enrolment));
@@ -53,7 +55,7 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel }: 
     if (!parsed.success) { setErrors(fieldIssues(parsed.error)); setFormError('Check the highlighted fields.'); return; }
     pending.current = true; setSaving(true); setFormError(''); setErrors({});
     try {
-      const response = await fetch('/api/schools', { method: school ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(school ? { ...payload, id: school.id } : payload) });
+      const response = await fetch(schoolApiPath('/api/schools', stateCode), { method: school ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(school ? { ...payload, id: school.id } : payload) });
       if (response.status === 401) { window.location.replace('/'); return; }
       const body = await response.json().catch(() => ({})) as { school?: RegisterSchool; error?: string; issues?: { field: string; message: string }[] };
       if (!response.ok || !body.school) {

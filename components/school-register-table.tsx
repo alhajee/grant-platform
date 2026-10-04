@@ -16,13 +16,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { defaultRegisterPageSize, registerPageSizes, schoolGapLabels, type RegisterFacet, type RegisterPage, type RegisterSchool, type SchoolGap } from '@/lib/school-register';
+import { defaultRegisterPageSize, registerPageSizes, schoolApiPath, schoolGapLabels, type RegisterFacet, type RegisterPage, type RegisterSchool, type SchoolGap } from '@/lib/school-register';
 
-export type SchoolRegisterTableProps = { refreshKey: number; onEdit: (school: RegisterSchool) => void };
+/** `stateCode`: the state a Super Admin is viewing; state users omit it and get their own state. */
+export type SchoolRegisterTableProps = { refreshKey: number; onEdit: (school: RegisterSchool) => void; stateCode?: string };
 type Loaded = { key: string; data: RegisterPage } | { key: string; error: string };
 const helper = createColumnHelper<DataTableFeatures, RegisterSchool>();
 const defaultSorting: SortingState = [{ id: 'name', desc: false }];
-const searchDelay = 300, persist = 'school-register';
+const searchDelay = 300;
 const options = (facets: RegisterFacet[] = []) => facets.map(item => ({ value: item.value, label: item.value, count: item.count }));
 const gapOptions = (facets: RegisterFacet[] = []) => facets.map(item => ({ value: item.value, label: schoolGapLabels[item.value as SchoolGap] ?? item.value, count: item.count }));
 // No learners and no class figures means enrolment was never entered, which is not the same as zero learners.
@@ -30,7 +31,9 @@ const enrolmentRecorded = (school: RegisterSchool) => school.male + school.femal
 const updated = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
 
 /** The state's schools, paged, searched, sorted and filtered on the server. */
-export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableProps) {
+export function SchoolRegisterTable({ refreshKey, onEdit, stateCode }: SchoolRegisterTableProps) {
+  // Filters are remembered per register, so one state's LGAs never filter another's.
+  const persist = stateCode ? `school-register:${stateCode}` : 'school-register';
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: defaultRegisterPageSize });
   const [sorting, setSorting] = useState<SortingState>(defaultSorting);
   const [search, setSearch] = useSessionState(`${persist}:search`, ''), [q, setQ] = useState(() => search.trim());
@@ -53,7 +56,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/schools?${query}`, { cache: 'no-store', signal: controller.signal }).then(async response => {
+    fetch(schoolApiPath(`/api/schools?${query}`, stateCode), { cache: 'no-store', signal: controller.signal }).then(async response => {
       if (response.status === 401) { window.location.replace('/'); return; }
       const body = await response.json().catch(() => ({})) as RegisterPage & { error?: string };
       if (!response.ok) throw Error(body.error || 'Unable to load the school register.');
@@ -61,7 +64,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
       else setLoaded({ key, data: body });
     }).catch((cause: unknown) => { if (!controller.signal.aborted) setLoaded({ key, error: cause instanceof Error ? cause.message : 'Unable to load the school register.' }); });
     return () => controller.abort();
-  }, [key, query, pagination.pageIndex]);
+  }, [key, query, pagination.pageIndex, stateCode]);
 
   const current = loaded?.key === key ? loaded : null;
   const lastData = loaded && 'data' in loaded ? loaded.data : null;
@@ -78,7 +81,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
     { title: 'Data gaps', options: gapOptions(facets?.gaps), selected: gaps, set: setGaps },
   ];
 
-  const actions = useSchoolActions({ onDeleted: result => {
+  const actions = useSchoolActions({ stateCode, onDeleted: result => {
     const kept = new Set(result.kept.map(item => item.id));
     setSelected(current => new Set([...current].filter(id => kept.has(id))));
     setAttempt(value => value + 1);
@@ -96,7 +99,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit }: SchoolRegisterTableP
     setSelectingAll(true);
     try {
       const params = new URLSearchParams(query); params.set('ids', '1');
-      const response = await fetch(`/api/schools?${params}`, { cache: 'no-store' });
+      const response = await fetch(schoolApiPath(`/api/schools?${params}`, stateCode), { cache: 'no-store' });
       if (response.status === 401) { window.location.replace('/'); return; }
       const body = await response.json().catch(() => ({})) as { ids?: number[]; error?: string };
       if (!response.ok || !body.ids) throw Error(body.error || 'The matching schools could not be selected.');
