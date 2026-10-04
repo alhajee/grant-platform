@@ -24,6 +24,7 @@ import { componentSections, implementedPillars, subebComponentDepartments as pil
 import { distributionSnapshotKeys, hasDistribution } from '@/lib/activity-plans';
 import { mayEditPillar, statePlanOpen, type PillarReview } from '@/lib/pillar-review';
 import { summarizeSnapshot } from '@/lib/plan-summary';
+import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
 import { componentReadinessProblem, hasReadinessRules } from '@/lib/component-readiness';
 import { hasDepartment } from '@/lib/user-departments';
 import { usePlanComments } from '@/components/plan-workbook/comments-context';
@@ -31,7 +32,9 @@ import { usePlanComments } from '@/components/plan-workbook/comments-context';
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
 // Quality Assurance and ICT: compulsory activities, line schools and documents must be in place before any send step.
-const readiness = (data: PlanReview, pillar: ImplementedPillar) => hasReadinessRules(pillar) ? componentReadinessProblem(pillar, data.snapshot[pillar] ?? [], data.snapshot.setup) : null;
+// The same checks the server runs on every send step, so a holder sees the problem on the card before sending.
+const readiness = (data: PlanReview, pillar: ImplementedPillar) => pillar === 'infrastructure' ? (data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot) : null)
+  : hasReadinessRules(pillar) ? componentReadinessProblem(pillar, data.snapshot[pillar] ?? [], data.snapshot.setup) : null;
 const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length);
 
 /** The plan page: summary, components, workflow steps, the plan workbook and its review history. */

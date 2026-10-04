@@ -21,7 +21,7 @@ import { commentCount, ubecCount } from './review-action-dialog';
 
 
 /** What the viewer can do with one component card: open its editor, and the workflow step they hold (if any). */
-export type CardActions = { editHref?: string; step?: { label: string; run: () => void; /** Why the step cannot run yet (Quality Assurance and ICT readiness); the button is then disabled. */ blocked?: string | null } };
+export type CardActions = { editHref?: string; step?: { label: string; run: () => void; /** Why the step cannot run yet (missing documents or compulsory activities); the button is then disabled. */ blocked?: string | null } };
 
 type CardProps = { plan: PlanReview['plan']; review: PillarReview; summary: PlanTotals[ImplementedPillar]; comments: CommentsController | null; actions: CardActions };
 
