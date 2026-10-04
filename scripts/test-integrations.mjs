@@ -120,8 +120,8 @@ try {
 } finally {
   await db.query("DELETE FROM integration_settings WHERE provider='dnemis'");
   if (saved) {
-    await db.query(`INSERT INTO integration_settings(provider,base_url,token_ciphertext,token_last4,enabled,updated_at,updated_by,last_tested_at,last_test_ok,last_test_message)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [saved.provider, saved.base_url, saved.token_ciphertext, saved.token_last4, saved.enabled, saved.updated_at, saved.updated_by, saved.last_tested_at, saved.last_test_ok, saved.last_test_message]);
+    // Every column, including the DNEMIS sync schedule (migration 044).
+    await db.query('INSERT INTO integration_settings SELECT * FROM json_populate_record(NULL::integration_settings, $1::json)', [JSON.stringify(saved)]);
   }
   if (userIds.length) {
     await db.query('DELETE FROM sessions WHERE user_id=ANY($1::int[])', [userIds]).catch(() => undefined);

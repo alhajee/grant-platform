@@ -5,11 +5,17 @@ import { isSameRequestOrigin } from './request-origin';
 import { canManageSchoolRegister, subebRoles } from './subeb-access';
 import { canonicalLevel, canonicalOption, collapseSpaces, schoolClasses, schoolInputSchema, schoolIssues, schoolLocations, schoolTypes, type ClassEnrolment, type SchoolInput } from './school-register';
 import type { ParsedSchoolRow } from './school-register-xlsx';
+import { cachedSchoolList, invalidateSchoolLists } from './school-cache';
 
 export const noStoreJson = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
-export const registerFieldsSql = `id, school_code AS "schoolCode", name, town, lga, level, category, location, latitude, longitude,
+export const registerFieldsSql = `id, school_code AS "schoolCode", name, town, ward, dnemis_id IS NOT NULL AS dnemis, lga, level, category, location, latitude, longitude,
   enrolment_male AS male, enrolment_female AS female, enrolment_by_class AS enrolment, updated_at AS "updatedAt", updated_by_name AS "updatedBy"`;
 export const managerMessage = 'Only the Executive Chairman, the BEAP Chair or staff they authorise can manage the school register.';
+/** Clears the state's cached school lists once a successful change has committed. */
+export async function afterSchoolChange(response: NextResponse, stateCode: string) {
+  if (response.ok) await invalidateSchoolLists([stateCode]);
+  return response;
+}
 type Workspace = NonNullable<Awaited<ReturnType<typeof getWorkspaceState>>>;
 
 /** Signed-in state user (writes: same origin) who may manage the register; `allowViewer` returns non-managers too. */
@@ -30,8 +36,9 @@ export async function lockManager(db: Client, workspace: Workspace) {
   return actor && canManageSchoolRegister(actor.role, actor.is_beap_chair, actor.can_manage_schools) ? actor : null;
 }
 
+/** The state's LGAs, as spelled in its register (DNEMIS spellings once synced). Cached per state. */
 export async function stateLgas(db: Client, stateCode: string) {
-  return (await db.query<{ lga: string }>('SELECT DISTINCT lga FROM schools WHERE state_code=$1 AND lga<>\'\' ORDER BY lga', [stateCode])).rows.map(row => row.lga);
+  return cachedSchoolList(stateCode, 'lgas', async () => (await db.query<{ lga: string }>('SELECT DISTINCT lga FROM schools WHERE state_code=$1 AND lga<>\'\' ORDER BY lga', [stateCode])).rows.map(row => row.lga));
 }
 
 /** Uses the register's spelling of an LGA; unknown LGAs are rejected once the state has any. */
@@ -80,12 +87,15 @@ export function validateImportRow(row: ParsedSchoolRow, lgas: string[]): { input
 
 export const identityKey = (school: { name: string; lga: string; level: string }) => [school.name, school.lga, school.level].map(value => collapseSpaces(value).toLowerCase()).join('|');
 
-/** Finds the register school a new or edited school would duplicate (same code, or same name, LGA and level). */
-export async function findConflict(db: Client, stateCode: string, input: SchoolInput, exceptId = 0) {
+/**
+ * Finds the register school a new or edited school would duplicate (same code, or same name, LGA and level).
+ * DNEMIS lists some schools with the same name in one LGA, so editing a DNEMIS school checks the code only.
+ */
+export async function findConflict(db: Client, stateCode: string, input: SchoolInput, exceptId = 0, checkName = true) {
   const found = (await db.query<{ id: number; name: string; lga: string; level: string; school_code: string | null }>(
     `SELECT id,name,lga,level,school_code FROM schools WHERE state_code=$1 AND id<>$2 AND ((school_code IS NOT NULL AND school_code=$3)
-      OR (lower(regexp_replace(btrim(name),'\\s+',' ','g'))=lower($4) AND lower(btrim(lga))=lower($5) AND level=$6)) ORDER BY (school_code IS NOT DISTINCT FROM $3) DESC LIMIT 1`,
-    [stateCode, exceptId, input.schoolCode, input.name, input.lga, input.level])).rows[0];
+      OR ($7 AND lower(regexp_replace(btrim(name),'\\s+',' ','g'))=lower($4) AND lower(btrim(lga))=lower($5) AND level=$6)) ORDER BY (school_code IS NOT DISTINCT FROM $3) DESC LIMIT 1`,
+    [stateCode, exceptId, input.schoolCode, input.name, input.lga, input.level, checkName])).rows[0];
   if (!found) return null;
   return input.schoolCode && found.school_code === input.schoolCode ? `School code ${input.schoolCode} is already used by ${found.name}.` : `${found.name} (${found.lga}, ${found.level}) is already in the register.`;
 }

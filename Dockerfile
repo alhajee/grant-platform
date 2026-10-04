@@ -5,7 +5,7 @@ RUN npm ci --include=dev --no-audit --no-fund
 
 FROM dependencies AS build
 COPY . .
-RUN npm run build
+RUN npm run build && npm run build:worker
 
 FROM node:22-alpine AS production-dependencies
 WORKDIR /app
@@ -25,7 +25,10 @@ ENV NODE_ENV=production \
     PORT=3000
 COPY --from=production-dependencies --chown=node:node /app/node_modules/ ./node_modules/
 COPY --from=build --chown=node:node /app/dist/standalone/ ./
+# DNEMIS sync worker (docker-compose `worker` service, or `node worker/dnemis-worker.mjs --once` for a one-off run).
+COPY --from=build --chown=node:node /app/dist/worker/ ./worker/
 COPY --chown=node:node scripts/seed-production-users.mjs ./scripts/seed-production-users.mjs
+COPY --chown=node:node scripts/purge-schools-and-plans.mjs ./scripts/purge-schools-and-plans.mjs
 COPY --chown=node:node lib/nigeria-map.json ./lib/nigeria-map.json
 USER node
 EXPOSE 3000

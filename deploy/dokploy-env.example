@@ -2,3 +2,4 @@
 POSTGRES_PASSWORD=generate-a-long-random-database-password
 AUTH_SECRET=generate-at-least-32-random-characters
 
+# REDIS_URL is set by docker-compose.prod.yml (redis://redis:6379); no Dokploy variable is needed.

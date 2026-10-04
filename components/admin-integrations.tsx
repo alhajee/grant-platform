@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { formatDateTime } from '@/components/admin-activity-format';
+import { DnemisSync } from '@/components/admin-dnemis-sync';
 
 type DnemisSettings = {
   baseUrl: string; enabled: boolean; tokenSet: boolean; tokenLast4: string | null; updatedAt: string | null; updatedBy: string | null;
@@ -107,6 +108,7 @@ export function AdminIntegrations() {
         </Field>
         <TokenField settings={settings} draft={draft} onChange={change} />
         <TestStatus settings={settings} />
+        <DnemisSync ready={settings.enabled && settings.tokenSet && !dirty} />
       </FieldGroup>
     </CardContent>
     <CardFooter className="flex-wrap justify-between gap-2 border-t">

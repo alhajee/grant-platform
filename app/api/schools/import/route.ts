@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import type { Client } from 'pg';
 import { getPostgres } from '@/lib/postgres';
 import { maxImportBytes, schoolTotals, type ImportDuplicate, type ImportIssue, type ImportResult, type SchoolInput } from '@/lib/school-register';
-import { identityKey, lockManager, managerMessage, noStoreJson, registerActor, stateLgas, validateImportRow } from '@/lib/school-register-server';
+import { identityKey, lockManager, managerMessage, noStoreJson, registerActor, stateLgas, validateImportRow, afterSchoolChange } from '@/lib/school-register-server';
 import { readSchoolRows, SchoolImportError } from '@/lib/school-register-xlsx';
 
 const maxListed = 200;
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     const mode = request.nextUrl.searchParams.get('mode') === 'commit' ? 'commit' : 'preview';
     const bytes = await uploadedFile(request);
     const { workspace } = auth;
-    return await getPostgres().transaction(async db => {
+    const response = await getPostgres().transaction(async db => {
       const actor = await lockManager(db, workspace);
       if (!actor) return noStoreJson({ error: `Your access has changed. ${managerMessage}` }, 403);
       const { rows, ready, duplicates, errors } = await classify(db, workspace.stateCode, bytes);
@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       }
       return noStoreJson(result, result.created ? 201 : 200);
     });
+    return mode === 'commit' ? await afterSchoolChange(response, workspace.stateCode) : response;
   } catch (cause) {
     if (cause instanceof SchoolImportError) return noStoreJson({ error: cause.message }, 400);
     if ((cause as { code?: string }).code === '23505') return noStoreJson({ error: 'Another change added one of these schools at the same time. Upload the file again.' }, 409);

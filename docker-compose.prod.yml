@@ -10,11 +10,14 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://ubec_app:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}@postgres:5432/ubec
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in Dokploy}
+      REDIS_URL: redis://redis:6379
     expose:
       - "3000"
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -23,6 +26,49 @@ services:
       retries: 3
     networks:
       - frontend
+      - backend
+
+  # DNEMIS sync worker: same image as the app. Runs scheduled refreshes and "Sync now" jobs (lib/dnemis-jobs.ts).
+  # Needs the frontend network for internet access to DNEMIS, and AUTH_SECRET to decrypt the saved token.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["node", "worker/dnemis-worker.mjs"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://ubec_app:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}@postgres:5432/ubec
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in Dokploy}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const t=Date.parse(require('fs').readFileSync('/tmp/dnemis-worker-alive','utf8'));process.exit(Date.now()-t<180000?0:1)"]
+      interval: 60s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    networks:
+      - frontend
+      - backend
+
+  # Cache of per-state school lists and the DNEMIS job queue/lock. Internal only (no published port).
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "300 1", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    volumes:
+      - ubec_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
       - backend
 
   postgres:
@@ -72,6 +118,7 @@ services:
 
 volumes:
   ubec_postgres_data:
+  ubec_redis_data:
 
 networks:
   frontend:

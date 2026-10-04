@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 // Shared by the School register page, the plan-creation "new schools" step and /api/schools.
-// The register is filled by hand today; a later DNEMIS sync can match schools by school code.
+// Public pre-primary, primary and JSS schools come from DNEMIS (lib/dnemis-sync.ts, `dnemis: true`); managers can
+// still add and edit schools by hand. The sync overwrites the DNEMIS fields of DNEMIS schools and never touches the rest.
 
 export const schoolClasses = [
   { key: 'ECCDE', label: 'ECCDE' },
@@ -22,8 +23,20 @@ export const defaultRegisterPageSize = 25;
 const maxLearnersPerClass = 20000;
 
 export type ClassEnrolment = Partial<Record<SchoolClassKey, { male: number; female: number }>>;
+/** Counts from the census form's "useable / not useable" questions. */
+export type UsableCount = { usable: number; unusable: number };
+/** Facilities summary from the DNEMIS census form (schools.facilities). Every field is optional: forms are often incomplete. */
+export type SchoolFacilities = {
+  classrooms?: UsableCount; toilets?: UsableCount; waterPoints?: UsableCount; handWashing?: UsableCount;
+  classroomsTotal?: number; classesOutside?: boolean; securityGuard?: boolean;
+  waterSource?: string; power?: string; fence?: string; healthFacility?: string;
+};
+/** Teachers working at the school (census question D.2), stored in schools.teachers. */
+export type SchoolTeachers = { male: number; female: number };
 export type RegisterSchool = {
-  id: number; schoolCode: string | null; name: string; town: string; lga: string; level: string; category: string; location: string;
+  id: number; schoolCode: string | null; name: string; town: string; ward: string; lga: string; level: string; category: string; location: string;
+  /** Imported from DNEMIS: the sync refreshes its details. */
+  dnemis: boolean;
   latitude: string; longitude: string; male: number; female: number; enrolment: ClassEnrolment; updatedAt: string | null; updatedBy: string | null;
 };
 export type RegisterFacet = { value: string; count: number };

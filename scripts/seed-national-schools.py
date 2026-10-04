@@ -93,7 +93,7 @@ def main() -> None:
         + data.getvalue() + "\\.\n"
         "INSERT INTO schools (state_code, name, lga, level, town, category, location, enrolment_male, enrolment_female)\n"
         "SELECT state_code, name, lga, level, COALESCE(town, ''), category, location, enrolment_male, enrolment_female FROM school_import\n"
-        "ON CONFLICT (state_code, name, lga, level) DO NOTHING;\n"
+        "ON CONFLICT (state_code, name, lga, level) WHERE dnemis_id IS NULL DO NOTHING;\n"
         "COMMIT;\n"
     )
     per_state = Counter(row[0] for row in rows)

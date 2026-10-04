@@ -79,6 +79,7 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel }: 
   </Field>;
 
   return <div className="flex flex-col gap-6" onKeyDown={onEnter}>
+    {school?.dnemis && <Alert><AlertDescription>Synced from DNEMIS. The next sync replaces the name, code, LGA, level, location and enrolment; town and coordinates are kept.</AlertDescription></Alert>}
     <FieldGroup className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">{text('name', 'School name', { required: true })}</div>
       {lgas.length ? select('lga', 'LGA', lgaOptions, 'Choose LGA') : text('lga', 'LGA', { required: true })}

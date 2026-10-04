@@ -6,6 +6,7 @@ import { mutatePlan } from "@/lib/plan-mutations";
 import { readPillarReviews, mayEditPillar } from '@/lib/pillar-review';
 import { planPeriod } from "@/lib/action-plans";
 import { getPostgres } from "@/lib/postgres";
+import { cachedSchoolList } from '@/lib/school-cache';
 import { getWorkspaceState, sqlText } from "@/lib/workspace-state";
 import { sportsAllocationSchema, sportsCatalogError, sportsLineSchema } from "@/lib/sports";
 
@@ -28,9 +29,9 @@ export async function GET(request: NextRequest) {
         s.name, s.lga, s.level, s.location FROM sports_allocations a
         JOIN sports_budget_lines b ON b.id = a.line_id JOIN schools s ON s.id = a.school_id
         WHERE b.state_code = ${state} AND b.plan_id = ${plan.id} AND s.state_code = ${state} ORDER BY s.name, a.id`),
-      db.query(`SELECT id, name, lga, level, location FROM schools WHERE state_code = ${state} ORDER BY name`),
+      cachedSchoolList(workspace.stateCode, 'sports', async () => (await db.query(`SELECT id, name, lga, level, location FROM schools WHERE state_code = ${state} ORDER BY name`)).rows),
     ]);
-    return NextResponse.json({ plan, canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, schools: schools.rows }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ plan, canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, schools }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Unable to load sports plan", cause);
     return error("Your sports plan could not be loaded. Please try again.", 503);
