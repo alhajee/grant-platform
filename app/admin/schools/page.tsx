@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { FileUpIcon, PlusIcon } from 'lucide-react';
+import { FileUpIcon, MapPinIcon, PlusIcon } from 'lucide-react';
 import { AdminHeader, useAdminMe } from '@/components/admin-header';
 import { SchoolRegisterTable } from '@/components/school-register-table';
 import { SchoolEntryForm } from '@/components/school-register-form';
@@ -58,8 +58,8 @@ export default function AdminSchoolsPage() {
       <h1 className="text-3xl font-semibold tracking-tight">Schools</h1>
       <div className="flex flex-wrap items-center gap-2">
         <Select value={state ?? undefined} onValueChange={choose} disabled={!state}>
-          <SelectTrigger className="w-56" aria-label="State"><SelectValue placeholder="Choose a state" /></SelectTrigger>
-          <SelectContent><SelectGroup>{statesByName.map(code => <SelectItem key={code} value={code}>{stateDisplayName(code)}</SelectItem>)}</SelectGroup></SelectContent>
+          <SelectTrigger className="h-9! w-48 justify-start rounded-full bg-card pl-3.5 shadow-xs hover:bg-accent/50 [&>svg:last-child]:ml-auto" aria-label="State"><MapPinIcon className="text-primary" /><SelectValue placeholder="Choose a state" /></SelectTrigger>
+          <SelectContent><SelectGroup>{statesByName.map(code => <SelectItem key={code} value={code}>{stateDisplayName(code).replace(/ State$/, '')}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
         {options && <><Button variant="outline" onClick={() => setBulk(true)}><FileUpIcon data-icon="inline-start" />Bulk entry</Button><Button onClick={() => setEditing('new')}><PlusIcon data-icon="inline-start" />Add school</Button></>}
       </div>
