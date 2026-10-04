@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { defaultRegisterPageSize, registerPageSizes, schoolApiPath, schoolGapLabels, type RegisterFacet, type RegisterPage, type RegisterSchool, type SchoolGap } from '@/lib/school-register';
+import { EmptyRegisterArt, NoMatchingSchoolsArt } from '@/components/empty-art/school-register';
 
 /** `stateCode`: the state a Super Admin is viewing; state users omit it and get their own state. */
 export type SchoolRegisterTableProps = { refreshKey: number; onEdit: (school: RegisterSchool) => void; stateCode?: string };
@@ -133,8 +134,8 @@ export function SchoolRegisterTable({ refreshKey, onEdit, stateCode }: SchoolReg
   ]), [onEdit, pageIds, pageTicked, selected, toggle, busy, exportSchools, confirmDelete]);
 
   const empty = error ? 'The school register could not be loaded.' : filtered
-    ? <div className="flex flex-col items-center gap-2"><p className="font-medium">No schools match your filters</p><p className="text-muted-foreground">Try another name, town, LGA or school code.</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
-    : <div className="flex flex-col items-center gap-1"><p className="font-medium">No schools in the register yet</p><p className="text-muted-foreground">Add a school or upload the filled template.</p></div>;
+    ? <div className="register-empty"><NoMatchingSchoolsArt /><p>No schools match your filters</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
+    : <div className="register-empty"><EmptyRegisterArt /><p>No schools in the register yet</p></div>;
 
   return <div className="flex flex-col gap-4">
     {error && <Alert variant="destructive"><AlertTitle>Unable to load schools</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => setAttempt(value => value + 1)}>Try again</Button></AlertDescription></Alert>}

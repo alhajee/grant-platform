@@ -1,10 +1,11 @@
 "use client";
 import "./notifications.css";
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
-import { ArrowRightIcon, BellIcon, BellOffIcon, BellRingIcon, CheckCheckIcon, CheckIcon, ClipboardCheckIcon, InboxIcon, MessageSquareTextIcon, RotateCcwIcon, SendIcon, UserPlusIcon, Volume2Icon, VolumeXIcon } from 'lucide-react';
+import { ArrowRightIcon, BellIcon, BellOffIcon, BellRingIcon, CheckCheckIcon, CheckIcon, ClipboardCheckIcon, MessageSquareTextIcon, RotateCcwIcon, SendIcon, UserPlusIcon, Volume2Icon, VolumeXIcon } from 'lucide-react';
 import { Avatar, AvatarBadge, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { NotificationsEmptyArt } from '@/components/empty-art/notifications-art';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemSeparator, ItemTitle } from '@/components/ui/item';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -80,18 +81,27 @@ function Grouped<T extends { planId: number }>({ items, context, render }: { ite
   </Fragment>);
 }
 
-function EmptyState({ icon: Icon, title, text }: { icon: typeof InboxIcon; title: string; text: string }) {
+function EmptyState({ title }: { title: string }) {
   return <Empty className="notification-empty">
     <EmptyHeader>
-      <EmptyMedia variant="icon"><Icon /></EmptyMedia>
+      <EmptyMedia><NotificationsEmptyArt label={title} /></EmptyMedia>
       <EmptyTitle>{title}</EmptyTitle>
-      <EmptyDescription>{text}</EmptyDescription>
+    </EmptyHeader>
+  </Empty>;
+}
+
+function UnavailableState() {
+  return <Empty className="notification-empty">
+    <EmptyHeader>
+      <EmptyMedia variant="icon"><BellOffIcon /></EmptyMedia>
+      <EmptyTitle>Notifications unavailable</EmptyTitle>
+      <EmptyDescription>Check your connection, then open this panel again.</EmptyDescription>
     </EmptyHeader>
   </Empty>;
 }
 
 function AlertSetting({ permission, onEnable }: { permission: AlertPermission; onEnable: () => void }) {
-  // Nothing to show once alerts are on (or impossible): the footer only carries actions.
+  // Alerts on, or not possible: nothing to offer.
   if (permission === 'unsupported' || permission === 'granted') return null;
   if (permission === 'denied') return <span className="notification-alert-state" title="Allow notifications for this site in your browser settings to get desktop alerts."><BellOffIcon aria-hidden="true" />Desktop alerts blocked</span>;
   // The only footer item that needs a decision: tinted, with shadcn's shimmer on the label and a swinging bell.
@@ -138,13 +148,13 @@ export function NotificationBell() {
   function body() {
     if (activeView === 'todo') return todos.length
       ? <Grouped items={todos} context={todo => todo.period} render={todo => <TodoRow key={todo.href} todo={todo} />} />
-      : <EmptyState icon={ClipboardCheckIcon} title="Nothing waiting for you" text="Components that need your action will appear here." />;
+      : <EmptyState title="Nothing waiting for you" />;
     if (!feed) return failed
-      ? <EmptyState icon={BellOffIcon} title="Notifications unavailable" text="Check your connection, then open this panel again." />
+      ? <UnavailableState />
       : <div className="notification-loading">{[0, 1, 2].map(key => <div key={key}><Skeleton className="size-10 rounded-full" /><div><Skeleton className="h-3.5 w-40" /><Skeleton className="h-3 w-56" /></div></div>)}</div>;
     if (!shown.length) return activeView === 'unread'
-      ? <EmptyState icon={CheckCheckIcon} title="No unread notifications" text="You have read everything sent to you." />
-      : <EmptyState icon={InboxIcon} title="You're all caught up" text="Plan updates sent to you will appear here." />;
+      ? <EmptyState title="No unread notifications" />
+      : <EmptyState title="You're all caught up" />;
     return <Grouped items={shown} context={item => describeNotification(item).context} render={item => <NotificationRow key={item.id} item={item} onOpen={openItem} />} />;
   }
 

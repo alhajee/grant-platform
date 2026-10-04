@@ -1,0 +1,4 @@
+.register-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-block: 28px; }
+.register-empty-art { display: block; width: 190px; height: auto; }
+.register-empty-art-small { width: 130px; }
+.register-empty p { font-weight: 500; }

@@ -3,6 +3,7 @@ import './review-history.css';
 
 import { useEffect, useMemo, useState } from 'react';
 import { CornerUpLeftIcon, CrownIcon, EllipsisIcon, FilePenLineIcon, SendHorizontalIcon, ShieldCheckIcon, UserCheckIcon, type LucideIcon } from 'lucide-react';
+import { ReviewTrailArt } from '@/components/empty-art/review-trail';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { reviewEventAnchor, timeAgo } from '@/lib/notifications';
@@ -60,7 +61,7 @@ export function ReviewHistory({ events, scopeLabel }: { events: ReviewEvent[]; s
   return <Card className="review-history" id="review-history">
     <CardHeader><CardTitle><h2>Review history</h2></CardTitle></CardHeader>
     <CardContent>
-      {!events.length ? <p className="review-history-empty">No review steps yet.</p> : <ol className="trail">
+      {!events.length ? <ReviewTrailArt className="empty-art-trail" caption="No review steps yet" /> : <ol className="trail">
         {grouped.flatMap((run, index) => {
           const expanded = open.has(run.lead.id);
           return [

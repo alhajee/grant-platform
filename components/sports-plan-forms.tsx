@@ -3,12 +3,12 @@
 import { CurrencyInput } from "@/components/currency-input";
 import { SportsSectionSelect } from "@/components/sports-section-select";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { EmptySportsFieldArt } from "@/components/empty-art/sports";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { PackageIcon } from "lucide-react";
 import { equipmentSports, findSport, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, supervisionActivity, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
 export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; quantity: string; unitCost: string };
@@ -137,5 +137,5 @@ export function SportsAllocationFields({ draft, onChange, plan, errors, disabled
       <Field data-invalid={Boolean(errors.longitude)}><FieldLabel htmlFor="sports-longitude">Longitude <span className="text-muted-foreground">(optional)</span></FieldLabel><Input id="sports-longitude" type="number" inputMode="decimal" min={-180} max={180} step="any" placeholder="e.g. 11.04" value={draft.longitude} onChange={(event) => onChange({ ...draft, longitude: event.target.value })} aria-invalid={Boolean(errors.longitude)} aria-describedby={errors.longitude ? "sports-longitude-error" : undefined} />{errors.longitude && <FieldError id="sports-longitude-error">{errors.longitude}</FieldError>}</Field>
       <Field data-invalid={Boolean(errors.latitude)}><FieldLabel htmlFor="sports-latitude">Latitude <span className="text-muted-foreground">(optional)</span></FieldLabel><Input id="sports-latitude" type="number" inputMode="decimal" min={-90} max={90} step="any" placeholder="e.g. 12.87" value={draft.latitude} onChange={(event) => onChange({ ...draft, latitude: event.target.value })} aria-invalid={Boolean(errors.latitude)} aria-describedby={errors.latitude ? "sports-latitude-error" : undefined} />{errors.latitude && <FieldError id="sports-latitude-error">{errors.latitude}</FieldError>}</Field>
     </FieldGroup>
-  </FieldGroup> : <Empty><EmptyHeader><EmptyMedia variant="icon"><PackageIcon /></EmptyMedia><EmptyTitle>Add equipment first</EmptyTitle><EmptyDescription>Saved equipment items will be available to allocate to schools here.</EmptyDescription></EmptyHeader></Empty>;
+  </FieldGroup> : <Empty><EmptyHeader><EmptyMedia><EmptySportsFieldArt label="No equipment saved yet" badge={false} /></EmptyMedia><EmptyTitle>Add equipment first</EmptyTitle></EmptyHeader></Empty>;
 }

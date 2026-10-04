@@ -3,7 +3,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { CheckIcon, LockKeyholeIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { NewSchoolsEntry } from '@/components/new-schools-entry';
 import { Field, FieldGroup, FieldSet, FieldLegend, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -104,7 +103,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
           </svg>
           <div className="space-y-1">
             <DialogTitle>Create action plan</DialogTitle>
-            <DialogDescription>Choose the plan period, enter the funding and upload the Rapid Assessment Tool (RAT).</DialogDescription>
+            <DialogDescription className="sr-only">Plan period, funding and Rapid Assessment Tool</DialogDescription>
           </div>
         </div>
       </DialogHeader>
@@ -162,7 +161,6 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
               <FileUpload compact id="rat-document" label="Rapid Assessment Tool (RAT) Excel files" multiple accept={ratFileAccept} disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 Excel files and 10 MB in total.'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/>
               <DocumentFiles compact documents={files.map((file,i)=>({id:String(i),name:file.name,size:file.size,file}))} disabled={saving} onRemove={id=>setFiles(current=>current.filter((_,i)=>String(i)!==id))}/>{errors.rat && <FieldError>{errors.rat}</FieldError>}
             </Field>
-            <NewSchoolsEntry step={4} disabled={saving} />
           </FieldGroup>
         </div>
         {errors.form && <FieldError role="alert" className="px-6 pt-3">{errors.form}</FieldError>}

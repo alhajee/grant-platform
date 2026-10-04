@@ -17,6 +17,7 @@ import { FilterDialog } from '@/components/filter-dialog';
 import { useSessionState } from '@/components/use-session-state';
 import { activityPageSizes, defaultActivityPageSize, type ActivityFacets, type ActivitySession, type ActivitySort, type ActivityStatus, type Paged, type SessionStatus } from '@/lib/admin-activity';
 import { stateDisplayName } from '@/lib/state-names';
+import { ImpersonationArt } from '@/components/empty-art/impersonation-art';
 import './admin-activity.css';
 
 const helper = createColumnHelper<DataTableFeatures, ActivitySession>();
@@ -91,7 +92,7 @@ export function AdminActivity() {
 
   const empty = error ? 'Impersonation sessions could not be loaded.' : filtered
     ? <div className="flex flex-col items-center gap-2"><p className="font-medium">No sessions match your filters</p><p className="text-muted-foreground">Try another name, email, role or state.</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
-    : <div className="flex flex-col items-center gap-1"><p className="font-medium">No impersonation sessions yet</p><p className="text-muted-foreground">Sessions appear here when an administrator acts as a user.</p></div>;
+    : <div className="flex flex-col items-center gap-1 py-4"><ImpersonationArt label="No impersonation sessions yet" /><p className="text-muted-foreground">No impersonation sessions yet</p></div>;
 
   return <div className="admin-activity flex flex-col gap-4">
     <div><h2 className="text-lg font-semibold">Recent impersonation sessions</h2></div>

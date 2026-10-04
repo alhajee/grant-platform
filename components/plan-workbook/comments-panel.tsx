@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
-import { MessageSquare, MessageSquareOff } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
+import { CommentCellArt } from '@/components/empty-art/comment-cell-art';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -47,7 +48,7 @@ export function CommentsPanel({ sheet, comments, onNavigate }: { sheet: Workbook
           <ToggleGroupItem value="ubec">UBEC · {count('ubec')}</ToggleGroupItem>
         </ToggleGroup>}
       </div>
-      {!shown.length ? <div className="wb-comments-empty"><MessageSquareOff aria-hidden="true" /><p>{filter === 'open' ? `No open ${mixed && source === 'ubec' ? 'UBEC ' : ''}comments on this sheet.` : 'No resolved comments yet.'}</p>{filter === 'open' && comments.can.start && <p>Right-click a cell and choose Comment.</p>}</div> :
+      {!shown.length ? <EmptyComments resolved={filter === 'resolved'} source={mixed ? source : 'all'} canStart={filter === 'open' && comments.can.start} /> :
         <ul className="wb-comments-list">{shown.map(thread => <li key={thread.id} data-thread-id={thread.id}>
           <button type="button" className="wb-comments-item" data-ubec={(viewer === 'state' && thread.scope === 'ubec') || undefined} aria-expanded={thread.orphaned ? expanded === thread.id : undefined} onClick={() => choose(thread)}>
             <span className="wb-comments-target"><ScopeBadge thread={thread} viewer={viewer} />{thread.targetLabel}{thread.orphaned && <Badge variant="outline">No longer in the plan</Badge>}</span>
@@ -58,4 +59,15 @@ export function CommentsPanel({ sheet, comments, onNavigate }: { sheet: Workbook
         </li>)}</ul>}
     </SheetContent>
   </Sheet>;
+}
+
+/** No threads for the chosen filter: a cell with an empty speech bubble, and how to start one when the viewer can. */
+function EmptyComments({ resolved, source, canStart }: { resolved: boolean; source: 'all' | 'state' | 'ubec'; canStart: boolean }) {
+  const from = source === 'ubec' ? 'UBEC ' : source === 'state' ? 'SUBEB ' : '';
+  const caption = resolved ? `No resolved ${from}comments yet` : `No open ${from}comments`;
+  return <div className="wb-comments-empty">
+    <CommentCellArt label={caption} resolved={resolved} />
+    <p>{caption}</p>
+    {canStart && <p>Right-click a cell and choose Comment.</p>}
+  </div>;
 }

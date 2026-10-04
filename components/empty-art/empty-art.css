@@ -1,0 +1,10 @@
+/* Empty-state illustrations (components/empty-art). Doubled classes outrank host rules such as `.wb-comments-empty svg`. */
+svg.empty-art.empty-art.empty-art { display: block; height: auto; opacity: 1; }
+svg.empty-art.empty-art-notifications.empty-art-notifications { width: 128px; }
+svg.empty-art.empty-art-comment.empty-art-comment { width: 168px; margin-bottom: 6px; }
+svg.empty-art.empty-art-impersonation.empty-art-impersonation { width: 150px; margin: 0 auto 4px; }
+
+.empty-art-trail { display: flex; flex-direction: column; gap: 6px; max-width: 300px; margin: 4px 0 0; font-size: 13px; color: var(--muted-foreground); }
+.empty-art-trail svg { display: block; width: 100%; height: auto; }
+/* The bell panel styles every empty media slot as a round icon chip; the picture needs none of that. */
+.notification-empty [data-slot=empty-icon][data-variant=default] { width: auto; height: auto; border-radius: 0; background: none; }

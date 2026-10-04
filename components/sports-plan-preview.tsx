@@ -1,10 +1,12 @@
 "use client";
 
-import { MoreHorizontalIcon, PackageIcon, PencilIcon, SchoolIcon, Trash2Icon } from "lucide-react";
+import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { EmptySchoolPackageArt } from "@/components/empty-art/infrastructure";
+import { EmptySportsFieldArt } from "@/components/empty-art/sports";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { sportsBudget, sportsLineTotal, sportsMoney as money, sportsSections, type SportsAllocation, type SportsLine, type SportsPlan } from "@/lib/sports";
 
@@ -17,7 +19,7 @@ function RowActions({ label, disabled, onEdit, onRemove }: { label: string; disa
 }
 
 export function SportsBudgetPreview({ plan, disabled, onEdit, onRemove, editingId }: PreviewProps) {
-  if (!plan.lines.length) return <Empty><EmptyHeader><EmptyMedia variant="icon"><PackageIcon /></EmptyMedia><EmptyTitle>Your sports plan starts here</EmptyTitle><EmptyDescription>Add an equipment item or activity to build your budget.</EmptyDescription></EmptyHeader></Empty>;
+  if (!plan.lines.length) return <Empty><EmptyHeader><EmptyMedia><EmptySportsFieldArt label="No sports items yet" /></EmptyMedia><EmptyTitle>Your sports plan starts here</EmptyTitle></EmptyHeader></Empty>;
   return <div className="sports-schedules">{sportsSections.map((section) => {
     const lines = plan.lines.filter((line) => line.section === section.id);
     if (!lines.length) return null;
@@ -44,7 +46,7 @@ export function SportsBudgetPreview({ plan, disabled, onEdit, onRemove, editingI
 }
 
 export function SportsBeneficiaryPreview({ plan, disabled, onEdit, onRemove, editingId }: PreviewProps) {
-  if (!plan.allocations.length) return <Empty><EmptyHeader><EmptyMedia variant="icon"><SchoolIcon /></EmptyMedia><EmptyTitle>No beneficiary schools yet</EmptyTitle><EmptyDescription>Choose a school and allocate items from your equipment budget.</EmptyDescription></EmptyHeader></Empty>;
+  if (!plan.allocations.length) return <Empty><EmptyHeader><EmptyMedia><EmptySchoolPackageArt label="No beneficiary schools yet" /></EmptyMedia><EmptyTitle>No beneficiary schools yet</EmptyTitle></EmptyHeader></Empty>;
   const schoolIds = [...new Set(plan.allocations.map((allocation) => allocation.schoolId))];
   return <div className="sports-schedules">{schoolIds.map((schoolId) => {
     const allocations = plan.allocations.filter((item) => item.schoolId === schoolId);
