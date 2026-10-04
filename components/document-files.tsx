@@ -25,15 +25,17 @@ function UploadIllustration({kind}:{kind?:UploadIllustrationKind}){
  return <FileArtwork name="upload" upload/>;
 }
 
-export function FileUpload({id,label,accept,disabled=false,busy=false,multiple=false,compact=false,illustration,onFiles}:{id?:string;label:string;accept:string;disabled?:boolean;busy?:boolean;multiple?:boolean;compact?:boolean;illustration?:UploadIllustrationKind;onFiles:(files:File[])=>void|Promise<void>}) {
+export function FileUpload({id,label,accept,disabled=false,busy=false,multiple=false,compact=false,illustration,problem,onFiles}:{id?:string;label:string;accept:string;disabled?:boolean;busy?:boolean;multiple?:boolean;compact?:boolean;illustration?:UploadIllustrationKind;
+ /** A requirement to show inside the drop area (e.g. "Drawings are required"); marks the area invalid. */
+ problem?:string;onFiles:(files:File[])=>void|Promise<void>}) {
  const input=useRef<HTMLInputElement>(null),[dragging,setDragging]=useState(false),[error,setError]=useState('');
  function select(files:File[]){setDragging(false);if(disabled||busy)return;const allowed=accept.split(',');if(!multiple&&files.length>1){setError('Choose one file at a time.');return;}if(files.some(f=>!allowed.includes('.'+extension(f.name))||!f.size||f.size>5*1024*1024)){setError('Choose a supported, nonempty file up to 5 MB.');return;}setError('');if(files.length)void onFiles(files);}
- return <div className="file-upload" data-compact={compact||undefined} data-illustration={illustration} data-dragging={dragging} data-disabled={disabled||busy} onDragOver={e=>{e.preventDefault();if(!disabled&&!busy)setDragging(true);}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setDragging(false);}} onDrop={e=>{e.preventDefault();select(Array.from(e.dataTransfer.files));}}>
+ return <div className="file-upload" data-invalid={!!(problem||error)||undefined} data-compact={compact||undefined} data-illustration={illustration} data-dragging={dragging} data-disabled={disabled||busy} onDragOver={e=>{e.preventDefault();if(!disabled&&!busy)setDragging(true);}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setDragging(false);}} onDrop={e=>{e.preventDefault();select(Array.from(e.dataTransfer.files));}}>
   <input ref={input} id={id} className="sr-only" type="file" tabIndex={-1} aria-label={label} accept={accept} multiple={multiple} disabled={disabled||busy} onChange={e=>{select(Array.from(e.target.files??[]));e.target.value='';}}/>
   <div className="upload-emblem"><UploadIllustration kind={illustration}/></div>
   <div className="upload-copy"><p className="upload-title">{busy?'Uploading document…':compact?'Drop '+(multiple?'files':'a file')+' here':'Drag and drop your '+(multiple?'files':'file')+' here'}</p><p className="upload-formats">{accept.replaceAll('.','').replaceAll(',',', ').toUpperCase()}</p></div>
   <Button type="button" variant="outline" size="sm" disabled={disabled||busy} onClick={()=>input.current?.click()} aria-label={'Upload '+label}>{busy?<Spinner data-icon="inline-start"/>:<UploadIcon data-icon="inline-start"/>}{busy?'Uploading…':compact?'Add '+(multiple?'files':'file'):'Choose '+(multiple?'files':'file')}</Button>
-  {error&&<p role="alert" className="text-sm text-destructive">{error}</p>}
+  {(error||problem)&&<p role="alert" className="upload-problem text-sm text-destructive">{error||problem}</p>}
  </div>;
 }
 
