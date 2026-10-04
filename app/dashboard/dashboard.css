@@ -165,3 +165,5 @@
 .recent-activity-empty { font-size: 13px; line-height: 1.6; color: var(--muted-foreground); }
 
 
+/* The title sits close to the total it introduces. */
+.budget-allocation[data-slot=card] { gap: 8px; }
