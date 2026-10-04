@@ -21,7 +21,7 @@ Copy `.env.example` to `.env` and set private values before starting Docker. `PO
 
 The plan overview groups nine funding components under Quality, Access and System Optimisation. SUBEB component responsibilities follow the reference workflow; Infrastructure and Supervision belong to Physical Planning, and TLMs to Academic Services. Only Infrastructure and Sports editors are implemented.
 
-Migration `012-funding-policy.sql` adds versioned allocations. The UBEC Executive Secretary can change component shares and the TLM split at `/ubec/allocations`. Components must total 100%. The default TLM split is 20% of the combined 75% component, giving TLMs 15% and Infrastructure 60% of the total. New plans capture the current policy; existing plans retain theirs. These are planning shares, not enforced spending ceilings.
+Migration `012-funding-policy.sql` adds versioned allocations. The UBEC Executive Secretary can change component shares at `/ubec/allocations`. Components must total 100%. TLM has no share of its own: Infrastructure and TLM draw from one pool (the 75% infrastructure share plus their funding sources) with no split; older policy rows that still carry `tlmWithinInfrastructure` are read and ignored. New plans capture the current policy; existing plans retain theirs. These are planning shares, not enforced spending ceilings.
 
 The SUBEB dashboard shows department-scoped pending actions for staff, Directors and the Executive Chairman. Run `node --env-file=.env scripts/test-funding-policy.mjs` against the local preview to check permissions, version pinning and pending actions. The BEAP Chair appointment grants plan creation; the separate consolidation handoff is not implemented yet.
 

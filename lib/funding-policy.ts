@@ -4,17 +4,14 @@ import { z } from 'zod';
 const share = z.number().int().min(0).max(10000);
 export const allocationSchema = z.object({
   shares: z.object({ infrastructure: share, quality: share, teachers: share, sbmc: share, sports: share, monitoring: share, curriculum: share, planning: share, gscci: share }).strict(),
-  tlmWithinInfrastructure: share,
+  // Retired: TLM and Infrastructure now share the whole infrastructure share (infrastructurePoolEnvelope). Older policy rows may carry it; it is ignored.
+  tlmWithinInfrastructure: share.optional(),
 }).strict().refine(value => Object.values(value.shares).reduce((a,b)=>a+b,0) === 10000, 'Component allocations must total 100%.');
 export type Allocation = z.infer<typeof allocationSchema>;
 export type FundingPolicy = { id: number; allocation: Allocation; createdAt: string; createdBy: string };
-export const defaultAllocation: Allocation = {shares:{infrastructure:7500,quality:500,teachers:500,sbmc:500,sports:200,monitoring:200,curriculum:200,planning:200,gscci:200},tlmWithinInfrastructure:2000};
+export const defaultAllocation: Allocation = {shares:{infrastructure:7500,quality:500,teachers:500,sbmc:500,sports:200,monitoring:200,curriculum:200,planning:200,gscci:200}};
 export const percent = (basisPoints: number) => new Intl.NumberFormat('en', {maximumFractionDigits:4}).format(basisPoints/100);
-export function infrastructureSplit(allocation: Allocation) {
-  const tlm=allocation.shares.infrastructure*allocation.tlmWithinInfrastructure/10000;
-  return {tlm,infrastructure:allocation.shares.infrastructure-tlm};
-}
-// Round TLM once to the nearest kobo; Infrastructure receives the remainder.
+// A share of an envelope, rounded once to the nearest kobo (withinShare is an optional second share of that).
 export function allocatedAmount(envelope: string, componentShare: number, withinShare=10000) {
   const [whole,fraction='']=envelope.split('.');
   const cents=BigInt(whole)*BigInt(100)+BigInt(fraction.padEnd(2,'0'));
@@ -23,7 +20,7 @@ export function allocatedAmount(envelope: string, componentShare: number, within
   return `${result/BigInt(100)}.${String(result%BigInt(100)).padStart(2,'0')}`;
 }
 
-// Components that can receive their own other funding (UBEC04/05). TLM sits inside the infrastructure share.
+// Components that can receive their own other funding (UBEC04/05). TLM has no policy share: it shares the infrastructure pool.
 export const fundingComponentIds = ['infrastructure','tlm','quality','teachers','sbmc','sports','monitoring','curriculum','planning','gscci'] as const satisfies readonly import('./beap-pillars').PillarId[];
 export type FundingComponent = typeof fundingComponentIds[number];
 export const fundingComponentLabels: Record<FundingComponent,string> = {infrastructure:'Infrastructure',tlm:'TLM',quality:'Quality Assurance',teachers:'Teacher Development & ICT',sbmc:'SBMC',sports:'Sports',monitoring:'Supervision & Monitoring',curriculum:'Curriculum',planning:'Planning, Research & Statistics',gscci:'Greening, Climate & Safeguarding'};
@@ -56,7 +53,8 @@ export function sharedEnvelope(plan: EnvelopePlan) {
 /**
  * Budget ceiling of one component, in naira as a "123.45" string, or null until the plan funding is set.
  *   ceiling = component's policy share of sharedEnvelope(plan) (which includes plan-wide 'all' sources) + sum of the plan's funding sources for that component.
- * TLM gets tlmWithinInfrastructure of the infrastructure share (rounded once); Infrastructure gets the remainder.
+ * Infrastructure and TLM have no split: each one's ceiling is the whole shared pool (infrastructurePoolEnvelope), and
+ * their proposed totals together may not exceed it (infrastructurePoolProblem in lib/infrastructure-pool.ts).
  * 'teachers' is the shared Teacher Development and ICT envelope (teachersSharedEnvelope) less ICT's allocation, and
  * 'ict' is that allocation (plan.ictAllocation, null until the ICT editor sets it). Other components are unaffected by a source.
  * Example: componentEnvelope(plan, 'monitoring'), with `plan` from resolveActionPlan/planFields or a snapshot's setup.
@@ -69,12 +67,27 @@ export function componentEnvelope(plan: EnvelopePlan, component: EnvelopeCompone
 }
 /** The whole Teacher Development and ICT envelope (policy share plus 'teachers' funding sources) that ICT and Teacher Development share. */
 export const teachersSharedEnvelope = (plan: EnvelopePlan) => fundingEnvelope(plan, 'teachers');
-function fundingEnvelope(plan: EnvelopePlan, component: FundingComponent) {
+/**
+ * The one pool Infrastructure and TLM draw from: the whole infrastructure policy share of sharedEnvelope plus every
+ * 'infrastructure' and 'tlm' funding source. Null until the plan funding is set.
+ */
+export function infrastructurePoolEnvelope(plan: EnvelopePlan) {
   const shared = sharedEnvelope(plan);
   if (shared == null) return null;
-  const allocation = plan.fundingPolicy?.allocation ?? defaultAllocation;
-  const tlm = toKobo(allocatedAmount(shared, allocation.shares.infrastructure, allocation.tlmWithinInfrastructure));
-  const share = component === 'tlm' ? tlm : component === 'infrastructure' ? toKobo(allocatedAmount(shared, allocation.shares.infrastructure)) - tlm : toKobo(allocatedAmount(shared, allocation.shares[component]));
+  const share = toKobo(allocatedAmount(shared, policyAllocation(plan).shares.infrastructure));
+  return fromKobo(share + toKobo(sourcesTotal(plan.fundingSources, 'infrastructure')) + toKobo(sourcesTotal(plan.fundingSources, 'tlm')));
+}
+const policyAllocation = (plan: EnvelopePlan) => plan.fundingPolicy?.allocation ?? defaultAllocation;
+type PolicyShareKey = keyof Allocation['shares'];
+/** The funding-policy share key a component draws from: TLM uses Infrastructure's, ICT uses Teacher Development's. */
+export const policyShareKey = (component: EnvelopeComponent): PolicyShareKey => component === 'tlm' ? 'infrastructure' : component === 'ict' ? 'teachers' : component;
+/** The component's funding-policy share in basis points, from the plan's pinned policy (shared by TLM/Infrastructure and ICT/Teacher Development). */
+export const policyShare = (plan: EnvelopePlan, component: EnvelopeComponent) => policyAllocation(plan).shares[policyShareKey(component)];
+function fundingEnvelope(plan: EnvelopePlan, component: FundingComponent) {
+  if (component === 'infrastructure' || component === 'tlm') return infrastructurePoolEnvelope(plan);
+  const shared = sharedEnvelope(plan);
+  if (shared == null) return null;
+  const share = toKobo(allocatedAmount(shared, policyAllocation(plan).shares[component]));
   return fromKobo(share + toKobo(sourcesTotal(plan.fundingSources, component)));
 }
 /** componentEnvelope for every component, or null until the plan funding is set. */

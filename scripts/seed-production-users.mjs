@@ -13,8 +13,8 @@ if (!sharedPassword) throw new Error('SEED_SHARED_PASSWORD is required so every 
 const subebDepartments = ['physical', 'academic', 'me', 'teachers', 'ict', 'social', 'planning'];
 const ubecDepartments = ['academic', 'administration', 'physical', 'planning', 'special', 'teachers', 'finance', 'audit', 'quality', 'social', 'zonal'];
 const baselineAllocation = {
+  // TLM has no share of its own: it shares Infrastructure's pool.
   shares: { infrastructure: 7500, quality: 500, teachers: 500, sbmc: 500, sports: 200, monitoring: 200, curriculum: 200, planning: 200, gscci: 200 },
-  tlmWithinInfrastructure: 2000,
 };
 const states = JSON.parse(await readFile(new URL('../lib/nigeria-map.json', import.meta.url), 'utf8'));
 if (states.length !== 37) throw new Error(`Expected Nigeria's 36 states and FCT; found ${states.length}.`);

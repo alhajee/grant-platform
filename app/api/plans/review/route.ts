@@ -10,6 +10,7 @@ import { type ActionPlan } from '@/lib/action-plans';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
 import { activityBudgetProblem, isCapped, lineKobo } from '@/lib/activity-budget';
+import { infrastructurePoolProblem, isPoolComponent } from '@/lib/infrastructure-pool';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, emptyDistributionMessage, hasDistribution } from '@/lib/activity-plans';
 import { componentReadinessProblem, hasReadinessRules } from '@/lib/component-readiness';
@@ -129,6 +130,8 @@ export async function POST(request: NextRequest) {
       if (input.action !== 'request_changes' && hasDistribution(input.pillar) && !snapshot[distributionSnapshotKeys[input.pillar]]?.length) return error(emptyDistributionMessage(input.pillar));
       // Quality Assurance, ICT and Teacher Development: compulsory activities, line schools, line documents and the Teacher Development split block every send step.
       if (input.action !== 'request_changes' && hasReadinessRules(input.pillar)) { const problem=componentReadinessProblem(input.pillar,snapshot[input.pillar]??[],snapshot.setup); if(problem)return error(problem,409); }
+      // Infrastructure and TLM share one pool: neither is sent while their combined proposals exceed it.
+      if (input.action !== 'request_changes' && isPoolComponent(input.pillar)) { const problem=infrastructurePoolProblem(plan,{infrastructure:(snapshot.infrastructure??[]).reduce((sum,item)=>sum+lineKobo(item),BigInt(0)),tlm:(snapshot.tlm??[]).reduce((sum,line)=>sum+lineKobo(line),BigInt(0))}); if(problem)return error(problem,409); }
       if (input.action !== 'request_changes' && (isCapped(input.pillar) || input.pillar === 'sbmc')) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,kobo:lineKobo(line)})),plan); if(problem)return error(problem); }
       await db.query('INSERT INTO plan_pillar_reviews(plan_id,pillar,status) VALUES($1,$2,$3) ON CONFLICT(plan_id,pillar) DO UPDATE SET status=EXCLUDED.status,updated_at=NOW()', [plan.id,input.pillar,status]);
       const number = plan.submissionNumber + 1;

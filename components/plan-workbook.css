@@ -59,6 +59,8 @@
 .wb-grid tbody td:focus { outline: none; }
 .wb-grid tbody td:focus-visible, .wb-scroll:has(td:focus-visible) td.is-active { outline: 2px solid var(--ring); outline-offset: -2px; }
 .wb-blank { color: color-mix(in srgb, var(--muted-foreground) 55%, transparent); }
+.wb-empty[data-art] { height: auto !important; }
+.wb-empty[data-art] .editor-empty-art { width: 170px; }
 .wb-empty { height: 96px !important; text-align: center !important; color: var(--muted-foreground); white-space: normal !important; cursor: default !important; }
 .wb-total-count { margin-left: 6px; font-weight: 400; color: var(--muted-foreground); }
 

@@ -41,12 +41,14 @@ export function otherFundingTotal(setup: Pick<Partial<PlanSetup>, 'otherFunding'
   return fromKobo(toKobo(setup.otherFunding ?? '0') + toKobo(sourcesSum(setup.fundingSources ?? [])));
 }
 export type EnvelopeShortfall = { component: FundingComponent; ceiling: string; proposed: string };
-/** Components whose ceiling an edit would lower below what their saved lines already propose. Existing overruns the edit does not worsen are allowed. */
+/** Components whose ceiling an edit would lower below what their saved lines already propose. Existing overruns the edit does not worsen are allowed.
+ * Infrastructure and TLM share one pool, so they are checked together and reported as 'infrastructure' (see shortfallMessage). */
 export function envelopeShortfalls(before: EnvelopePlan, after: EnvelopePlan, proposed: Partial<Record<FundingComponent, string>>): EnvelopeShortfall[] {
-  return fundingComponentIds.flatMap(component => {
-    const used = toKobo(proposed[component] ?? '0'), next = componentEnvelope(after, component), previous = componentEnvelope(before, component);
+  return fundingComponentIds.filter(component => component !== 'tlm').flatMap(component => {
+    const pooled = component === 'infrastructure';
+    const used = toKobo(proposed[component] ?? '0') + (pooled ? toKobo(proposed.tlm ?? '0') : BigInt(0)), next = componentEnvelope(after, component), previous = componentEnvelope(before, component);
     if (!used || next == null || used <= toKobo(next) || (previous != null && toKobo(next) >= toKobo(previous))) return [];
-    return [{ component, ceiling: next, proposed: proposed[component]! }];
+    return [{ component, ceiling: next, proposed: fromKobo(used) }];
   });
 }
 const naira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
@@ -56,7 +58,9 @@ export function sharedBelowIctProblem(after: EnvelopePlan) {
   if (after.ictAllocation == null || shared == null || toKobo(shared) >= toKobo(after.ictAllocation)) return null;
   return `Teacher Development & ICT would have ${naira.format(Number(shared))} available, but ICT has already been allocated ${naira.format(Number(after.ictAllocation))}. Ask ICT to reduce its allocation first or keep this funding.`;
 }
-export const shortfallMessage = (s: EnvelopeShortfall) => `${fundingComponentLabels[s.component]} would have ${naira.format(Number(s.ceiling))} available, but ${naira.format(Number(s.proposed))} is already proposed. Reduce its lines first or keep its funding.`;
+export const shortfallMessage = (s: EnvelopeShortfall) => s.component === 'infrastructure'
+  ? `Infrastructure and TLM would share ${naira.format(Number(s.ceiling))}, but ${naira.format(Number(s.proposed))} is already proposed. Reduce their budgets first or keep this funding.`
+  : `${fundingComponentLabels[s.component]} would have ${naira.format(Number(s.ceiling))} available, but ${naira.format(Number(s.proposed))} is already proposed. Reduce its lines first or keep its funding.`;
 export function beapName(state: string, year: number, quarters: number[]) {
   return `${state.replace(/ State$/, '').replace(/\s+/g,'')}-${year}-${formatQuarters(quarters)}-BEAP`;
 }

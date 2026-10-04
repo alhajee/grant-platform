@@ -26,6 +26,8 @@ try{
  const before=await createPlan(2090);assert.equal(before.fundingPolicy.id,initial.id);
  // Save identical allocations: exercise versioning without altering live funding percentages.
  const saved=expect(await api('es','/api/funding-policy',{version:initial.id,allocation:initial.allocation},'PUT')).policy;policyIds.push(saved.id);
+ // The retired TLM split (initial rows may carry it) is accepted from older clients but never stored.
+ assert.equal(saved.allocation.tlmWithinInfrastructure,undefined);assert.deepEqual(saved.allocation.shares,initial.allocation.shares);
  expect(await api('es','/api/funding-policy',{version:initial.id,allocation:initial.allocation},'PUT'),409);
  const after=await createPlan(2091);assert.equal(after.fundingPolicy.id,saved.id);
  const persisted=(await db.query('SELECT funding_policy_id FROM action_plans WHERE id=$1',[before.id])).rows[0];assert.equal(persisted.funding_policy_id,initial.id);

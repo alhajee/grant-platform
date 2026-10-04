@@ -12,6 +12,8 @@ import { activityBudgetProblem, isCapped } from '@/lib/activity-budget';
 import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
 import { lineSchoolActivities } from '@/lib/activity-extras';
 import { readLineExtras, saveLineSchools } from '@/lib/activity-line-extras';
+import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
+import { readPoolState } from '@/lib/infrastructure-pool-db';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 class LineSchoolsError extends Error {}
 export async function GET(req:NextRequest){
@@ -34,7 +36,9 @@ export async function GET(req:NextRequest){
   const renovated=listed?(await db.query<{id:number}>("SELECT DISTINCT p.school_id AS id FROM infrastructure_packages p JOIN schools s ON s.id=p.school_id WHERE p.plan_id=$1 AND p.kind='whole' AND s.state_code=$2",[plan.id,user.stateCode])).rows.map(r=>r.id):[];
   // ICT and Teacher Development share one envelope: each editor also sees what the other side's lines propose.
   const sharedPartner=workstream==='ict'?'teachers':workstream==='teachers'?'ict':null;
-  const partnerProposed=sharedPartner?(await db.query<{total:string}>('SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2',[plan.id,sharedPartner])).rows[0].total:null;
+  // TLM shares the infrastructure pool with Infrastructure's school packages, so its editor sees their total too.
+  const partnerProposed=sharedPartner?(await db.query<{total:string}>('SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2',[plan.id,sharedPartner])).rows[0].total
+   :workstream==='tlm'?(await db.query<{total:string}>('SELECT COALESCE(SUM(total_cost),0)::text AS total FROM infrastructure_packages WHERE plan_id=$1',[plan.id])).rows[0].total:null;
   return NextResponse.json({plan,lines:withExtras,schools,distribution,renovated,documents,partnerProposed,canEdit:mayEditPillar(user.role,user.departments ?? user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load this component.',503);}
 }
@@ -75,6 +79,17 @@ export async function POST(req:NextRequest){
       const existing=(await db.query("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='sbmc' AND ($2::bigint IS NULL OR id<>$2)",[plan.id,action==='update'?id:null])).rows[0].total;
       const problem=sbmcBudgetProblem(budgetKobo(existing)+budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity),plan);
       if(problem)return error(problem);
+     }
+     // TLM and Infrastructure share one pool: count Infrastructure's packages too (the plan row is locked by mutatePlan).
+     // A change that does not raise the line's cost is always allowed (older plans may already be over).
+     if(workstream==='tlm') {
+      const cost=budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity);
+      const before=action==='update'?budgetKobo((await db.query<{total:string}>('SELECT (quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE id=$1',[id])).rows[0].total):null;
+      if(before===null||cost>before){
+       const pool=await readPoolState(db,plan.id,action==='update'?{component:'tlm',id:id!}:undefined);
+       const problem=infrastructurePoolProblem(pool.plan,{...pool.proposed,tlm:pool.proposed.tlm+cost});
+       if(problem)return error(problem,409);
+      }
      }
      if(isCapped(workstream)||activityShareCaps[workstream]) {
       const others=(await db.query<{activity:number;total:string}>('SELECT activity,SUM(quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 AND ($3::bigint IS NULL OR id<>$3) GROUP BY activity',[plan.id,workstream,action==='update'?id:null])).rows;

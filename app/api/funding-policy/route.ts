@@ -28,7 +28,8 @@ export async function PUT(request:NextRequest) {
       const latest=(await db.query('SELECT id,allocation FROM funding_policies ORDER BY id DESC LIMIT 1')).rows[0];
       if(!latest)return fail('Funding allocations have not been configured. Ask an administrator to restore the baseline allocation.',409);
       if(latest.id!==parsed.data.version)return fail('Allocations have changed. Reload the latest version before saving.',409);
-      const policy=(await db.query(`INSERT INTO funding_policies(allocation,created_by,actor_name) VALUES($1::jsonb,$2,$3) RETURNING ${fields}`,[JSON.stringify(parsed.data.allocation),user.userId,actor.full_name])).rows[0];
+      // Only the component shares are stored: TLM shares Infrastructure's pool, so a legacy tlmWithinInfrastructure is dropped.
+      const policy=(await db.query(`INSERT INTO funding_policies(allocation,created_by,actor_name) VALUES($1::jsonb,$2,$3) RETURNING ${fields}`,[JSON.stringify({shares:parsed.data.allocation.shares}),user.userId,actor.full_name])).rows[0];
       return NextResponse.json({policy},{headers:{'Cache-Control':'no-store'}});
     });
   } catch {return fail('Allocations could not be saved. Your changes have been kept in the form.',503);}

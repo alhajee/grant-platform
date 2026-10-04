@@ -810,5 +810,5 @@
 .review-dialog-ubec { padding: 8px 10px; border-left: 3px solid #1a73e8; border-radius: 6px; font-size: 13px; line-height: 1.45; color: #174ea6; background: #e8f0fe; }
 
 /* A light tooltip for quiet controls and explanations (the default one is near-black). */
-.soft-tip[data-slot=tooltip-content] { border: 1px solid rgb(0 69 64 / 12%); background: #fff; color: var(--foreground); box-shadow: 0 8px 24px -12px rgb(0 40 30 / 30%); }
-.soft-tip[data-slot=tooltip-content] svg { background: #fff; fill: #fff; }
+.soft-tip[data-slot=tooltip-content] { box-shadow: 0 8px 24px -12px rgb(0 40 30 / 45%); }
+[data-slot=tooltip-content] .text-muted-foreground { color: rgb(255 255 255 / 75%); }
