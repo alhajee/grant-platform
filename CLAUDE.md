@@ -182,7 +182,18 @@ A bell sits left of the account pill in `SubebHeader` and `UbecShell` (not the S
 
 - `/schools` (nav link "Schools") lets the Executive Chairman, the BEAP Chair and users granted `users.can_manage_schools` (toggled by the Executive Chairman on Users or by the Super Admin) add, edit and bulk-import schools from an XLSX template (`app/api/schools/**`, `lib/school-register*.ts`). `schools.school_code` (optional, unique per state) is the future DNEMIS match key; `schools.enrolment_by_class` holds per-class figures, with `enrolment_male/female` as totals.
 - School details (enrolment, coordinates) are read-only in the component editors; managers get an "Update in the School register" link. Plan creation has an optional step 4 "Do you have a new school you wish to add?" (`components/new-schools-entry.tsx`).
-- DNEMIS integration is pending access. Test: `node scripts/test-school-register.mjs [baseUrl]`.
+- DNEMIS connection settings exist (see next section); no data is pulled from DNEMIS yet. Test: `node scripts/test-school-register.mjs [baseUrl]`.
+
+## DNEMIS integration (migration 043)
+
+DNEMIS is a DHIS2 server (`https://asc.education.gov.ng/dhis`, API at `<base>/api`). The Super Admin configures it on Admin > **Integrations** (after Workflow settings), so no deployment or `.env` change is needed.
+
+- Table `integration_settings` (`db/postgres/043-integration-settings.sql`), one row per provider (`'dnemis'` only): `base_url`, `token_ciphertext`, `token_last4`, `enabled`, `updated_by/at`, `last_tested_at`, `last_test_ok`, `last_test_message`.
+- Token protection (`lib/secret-box.ts`): AES-256-GCM, key from HKDF-SHA256 over `AUTH_SECRET` (info `beapms:integration-secrets:v1`), random 12-byte IV, stored as `v1:<iv>:<tag>:<ciphertext>` (base64). Changing `AUTH_SECRET` makes the saved token unreadable; the admin must re-enter it. Once saved the token is never returned by any API (only `tokenSet` and `tokenLast4`), never shown in the UI (password field stays empty, no reveal/copy), and never logged or echoed in errors.
+- Client `lib/dnemis.ts`: `getDnemisConfig(db)` reads the row (env `DNEMIS_URL`/`DNEMIS_TOKEN` only when no row exists; the placeholder `paste-token-here` is ignored); `dhis2Fetch(path, config)` sends `Authorization: ApiToken <token>`, 15 s timeout, `redirect: 'manual'`, JSON only. A 3xx (DHIS2's `/dhis/login/` redirect), 401/403, a 4xx with `WWW-Authenticate` (DHIS2 answers a bad token with 400 "Checksum validation failed") or an HTML page counts as "token not accepted". `testDnemisConnection()` calls `/api/me` and `/api/system/info` and reports "Connected as <name> · DHIS2 <version> · <org units>".
+- Address rules (`lib/dnemis-url.ts`): https only, no credentials, query or fragment; trailing slashes and `/api` trimmed; single-label, `localhost`/`.local`/`.internal` hosts and any host resolving to a private, loopback, link-local, CGNAT or reserved address are refused (checked on save and before every request). Saving a different server origin without re-entering the token is refused, so a saved token is never sent to a new host.
+- API `app/api/admin/integrations/route.ts` (Super Admin only; writes need the same origin): GET settings; PUT `{ baseUrl, enabled, token?, clearToken? }` (token omitted keeps it, `clearToken: true` removes it, enabling needs a token; a new address or token clears the last test result); POST `{ action: 'test' }` stores and returns the test result. There is no general admin write log (the Activity tab covers impersonation only), so `updated_by`/`updated_at` record who changed it.
+- UI `components/admin-integrations.tsx`. Tests: `node scripts/test-secret-box.mjs` (unit: encryption round trip/tamper, address rules) and `node scripts/test-integrations.mjs [baseUrl]` (throwaway Super Admin + non-admin; restores any existing row).
 
 ## Roles and department access
 
@@ -263,6 +274,7 @@ Then audit production/reference integrity:
 - If a clean nationwide demo reset is required, back up first, clear only intended user/plan/transactional data, run all migrations, run `scripts/seed-production-users.mjs`, then assert required baseline counts before exposing the portal.
 - The nationwide seed is transactional and refuses to overwrite existing seeded emails.
 - The seed currently restores a missing funding policy; it should also restore the global workflow setting as described above.
+- `integration_settings` (migration 043) references `users`, so `TRUNCATE users ... CASCADE` empties it and the DNEMIS connection must be set up again on Admin > Integrations. Record (outside source control) that it needs re-entering, or exclude it from any reset.
 
 ## Important commits
 
