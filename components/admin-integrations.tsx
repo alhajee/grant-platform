@@ -83,9 +83,12 @@ export function AdminIntegrations() {
   const test = async () => {
     setTesting(true);
     try {
-      const next = await request({ method: 'POST', body: JSON.stringify({ action: 'test' }) });
-      setSettings(next);
-      if (next.lastTestOk) toast.success('Connected to DNEMIS'); else toast.error('DNEMIS connection failed');
+      // Tests what is in the form, saved or not; only a test of the saved settings is remembered.
+      const response = await fetch(endpoint, { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test', baseUrl: draft.baseUrl, ...(draft.token.trim() ? { token: draft.token } : {}) }) });
+      const body = await response.json().catch(() => ({})) as Response & { result?: { ok: boolean; message: string } };
+      if (!response.ok || !body.result) throw Error(body.error || 'Unable to test the DNEMIS connection.');
+      if (body.dnemis) setSettings(body.dnemis);
+      if (body.result.ok) toast.success(body.result.message || 'Connected to DNEMIS'); else toast.error(body.result.message || 'DNEMIS connection failed');
     } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Unable to test the DNEMIS connection.'); }
     finally { setTesting(false); }
   };
@@ -109,7 +112,7 @@ export function AdminIntegrations() {
     <CardFooter className="flex-wrap justify-between gap-2 border-t">
       <p className="text-xs text-muted-foreground">{dirty ? 'Unsaved changes' : settings.updatedAt ? `Updated ${formatDateTime(settings.updatedAt)}` : ''}</p>
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" onClick={() => void test()} disabled={testing || dirty || !settings.tokenSet} title={dirty ? 'Save your changes first' : undefined}>{testing && <Spinner data-icon="inline-start" />}Test</Button>
+        <Button variant="outline" onClick={() => void test()} disabled={testing || !(draft.token.trim() || (settings.tokenSet && !draft.clearToken))}>{testing && <Spinner data-icon="inline-start" />}Test</Button>
         <Button onClick={() => void save()} disabled={saving || !dirty}>{saving && <Spinner data-icon="inline-start" />}Save</Button>
       </div>
     </CardFooter>

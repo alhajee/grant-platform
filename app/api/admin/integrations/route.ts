@@ -5,7 +5,7 @@ import { isSameRequestOrigin } from '@/lib/request-origin';
 import { noStoreJson as json, requireSuperAdmin } from '@/lib/admin-activity-server';
 import { sealSecret, SecretBoxConfigError, SecretBoxDecryptError } from '@/lib/secret-box';
 import { assertPublicDnemisHost, defaultDnemisBaseUrl, DnemisUrlError, normaliseDnemisBaseUrl } from '@/lib/dnemis-url';
-import { getDnemisConfig, testDnemisConnection } from '@/lib/dnemis';
+import { getDnemisConfig, testDnemisConnection, type DnemisConfig } from '@/lib/dnemis';
 
 // Super Admin settings for the DNEMIS (DHIS2) connection. Responses never contain the token.
 const putSchema = z.object({
@@ -14,7 +14,8 @@ const putSchema = z.object({
   token: z.string().max(500).optional(),
   clearToken: z.boolean().optional(),
 }).strict();
-const postSchema = z.object({ action: z.literal('test') }).strict();
+// Test may use unsaved values from the form: an address and/or a newly typed token.
+const postSchema = z.object({ action: z.literal('test'), baseUrl: z.string().max(500).optional(), token: z.string().max(500).optional() }).strict();
 const tokenPattern = /^[\x21-\x7e]{8,300}$/;
 
 type SettingsRow = {
@@ -104,15 +105,29 @@ export async function POST(request: NextRequest) {
     if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
     const auth = await requireSuperAdmin(request);
     if (auth.error) return auth.error;
-    if (!postSchema.safeParse(await request.json().catch(() => null)).success) return json({ error: 'Unknown action.' }, 400);
+    const parsed = postSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return json({ error: 'Unknown action.' }, 400);
     const db = getPostgres();
+    const saved = await getDnemisConfig(db);
+    const typedToken = parsed.data.token?.trim() ?? '';
+    if (typedToken && !tokenPattern.test(typedToken)) return json({ error: 'The access token looks wrong. Paste the whole token without spaces.' }, 400);
+    let baseUrl = saved?.baseUrl ?? defaultDnemisBaseUrl;
+    if (parsed.data.baseUrl !== undefined) {
+      try { baseUrl = normaliseDnemisBaseUrl(parsed.data.baseUrl); await assertPublicDnemisHost(baseUrl); }
+      catch (cause) { if (cause instanceof DnemisUrlError) return json({ error: cause.message }, 400); throw cause; }
+    }
+    // The saved token only ever goes to the saved server; a different address needs the token typed again.
+    if (!typedToken && saved && new URL(saved.baseUrl).origin !== new URL(baseUrl).origin) return json({ error: 'Enter the access token to test a different server.' }, 400);
+    const config: DnemisConfig | null = typedToken ? { source: saved?.source ?? 'database', enabled: saved?.enabled ?? false, baseUrl, token: typedToken } : saved ? { ...saved, baseUrl } : null;
+    // Only a test of exactly the saved settings is recorded on them.
+    const testsSaved = !typedToken && (!saved || saved.baseUrl === baseUrl);
     let result;
-    try { result = await testDnemisConnection(await getDnemisConfig(db)); }
+    try { result = await testDnemisConnection(config); }
     catch (cause) {
       if (!(cause instanceof SecretBoxDecryptError || cause instanceof SecretBoxConfigError)) throw cause;
       result = { ok: false, message: 'The saved access token can no longer be read (the server secret may have changed). Enter the token again.', testedAt: new Date().toISOString() };
     }
-    await db.query(`UPDATE integration_settings SET last_tested_at = $1, last_test_ok = $2, last_test_message = $3 WHERE provider = 'dnemis'`,
+    if (testsSaved) await db.query(`UPDATE integration_settings SET last_tested_at = $1, last_test_ok = $2, last_test_message = $3 WHERE provider = 'dnemis'`,
       [result.testedAt, result.ok, result.message]);
     return json({ result, ...(await publicSettings()) });
   } catch (cause) {
