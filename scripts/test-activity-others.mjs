@@ -78,12 +78,15 @@ try {
     const created = ok(await api(who, url(workstream), line(workstream, others, 1000, { customActivity: name })));
     const back = ok(await api(who, url(workstream))).lines.find(l => l.id === created.id);
     assert.equal(back.activity, others); assert.equal(back.customActivity, name.trim());
+    // Every line gets a reference code like Sports (migration 053): UBEC/SUBEB/<COMPONENT>/<id>/<plan period>.
+    const prefix = { sbmc: 'SBMC', tlm: 'TLM', monitoring: 'MON', gscci: 'GSCCI', curriculum: 'CURR', quality: 'QA', ict: 'ICT', teachers: 'TD', planning: 'PRS' }[workstream];
+    assert.match(back.code, new RegExp(`^UBEC/SUBEB/${prefix}/0*${created.id}/\\d{4}`), `${workstream} line code`);
     // Renaming works; moving the line to a listed activity needs the name cleared.
     ok(await api(who, url(workstream), { ...line(workstream, others, 1000, { customActivity: `Renamed ${workstream} ${tag}` }), action: 'update', id: created.id }));
     fails(await api(who, url(workstream), { ...line(workstream, plain, 1000, { customActivity: `Renamed ${workstream} ${tag}` }), action: 'update', id: created.id }), 400, /Others \(specify\)/);
     saved[workstream] = created.id;
   }
-  step('Every component: Others (specify) is the last activity, needs a trimmed name of up to 160 characters, and no other activity takes one');
+  step('Every component: Others (specify) is the last activity, needs a trimmed name of up to 160 characters, and no other activity takes one; every line has a reference code');
 
   // The database enforces the same rule.
   const insert = (workstream, activity, custom) => db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,custom_activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,$2,$3,$4,'OT raw',1,1,'NCB','Schools')", [planId, workstream, activity, custom]);

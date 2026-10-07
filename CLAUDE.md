@@ -156,6 +156,10 @@ Every activity-line component ends its list with an Others activity whose lines 
 - Never affected: Infrastructure documents (`infrastructureDocumentProblem`) and the RAT upload at plan creation. Monitoring proforma invoices were already optional.
 - Test: `node --env-file=.env scripts/test-documents-required.mjs [baseUrl]`; `test-quality-ict.mjs` and `test-teacher-development.mjs` switch the setting on for their run and restore it.
 
+## Line reference codes (migration 053)
+
+- Every budget line has a code like Sports lines (`UBEC/SUBEB/SPORT/066/2026 · Q1–Q4`): `activity_plan_lines.code` = `UBEC/SUBEB/<SBMC|TLM|MON|GSCCI|CURR|QA|ICT|TD|PRS>/<id, 3+ digits>/<plan period>`, `infrastructure_packages.code` = `UBEC/SUBEB/INFRA/...`. BEFORE INSERT triggers set it (`beapms_line_code`, `beapms_plan_period` mirrors `planPeriod()`), so save routes need nothing; it never changes afterwards. Shown in the workbook (Code column on every activity sheet and Teacher Development; Infrastructure already had one) and under each saved line in the editors. Snapshots carry it (`SELECT *`).
+
 ## Plan workbook comments (migration 028)
 
 Google-Sheets-style review comments on cells and whole rows of the review-page plan workbook. These are the state review chain's (`scope = 'state'`) rules; UBEC comments share the table and UI, see the next section.

@@ -86,9 +86,9 @@ function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc'
   const expandable = (line: NonNullable<Snapshot['sbmc']>[number]) => detailed && Boolean(line.equipment_type || line.subscription_types?.length || line.website_type || line.schools?.length || line.documents?.length || (key === 'ict' && [0, 3, 4].includes(line.activity)));
   return {
     key, label: activityTitles[key], hash: `review-${key}`, icon: activityIcons[key], itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: activityTitles[key],
-    columns: [text('activity', 'Allowable activity', 240, true), text('description', 'Description', 280), ...activityExtras(key), text('strategy', 'Strategy', 170, true), text('target', 'Target group', 170, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
+    columns: [text('activity', 'Allowable activity', 240, true), text('code', 'Code', 210), text('description', 'Description', 280), ...activityExtras(key), text('strategy', 'Strategy', 170, true), text('target', 'Target group', 170, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
     rows: lines.map(line => row(String(line.id), {
-      activity: activityLabel(key, line.activity, line.custom_activity), description: line.description,
+      activity: activityLabel(key, line.activity, line.custom_activity), code: line.code ?? '', description: line.description,
       ...activityExtraValues(key, line),
       strategy: line.strategy, target: line.target_group, timeline: quarters(line), quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
     }, expandable(line))),
@@ -101,9 +101,9 @@ function teacherSheet(lines: NonNullable<Snapshot['teachers']>, editHref?: strin
   const byId = new Map(lines.map(line => [String(line.id), line]));
   return {
     key: 'teachers', label: activityTitles.teachers, hash: 'review-teachers', icon: Presentation, itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: activityTitles.teachers,
-    columns: [text('activity', 'Allowable activity', 260, true), text('provider', 'Training provider', 240, true), text('participants', 'Target participants', 170, true), text('levels', 'School level', 150, true), qty('days', 'Training days'), text('venue', 'Venue', 110, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
+    columns: [text('activity', 'Allowable activity', 260, true), text('code', 'Code', 210), text('provider', 'Training provider', 240, true), text('participants', 'Target participants', 170, true), text('levels', 'School level', 150, true), qty('days', 'Training days'), text('venue', 'Venue', 110, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
     rows: lines.map(line => row(String(line.id), {
-      activity: activityLabel('teachers', line.activity, line.custom_activity), provider: line.training_provider ?? '', participants: line.target_participants ?? '',
+      activity: activityLabel('teachers', line.activity, line.custom_activity), code: line.code ?? '', provider: line.training_provider ?? '', participants: line.target_participants ?? '',
       levels: line.school_levels?.join(', ') ?? '', days: line.training_days ?? '', venue: line.venue_type ?? '', timeline: quarters(line), quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
     }, true)),
     detail: (id: string) => { const line = byId.get(id); return line ? <LineExtrasDetail workstream="teachers" line={line} /> : null; },
