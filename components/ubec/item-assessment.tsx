@@ -80,7 +80,7 @@ export function ItemAssessment({ planId, roundId, pillar, stage, snapshot, decis
                   {decision && <Tooltip><TooltipTrigger asChild><Button size="icon-sm" variant="ghost" aria-label="Clear decision" disabled={!!busy} onClick={() => void decide(item.rowRef, null)}><Undo2Icon /></Button></TooltipTrigger><TooltipContent className="soft-tip">Clear decision</TooltipContent></Tooltip>}
                 </>}
                 <Tooltip><TooltipTrigger asChild><Button size="icon-sm" variant="ghost" aria-label={`View ${item.title} in the workbook`} onClick={() => view(item.rowRef)}><EyeIcon /></Button></TooltipTrigger><TooltipContent className="soft-tip">View in the workbook</TooltipContent></Tooltip>
-                {canComment && <Tooltip><TooltipTrigger asChild><Button size="icon-sm" variant="ghost" aria-label={`Comment on ${item.title}`} onClick={() => view(item.rowRef, true)}><MessageSquarePlusIcon />{threads > 0 && <Badge className="ubec-item-thread-count">{threads}</Badge>}</Button></TooltipTrigger><TooltipContent className="soft-tip">Comment on this item</TooltipContent></Tooltip>}
+                {canComment && <Tooltip><TooltipTrigger asChild><Button size="icon-sm" variant="ghost" className="ubec-item-comment" aria-label={`Comment on ${item.title}`} onClick={() => view(item.rowRef, true)}><MessageSquarePlusIcon />{threads > 0 && <Badge className="ubec-item-thread-count">{threads}</Badge>}</Button></TooltipTrigger><TooltipContent className="soft-tip">Comment on this item</TooltipContent></Tooltip>}
               </div></TableCell>
             </TableRow>;
           })}</TableBody>
