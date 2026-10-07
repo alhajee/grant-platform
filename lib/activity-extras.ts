@@ -45,7 +45,7 @@ export const lineSchoolActivities: Partial<Record<string, readonly number[]>> = 
 export const hasLineSchools = (workstream: string, activity: number) => (lineSchoolActivities[workstream] ?? []).includes(activity);
 export const maxLineSchools = 2000;
 
-/** Activities whose lines need at least one uploaded document (PDF or Excel), and what it is called. */
+/** Activities whose lines take uploaded documents (PDF or Excel), and what they are called. Required before sending only while the Super Admin setting is on (migration 052). */
 export const lineDocumentLabels: Partial<Record<string, Record<number, string>>> = {
   ict: { 0: 'Specification document', 3: 'Supporting document', 4: 'Bill of Quantities' },
 };

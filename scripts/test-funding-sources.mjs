@@ -64,7 +64,8 @@ try {
   const url = `/api/activities?plan=${created.id}&workstream=sbmc`;
   const ceiling = sbmcShare + kobo('3000');
   ok(await api('social', url, { ...line, unitCost: (ceiling + 1) / 100 }), 400);
-  ok(await api('social', url, { ...line, unitCost: (ceiling - 100) / 100 }));
+  // Timeline Q2 only, so the period edit below (Q1–Q2 → Q2–Q3) keeps every quarter a line uses (migration 050).
+  ok(await api('social', url, { ...line, unitCost: (ceiling - 100) / 100, quarters: [2] }));
   const dashboard = ok(await api('chair', '/api/plans'));
   assert.equal(dashboard.plans[0].fundingSources.length, 1); assert.equal(dashboard.plans[0].fundingTotal, '23000.00');
 

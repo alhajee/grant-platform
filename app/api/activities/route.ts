@@ -15,6 +15,9 @@ import { lineSchoolActivities } from '@/lib/activity-extras';
 import { readLineExtras, saveLineSchools } from '@/lib/activity-line-extras';
 import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
 import { readPoolState } from '@/lib/infrastructure-pool-db';
+import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
+import { resolveLineQuarters } from '@/lib/line-quarters';
+import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 class LineSchoolsError extends Error {}
 export async function GET(req:NextRequest){
@@ -25,7 +28,7 @@ export async function GET(req:NextRequest){
   const db=getPostgres(), workstream=parsed.data;
   if(!canViewComponent(user,workstream))return error('This component belongs to another department.',403);
   if(!(await readStageVisibility(db,user,plan.id)).includes(workstream))return error(notSentYetMessage,403);
-  const lines=(await db.query('SELECT id,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject",equipment_type AS "equipmentType",subscription_types AS "subscriptionTypes",website_type AS "websiteType",training_provider AS "trainingProvider",target_participants AS "targetParticipants",school_levels AS "schoolLevels",training_days AS "trainingDays",venue_type AS "venueType" FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
+  const lines=(await db.query('SELECT id,code,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject",equipment_type AS "equipmentType",subscription_types AS "subscriptionTypes",website_type AS "websiteType",training_provider AS "trainingProvider",target_participants AS "targetParticipants",school_levels AS "schoolLevels",training_days AS "trainingDays",venue_type AS "venueType",quarters FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
   // Quality Assurance, ICT and Teacher Development lines carry their chosen schools and documents (migrations 038, 040).
   const extras=await readLineExtras(db,plan.id,workstream);
   const withExtras=lines.map(line=>{const schools=extras.schools.get(line.id)??[];return {...line,schools,schoolIds:schools.map(s=>s.id),documents:extras.documents.get(line.id)??[]};});
@@ -41,7 +44,7 @@ export async function GET(req:NextRequest){
   // TLM shares the infrastructure pool with Infrastructure's school packages, so its editor sees their total too.
   const partnerProposed=sharedPartner?(await db.query<{total:string}>('SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2',[plan.id,sharedPartner])).rows[0].total
    :workstream==='tlm'?(await db.query<{total:string}>('SELECT COALESCE(SUM(total_cost),0)::text AS total FROM infrastructure_packages WHERE plan_id=$1',[plan.id])).rows[0].total:null;
-  return NextResponse.json({plan,lines:withExtras,schools,distribution,renovated,documents,partnerProposed,canEdit:mayEditPillar(user.role,user.departments ?? user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({plan,lines:withExtras,schools,distribution,renovated,documents,partnerProposed,documentsRequired:await readComponentDocumentsRequired(db),canEdit:mayEditPillar(user.role,user.departments ?? user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load this component.',503);}
 }
 export async function POST(req:NextRequest){
@@ -76,7 +79,9 @@ export async function POST(req:NextRequest){
     else{
      const line=activityLineSchema.safeParse(body); if(!line.success)return error(line.error.issues[0].message);
      if(line.data.workstream!==workstream)return error('Invalid action.');
-     const v=line.data, values=[v.activity,v.customActivity,v.description,v.quantity,v.unitCost.toFixed(2),v.strategy,v.targetGroup,v.location,v.equipment,v.rationale,v.implementationApproach,v.textbookClasses,v.textbookSubject,v.equipmentType,v.subscriptionTypes,v.websiteType,v.trainingProvider,v.targetParticipants,v.schoolLevels,v.trainingDays,v.venueType];
+     // Timeline: within the plan's quarters, read under the plan lock; a client that sends none gets the plan's (migration 050).
+     const timeline=resolveLineQuarters(line.data.quarters,await readPlanQuarterSetup(db,plan.id)); if(timeline.problem)return error(timeline.problem);
+     const v=line.data, values=[v.activity,v.customActivity,v.description,v.quantity,v.unitCost.toFixed(2),v.strategy,v.targetGroup,v.location,v.equipment,v.rationale,v.implementationApproach,v.textbookClasses,v.textbookSubject,v.equipmentType,v.subscriptionTypes,v.websiteType,v.trainingProvider,v.targetParticipants,v.schoolLevels,v.trainingDays,v.venueType,timeline.quarters];
      if(workstream==='sbmc') {
       const existing=(await db.query("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='sbmc' AND ($2::bigint IS NULL OR id<>$2)",[plan.id,action==='update'?id:null])).rows[0].total;
       const problem=sbmcBudgetProblem(budgetKobo(existing)+budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity),plan);
@@ -99,8 +104,8 @@ export async function POST(req:NextRequest){
       if(problem)return error(problem);
      }
      const lineId=action==='create'
-      ?(await db.query<{id:number}>('INSERT INTO activity_plan_lines(activity,custom_activity,description,quantity,unit_cost,strategy,target_group,location,equipment,rationale,implementation_approach,textbook_classes,textbook_subject,equipment_type,subscription_types,website_type,training_provider,target_participants,school_levels,training_days,venue_type,plan_id,workstream) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING id',[...values,plan.id,workstream])).rows[0].id
-      :(await db.query('UPDATE activity_plan_lines SET activity=$1,custom_activity=$2,description=$3,quantity=$4,unit_cost=$5,strategy=$6,target_group=$7,location=$8,equipment=$9,rationale=$10,implementation_approach=$11,textbook_classes=$12,textbook_subject=$13,equipment_type=$14,subscription_types=$15,website_type=$16,training_provider=$17,target_participants=$18,school_levels=$19,training_days=$20,venue_type=$21,updated_at=NOW() WHERE id=$22 AND plan_id=$23',[...values,id,plan.id]),id!);
+      ?(await db.query<{id:number}>('INSERT INTO activity_plan_lines(activity,custom_activity,description,quantity,unit_cost,strategy,target_group,location,equipment,rationale,implementation_approach,textbook_classes,textbook_subject,equipment_type,subscription_types,website_type,training_provider,target_participants,school_levels,training_days,venue_type,quarters,plan_id,workstream) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING id',[...values,plan.id,workstream])).rows[0].id
+      :(await db.query('UPDATE activity_plan_lines SET activity=$1,custom_activity=$2,description=$3,quantity=$4,unit_cost=$5,strategy=$6,target_group=$7,location=$8,equipment=$9,rationale=$10,implementation_approach=$11,textbook_classes=$12,textbook_subject=$13,equipment_type=$14,subscription_types=$15,website_type=$16,training_provider=$17,target_participants=$18,school_levels=$19,training_days=$20,venue_type=$21,quarters=$22,updated_at=NOW() WHERE id=$23 AND plan_id=$24',[...values,id,plan.id]),id!);
      // Line schools must be in the plan's state; a failure here rolls back the whole save.
      if(!(await saveLineSchools(db,lineId,v.schoolIds,user.stateCode)))throw new LineSchoolsError();
      return NextResponse.json({ok:true,id:lineId});

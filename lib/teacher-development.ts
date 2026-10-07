@@ -38,12 +38,13 @@ export const teacherActivityInfo: Record<number, string> = {
 
 export const trainingProviders = ['Government-accredited Teacher Training Institutions', 'Special training provider approved by UBEC', 'International Development Partners'] as const;
 export const targetParticipants = ['Headteachers/Principals', 'Teachers', 'Education managers'] as const;
-export const trainingSchoolLevels = ['ECCDE', 'Primary', 'JSS'] as const;
+/** School levels a training covers; SUBEB is for training SUBEB staff rather than school staff (migration 054). */
+export const trainingSchoolLevels = ['ECCDE', 'Primary', 'JSS', 'SUBEB'] as const;
 export const venueTypes = ['Hall', 'Classroom'] as const;
 export const minTrainingDays = 3;
 export const maxTrainingDays = 365;
 
-/** Every Teacher Development line needs at least one supporting document (PDF or Excel). */
+/** Every Teacher Development line takes supporting documents (PDF or Excel); required only while the Super Admin setting is on (migration 052). */
 export const teacherDocumentLabel = 'Supporting documents';
 export const teacherDocumentHint = 'MoU with training providers, training list for teachers, proof of SSO, proof of Instructional Leads selection, pre-test and post-test items, budget breakdown';
 
