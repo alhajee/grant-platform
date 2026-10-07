@@ -3,8 +3,8 @@ import { z } from "zod";
 // The four UBEC sports budget sections (QA UBEC18) with their indicative share
 // of the sports allocation. Shares are guidance only and are not enforced.
 export const sportsSections = [
-  { id: "equipment", label: "Procurement of Sports Equipment", shortLabel: "Equipment", share: 60, typeLabel: "Sport", itemLabel: "Item", placeholder: "Choose a sport or type another…" },
-  { id: "competitions", label: "Sports Competitions", shortLabel: "Competitions", share: 20, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose a competition…" },
+  { id: "equipment", label: "Procurement & Training of PHE Officers", shortLabel: "Procurement & PHE training", share: 60, typeLabel: "Sport", itemLabel: "Item", placeholder: "Choose a sport or type another…" },
+  { id: "competitions", label: "Sports Competitions", shortLabel: "Competitions", share: 30, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose a competition…" },
   { id: "publicity", label: "Publicity & Administration", shortLabel: "Publicity & admin", share: 5, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose an activity…" },
   { id: "supervision", label: "Supervision, Assessment and Verification", shortLabel: "Supervision", share: 5, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "" },
 ] as const;

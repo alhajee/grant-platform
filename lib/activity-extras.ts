@@ -19,6 +19,8 @@ export const subscriptionGroups: { label: string | null; types: readonly (typeof
   { label: null, types: ['Fibre'] },
 ];
 export const websiteTypes = ['Maintenance – renewal', 'Maintenance – redesign', 'Development (new)'] as const;
+/** Equipment, website and subscription types are suggestions: "Others (specify)" lets the user type one that is not listed. */
+export const maxTypeNameLength = 100;
 
 /** QA activity whose lines record the equipment type. */
 export const qualityEquipmentActivity = 0;

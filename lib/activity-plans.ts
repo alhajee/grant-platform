@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ictActivityNames, planningActivityNames, qualityActivityNames, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, qualityEquipmentActivity, subscriptionTypes, websiteTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
+import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, qualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
 import { maxActivityNameLength, othersActivityName, teacherActivityInfo, teacherActivityNames } from './teacher-development.ts';
 import { teacherTrainingIssues, teacherTrainingShape } from './teacher-training-schema.ts';
 export { maxActivityNameLength, othersActivityName };
@@ -89,9 +89,10 @@ export const activityLineSchema = z.object({
   customActivity: z.string().trim().max(maxActivityNameLength, `Use up to ${maxActivityNameLength} characters for the activity name.`).default(''),
   textbookClasses: z.array(z.enum(textbookClasses)).max(textbookClasses.length).default([]),
   textbookSubject: z.string().max(100).default(''),
-  equipmentType: z.string().max(100).default(''),
-  subscriptionTypes: z.array(z.enum(subscriptionTypes)).max(subscriptionTypes.length).default([]),
-  websiteType: z.string().max(100).default(''),
+  // Listed values or, through "Others (specify)", whatever the user types (lib/activity-extras.ts).
+  equipmentType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters.`).default(''),
+  subscriptionTypes: z.array(z.string().trim().min(1, 'Enter the subscription name.').max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters.`)).max(subscriptionTypes.length + 1).default([]),
+  websiteType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters.`).default(''),
   schoolIds: z.array(z.number().int().positive()).max(maxLineSchools, `Choose up to ${maxLineSchools.toLocaleString()} schools.`).default([]),
   ...teacherTrainingShape,
 }).superRefine((v,ctx)=>{
@@ -102,14 +103,15 @@ export const activityLineSchema = z.object({
   if(training&&(v.strategy||v.targetGroup))ctx.addIssue({code:'custom',path:['strategy'],message:'Implementation strategy and target group do not apply to Teacher Development.'});
   for(const issue of teacherTrainingIssues(v))ctx.addIssue({code:'custom',...issue});
   const needsEquipment=v.workstream==='quality'&&v.activity===qualityEquipmentActivity;
-  if(needsEquipment&&!equipmentTypes.some(t=>t===v.equipmentType))ctx.addIssue({code:'custom',path:['equipmentType'],message:'Choose the equipment type.'});
+  if(needsEquipment&&!v.equipmentType)ctx.addIssue({code:'custom',path:['equipmentType'],message:'Choose or enter the equipment type.'});
   if(!needsEquipment&&v.equipmentType)ctx.addIssue({code:'custom',path:['equipmentType'],message:'Equipment type only applies to Mobility and Office Equipment.'});
   const needsSubscriptions=v.workstream==='ict'&&v.activity===ictSubscriptionActivity;
   if(needsSubscriptions&&!v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Choose at least one subscription type.'});
   if(!needsSubscriptions&&v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Subscription types only apply to internet subscriptions.'});
-  if(new Set(v.subscriptionTypes).size!==v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Choose each subscription type once.'});
+  if(v.subscriptionTypes.filter(t=>!(subscriptionTypes as readonly string[]).includes(t)).length>1)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Enter one other subscription.'});
+  if(new Set(v.subscriptionTypes.map(t=>t.toLowerCase())).size!==v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Choose each subscription type once.'});
   const needsWebsite=v.workstream==='ict'&&v.activity===ictWebsiteActivity;
-  if(needsWebsite&&!websiteTypes.some(t=>t===v.websiteType))ctx.addIssue({code:'custom',path:['websiteType'],message:'Choose the website type.'});
+  if(needsWebsite&&!v.websiteType)ctx.addIssue({code:'custom',path:['websiteType'],message:'Choose or enter the website type.'});
   if(!needsWebsite&&v.websiteType)ctx.addIssue({code:'custom',path:['websiteType'],message:'Website type only applies to the website activity.'});
   const needsSchools=hasLineSchools(v.workstream,v.activity);
   if(needsSchools&&!v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose at least one school.'});

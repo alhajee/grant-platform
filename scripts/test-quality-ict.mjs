@@ -72,7 +72,11 @@ try {
   fails(await api('ict', url('quality'), line('quality', 1, 100)), 403);
   fails(await api('qa', url('quality'), line('quality', 12, 100)), 400, /valid allowable activity/);
   fails(await api('qa', url('quality'), line('quality', 0, 100)), 400, /equipment type/);
-  fails(await api('qa', url('quality'), line('quality', 0, 100, { equipmentType: 'Bicycles' })), 400, /equipment type/);
+  // Others (specify): a typed equipment type is kept as typed.
+  const typed = ok(await api('qa', url('quality'), line('quality', 0, 100, { equipmentType: ' Bicycles ' })));
+  assert.equal(ok(await api('qa', url('quality'))).lines.find(l => l.id === typed.id).equipmentType, 'Bicycles');
+  ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: typed.id }));
+  fails(await api('qa', url('quality'), line('quality', 0, 100, { equipmentType: 'x'.repeat(101) })), 400);
   fails(await api('qa', url('quality'), line('quality', 1, 100, { equipmentType: 'Vehicles' })), 400, /only applies/);
   const equipment = ok(await api('qa', url('quality'), line('quality', 0, 2500000, { equipmentType: 'Motorcycles', quantity: 4 })));
   assert.ok(Number.isInteger(equipment.id));
@@ -116,10 +120,11 @@ try {
   fails(await api('ict', url('ict'), { ...line('ict', 2, 20000000.5, { schoolIds: [schoolA] }), action: 'update', id: smart.id }), 400, /₦30,000,000\.00/);
   ok(await api('ict', url('ict'), { ...line('ict', 2, 15000000, { schoolIds: [schoolA] }), action: 'update', id: smart.id }));
   fails(await api('ict', url('ict'), line('ict', 5, 100)), 400, /subscription type/);
-  fails(await api('ict', url('ict'), line('ict', 5, 100, { subscriptionTypes: ['Starlink', 'Smile'] })), 400);
-  ok(await api('ict', url('ict'), line('ict', 5, 500000, { subscriptionTypes: ['Starlink', 'MTN', 'Fibre'] })));
+  fails(await api('ict', url('ict'), line('ict', 5, 100, { subscriptionTypes: ['Starlink', 'Smile', 'Spectranet'] })), 400, /one other subscription/);
+  fails(await api('ict', url('ict'), line('ict', 5, 100, { subscriptionTypes: ['Starlink', ' '] })), 400);
+  ok(await api('ict', url('ict'), line('ict', 5, 500000, { subscriptionTypes: ['Starlink', 'MTN', 'Fibre', 'Smile'] })));
   fails(await api('ict', url('ict'), line('ict', 6, 100)), 400, /website type/);
-  ok(await api('ict', url('ict'), line('ict', 6, 400000, { websiteType: 'Maintenance – redesign' })));
+  ok(await api('ict', url('ict'), line('ict', 6, 400000, { websiteType: 'Hosting only' })));
   const spec = ok(await api('ict', url('ict'), line('ict', 0, 1000000)));
   const connect = ok(await api('ict', url('ict'), line('ict', 3, 300000)));
   const dlc = ok(await api('ict', url('ict'), line('ict', 4, 2000000, { schoolIds: [schoolB] })));
@@ -128,8 +133,8 @@ try {
   let ict = ok(await api('ict', url('ict')));
   assert.equal(ict.lines.length, 8);
   assert.deepEqual(ict.lines.find(l => l.id === smart.id).schools.map(s => s.id), [schoolA]);
-  assert.deepEqual(ict.lines.find(l => l.activity === 5).subscriptionTypes, ['Starlink', 'MTN', 'Fibre']);
-  assert.equal(ict.lines.find(l => l.activity === 6).websiteType, 'Maintenance – redesign');
+  assert.deepEqual(ict.lines.find(l => l.activity === 5).subscriptionTypes, ['Starlink', 'MTN', 'Fibre', 'Smile']);
+  assert.equal(ict.lines.find(l => l.activity === 6).websiteType, 'Hosting only');
   assert.ok(ict.schools.some(s => s.id === schoolA) && !ict.schools.some(s => s.id === foreign));
   fails(await allocate('ict', '20000000'), 409, /already propose/);
   step('ICT lines: line schools limited to the state, ₦30M Model Smart Schools cap, subscriptions, website type, ceiling');

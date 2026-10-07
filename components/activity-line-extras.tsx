@@ -12,7 +12,8 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { compulsoryActivities, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, lineDocumentAccept, lineDocumentLabel, qualityEquipmentActivity, subscriptionGroups, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { compulsoryActivities, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, lineDocumentAccept, lineDocumentLabel, maxTypeNameLength, qualityEquipmentActivity, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
 import { teacherDocumentHint } from '@/lib/teacher-development';
@@ -43,18 +44,43 @@ export function CompulsoryChecklist({ workstream, lines }: { workstream: Activit
   return <Alert className="activity-compulsory"><CircleAlertIcon /><AlertTitle>Required before sending · {missing.length} missing</AlertTitle><AlertDescription><ul>{compulsoryNames(workstream, missing).map(name => <li key={name}>{name}</li>)}</ul></AlertDescription></Alert>;
 }
 
+const otherValue = '__other__';
+
+/** A listed type or, through "Others (specify)", one the user types. The typed name is stored as the value. */
+function TypeSelect({ id, label, options, value, onChange }: { id: string; label: string; options: readonly string[]; value: string; onChange: (value: string) => void }) {
+  const listed = options.includes(value);
+  const [other, setOther] = useState(Boolean(value) && !listed);
+  const showOther = other || (Boolean(value) && !listed);
+  return <Field><FieldLabel htmlFor={id}>{label} {required}</FieldLabel>
+    <NativeSelect id={id} required value={showOther ? otherValue : value} onChange={e => { const next = e.target.value; setOther(next === otherValue); onChange(next === otherValue ? '' : next); }}>
+      <NativeSelectOption value="">Choose…</NativeSelectOption>{options.map(t => <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>)}<NativeSelectOption value={otherValue}>{othersActivityName}</NativeSelectOption>
+    </NativeSelect>
+    {showOther && <Input id={`${id}-other`} aria-label={`Other ${label.toLowerCase()}`} required autoFocus maxLength={maxTypeNameLength} placeholder={`Enter the ${label.toLowerCase()}`} value={value} onChange={e => onChange(e.target.value)} />}
+  </Field>;
+}
+
+/** Subscription checkboxes plus "Others (specify)" for one subscription that is not listed. */
+function SubscriptionFields({ value, onChange }: { value: string[]; onChange: (value: string[]) => void }) {
+  const listed = value.filter(t => (subscriptionTypes as readonly string[]).includes(t)), typed = value.find(t => !(subscriptionTypes as readonly string[]).includes(t)) ?? '';
+  const [other, setOther] = useState(Boolean(typed));
+  const showOther = other || Boolean(typed);
+  const set = (nextListed: string[], nextTyped: string) => onChange([...nextListed, ...(nextTyped ? [nextTyped] : [])]);
+  const toggle = (type: string, on: boolean) => set(on ? [...new Set([...listed, type])] : listed.filter(t => t !== type), typed);
+  const box = (type: string) => <label key={type} className="subscription-option"><Checkbox checked={listed.includes(type)} onCheckedChange={v => toggle(type, v === true)} aria-label={type} /><span>{type}</span></label>;
+  return <FieldSet className="subscription-types"><FieldLegend variant="label">Subscription types {required}</FieldLegend><FieldDescription>Choose at least one.</FieldDescription>
+    <div className="subscription-grid">{subscriptionGroups.map((group, i) => group.label ? <div key={i} className="subscription-group" role="group" aria-label={group.label}><span>{group.label}</span><div>{group.types.map(box)}</div></div> : group.types.map(box))}
+      <label className="subscription-option"><Checkbox checked={showOther} onCheckedChange={v => { setOther(v === true); if (v !== true) set(listed, ''); }} aria-label={othersActivityName} /><span>{othersActivityName}</span></label>
+    </div>
+    {showOther && <Input aria-label="Other subscription" autoFocus maxLength={maxTypeNameLength} placeholder="Enter the subscription (e.g. provider or service)" value={typed} onChange={e => set(listed, e.target.value.trimStart())} />}
+  </FieldSet>;
+}
+
 /** Equipment type, subscription types and website type for the activities that ask for them. */
 export function LineExtraFields({ workstream, draft, onChange }: { workstream: ActivityWorkstream; draft: ExtraDraft; onChange: (next: Partial<ExtraDraft>) => void }) {
   const activity = Number(draft.activity);
-  if (workstream === 'quality' && activity === qualityEquipmentActivity) return <Field><FieldLabel htmlFor="equipmentType">Equipment type {required}</FieldLabel><NativeSelect id="equipmentType" required value={draft.equipmentType} onChange={e => onChange({ equipmentType: e.target.value })}><NativeSelectOption value="">Choose…</NativeSelectOption>{equipmentTypes.map(t => <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>)}</NativeSelect></Field>;
-  if (workstream === 'ict' && activity === ictWebsiteActivity) return <Field><FieldLabel htmlFor="websiteType">Website type {required}</FieldLabel><NativeSelect id="websiteType" required value={draft.websiteType} onChange={e => onChange({ websiteType: e.target.value })}><NativeSelectOption value="">Choose…</NativeSelectOption>{websiteTypes.map(t => <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>)}</NativeSelect></Field>;
-  if (workstream === 'ict' && activity === ictSubscriptionActivity) {
-    const toggle = (type: string, on: boolean) => onChange({ subscriptionTypes: on ? [...new Set([...draft.subscriptionTypes, type])] : draft.subscriptionTypes.filter(t => t !== type) });
-    const box = (type: string) => <label key={type} className="subscription-option"><Checkbox checked={draft.subscriptionTypes.includes(type)} onCheckedChange={v => toggle(type, v === true)} aria-label={type} /><span>{type}</span></label>;
-    return <FieldSet className="subscription-types"><FieldLegend variant="label">Subscription types {required}</FieldLegend><FieldDescription>Choose at least one.</FieldDescription>
-      <div className="subscription-grid">{subscriptionGroups.map((group, i) => group.label ? <div key={i} className="subscription-group" role="group" aria-label={group.label}><span>{group.label}</span><div>{group.types.map(box)}</div></div> : group.types.map(box))}</div>
-    </FieldSet>;
-  }
+  if (workstream === 'quality' && activity === qualityEquipmentActivity) return <TypeSelect id="equipmentType" label="Equipment type" options={equipmentTypes} value={draft.equipmentType} onChange={equipmentType => onChange({ equipmentType })} />;
+  if (workstream === 'ict' && activity === ictWebsiteActivity) return <TypeSelect id="websiteType" label="Website type" options={websiteTypes} value={draft.websiteType} onChange={websiteType => onChange({ websiteType })} />;
+  if (workstream === 'ict' && activity === ictSubscriptionActivity) return <SubscriptionFields value={draft.subscriptionTypes} onChange={subscriptionTypes => onChange({ subscriptionTypes })} />;
   return null;
 }
 
