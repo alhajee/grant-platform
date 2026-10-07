@@ -1,13 +1,12 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from 'react';
-import { CheckIcon, LockKeyholeIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Field, FieldGroup, FieldSet, FieldLegend, FieldLabel, FieldDescription, FieldError } from '@/components/ui/field';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { QuarterTimeline } from '@/components/quarter-timeline';
 import { Spinner } from '@/components/ui/spinner';
 import { CurrencyInput } from '@/components/currency-input';
 import { FileUpload, DocumentFiles } from '@/components/document-files';
@@ -41,7 +40,7 @@ function FundingSummaryArtwork() {
 export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: string; plans: PlanOverview[]; onClose: () => void }) {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [implementation, setImplementation] = useState(year);
-  const [quarters, setQuarters] = useState<string[]>([]);
+  const [quarters, setQuarters] = useState<number[]>([]);
   const [lodgment, setLodgment] = useState('');
   const [sources, setSources] = useState<DraftSource[]>([]);
   const [files, setFiles] = useState<File[]>([]);
@@ -55,7 +54,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
   const sourceErrors = draftSourceErrors(sources);
   const total = /^\d{0,13}(\.\d{0,2})?$/.test(lodgment) ? fundingTotal(lodgment || '0', other) : '0';
   const displayedTotal = money.format(Number(total));
-  const setupInput = () => ({ planningYear: Number(year), implementationYear: Number(implementation), quarters: quarters.map(Number), stateLodgment: lodgment, fundingSources });
+  const setupInput = () => ({ planningYear: Number(year), implementationYear: Number(implementation), quarters, stateLodgment: lodgment, fundingSources });
   const setupReady = planSetupSchema.safeParse(setupInput()).success && !Object.keys(sourceErrors).length;
   const ratReady = files.length > 0 && files.length <= 3 && files.every(file => isRatSpreadsheet(file.name) && file.size > 0 && file.size <= maxRatFileBytes) && files.reduce((sum, file) => sum + file.size, 0) <= maxRatTotalBytes;
   const canSubmit = setupReady && ratReady;
@@ -131,25 +130,10 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
           <FieldGroup className="gap-3">
             <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>Plan period</FieldLegend><FieldGroup className="gap-3">
               <FieldGroup className="grid gap-3 sm:grid-cols-2">
-                <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year <RequiredMark /><FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} required aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(Number(n)))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
+                <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year <RequiredMark /><FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} required aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(n))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
                 <Field data-invalid={!!implementationError}><FieldLabel htmlFor="implementation-year">Implementation year <RequiredMark /><FieldHelp>The year the funded activities are expected to be carried out.</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} required aria-invalid={!!implementationError} onChange={e => { setImplementation(e.target.value); setErrors(current => ({ ...current, implementationYear: '' })); }} />{implementationError && <FieldError>{implementationError}</FieldError>}</Field>
               </FieldGroup>
-              <Field data-invalid={!!errors.quarters}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <FieldLabel id="quarters-label">Quarters <RequiredMark /><FieldHelp>Select every quarter covered by this plan. Locked quarters already belong to another plan.</FieldHelp></FieldLabel>
-                  {occupied.size < 4 && <Button type="button" variant="ghost" size="sm" className="quarter-select-all" disabled={saving} onClick={() => setQuarters(quarters.length === 4 - occupied.size ? [] : [1,2,3,4].filter(q => !occupied.has(q)).map(String))}>{quarters.length > 0 && quarters.length === 4 - occupied.size ? 'Clear' : occupied.size ? 'Select available' : 'Select all'}</Button>}
-                </div>
-                <ToggleGroup type="multiple" variant="outline" spacing={2} value={quarters} onValueChange={value => setQuarters(value.sort())} aria-labelledby="quarters-label" aria-describedby="quarter-guidance" aria-required="true" aria-invalid={!!errors.quarters} className="plan-quarter-grid" disabled={saving}>
-                  {[1, 2, 3, 4].map(q => {
-                    const taken = occupied.has(q); const selected = quarters.includes(String(q));
-                    return <ToggleGroupItem key={q} value={String(q)} className="plan-quarter" disabled={taken} aria-label={`Quarter ${q}${taken ? ', already assigned' : ''}`}>
-                      <span className="quarter-top"><span className="quarter-number">Q{q}</span><span className="quarter-indicator">{taken ? <LockKeyholeIcon /> : selected ? <CheckIcon /> : null}</span></span>
-                    </ToggleGroupItem>;
-                  })}
-                </ToggleGroup>
-                <FieldDescription id="quarter-guidance" className="quarter-guidance" aria-live="polite">{occupied.size === 4 ? 'All quarters are in another plan. Choose a different funding year.' : quarters.length ? `${quarters.length} ${quarters.length === 1 ? 'quarter' : 'quarters'} selected · ${quarters.length * 3} months` : 'Choose one or more quarters.'}</FieldDescription>
-                {errors.quarters && <FieldError>{errors.quarters}</FieldError>}
-              </Field>
+              <QuarterTimeline id="quarters" label="Quarters" required help="Select every quarter covered by this plan. Locked quarters already belong to another plan." value={quarters} onChange={setQuarters} locked={[...occupied]} lockedReason="already assigned" disabled={saving} error={errors.quarters || undefined} noneAvailableMessage="All quarters are in another plan. Choose a different funding year." />
             </FieldGroup></FieldSet>
             <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding amounts</FieldLegend><FieldGroup className="gap-3">
               <Field data-invalid={!!errors.stateLodgment} className="md:max-w-[calc(50%-6px)]"><FieldLabel htmlFor="state-lodgment">State counterpart fund (₦) <RequiredMark /><FieldHelp>The amount paid by the state. UBEC adds the same amount, and both are shared across components by the funding policy.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} required aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>

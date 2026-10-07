@@ -1,0 +1,34 @@
+/* QuarterTimeline (components/quarter-timeline.tsx): the Q1–Q4 picker of the plan dialogs and every component line form. */
+.quarter-timeline .plan-quarter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 8px; }
+.quarter-timeline .plan-quarter {
+  display: flex; flex-direction: column; align-items: stretch; justify-content: center;
+  height: auto; min-height: 52px; padding: 10px 11px; gap: 4px; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--card); color: var(--foreground); text-align: left;
+  box-shadow: 0 2px 3px rgb(0 40 35 / 3%); white-space: normal;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+.quarter-timeline .quarter-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.quarter-timeline .quarter-number { font-size: 18px; line-height: 1; font-weight: 650; letter-spacing: -.5px; }
+.quarter-timeline .quarter-indicator { display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid var(--border); border-radius: 50%; color: var(--primary); }
+.quarter-timeline .quarter-indicator svg { width: 10px; height: 10px; }
+.quarter-timeline .plan-quarter[data-state="on"] { background: #edf4e7; border-color: #709781; box-shadow: inset 0 0 0 1px #709781; color: #004740; }
+.quarter-timeline .plan-quarter[data-state="on"] .quarter-indicator { background: #004740; border-color: #004740; color: white; }
+.quarter-timeline .plan-quarter:disabled { opacity: 1; background: #f5f6f5; color: #88918e; box-shadow: none; border-style: dashed; cursor: not-allowed; }
+.quarter-timeline .plan-quarter:disabled .quarter-indicator { border: 0; color: #88918e; }
+/* Selected but locked or outside the plan: still clickable so it can be cleared, flagged in the destructive colour. */
+.quarter-timeline .plan-quarter[data-outside] { border-color: var(--destructive); box-shadow: inset 0 0 0 1px var(--destructive); }
+.quarter-timeline .quarter-select-all { height: 24px; padding-inline: 7px; font-size: 11px; color: var(--primary); }
+.quarter-timeline .quarter-guidance { font-size: 11px; line-height: 1.35; margin-top: 0; }
+@media (hover: hover) {
+  .quarter-timeline .plan-quarter:not(:disabled):hover { background: #e5eee1; border-color: #709781; }
+}
+.quarter-timeline .plan-quarter:not(:disabled):active { transform: scale(.98); }
+@media (prefers-reduced-motion: reduce) { .quarter-timeline .plan-quarter { transition: none; } }
+@media (max-width: 600px) {
+  .quarter-timeline[data-size="default"] .plan-quarter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* Compact: the line forms of the component editors. */
+.quarter-timeline[data-size="compact"] .plan-quarter { min-height: 40px; padding: 7px 10px; border-radius: 10px; }
+.quarter-timeline[data-size="compact"] .quarter-number { font-size: 15px; }
+.quarter-timeline[data-size="compact"] .quarter-indicator { width: 16px; height: 16px; }
+.quarter-badge { font-variant-numeric: tabular-nums; white-space: nowrap; }

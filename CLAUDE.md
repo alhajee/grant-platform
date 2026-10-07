@@ -129,6 +129,17 @@ Pillar and component `planning` (state department `planning`, UBEC lead departme
 - Migration 041 widens the `activity_plan_lines` workstream/activity, `plan_pillar_reviews`, `plan_comments` pillar/sheet and `plan_funding_sources` component CHECKs (additive, idempotent).
 - Test: `node --env-file=.env scripts/test-planning.mjs [baseUrl]` (throwaway state, users and plan; cleans up).
 
+## Line timeline (migration 050)
+
+Every component line has a **Timeline**: the quarters it is implemented in. `quarters SMALLINT[] NOT NULL` on `activity_plan_lines`, `sports_budget_lines` and `infrastructure_packages` (CHECK `beapms_valid_quarters`: 1-4 values, each 1-4, no repeats/NULLs). Rules in `lib/line-quarters.ts`, DB helpers in `lib/line-quarters-db.ts`.
+
+- UI: `components/quarter-timeline.tsx` (`QuarterTimeline`, the shadcn ToggleGroup Q1–Q4 picker, CSS in `quarter-timeline.css`; also used by the Create and Edit plan dialogs, with `locked` = quarters of another plan) and `QuarterBadge` for saved lines. Line forms use `size="compact"` with `available` = the plan's quarters (others locked). A new line starts with all of the plan's quarters (`planQuarters`; a legacy plan without quarters = Q1–Q4). Shown in: the shared activity editor (SBMC, TLM, Monitoring, GSCCI, Curriculum, QA, ICT, Teacher Development, Planning), the sports budget form and preview, the infrastructure package School step and the Saved packages table, and a `timeline` "Timeline" column on every line sheet of the workbook (`components/plan-workbook/sheets.tsx`, `commentColumns`). `formatQuarters` (`lib/format-quarters.ts`) prints `Q1–Q3` / `Q1, Q3`.
+- Validation: `lineQuartersSchema` in `activityLineSchema`, `sportsLineSchema` and `packageSchema` (non-empty, 1-4, no repeats); the APIs check the subset of the plan's quarters after `mutatePlan`'s plan lock (`resolveLineQuarters` + `readPlanQuarterSetup`), 400 otherwise. Backward compatibility: the field is optional in the payload; a save without `quarters` gets the plan's quarters (API) and a DB trigger fills a missing value the same way. An empty list is refused.
+- Snapshots: activity and sports lines carry `quarters` (`SELECT *`/`to_jsonb`); infrastructure items carry `quarters` (column, also kept in the package `input`). Older submissions have none (blank Timeline cell).
+- Plan edits (`app/api/plans/setup/route.ts`, `components/edit-plan-dialog.tsx`): removing a quarter that lines use is refused with 409 ("N lines use Q3 in their timelines…", `quarterRemovalProblem`); GET returns `quarterUsage` so the dialog shows it first.
+- Migration 050 backfilled every existing line with its plan's quarters (idempotent).
+- Test: `node --env-file=.env scripts/test-line-quarters.mjs [baseUrl]` (throwaway state, users and plan; cleans up).
+
 ## Others (specify) activities (migration 047)
 
 Every activity-line component ends its list with an Others activity whose lines name their own activity (`activity_plan_lines.custom_activity`, field "Activity name"): SBMC 16, Supervision & Monitoring 4, GSCCI 9, Curriculum 4, Quality Assurance 11, ICT 9, Planning 6 (`othersActivityName`), plus the existing TLM 22 "Other TLMs" and Teacher Development 18. Always appended last, so earlier indexes keep their meaning.

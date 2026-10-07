@@ -9,12 +9,14 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { QuarterTimeline } from "@/components/quarter-timeline";
 import { equipmentSports, findSport, isOtherSubActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, supervisionActivity, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
-export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; quantity: string; unitCost: string };
+export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; quantity: string; unitCost: string; quarters: number[] };
 export type AllocationDraft = { id?: number; schoolId: number | null; lineId: number | null; quantity: string; longitude: string; latitude: string };
 export type FormErrors = Record<string, string>;
-export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", quantity: "1", unitCost: "" };
+/** The page fills a new line's timeline with the plan's quarters (planQuarters in lib/line-quarters.ts). */
+export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", quantity: "1", unitCost: "", quarters: [] };
 export const emptyAllocation: AllocationDraft = { schoolId: null, lineId: null, quantity: "1", longitude: "", latitude: "" };
 
 // "Select and type": pick a listed value or, when allowed, type your own.
@@ -33,8 +35,10 @@ function SelectOrType({ id, items, value, onChange, allowCustom, isDisabled, pla
   </Combobox>;
 }
 
-export function SportsBudgetFields({ draft, onChange, plan, errors, disabled }: {
+export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, planQuarters }: {
   draft: BudgetDraft; onChange: (value: BudgetDraft) => void; plan: SportsPlan; errors: FormErrors; disabled: boolean;
+  /** The action plan's quarters: the only ones the timeline may use. */
+  planQuarters: readonly number[];
 }) {
   const section = sportsSections.find((item) => item.id === draft.section)!;
   const allocated = draft.id ? plan.allocations.filter((allocation) => allocation.lineId === draft.id).reduce((sum, allocation) => sum + allocation.quantity, 0) : 0;
@@ -100,6 +104,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled }: 
       <FieldLabel htmlFor="sports-total-cost">Total cost (NGN)</FieldLabel>
       <Input id="sports-total-cost" readOnly tabIndex={-1} value={sportsMoney.format(Number.isFinite(total) ? total : 0)} className="tabular-nums" />
     </Field>
+    <QuarterTimeline id="sports-quarters" size="compact" required help="The quarters in which this item will be implemented. Only this plan's quarters can be chosen." value={draft.quarters} onChange={(quarters) => onChange({ ...draft, quarters })} available={planQuarters} disabled={disabled} error={errors.quarters} selectAll={planQuarters.length > 1} />
     {allocated > 0 && <p className="construction-summary">{allocated} items allocated to schools. The sport and section are locked while allocations exist.</p>}
   </FieldGroup>;
 }

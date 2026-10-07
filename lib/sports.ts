@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { lineQuartersSchema } from "./line-quarters.ts";
 
 // The four UBEC sports budget sections (QA UBEC18) with their indicative share
 // of the sports allocation. Shares are guidance only and are not enforced.
@@ -55,7 +56,9 @@ export function sportsCatalogError(line: { section: SportsSection; activityType:
 
 export type SportsSection = typeof sportsSections[number]["id"];
 export type SportsSchool = { id: number; name: string; lga: string; level: string; location: "Rural" | "Urban" };
-export type SportsLine = { id: number; code: string; section: SportsSection; activityType: string; description: string; quantity: number; unitCost: number };
+export type SportsLine = { id: number; code: string; section: SportsSection; activityType: string; description: string; quantity: number; unitCost: number;
+  /** Timeline: implementation quarters within the plan's quarters (migration 050). */
+  quarters: number[] };
 export type SportsAllocation = { id: number; schoolId: number; lineId: number; quantity: number; longitude: string; latitude: string; name: string; lga: string; level: string; location: "Rural" | "Urban" };
 export type SportsPlan = { lines: SportsLine[]; allocations: SportsAllocation[]; schools: SportsSchool[] };
 
@@ -68,6 +71,8 @@ export const sportsLineSchema = z.object({
   quantity,
   unitCost: z.number().positive("Enter a unit cost greater than zero.").max(999999999999.99)
     .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.01, "Use no more than two decimal places."),
+  /** Timeline (migration 050); omitted = the plan's quarters. */
+  quarters: lineQuartersSchema.optional(),
 }).refine((line) => Number.isSafeInteger(Math.round(line.unitCost * 100) * line.quantity), { path: ["unitCost"], message: "This line total is too large." })
   .transform((line) => line.section === "supervision" ? { ...line, activityType: supervisionActivity } : line);
 

@@ -8,6 +8,7 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empt
 import { EmptySchoolPackageArt } from "@/components/empty-art/infrastructure";
 import { EmptySportsFieldArt } from "@/components/empty-art/sports";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { QuarterBadge } from "@/components/quarter-timeline";
 import { sportsBudget, sportsLineTotal, sportsMoney as money, sportsSections, type SportsAllocation, type SportsLine, type SportsPlan } from "@/lib/sports";
 
 export type SportsTarget = { entity: "budget"; item: SportsLine } | { entity: "allocation"; item: SportsAllocation };
@@ -33,7 +34,7 @@ export function SportsBudgetPreview({ plan, disabled, onEdit, onRemove, editingI
           <Table className="table-fixed sports-editable-table" data-view="budget"><colgroup><col /><col className="sports-amount-column" /><col className="actions-column" /></colgroup>
             <TableHeader><TableRow><TableHead>{section.itemLabel}</TableHead><TableHead className="text-right">Amount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
             <TableBody>{typeLines.map((line) => <TableRow key={line.id} className="sports-editable-row" tabIndex={0} aria-label={`Edit ${line.description}`} aria-selected={editingId === line.id} data-sports-row-id={`budget-${line.id}`} data-state={editingId === line.id ? "selected" : undefined} onClick={() => !disabled && onEdit({ entity: "budget", item: line })} onKeyDown={(event) => { if (!disabled && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit({ entity: "budget", item: line }); } }}>
-              <TableCell className="school-cell"><div className="school-name">{line.description}</div><div className="school-location">{line.quantity.toLocaleString()} × {money.format(line.unitCost)}</div>{line.section === "equipment" && <div className="school-code">{line.code}</div>}<div className="sports-mobile-amount">{money.format(sportsLineTotal(line))}</div></TableCell>
+              <TableCell className="school-cell"><div className="school-name">{line.description}</div><div className="school-location">{line.quantity.toLocaleString()} × {money.format(line.unitCost)}</div><QuarterBadge quarters={line.quarters} className="mt-1" />{line.section === "equipment" && <div className="school-code">{line.code}</div>}<div className="sports-mobile-amount">{money.format(sportsLineTotal(line))}</div></TableCell>
               <TableCell className="sports-amount-cell">{money.format(sportsLineTotal(line))}</TableCell>
               <TableCell className="line-actions" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}><RowActions label={line.description} disabled={disabled} onEdit={() => onEdit({ entity: "budget", item: line })} onRemove={() => onRemove({ entity: "budget", item: line })} /></TableCell>
             </TableRow>)}</TableBody>

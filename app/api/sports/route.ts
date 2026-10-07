@@ -9,6 +9,8 @@ import { getPostgres } from "@/lib/postgres";
 import { cachedSchoolList } from '@/lib/school-cache';
 import { getWorkspaceState, sqlText } from "@/lib/workspace-state";
 import { sportsAllocationSchema, sportsCatalogError, sportsLineSchema } from "@/lib/sports";
+import { resolveLineQuarters } from "@/lib/line-quarters";
+import { readPlanQuarterSetup } from "@/lib/line-quarters-db";
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const commandSchema = z.object({ entity: z.enum(["budget", "allocation"]), action: z.enum(["create", "update", "delete"]), id: z.number().int().positive().optional() });
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
     const state = sqlText(workspace.stateCode);
     const db = getPostgres();
     const [lines, allocations, schools] = await Promise.all([
-      db.query(`SELECT id, code, section, activity_type AS "activityType", description, quantity, unit_cost::float8 AS "unitCost"
+      db.query(`SELECT id, code, section, activity_type AS "activityType", description, quantity, unit_cost::float8 AS "unitCost", quarters
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),
       db.query(`SELECT a.id, a.line_id AS "lineId", a.school_id AS "schoolId", a.quantity, a.longitude, a.latitude,
         s.name, s.lga, s.level, s.location FROM sports_allocations a
@@ -76,13 +78,17 @@ export async function POST(request: NextRequest) {
         const rule = sportsCatalogError(line, others, id);
         if (rule && !(unchanged && rule.field === "activityType")) return error(rule.message, rule.field === "activityType" && line.section === "equipment" ? 409 : 400);
         if (line.quantity < allocated) return error(`${allocated} items are already allocated to schools. Reduce those allocations first.`, 409);
-        const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${line.quantity}, ${line.unitCost.toFixed(2)}`;
+        // Timeline: within the plan's quarters, read under the plan lock; none sent = the plan's quarters (migration 050).
+        const timeline = resolveLineQuarters(line.quarters, await readPlanQuarterSetup(db, plan.id));
+        if (timeline.problem) return error(timeline.problem);
+        const quarters = `ARRAY[${timeline.quarters.map(Number).join(",")}]::smallint[]`;
+        const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${line.quantity}, ${line.unitCost.toFixed(2)}, ${quarters}`;
         const result = action === "create"
           ? await db.query(`WITH next_line AS (SELECT nextval(pg_get_serial_sequence('sports_budget_lines', 'id')) AS id)
-              INSERT INTO sports_budget_lines (id, plan_id, state_code, code, section, activity_type, description, quantity, unit_cost)
+              INSERT INTO sports_budget_lines (id, plan_id, state_code, code, section, activity_type, description, quantity, unit_cost, quarters)
               SELECT id, ${plan.id}, ${state}, 'UBEC/SUBEB/SPORT/' || LPAD(id::text, GREATEST(3, LENGTH(id::text)), '0') || ${sqlText('/' + planPeriod(plan))}, ${values} FROM next_line RETURNING id, code`)
           : await db.query(`UPDATE sports_budget_lines SET section = ${sqlText(line.section)}, activity_type = ${sqlText(line.activityType)},
-              description = ${sqlText(line.description)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(2)}, updated_at = NOW()
+              description = ${sqlText(line.description)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(2)}, quarters = ${quarters}, updated_at = NOW()
               WHERE id = ${id} AND state_code = ${state} RETURNING id, code`);
         return NextResponse.json(result.rows[0], { status: action === "create" ? 201 : 200 });
       }

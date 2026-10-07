@@ -23,7 +23,9 @@ export type Snapshot = {
   /** Component documents (component_documents): the Supervision & Monitoring proforma invoices. */
   componentDocuments?: import('./activity-plans').ComponentDocument[];
   setup?: import('./plan-setup').PlanSetup;
-  infrastructure: { id: number; code: string; quantity: number; unit_cost: string; duration: number; rationale: string; strategy: string; longitude: string; latitude: string; school: School; construction: { name: string }; package?: import('./infrastructure-model').InfrastructurePackage }[];
-  sports: { id: number; code: string; section: string; activity_type: string; description: string; quantity: number; unit_cost: string; allocations: { id: number; quantity: number; longitude: string; latitude: string; school: School }[] }[];
+  infrastructure: { id: number; code: string; quantity: number; unit_cost: string; duration: number; rationale: string; strategy: string; longitude: string; latitude: string; school: School; construction: { name: string }; package?: import('./infrastructure-model').InfrastructurePackage;
+    /** Timeline (migration 050); submissions saved before it have none. */
+    quarters?: number[] }[];
+  sports: { id: number; code: string; section: string; activity_type: string; description: string; quantity: number; unit_cost: string; quarters?: number[]; allocations: { id: number; quantity: number; longitude: string; latitude: string; school: School }[] }[];
 };
 export type PlanReview = { visiblePillars: import('./beap-pillars').ImplementedPillar[]; plan: ActionPlan; role: string; department: string | null; departments: string[]; isBeapChair: boolean; beapChairSubmissionMode: import('./workflow-settings').BeapChairSubmissionMode; ubecSubmissionMode: import('./workflow-settings').UbecSubmissionMode; snapshot: Snapshot; pillarReviews: import('./pillar-review').PillarReview[]; readyForExecutiveChairman: boolean; readyForUbec: boolean; selectedSubmission: number | null; submissions: { number: number; createdAt: string }[]; events: ReviewEvent[] };

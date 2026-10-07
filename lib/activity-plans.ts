@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, qualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
 import { maxActivityNameLength, othersActivityName, teacherActivityInfo, teacherActivityNames } from './teacher-development.ts';
 import { teacherTrainingIssues, teacherTrainingShape } from './teacher-training-schema.ts';
+import { lineQuartersSchema } from './line-quarters.ts';
 export { maxActivityNameLength, othersActivityName };
 export const activityWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
 export type ActivityWorkstream = typeof activityWorkstreams[number];
@@ -95,6 +96,8 @@ export const activityLineSchema = z.object({
   websiteType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters.`).default(''),
   schoolIds: z.array(z.number().int().positive()).max(maxLineSchools, `Choose up to ${maxLineSchools.toLocaleString()} schools.`).default([]),
   ...teacherTrainingShape,
+  /** Timeline: implementation quarters within the plan's quarters (migration 050); omitted = the plan's quarters. */
+  quarters: lineQuartersSchema.optional(),
 }).superRefine((v,ctx)=>{
   const training=v.workstream==='teachers';
   if(!training&&!v.description)ctx.addIssue({code:'custom',path:['description'],message:'Enter a description.'});
