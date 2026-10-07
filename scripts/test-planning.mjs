@@ -63,7 +63,7 @@ try {
   step('Planning editor: department access for Data Entry, other departments refused, Executive Chairman reads only');
 
   // Line form: description, quantity, implementation strategy, target group, unit cost; six activities.
-  fails(await api('prs', url(), line(6, 100)), 400, /valid allowable activity/);
+  fails(await api('prs', url(), line(7, 100)), 400, /valid allowable activity/);
   fails(await api('prs', url(), line(1, 100, { description: '' })), 400, /description/);
   fails(await api('prs', url(), line(1, 100, { strategy: '' })), 400, /implementation strategy/);
   fails(await api('prs', url(), line(1, 100, { targetGroup: '' })), 400, /target group/);

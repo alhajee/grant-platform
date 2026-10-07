@@ -55,7 +55,7 @@ try {
   // Supervision & Monitoring: Physical Planning, four activities, envelope ceiling.
   fails(await api('academic', url('monitoring')), 403);
   fails(await api('academic', url('monitoring'), line('monitoring', 0, 100)), 403);
-  fails(await api('physical', url('monitoring'), line('monitoring', 4, 100)), 400, /valid allowable activity/);
+  fails(await api('physical', url('monitoring'), line('monitoring', 5, 100)), 400, /valid allowable activity/);
   fails(await api('physical', url('monitoring'), line('monitoring', 0, 100, { description: '' })), 400);
   fails(await api('physical', url('monitoring'), line('monitoring', 0, 100, { strategy: '' })), 400);
   ok(await api('physical', url('monitoring'), line('monitoring', 0, 1500, { quantity: 2 })));
@@ -97,8 +97,8 @@ try {
 
   // Greening Schools, Climate Change & Safeguards: Academic Services, nine activities (migration 039), no upload.
   fails(await api('physical', url('gscci'), line('gscci', 0, 100)), 403);
-  fails(await api('academic', url('gscci'), line('gscci', 9, 100)), 400, /valid allowable activity/);
-  await assert.rejects(db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,'gscci',9,'QA',1,1,'NCB','Schools')", [planId]), /activity_plan_lines_activity_check/);
+  fails(await api('academic', url('gscci'), line('gscci', 10, 100)), 400, /valid allowable activity/);
+  await assert.rejects(db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,'gscci',10,'QA',1,1,'NCB','Schools')", [planId]), /activity_plan_lines_activity_check/);
   for (const activity of [0, 1, 2, 3, 4, 5, 6, 7, 8]) ok(await api('academic', url('gscci'), line('gscci', activity, 100)));
   const gscci = ok(await api('academic', url('gscci')));
   assert.equal(gscci.lines.length, 9); assert.deepEqual(gscci.documents, []); assert.equal(gscci.schools.length, 2); assert.deepEqual(gscci.distribution, []);

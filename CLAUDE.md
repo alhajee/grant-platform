@@ -128,6 +128,15 @@ Pillar and component `planning` (state department `planning`, UBEC lead departme
 - Migration 041 widens the `activity_plan_lines` workstream/activity, `plan_pillar_reviews`, `plan_comments` pillar/sheet and `plan_funding_sources` component CHECKs (additive, idempotent).
 - Test: `node --env-file=.env scripts/test-planning.mjs [baseUrl]` (throwaway state, users and plan; cleans up).
 
+## Others (specify) activities (migration 047)
+
+Every activity-line component ends its list with an Others activity whose lines name their own activity (`activity_plan_lines.custom_activity`, field "Activity name"): SBMC 16, Supervision & Monitoring 4, GSCCI 9, Curriculum 4, Quality Assurance 11, ICT 9, Planning 6 (`othersActivityName`), plus the existing TLM 22 "Other TLMs" and Teacher Development 18. Always appended last, so earlier indexes keep their meaning.
+
+- `otherActivityIndex` / `isOtherActivity` and `activityLabel(workstream, index, customActivity)` in `lib/activity-plans.ts`; the label is used by the editor, the workbook (state and UBEC) and search. The name is required (trimmed, up to `maxActivityNameLength` = 160) on an Others line and must be empty on every other line, in the zod schema and in the DB CHECK `activity_plan_lines_custom_activity_check` (TLM 4, the retired "Others", may have either). Migration 047 also widens `activity_plan_lines_activity_check`; the custom-name CHECK is added NOT VALID and then validated (a warning leaves it NOT VALID if older rows break it).
+- Others is never compulsory, has no activity cap (Curriculum Others sits outside the 60/20/10/10 split and only counts toward the Curriculum ceiling; its workbook share cell is blank) and takes no activity extras; Teacher Development Others still needs its training fields and documents like every Teacher Development line.
+- Sports already covers this with free text (type another sport or item, except the listed-only Basketball items) and its "Other Competitions"/"Others" sub-activities, whose description names the activity. Infrastructure deliverables follow UBEC's typology; furniture/equipment items are free text.
+- Test: `node --env-file=.env scripts/test-activity-others.mjs [baseUrl]` (throwaway state, users and plan; cleans up).
+
 ## Plan workbook comments (migration 028)
 
 Google-Sheets-style review comments on cells and whole rows of the review-page plan workbook. These are the state review chain's (`scope = 'state'`) rules; UBEC comments share the table and UI, see the next section.

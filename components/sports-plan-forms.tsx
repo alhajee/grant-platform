@@ -9,7 +9,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { equipmentSports, findSport, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, supervisionActivity, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
+import { equipmentSports, findSport, isOtherSubActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, supervisionActivity, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
 export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; quantity: string; unitCost: string };
 export type AllocationDraft = { id?: number; schoolId: number | null; lineId: number | null; quantity: string; longitude: string; latitude: string };
@@ -71,6 +71,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled }: 
         </SelectGroup></SelectContent>
       </Select>
       {draft.section === "competitions" && <FieldDescription>Shares show UBEC&apos;s indicative split of the competitions budget. They are guidance only.</FieldDescription>}
+      {isOtherSubActivity(draft.activityType) && <FieldDescription>For an activity that is not in the list. Name it in the description below.</FieldDescription>}
       {errors.activityType && <FieldError id="sports-type-error">{errors.activityType}</FieldError>}
     </Field>}
     <Separator />

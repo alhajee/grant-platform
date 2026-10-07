@@ -1,19 +1,20 @@
 import { z } from 'zod';
 import { ictActivityNames, planningActivityNames, qualityActivityNames, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, qualityEquipmentActivity, subscriptionTypes, websiteTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
-import { teacherActivityInfo, teacherActivityNames, teacherOtherActivity } from './teacher-development.ts';
+import { maxActivityNameLength, othersActivityName, teacherActivityInfo, teacherActivityNames } from './teacher-development.ts';
 import { teacherTrainingIssues, teacherTrainingShape } from './teacher-training-schema.ts';
+export { maxActivityNameLength, othersActivityName };
 export const activityWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
 export type ActivityWorkstream = typeof activityWorkstreams[number];
 export const activityNames = {
   // UBEC's modified allowable social mobilisation activities (Oct 2026); the earlier SBMC list was retired and its lines cleared (migration 037).
-  sbmc: ['Out-of-School Children (OOSC)', 'Capacity building and training', 'School/Centre Improvement Programme (SBMC-SIP/CBMC-CIP)', 'Advocacy and sensitisation', 'Community engagement and stakeholders’ coordination', 'Stakeholder engagement', 'Enrolment campaign/drive and post-enrolment follow-up', 'Establishment/support of non-formal learning centres', 'Media engagement', 'Advocacy and sensitisation tools', 'Annual School Grant', 'Learner support and retention interventions', 'Monitoring, tracking and accountability', 'Community-based data collection and reporting', 'Social mobilisation in IDP camps and emergency settings', 'Provision of working tools and materials'],
+  sbmc: ['Out-of-School Children (OOSC)', 'Capacity building and training', 'School/Centre Improvement Programme (SBMC-SIP/CBMC-CIP)', 'Advocacy and sensitisation', 'Community engagement and stakeholders’ coordination', 'Stakeholder engagement', 'Enrolment campaign/drive and post-enrolment follow-up', 'Establishment/support of non-formal learning centres', 'Media engagement', 'Advocacy and sensitisation tools', 'Annual School Grant', 'Learner support and retention interventions', 'Monitoring, tracking and accountability', 'Community-based data collection and reporting', 'Social mobilisation in IDP camps and emergency settings', 'Provision of working tools and materials', othersActivityName],
   // Lines are stored by index: TLM 0-4 are the earlier activities (kept so saved lines still render), 5-22 are the UBEC allowable-materials checklist.
   tlm: ['Purchase of TLMs to Schools', 'Capacity Building of Teachers on the Implementation of the Revised TLMs', 'Distribution of TLMs to Schools', 'Monitoring of TLMs', 'Others',
     'Textbooks', 'Supplementary books', 'Teacher resources', 'Visual aids', 'Language materials', 'Mathematics materials', 'Science materials', 'Social Studies/Geography materials', 'Basic Technology materials', 'Computer Studies resources', 'Educational games', 'Writing and teaching aids', 'Art and creativity supplies', 'Audio materials', 'Digital/basic devices', 'Projection equipment', 'Interactive learning boards', 'Other TLMs'],
-  monitoring: ['Monitoring tools and supervision visit equipment', 'Procurement/maintenance of monitoring vehicles or other means of transportation to sites', 'Allowances for monitoring officers', 'Digital monitoring system/dashboard'],
+  monitoring: ['Monitoring tools and supervision visit equipment', 'Procurement/maintenance of monitoring vehicles or other means of transportation to sites', 'Allowances for monitoring officers', 'Digital monitoring system/dashboard', othersActivityName],
   // UBEC's new GSCCI allowable activities (Oct 2026); the earlier safeguarding list was retired and its lines cleared (migration 039).
-  gscci: ['GSCCI Pillar 1: Greening schools/planting of trees', 'GSCCI Pillar 2: Promoting entrepreneurial greening curricula', 'GSCCI Pillar 3: Teacher training and education system capacity', 'GSCCI Pillar 4: Greening communities', 'GSCCI Pillar 5: National greening competitions', 'GSCCI Pillar 6: Establishment of Green Clubs (climate change clubs)', 'Rearing of small animals/aquatic farming', 'Safeguards and waste management initiatives', 'Supervision and monitoring of GSCCI initiatives'],
-  curriculum: ['Purchase and distribution of copies of the revised NERDC curriculum to schools', 'Capacity building of teachers on the implementation of the revised curriculum', 'Distribution of curriculum to schools', 'Monitoring of implementation of the revised curriculum'],
+  gscci: ['GSCCI Pillar 1: Greening schools/planting of trees', 'GSCCI Pillar 2: Promoting entrepreneurial greening curricula', 'GSCCI Pillar 3: Teacher training and education system capacity', 'GSCCI Pillar 4: Greening communities', 'GSCCI Pillar 5: National greening competitions', 'GSCCI Pillar 6: Establishment of Green Clubs (climate change clubs)', 'Rearing of small animals/aquatic farming', 'Safeguards and waste management initiatives', 'Supervision and monitoring of GSCCI initiatives', othersActivityName],
+  curriculum: ['Purchase and distribution of copies of the revised NERDC curriculum to schools', 'Capacity building of teachers on the implementation of the revised curriculum', 'Distribution of curriculum to schools', 'Monitoring of implementation of the revised curriculum', othersActivityName],
   // Quality Assurance and ICT (DDPA) activity forms (migration 038); compulsory ones are in lib/activity-extras.ts.
   quality: qualityActivityNames,
   ict: ictActivityNames,
@@ -32,6 +33,7 @@ export const activityInfo: Partial<Record<ActivityWorkstream, Record<number, str
     8: 'Follow-up by UBEC, SUBEB and LGEAs for evaluation of 162 schools.',
   },
   ict: { 2: 'All Model Smart Schools lines together may use up to ₦30,000,000.' },
+  curriculum: { 4: 'Not part of the 60/20/10/10 activity split; it counts toward the Curriculum allocation.' },
   teachers: teacherActivityInfo,
   planning: {
     0: 'Conduct annual school census and regular data updates to improve accuracy of planning and reporting, uploaded to DNEMIS.',
@@ -54,13 +56,20 @@ export const activityHints: Partial<Record<ActivityWorkstream, Record<number, st
  tlm: {
   5: 'English Studies, Mathematics, Basic Science/Technology, Social Studies', 6: 'Story books, supplementary readers, graded readers', 7: 'Teacher guides, lesson and activity resources', 8: 'Charts, posters, diagrams, maps, globes', 9: 'Flashcards, picture, word and alphabet cards', 10: 'Counting blocks, abacus, number cards, geometric shapes, manipulatives', 11: 'Models, specimens, magnifying glasses, simple microscopes', 12: 'Maps, globes, charts, models', 13: 'Models, demonstration materials, practical learning resources', 14: 'Basic computers and learning resources', 15: 'Educational games', 16: 'Blackboards, whiteboards, rulers, protractors, scales', 17: 'Art and craft supplies', 18: 'Radios, tape recorders, CD players', 19: 'Tablets, where justified', 20: 'Overhead projectors', 21: 'Smart interactive boards', 22: 'Must be justified and meet UBEC standards',
 } };
-export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22], monitoring: [0,1,2,3], gscci: [0,1,2,3,4,5,6,7,8], curriculum: [0,1,2,3], quality: [0,1,2,3,4,5,6,7,8,9,10], ict: [0,1,2,3,4,5,6,7,8], teachers: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18], planning: [0,1,2,3,4,5] } as const;
-/** The selectable "other" activity that needs a custom name. */
-export const otherActivityIndex: Partial<Record<ActivityWorkstream, number>> = { tlm: 22, teachers: teacherOtherActivity };
-const customActivityIndexes: Partial<Record<ActivityWorkstream, readonly number[]>> = { tlm: [4, 22], teachers: [teacherOtherActivity] };
+export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22], monitoring: [0,1,2,3,4], gscci: [0,1,2,3,4,5,6,7,8,9], curriculum: [0,1,2,3,4], quality: [0,1,2,3,4,5,6,7,8,9,10,11], ict: [0,1,2,3,4,5,6,7,8,9], teachers: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18], planning: [0,1,2,3,4,5,6] } as const;
+/**
+ * The "Others (specify)" activity of each component: always the last in its list (TLM's is "Other TLMs"), so earlier
+ * indexes keep their meaning. Its lines name their own activity (custom_activity, migration 047); no other line may.
+ * Others is never compulsory, has no per-activity cap and no activity-specific extras.
+ */
+export const otherActivityIndex = Object.fromEntries(activityWorkstreams.map(w => [w, activityNames[w].length - 1])) as Record<ActivityWorkstream, number>;
+export const isOtherActivity = (workstream: ActivityWorkstream, activity: number) => otherActivityIndex[workstream] === activity;
+/** Activities whose saved lines may carry their own name: Others, plus TLM's retired "Others" (4). */
+const customActivityIndexes = (workstream: ActivityWorkstream): readonly number[] => workstream === 'tlm' ? [4, otherActivityIndex.tlm] : [otherActivityIndex[workstream]];
 /** TLM activity whose lines record textbook classes and subject. */
 export const textbookActivityIndex = 5;
-export const activityLabel = (workstream: ActivityWorkstream, activity: number, customActivity = '') => (customActivityIndexes[workstream] ?? []).includes(activity) && customActivity ? customActivity : activityNames[workstream][activity] ?? 'Unknown activity';
+/** How a line's activity is shown everywhere (editor, workbook, UBEC review): an Others line shows the name it was given. */
+export const activityLabel = (workstream: ActivityWorkstream, activity: number, customActivity: string | null = '') => customActivityIndexes(workstream).includes(activity) && customActivity ? customActivity : activityNames[workstream]?.[activity] ?? 'Unknown activity';
 /** Material types used by legacy TLM purchase lines (activity 0). */
 export const materialTypes = ['Textbooks', 'Teachers guide', 'Interactive learning materials', 'Teaching aids & basic devices'] as const;
 export const textbookClasses = ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JSS 1', 'JSS 2', 'JSS 3'] as const;
@@ -77,7 +86,7 @@ export const activityLineSchema = z.object({
   unitCost: z.number().positive().max(999999999999.99).refine(n=>Math.abs(n*100-Math.round(n*100))<.001, 'Use at most two decimal places.'),
   strategy: z.union([z.enum(implementationStrategies), z.literal('')]).default(''), targetGroup: z.union([z.enum(targetGroups), z.literal('')]).default(''), location: z.enum(['','Rural','Urban']).default(''),
   equipment: z.string().max(100).default(''),
-  customActivity: z.string().trim().max(160).default(''),
+  customActivity: z.string().trim().max(maxActivityNameLength, `Use up to ${maxActivityNameLength} characters for the activity name.`).default(''),
   textbookClasses: z.array(z.enum(textbookClasses)).max(textbookClasses.length).default([]),
   textbookSubject: z.string().max(100).default(''),
   equipmentType: z.string().max(100).default(''),
@@ -108,9 +117,9 @@ export const activityLineSchema = z.object({
   if(new Set(v.schoolIds).size!==v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose each school once.'});
   if(v.workstream==='sbmc') for(const field of ['rationale','implementationApproach'] as const) if(!v[field])ctx.addIssue({code:'custom',path:[field],message:field==='rationale'?'Enter a rationale.':'Enter an implementation approach.'});
   if(!(selectableActivityIndexes[v.workstream] as readonly number[]).includes(v.activity))ctx.addIssue({code:'custom',path:['activity'],message:'Choose a valid allowable activity.'});
-  const isOther=v.activity===otherActivityIndex[v.workstream];
-  if(isOther&&!v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'Enter the allowable activity.'});
-  if(!isOther&&v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'A custom activity only applies when Others is selected.'});
+  const isOther=isOtherActivity(v.workstream,v.activity);
+  if(isOther&&!v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'Enter the activity name.'});
+  if(!isOther&&v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'An activity name only applies when Others (specify) is selected.'});
   if(v.equipment)ctx.addIssue({code:'custom',path:['equipment'],message:'Material type no longer applies; choose the material as the activity.'});
   const isTextbook=v.workstream==='tlm'&&v.activity===textbookActivityIndex;
   if(isTextbook&&!v.textbookClasses.length)ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Choose at least one class for the textbooks.'});

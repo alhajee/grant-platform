@@ -23,7 +23,7 @@ try{
  ok(await api('anonymous',url),401);ok(await api('foreign',url),404);
  ok(await api('academic',url,line),403);ok(await api('chair',url,line),403);
  ok(await api('social',url,{...line,quantity:0}),400);ok(await api('social',url,{...line,activity:99}),400);
- ok(await api('social',url,{...line,activity:16}),400);
+ ok(await api('social',url,{...line,activity:17}),400);
  ok(await api('social',url,{...line,location:'Remote'}),400);
  ok(await api('social',url,line));let saved=ok(await api('social',url));assert.equal(saved.lines.length,1);assert.equal(saved.lines[0].location,'');
  assert.equal(saved.lines[0].rationale,line.rationale);assert.equal(saved.lines[0].implementationApproach,line.implementationApproach);
