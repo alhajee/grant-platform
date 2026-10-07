@@ -13,7 +13,8 @@ import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableC
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { DiscardChangesDialog } from '@/components/discard-changes-dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, useComboboxAnchor } from '@/components/ui/combobox';
@@ -178,6 +179,6 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
    </article></ScrollArea></section>
   </div>
  </div><AlertDialog open={!!removal} onOpenChange={o=>{if(!o&&!busy)setRemoval(null);}}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Remove this {removal?.entity==='school'?'school':'item'}?</AlertDialogTitle><AlertDialogDescription>This removes it from this plan only.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button variant="destructive" disabled={busy} onClick={()=>removal&&void mutate({...removal,action:'delete'})}>Remove</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
- <AlertDialog open={!!pending} onOpenChange={o=>{if(!o)setPending(null);}}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle><AlertDialogDescription>Your previously saved items will remain unchanged.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep editing</AlertDialogCancel><AlertDialogAction onClick={()=>{const run=pending;reset();setPending(null);run?.();}}>Discard changes</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+ <DiscardChangesDialog open={!!pending} saved="Your saved items stay as they are." onKeep={()=>setPending(null)} onDiscard={()=>{const run=pending;reset();setPending(null);run?.();}}/>
  </div>;
 }
