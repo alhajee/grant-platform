@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { schoolApiPath, type SchoolDeleteResult } from '@/lib/school-register';
 
-export type SchoolBulkBarProps = { ids: number[]; actions: SchoolActions; onClear: () => void; selectAll?: { total: number; busy: boolean; onSelect: () => void } };
+export type SchoolBulkBarProps = { ids: number[]; actions: SchoolActions; onClear: () => void; selectAll?: { total: number; busy: boolean; onSelect: () => void }; canDelete?: boolean };
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count.toLocaleString()} ${count === 1 ? one : many}`;
 
@@ -75,8 +75,8 @@ export function useSchoolActions({ onDeleted, stateCode }: { onDeleted: (result:
 }
 export type SchoolActions = ReturnType<typeof useSchoolActions>;
 
-/** Floating actions for the ticked schools: export them as a school list, or delete them. */
-export function SchoolBulkBar({ ids, actions, onClear, selectAll }: SchoolBulkBarProps) {
+/** Floating actions for the ticked schools: export them as a school list, or delete them (unless `canDelete` is false). */
+export function SchoolBulkBar({ ids, actions, onClear, selectAll, canDelete = true }: SchoolBulkBarProps) {
   const { busy } = actions;
   if (!ids.length) return null;
   return <div role="toolbar" aria-label="Selected schools" className="fixed inset-x-0 bottom-6 z-40 mx-auto flex w-max max-w-[calc(100vw-2rem)] items-center gap-1 rounded-full border bg-popover/95 p-1.5 pl-4 text-popover-foreground shadow-lg backdrop-blur-md animate-in fade-in-0 slide-in-from-bottom-2 duration-150 motion-reduce:animate-none">
@@ -84,7 +84,7 @@ export function SchoolBulkBar({ ids, actions, onClear, selectAll }: SchoolBulkBa
     {selectAll && <Button type="button" variant="link" size="sm" className="px-2" disabled={selectAll.busy || !!busy} onClick={selectAll.onSelect}>{selectAll.busy && <Spinner data-icon="inline-start" />}Select all {selectAll.total.toLocaleString()}</Button>}
     <Separator orientation="vertical" className="h-5" />
     <Button type="button" variant="ghost" size="sm" className="rounded-full" disabled={!!busy} onClick={() => void actions.exportSchools(ids)}>{busy === 'export' ? <Spinner data-icon="inline-start" /> : <DownloadIcon data-icon="inline-start" />}Export</Button>
-    <Button type="button" variant="ghost" size="sm" className="rounded-full text-destructive hover:text-destructive" disabled={!!busy} onClick={() => actions.confirmDelete(ids)}><Trash2Icon data-icon="inline-start" />Delete</Button>
+    {canDelete && <Button type="button" variant="ghost" size="sm" className="rounded-full text-destructive hover:text-destructive" disabled={!!busy} onClick={() => actions.confirmDelete(ids)}><Trash2Icon data-icon="inline-start" />Delete</Button>}
     <Separator orientation="vertical" className="h-5" />
     <Button type="button" variant="ghost" size="icon-sm" className="rounded-full" disabled={!!busy} onClick={onClear} aria-label="Clear selection"><XIcon /></Button>
   </div>;

@@ -7,7 +7,7 @@ import { buildSchoolTemplate } from '@/lib/school-register-xlsx';
 /** The sample bulk-entry template, with the state's LGAs in its dropdown. */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await registerActor(request);
+    const auth = await registerActor(request, { manual: true });
     if ('error' in auth) return auth.error;
     const stateName = stateDisplayName(auth.workspace.stateCode);
     const lgas = await getPostgres().transaction(db => stateLgas(db, auth.workspace.stateCode));

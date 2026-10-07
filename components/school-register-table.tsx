@@ -20,7 +20,8 @@ import { defaultRegisterPageSize, registerPageSizes, schoolApiPath, schoolGapLab
 import { EmptyRegisterArt, NoMatchingSchoolsArt } from '@/components/empty-art/school-register';
 
 /** `stateCode`: the state a Super Admin is viewing; state users omit it and get their own state. */
-export type SchoolRegisterTableProps = { refreshKey: number; onEdit: (school: RegisterSchool) => void; stateCode?: string };
+/** Without `onEdit` the register is read-only (schools come from DNEMIS only): no edit, no delete, export only. */
+export type SchoolRegisterTableProps = { refreshKey: number; onEdit?: (school: RegisterSchool) => void; stateCode?: string };
 type Loaded = { key: string; data: RegisterPage } | { key: string; error: string };
 const helper = createColumnHelper<DataTableFeatures, RegisterSchool>();
 const defaultSorting: SortingState = [{ id: 'name', desc: false }];
@@ -125,10 +126,10 @@ export function SchoolRegisterTable({ refreshKey, onEdit, stateCode }: SchoolReg
     helper.display({ id: 'actions', enableHiding: false, header: () => <span className="sr-only">Actions</span>, cell: ({ row }) => <div className="flex justify-end"><DropdownMenu>
       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground data-[state=open]:bg-muted" aria-label={`Actions for ${row.original.name}`}><MoreHorizontalIcon /></Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem onSelect={() => onEdit(row.original)}><PencilIcon />Edit school</DropdownMenuItem>
+        {onEdit && <DropdownMenuItem onSelect={() => onEdit(row.original)}><PencilIcon />Edit school</DropdownMenuItem>}
         <DropdownMenuItem disabled={!!busy} onSelect={() => void exportSchools([row.original.id])}><DownloadIcon />Export</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" disabled={!!busy} onSelect={() => confirmDelete([row.original.id], row.original.name)}><Trash2Icon />Delete</DropdownMenuItem>
+        {onEdit && <><DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" disabled={!!busy} onSelect={() => confirmDelete([row.original.id], row.original.name)}><Trash2Icon />Delete</DropdownMenuItem></>}
       </DropdownMenuContent>
     </DropdownMenu></div> }),
   ]), [onEdit, pageIds, pageTicked, selected, toggle, busy, exportSchools, confirmDelete]);
@@ -150,7 +151,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit, stateCode }: SchoolReg
       onRowClick={onEdit}
       rowSelected={school => selected.has(school.id)}
       stickyHeader
-      rowLabel={school => `Edit ${school.name}`}
+      rowLabel={onEdit ? school => `Edit ${school.name}` : undefined}
       filters={<FilterDialog inlineChips
         sections={filters.map(item => ({ id: item.title.toLowerCase().replace(/\s+/g, '-'), title: item.title, options: item.options, selected: item.selected, onChange: setFilter(item.set) }))}
         onClearAll={() => { filters.forEach(item => item.set([])); setPagination(state => ({ ...state, pageIndex: 0 })); }}
@@ -164,7 +165,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit, stateCode }: SchoolReg
         pageSizes: registerPageSizes,
       }}
     />
-    <SchoolBulkBar ids={[...selected]} actions={actions} onClear={() => setSelected(new Set())} selectAll={canSelectAll ? { total, busy: selectingAll, onSelect: () => void selectAll() } : undefined} />
+    <SchoolBulkBar ids={[...selected]} actions={actions} canDelete={!!onEdit} onClear={() => setSelected(new Set())} selectAll={canSelectAll ? { total, busy: selectingAll, onSelect: () => void selectAll() } : undefined} />
     {actions.dialog}
   </div>;
 }

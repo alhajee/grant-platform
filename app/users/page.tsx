@@ -7,7 +7,7 @@ import { SubebHeader } from '@/components/subeb-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Field, FieldLabel, FieldGroup, FieldError } from '@/components/ui/field';
+import { Field, FieldContent, FieldDescription, FieldLabel, FieldGroup, FieldError } from '@/components/ui/field';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -68,7 +68,7 @@ export default function UsersPage() {
       <DepartmentCheckboxes departments={departments.filter(d=>data?.role!=='Director'||data.departments.includes(d.id))} selected={form.departments} disabled={saving} onChange={values=>setForm({...form,departments:values,department:values[0]??''})}/>
       <Field><FieldLabel htmlFor="user-active">Account access</FieldLabel><NativeSelect id="user-active" disabled={saving} value={String(form.active)} onChange={e=>setForm({...form,active:e.target.value==='true'})}><NativeSelectOption value="true">Active</NativeSelectOption><NativeSelectOption value="false">Inactive</NativeSelectOption></NativeSelect></Field>
       {data?.role==='Executive Chairman' && <Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="user-create-plan">Allow creating action plans</FieldLabel><Switch id="user-create-plan" disabled={saving||form.isBeapChair} checked={form.isBeapChair||form.canCreatePlan} onCheckedChange={canCreatePlan=>setForm({...form,canCreatePlan})} /></Field>}
-      {data?.role==='Executive Chairman' && <Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="user-manage-schools">Allow managing the School register</FieldLabel><Switch id="user-manage-schools" disabled={saving||form.isBeapChair} checked={form.isBeapChair||form.canManageSchools} onCheckedChange={canManageSchools=>setForm({...form,canManageSchools})} /></Field>}
+      {data?.role==='Executive Chairman' && <Field orientation="horizontal" data-disabled={saving}><FieldContent><FieldLabel htmlFor="user-manage-schools">Allow managing the School register</FieldLabel><FieldDescription>Opens the School register. Adding or changing schools also needs the administrator to allow manual changes; otherwise schools come from DNEMIS only.</FieldDescription></FieldContent><Switch id="user-manage-schools" disabled={saving||form.isBeapChair} checked={form.isBeapChair||form.canManageSchools} onCheckedChange={canManageSchools=>setForm({...form,canManageSchools})} /></Field>}
       {data?.role==='Executive Chairman' && form.role==='Director' && <Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="user-beap-chair">Appoint as SUBEB BEAP Chair</FieldLabel><Switch id="user-beap-chair" disabled={saving} checked={form.isBeapChair} onCheckedChange={isBeapChair=>setForm({...form,isBeapChair})} /></Field>}
       {formError&&<FieldError role="alert">{formError}</FieldError>}
     </FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={()=>setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving||form.departments.length===0}>{saving&&<Spinner data-icon="inline-start" />}Save user</Button></DialogFooter></form></DialogContent></Dialog>

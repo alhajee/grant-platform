@@ -57,7 +57,7 @@ async function classify(db: Client, stateCode: string, bytes: ArrayBuffer) {
 /** Bulk entry: `?mode=preview` validates only; `?mode=commit` adds every new school in one transaction, refusing a file with errors. */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await registerActor(request, { write: true });
+    const auth = await registerActor(request, { write: true, manual: true });
     if ('error' in auth) return auth.error;
     const mode = request.nextUrl.searchParams.get('mode') === 'commit' ? 'commit' : 'preview';
     const bytes = await uploadedFile(request);
