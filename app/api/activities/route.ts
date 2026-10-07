@@ -14,6 +14,7 @@ import { lineSchoolActivities } from '@/lib/activity-extras';
 import { readLineExtras, saveLineSchools } from '@/lib/activity-line-extras';
 import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
 import { readPoolState } from '@/lib/infrastructure-pool-db';
+import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 class LineSchoolsError extends Error {}
 export async function GET(req:NextRequest){
@@ -39,7 +40,7 @@ export async function GET(req:NextRequest){
   // TLM shares the infrastructure pool with Infrastructure's school packages, so its editor sees their total too.
   const partnerProposed=sharedPartner?(await db.query<{total:string}>('SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2',[plan.id,sharedPartner])).rows[0].total
    :workstream==='tlm'?(await db.query<{total:string}>('SELECT COALESCE(SUM(total_cost),0)::text AS total FROM infrastructure_packages WHERE plan_id=$1',[plan.id])).rows[0].total:null;
-  return NextResponse.json({plan,lines:withExtras,schools,distribution,renovated,documents,partnerProposed,canEdit:mayEditPillar(user.role,user.departments ?? user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({plan,lines:withExtras,schools,distribution,renovated,documents,partnerProposed,documentsRequired:await readComponentDocumentsRequired(db),canEdit:mayEditPillar(user.role,user.departments ?? user.department,workstream,plan.status,await readPillarReviews(db,plan.id))},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load this component.',503);}
 }
 export async function POST(req:NextRequest){

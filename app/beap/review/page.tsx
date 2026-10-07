@@ -34,7 +34,7 @@ const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value
 // Quality Assurance and ICT: compulsory activities, line schools and documents must be in place before any send step.
 // The same checks the server runs on every send step, so a holder sees the problem on the card before sending.
 const readiness = (data: PlanReview, pillar: ImplementedPillar) => pillar === 'infrastructure' ? (data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot) : null)
-  : hasReadinessRules(pillar) ? componentReadinessProblem(pillar, data.snapshot[pillar] ?? [], data.snapshot.setup) : null;
+  : hasReadinessRules(pillar) ? componentReadinessProblem(pillar, data.snapshot[pillar] ?? [], data.snapshot.setup, { documentsRequired: data.documentsRequired }) : null;
 const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length);
 
 /** The plan page: summary, components, workflow steps, the plan workbook and its review history. */
