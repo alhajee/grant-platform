@@ -1,15 +1,16 @@
 import type { QueryResult, QueryResultRow } from 'pg';
 import type { ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
-import { activePillars, type UbecRound } from './ubec';
+import type { UbecRound } from './ubec';
 import { commentColumns, commentSheets, sheetRows, ubecAuthorRoles, type CommentScope, type CommentSheet, type PlanCommentReply, type PlanCommentThread } from './plan-comments';
+import { openRoundStatuses } from './ubec-flow-db';
 
 // Server helpers shared by app/api/plans/comments (state) and app/api/ubec/comments (UBEC), migration 029.
 //
 // Visibility rules:
 // - State users see scope 'state' threads, plus UBEC threads the ES shared (shared_at set) with the UBEC
 //   replies written up to that share time and every SUBEB reply. Unshared UBEC text never leaves UBEC.
-// - UBEC users viewing round R see threads written on R, plus threads shared on an earlier round (they
+// - UBEC users (lib/ubec-flow-db.ts visibility) viewing round R see threads written on R, plus threads shared on an earlier round (they
 //   carry forward with the SUBEB replies). Everything is cut off at R's decision time, so SUBEB replies
 //   written while the plan is back with the state appear only once it is resubmitted (the next round).
 
@@ -20,7 +21,7 @@ export type CommentRow = {
   submission_number: number; target_label: string; scope: CommentScope; ubec_round_id: number | null; shared_at: Date | string | null; shared_by_name: string | null; round_number?: number | null;
 };
 export const commentFields = (alias = 'c') => ['id', 'parent_id', 'pillar', 'sheet', 'row_ref', 'column_id', 'body', 'author_id', 'author_name', 'author_role', 'created_at', 'resolved_at', 'resolved_by_name', 'submission_number', 'target_label', 'scope', 'ubec_round_id', 'shared_at', 'shared_by_name'].map(field => `${alias}.${field}`).join(', ');
-export const openRoundStatuses = ['received', 'reviewing'];
+export { openRoundStatuses };
 export const isUbecAuthor = (role: string) => (ubecAuthorRoles as readonly string[]).includes(role);
 
 const reply = (row: CommentRow, userId: number): PlanCommentReply => ({ id: Number(row.id), body: row.body, authorName: row.author_name, authorRole: row.author_role, createdAt: String(toIso(row.created_at)), mine: row.author_id === userId });
@@ -56,19 +57,7 @@ export async function readStateVisibleRows(db: Db, planId: number, pillars: read
     ORDER BY c.id`, [planId, pillars, ubecAuthorRoles])).rows;
 }
 
-export type UbecViewer = { role: string; department: string | null };
-/** Rounds the viewer can open (a reviewer only sees rounds with an assignment to their department), newest first. */
-export async function readViewerRounds(db: Db, planId: number, viewer: UbecViewer) {
-  const reviewer = viewer.role === 'UBEC Department Reviewer';
-  return (await db.query<UbecRound>(`SELECT r.* FROM ubec_rounds r WHERE plan_id=$1 ${reviewer ? 'AND EXISTS (SELECT 1 FROM ubec_assignments a WHERE a.round_id=r.id AND a.department=$2)' : ''} ORDER BY number DESC`, reviewer ? [planId, viewer.department] : [planId])).rows;
-}
-/** Components the viewer works on in `round`: every populated one for the ES, the assigned ones for a reviewer. */
-export async function viewerPillars(db: Db, round: UbecRound, viewer: UbecViewer): Promise<ImplementedPillar[]> {
-  if (viewer.role === 'UBEC Executive Secretary') return activePillars(round.snapshot);
-  if (viewer.role !== 'UBEC Department Reviewer' || !viewer.department) return [];
-  const rows = (await db.query<{ pillar: ImplementedPillar }>('SELECT DISTINCT pillar FROM ubec_assignments WHERE round_id=$1 AND department=$2', [round.id, viewer.department])).rows;
-  return rows.map(row => row.pillar);
-}
+export { readViewerRounds, viewerPillars, type UbecViewer } from './ubec-flow-db';
 /** A round accepts UBEC comments only while it is the latest one and still with UBEC. */
 export const roundOpen = (round: UbecRound, latest: UbecRound | undefined) => latest?.id === round.id && openRoundStatuses.includes(round.status);
 /** Everything written after a closed round's decision belongs to the next round's view. */

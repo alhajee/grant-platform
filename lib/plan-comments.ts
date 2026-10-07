@@ -20,7 +20,7 @@ export const commentBodyLimit = 2000;
 export const commentScopes = ['state', 'ubec'] as const;
 export type CommentScope = typeof commentScopes[number];
 /** Authors of UBEC comments; everyone else writing on a UBEC thread is a SUBEB user replying to it. */
-export const ubecAuthorRoles = ['UBEC Executive Secretary', 'UBEC Department Reviewer'] as const;
+export const ubecAuthorRoles = ['UBEC Executive Secretary', 'UBEC BEAP Chair', 'UBEC Director', 'UBEC Oversight Director', 'UBEC Assessment Officer', 'UBEC Department Reviewer'] as const;
 
 // Column ids and headers mirror components/plan-workbook/sheets.tsx (scripts/test-plan-comments.mjs checks they stay in sync).
 const activityColumns = { activity: 'Allowable activity', code: 'Code', description: 'Description' };
@@ -92,9 +92,9 @@ export function sharedUbecAbilities(user: Viewer, pillar: ImplementedPillar, sta
   const staff = user.role === 'Data Entry Staff' && hasDepartment(departments(user), pillarDepartments[pillar]);
   return { start: false, reply: own.reply, resolveAny: own.reply && (staff || own.start), reopen: false };
 }
-/** UBEC abilities on one component of an open round: the ES on every component, a reviewer on the ones assigned to their department. */
-export function ubecAbilities(assigned: boolean, open: boolean): CommentAbilities {
-  const can = assigned && open;
+/** UBEC abilities on one visible component of an open round. The UBEC ES is supervisory and read-only. */
+export function ubecAbilities(visible: boolean, open: boolean, role = ''): CommentAbilities {
+  const can = visible && open && role !== 'UBEC Executive Secretary';
   return { start: can, reply: can, resolveAny: can, reopen: can };
 }
 export const displayRole = (role: string, isBeapChair?: boolean) => role === 'Director' && isBeapChair ? 'BEAP Chair' : role;
@@ -105,7 +105,7 @@ export const createCommentSchema = z.union([
   z.object({ parentId: z.number().int().positive(), body }).strict(),
 ]);
 export const updateCommentSchema = z.object({ id: z.number().int().positive(), action: z.enum(['resolve', 'reopen']) }).strict();
-/** UBEC threads the ES ticks in the return dialog (app/api/ubec/review/route.ts). */
+/** UBEC threads the UBEC BEAP Chair ticks in the return dialog (app/api/ubec/review/route.ts). */
 export const shareCommentIdsSchema = z.array(z.number().int().positive()).max(500).refine(ids => new Set(ids).size === ids.length, 'Choose each comment once.');
 
 export type PlanCommentReply = { id: number; body: string; authorName: string; authorRole: string; createdAt: string; mine: boolean };
