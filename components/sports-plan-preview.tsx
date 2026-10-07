@@ -8,8 +8,10 @@ import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empt
 import { EmptySchoolPackageArt } from "@/components/empty-art/infrastructure";
 import { EmptySportsFieldArt } from "@/components/empty-art/sports";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { QuarterBadge } from "@/components/quarter-timeline";
-import { sportsBudget, sportsLineTotal, sportsMoney as money, sportsSections, type SportsAllocation, type SportsLine, type SportsPlan } from "@/lib/sports";
+import { sportsBudget, sportsMoney as money, sportsSections, type SportsAllocation, type SportsLine, type SportsPlan, type SportsSection } from "@/lib/sports";
+import { LineTable, type InlineField, type PanelLine } from "@/components/line-panel/line-table";
+import { EmptySection, FocusEmpty, LineSection } from "@/components/line-panel/line-section";
+import { useCollapsed, type PanelMode } from "@/components/line-panel/use-line-panel";
 
 export type SportsTarget = { entity: "budget"; item: SportsLine } | { entity: "allocation"; item: SportsAllocation };
 type PreviewProps = { plan: SportsPlan; disabled: boolean; onEdit: (target: SportsTarget) => void; onRemove: (target: SportsTarget) => void; editingId?: number };
@@ -19,31 +21,69 @@ function RowActions({ label, disabled, onEdit, onRemove }: { label: string; disa
   return <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" disabled={disabled} aria-label={`Actions for ${label}`}><MoreHorizontalIcon /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" onCloseAutoFocus={(event) => { if (editAfterClose.current) { event.preventDefault(); editAfterClose.current = false; onEdit(); } }}><DropdownMenuGroup><DropdownMenuItem onSelect={() => { editAfterClose.current = true; }}><PencilIcon />Edit line</DropdownMenuItem><DropdownMenuItem variant="destructive" onSelect={onRemove}><Trash2Icon />Remove line</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu>;
 }
 
-export function SportsBudgetPreview({ plan, disabled, onEdit, onRemove, editingId }: PreviewProps) {
+type BudgetPreviewProps = {
+  plan: SportsPlan;
+  disabled: boolean;
+  /** The section and sport/sub-activity chosen in the form; that section leads and its group comes first. */
+  selectedSection: SportsSection;
+  selectedType: string;
+  editingId?: number;
+  /** A line open in the form with unsaved changes: locked for in-place editing. */
+  dirtyId?: number;
+  flashId: number | null;
+  mode: PanelMode;
+  onShowAll: () => void;
+  query: string;
+  onEdit: (target: SportsTarget) => void;
+  onRemove: (target: SportsTarget) => void;
+  onSaveCell: (id: number, field: InlineField, value: string) => Promise<string | null>;
+  /** Chooses a section in the form to add its first line. */
+  onStart: (section: SportsSection) => void;
+};
+
+const sameType = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+const panelLine = (line: SportsLine): PanelLine => ({ id: line.id, label: line.description, description: line.description, code: line.section === "equipment" ? line.code : undefined, quarters: line.quarters, quantity: line.quantity, unitCost: line.unitCost });
+
+/** The sports budget beside the form: one section per UBEC budget section, grouped by sport or sub-activity. */
+export function SportsBudgetPreview({ plan, disabled, selectedSection, selectedType, editingId, dirtyId, flashId, mode, onShowAll, query, onEdit, onRemove, onSaveCell, onStart }: BudgetPreviewProps) {
+  const { isOpen, toggle } = useCollapsed();
   if (!plan.lines.length) return <Empty><EmptyHeader><EmptyMedia><EmptySportsFieldArt label="No sports items yet" /></EmptyMedia><EmptyTitle>Your sports plan starts here</EmptyTitle></EmptyHeader></Empty>;
-  return <div className="sports-schedules">{sportsSections.map((section) => {
-    const lines = plan.lines.filter((line) => line.section === section.id);
-    if (!lines.length) return null;
-    const types = [...new Set(lines.map((line) => line.activityType))];
-    return <section key={section.id} aria-labelledby={`preview-${section.id}`} className="sports-schedule">
-      <div className="sports-section-total"><h2 id={`preview-${section.id}`}>{section.label} <span className="font-normal text-muted-foreground">· {section.share}%</span></h2><strong>{money.format(sportsBudget(lines))}</strong></div>
-      {types.map((type) => {
+  const needle = query.trim().toLowerCase();
+  const matching = needle ? plan.lines.filter((line) => `${line.description} ${line.activityType} ${line.code}`.toLowerCase().includes(needle)) : plan.lines;
+  const target = (id: number): SportsTarget | null => { const item = plan.lines.find((line) => line.id === id); return item ? { entity: "budget", item } : null; };
+  const table = (lines: SportsLine[], itemLabel: string) => <LineTable lines={lines.map(panelLine)} itemLabel={itemLabel} editable={!disabled} describe
+    lockReason={(id) => id === dirtyId ? "Save or cancel the changes in the form first." : null} actionsDisabled={disabled} selectedId={editingId} flashId={flashId}
+    onSave={onSaveCell} onEdit={(id) => { const t = target(id); if (t) onEdit(t); }} onRemove={(id) => { const t = target(id); if (t) onRemove(t); }} />;
+  const section = (item: typeof sportsSections[number]) => {
+    const lines = matching.filter((line) => line.section === item.id), selected = item.id === selectedSection;
+    // The sport or sub-activity chosen in the form leads its section.
+    const types = [...new Set(lines.map((line) => line.activityType))].sort((a, b) => Number(selected && sameType(b, selectedType)) - Number(selected && sameType(a, selectedType)));
+    return <LineSection key={item.id} title={item.label} note={`Up to ${item.share}% of the sports budget`} count={lines.length} total={sportsBudget(lines)} selected={selected}
+      open={isOpen(item.id) || lines.some((line) => line.id === flashId)} onOpenChange={(open) => toggle(item.id, open)}>
+      {item.id === "supervision" ? table(lines, item.itemLabel) : types.map((type) => {
         const typeLines = lines.filter((line) => line.activityType === type);
-        return <div className="sports-table" key={type}>
-          {section.id !== "supervision" && <div className="sports-type-heading"><h3>{type}</h3><span>{typeLines.length} {typeLines.length === 1 ? "line" : "lines"}</span></div>}
-          <Table className="table-fixed sports-editable-table" data-view="budget"><colgroup><col /><col className="sports-amount-column" /><col className="actions-column" /></colgroup>
-            <TableHeader><TableRow><TableHead>{section.itemLabel}</TableHead><TableHead className="text-right">Amount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader>
-            <TableBody>{typeLines.map((line) => <TableRow key={line.id} className="sports-editable-row" tabIndex={0} aria-label={`Edit ${line.description}`} aria-selected={editingId === line.id} data-sports-row-id={`budget-${line.id}`} data-state={editingId === line.id ? "selected" : undefined} onClick={() => !disabled && onEdit({ entity: "budget", item: line })} onKeyDown={(event) => { if (!disabled && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit({ entity: "budget", item: line }); } }}>
-              <TableCell className="school-cell"><div className="school-name">{line.description}</div><div className="school-location">{line.quantity.toLocaleString()} × {money.format(line.unitCost)}</div><QuarterBadge quarters={line.quarters} className="mt-1" />{line.section === "equipment" && <div className="school-code">{line.code}</div>}<div className="sports-mobile-amount">{money.format(sportsLineTotal(line))}</div></TableCell>
-              <TableCell className="sports-amount-cell">{money.format(sportsLineTotal(line))}</TableCell>
-              <TableCell className="line-actions" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}><RowActions label={line.description} disabled={disabled} onEdit={() => onEdit({ entity: "budget", item: line })} onRemove={() => onRemove({ entity: "budget", item: line })} /></TableCell>
-            </TableRow>)}</TableBody>
-          </Table>
-          {typeLines.length > 1 && <div className="schedule-total"><span>Subtotal</span><strong>{money.format(sportsBudget(typeLines))}</strong></div>}
+        return <div className="line-subgroup" key={type} data-selected={(selected && sameType(type, selectedType)) || undefined}>
+          <div className="line-subgroup-head"><h3>{type}</h3><span>{typeLines.length} {typeLines.length === 1 ? "line" : "lines"} · {money.format(sportsBudget(typeLines))}</span></div>
+          {table(typeLines, item.itemLabel)}
         </div>;
       })}
-    </section>;
-  })}</div>;
+    </LineSection>;
+  };
+  const has = (id: SportsSection) => matching.some((line) => line.section === id);
+  const chosen = sportsSections.find((item) => item.id === selectedSection)!;
+  if (mode === "focus") {
+    if (has(selectedSection)) return section(chosen);
+    if (needle) return <p className="line-focus-empty">No lines in {chosen.label} match your search.</p>;
+    return <FocusEmpty title={chosen.label} others={plan.lines.length} onShowAll={onShowAll} />;
+  }
+  const empty = sportsSections.filter((item) => !plan.lines.some((line) => line.section === item.id));
+  const emptyRow = (item: typeof sportsSections[number]) => <EmptySection key={item.id} title={item.label} selected={item.id === selectedSection} startLabel={`Add a line to ${item.label}`} onStart={disabled ? undefined : () => onStart(item.id)} />;
+  return <>
+    {has(selectedSection) ? section(chosen) : !needle && <div className="line-empty-group">{emptyRow(chosen)}</div>}
+    {sportsSections.filter((item) => item.id !== selectedSection && has(item.id)).map(section)}
+    {!needle && empty.some((item) => item.id !== selectedSection) && <div className="line-empty-group" role="group" aria-label="Sections without lines"><h3>No lines yet</h3>{empty.filter((item) => item.id !== selectedSection).map(emptyRow)}</div>}
+    {needle && !matching.length && <p className="line-focus-empty">No sports lines match your search.</p>}
+  </>;
 }
 
 export function SportsBeneficiaryPreview({ plan, disabled, onEdit, onRemove, editingId }: PreviewProps) {

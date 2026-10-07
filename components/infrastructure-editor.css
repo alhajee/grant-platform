@@ -42,3 +42,41 @@
 .land-agreement-description{font-size:13px;line-height:1.6;margin:0}
 .land-agreement [data-slot=field-group]{gap:18px}
 .land-agreement [data-slot=field-label]{line-height:1.5}
+/* Whole School audit: one wide editable table, no side form and no preview pane. */
+.activity-split[data-layout=wide]{grid-template-columns:minmax(0,1fr)}
+.activity-split[data-layout=wide] .preview-pane{display:none}
+.activity-split[data-layout=wide] .editor-pane{border-right:0;min-width:0}
+/* Radix ScrollArea wraps content in display:table, which would let the table widen the page; keep it a block so the table scrolls inside its card. */
+.activity-split[data-layout=wide] [data-slot=scroll-area-viewport]>div{display:block!important;min-width:0!important}
+.activity-split[data-layout=wide] .editor-canvas{max-width:1360px;margin-inline:auto;min-width:0}
+.infra-audit{min-width:0}
+.infra-model-step{border:0;padding:0;margin:0;min-width:0}
+.infra-model-step legend{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.infra-model-step-number{display:inline-grid;place-items:center;width:22px;height:22px;margin-right:8px;border-radius:50%;background:var(--primary);color:var(--primary-foreground);font-size:12px;font-weight:600;vertical-align:middle}
+.infra-model-step legend .infra-model-step-number{margin-right:0}
+.infra-model-choice{width:100%;align-items:stretch}
+.infra-model-choice .infra-model-option{flex:1 1 0;min-width:0;height:auto;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:4px;padding:12px 14px;white-space:normal;text-align:left;border-radius:12px}
+.infra-model-choice .infra-model-option[data-state=on]{background:color-mix(in srgb,var(--sage) 45%,var(--card));border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+.infra-model-suggested{margin-top:2px;white-space:normal;text-align:left}
+.infra-audit-filter{flex-wrap:wrap;max-width:100%}
+.infra-audit-filter [data-slot=toggle-group-item]{gap:6px}
+.infra-audit-card{min-width:0;border:1px solid var(--border);border-radius:12px;background:var(--card);overflow:hidden}
+.infra-audit-card [data-slot=table-container]{overflow-x:auto;overscroll-behavior-x:contain}
+.infra-audit-table{min-width:1040px}
+.infra-audit-table th{white-space:nowrap;background:var(--card)}
+.infra-audit-table td{vertical-align:middle}
+.infra-audit-table .infra-audit-sticky{position:sticky;left:0;z-index:1;background:var(--card);width:260px;min-width:220px;max-width:280px;box-shadow:1px 0 0 var(--border)}
+.infra-audit-input{height:32px;width:84px;padding-inline:8px;font-variant-numeric:tabular-nums}
+.infra-audit-sn{flex:none;min-width:18px;color:var(--muted-foreground);font-size:12px;font-variant-numeric:tabular-nums;padding-top:1px}
+.infra-audit-info{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;color:var(--muted-foreground)}
+.infra-audit-info svg{width:15px;height:15px}
+.infra-audit-info:hover,.infra-audit-info:focus-visible{color:var(--primary);outline:none;background:var(--muted)}
+.infra-audit-status{min-width:170px;font-size:12px}
+.infra-audit-status svg{width:14px;height:14px;flex:none;margin-top:1px}
+.infra-audit-table tr[data-status=incomplete] .infra-audit-sticky{box-shadow:inset 3px 0 0 var(--warning),1px 0 0 var(--border)}
+.infra-audit-table tr[data-status=incomplete] .infra-audit-status{color:var(--warning-foreground)}
+.infra-audit-table tr[data-status=invalid]{background:color-mix(in srgb,var(--destructive) 6%,var(--card))}
+.infra-audit-table tr[data-status=invalid] .infra-audit-sticky{background:color-mix(in srgb,var(--destructive) 6%,var(--card));box-shadow:inset 3px 0 0 var(--destructive),1px 0 0 var(--border)}
+.infra-audit-table tr[data-status=invalid] .infra-audit-status{color:var(--destructive)}
+@media(max-width:700px){.infra-model-choice{flex-direction:column}.infra-model-choice .infra-model-option{flex:none;width:100%}.infra-audit-table .infra-audit-sticky{width:170px;min-width:150px;max-width:170px}}
+@media(max-width:700px){.infra-audit-filter{flex-direction:column;align-items:stretch;width:100%}.infra-audit-filter [data-slot=toggle-group-item]{justify-content:space-between;width:100%}}
