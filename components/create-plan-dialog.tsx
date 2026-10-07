@@ -120,7 +120,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
                   </div>
                 </div>
                 <dl className="plan-funding-breakdown">
-                  <div><dt>State contribution</dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
+                  <div><dt>State counterpart fund</dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
                   <div><dt>UBEC match</dt><dd>{money.format(Number(lodgment || 0))}</dd></div>
                   <div><dt>Other funding{fundingSources.length ? ` · ${fundingSources.length} ${fundingSources.length === 1 ? 'source' : 'sources'}` : ''}</dt><dd>{money.format(Number(other))}</dd></div>
                 </dl>
@@ -152,7 +152,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
               </Field>
             </FieldGroup></FieldSet>
             <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">2</span>Funding amounts</FieldLegend><FieldGroup className="gap-3">
-              <Field data-invalid={!!errors.stateLodgment} className="md:max-w-[calc(50%-6px)]"><FieldLabel htmlFor="state-lodgment">State contribution (₦) <RequiredMark /><FieldHelp>The amount paid by the state. UBEC adds the same amount, and both are shared across components by the funding policy.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} required aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
+              <Field data-invalid={!!errors.stateLodgment} className="md:max-w-[calc(50%-6px)]"><FieldLabel htmlFor="state-lodgment">State counterpart fund (₦) <RequiredMark /><FieldHelp>The amount paid by the state. UBEC adds the same amount, and both are shared across components by the funding policy.</FieldHelp></FieldLabel><CurrencyInput id="state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} required aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
               <FundingSourcesField value={sources} onChange={next => { setSources(next); setErrors(current => ({ ...current, fundingSources: '' })); }} disabled={saving} showErrors />
               {errors.fundingSources && <FieldError>{errors.fundingSources}</FieldError>}
             </FieldGroup></FieldSet>
