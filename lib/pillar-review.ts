@@ -8,6 +8,7 @@ import { componentReadinessProblem, readinessWorkstreams, hasReadinessRules } fr
 import type { DepartmentAccess } from './user-departments';
 import type { UbecSubmissionMode } from './workflow-settings';
 import { distributionSnapshotKeys, distributionWorkstreams } from './distribution-lists';
+import { sportsSnapshotProblem } from './sports';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'beap_review' | 'chairman_ready';
 export type PillarReview = { pillar: ImplementedPillar; status: PillarReviewStatus };
@@ -63,11 +64,17 @@ export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Sna
 }
 function planIsComplete(snapshot: Snapshot) {
   return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot)
-    && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup));
+    && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup);
 }
-/** Components with the Executive Chairman that are not ready to reach UBEC (compulsory activities, line schools and documents, the Teacher Development split). */
+/** Why a component may not be sent on yet: readiness rules (compulsory activities, schools, documents, the split) or Sports over its caps. */
+export function componentSendProblem(pillar: ImplementedPillar, snapshot: Snapshot): string | null {
+  if (hasReadinessRules(pillar)) return componentReadinessProblem(pillar, snapshot[pillar] ?? [], snapshot.setup);
+  if (pillar === 'sports') return sportsSnapshotProblem(snapshot.sports, snapshot.setup);
+  return null;
+}
+/** Components with the Executive Chairman that are not ready to reach UBEC (compulsory activities, line schools and documents, the Teacher Development split, Sports caps). */
 export function unreadySentComponents(snapshot: Snapshot, reviews: PillarReview[]) {
-  return componentsWithExecutiveChairman(reviews).flatMap(p => hasReadinessRules(p) && componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup) ? [p] : []);
+  return componentsWithExecutiveChairman(reviews).flatMap(p => componentSendProblem(p, snapshot) ? [p] : []);
 }
 export function aggregateReviewStatus(reviews: PillarReview[]): PlanStatus {
   if (implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready'))) return 'awaiting_chairman';

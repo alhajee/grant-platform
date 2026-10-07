@@ -70,7 +70,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled }: 
           {subActivities.map((item) => <SelectItem key={item.name} value={item.name} textValue={item.name}>{item.name}{item.share !== undefined && <span className="ml-auto text-muted-foreground tabular-nums">{item.share}%</span>}</SelectItem>)}
         </SelectGroup></SelectContent>
       </Select>
-      {draft.section === "competitions" && <FieldDescription>Shares show UBEC&apos;s indicative split of the competitions budget. They are guidance only.</FieldDescription>}
+      {draft.section === "competitions" && <FieldDescription>{section.label} may use up to {section.share}% of the sports budget. The shares beside each sub-activity are UBEC&apos;s suggested split of that amount.</FieldDescription>}
       {isOtherSubActivity(draft.activityType) && <FieldDescription>For an activity that is not in the list. Name it in the description below.</FieldDescription>}
       {errors.activityType && <FieldError id="sports-type-error">{errors.activityType}</FieldError>}
     </Field>}
