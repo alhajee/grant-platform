@@ -61,8 +61,14 @@ try {
   await user('chair', 'Director', ['physical'], true);
   await user('ec', 'Executive Chairman', []);
   await user('es', 'UBEC Executive Secretary', [], false, 'UBEC');
-  await user('revQuality', 'UBEC Department Reviewer', ['quality'], false, 'UBEC');
-  await user('revTeachers', 'UBEC Department Reviewer', ['teachers'], false, 'UBEC');
+  await user('ubecChair', 'UBEC BEAP Chair', [], false, 'UBEC');
+  await user('dme', 'UBEC Director', ['quality'], false, 'UBEC');
+  await user('dddpa', 'UBEC Director', ['digital'], false, 'UBEC');
+  await user('revQuality', 'UBEC Assessment Officer', ['quality'], false, 'UBEC');
+  const revQualityId = userIds.at(-1);
+  // ICT is reviewed by Data, Digital Platforms & Analytics (DDDPA).
+  await user('revTeachers', 'UBEC Assessment Officer', ['digital'], false, 'UBEC');
+  const revIctId = userIds.at(-1);
   // State contribution ₦400,000,000 → shared ₦800,000,000 → Quality Assurance and Teacher Development & ICT get ₦40,000,000 each (5%).
   planId = (await db.query("INSERT INTO action_plans(state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,funding_policy_id) VALUES($1,2031,2031,2031,'{1}',400000000,0,(SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1)) RETURNING id", [state])).rows[0].id;
   await db.query("INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,2031,1)", [planId, state]);
@@ -221,14 +227,17 @@ try {
   const esView = ok(await api('es', ubecPath));
   assert.equal(esView.round.snapshot.quality.length, 8); assert.equal(esView.round.snapshot.ict.length, 8);
   ok(await api('es', `/api/activities/line-documents?id=${boq.id}`));
-  ok(await api('es', ubecPath, { action: 'assign', version: esView.plan.version, roundId: esView.round.id, assignments: [{ pillar: 'quality', department: 'quality' }, { pillar: 'ict', department: 'teachers' }] }));
+  ok(await api('ubecChair', ubecPath, { action: 'release', version: esView.plan.version, roundId: esView.round.id, comment: 'Released for assessment.' }));
+  const components = `/api/ubec/components?plan=${planId}`;
+  ok(await api('dme', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'quality', officerIds: [revQualityId], comment: 'Assess Quality Assurance.' }));
+  ok(await api('dddpa', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'ict', officerIds: [revIctId], comment: 'Assess ICT.' }));
   const teachersView = ok(await api('revTeachers', ubecPath));
   assert.equal(teachersView.round.snapshot.ict.length, 8); assert.deepEqual(teachersView.round.snapshot.quality, []);
   ok(await api('revTeachers', `/api/activities/line-documents?id=${boq.id}`));
   fails(await api('revQuality', `/api/activities/line-documents?id=${boq.id}`), 404);
   assert.equal(ok(await api('revQuality', ubecPath)).round.snapshot.quality.length, 8);
   fails(await upload('ict', spec.id, 'late.pdf', pdf), 409);
-  step('Quality Assurance and ICT flow Director → BEAP Chair → Executive Chairman → UBEC with department assignment; snapshots carry line schools, documents and extras once sent to the BEAP Chair; Executive Chairman documents and totals once sent to them');
+  step('Quality Assurance and ICT flow Director → BEAP Chair → Executive Chairman → UBEC released by the UBEC BEAP Chair and assigned to DME and DDDPA officers; snapshots carry line schools, documents and extras once sent to the BEAP Chair; Executive Chairman documents and totals once sent to them');
   console.log(`PASS: ${passed} quality-ict checks.`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2, component_documents_required=$3 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode, settings.component_documents_required]);

@@ -25,8 +25,10 @@ const accounts = [
   ...departments.flatMap(([id,name]) => [
     { email:`yobe.officer.${id}@demo.local`, name:id==='physical'?'Amina Muhammad':`${name} Officer`, role:'Data Entry Staff', department:id, state:'YO' },
     { email:`yobe.director.${id}@demo.local`, name:id==='physical'?'Ibrahim Musa':`${name} Director`, role:'Director', department:id, state:'YO', isBeapChair:id==='physical' },
-    { email:`ubec.${id}@demo.local`, name:`${name} Reviewer`, role:'UBEC Department Reviewer', department:id, state:'UBEC' },
+    // UBEC review flow (migration 055): an Assessment Officer per UBEC component department.
+    ...(['physical','planning','academic','teachers','quality','social'].includes(id) ? [{ email:`ubec.${id}@demo.local`, name:`${name} Assessment Officer`, role:'UBEC Assessment Officer', department:id, state:'UBEC' }] : []),
   ]),
+  { email:'ubec.chair@demo.local', name:'UBEC BEAP Chair', role:'UBEC BEAP Chair', department:null, state:'UBEC' },
 ];
 const password = `Ubec-Test-${randomBytes(6).toString('hex')}!`;
 const passwordHash = hashSync(password,12);

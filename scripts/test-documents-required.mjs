@@ -85,6 +85,7 @@ try {
   await user('chair', 'Director', ['physical'], true);
   await user('ec', 'Executive Chairman', []);
   await user('es', 'UBEC Executive Secretary', [], false, 'UBEC');
+  await user('ubecChair', 'UBEC BEAP Chair', [], false, 'UBEC'); // submissions need an active UBEC BEAP Chair
 
   // The admin API: Super Admin only, same origin, a boolean.
   fails(await api('ec', setting), 403);

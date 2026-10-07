@@ -56,6 +56,7 @@ try {
   await user('ec', 'Executive Chairman', []);
   await user('foreignDir', 'Director', ['academic', 'physical', 'social'], { stateCode: foreign });
   await user('ubec', 'UBEC Executive Secretary', [], { stateCode: 'UBEC' });
+  await user('ubecChair', 'UBEC BEAP Chair', [], { stateCode: 'UBEC' }); // submissions need an active UBEC BEAP Chair
 
   const rat = new ExcelJS.Workbook(); rat.addWorksheet('RAT').addRow(['Comments QA']);
   const form = new FormData();

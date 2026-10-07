@@ -17,7 +17,7 @@ const start=(who,target)=>api(who,'/api/admin/impersonation',{action:'start',use
 const stop=who=>api(who,'/api/admin/impersonation',{action:'stop'});
 async function login(who){return expect(await api(who,'/api/auth/login',{email:users[who].email,password}));}
 try{
- for(const [key,role,department,state]of [['admin','Super Admin',null,'ADMIN'],['admin2','Super Admin',null,'ADMIN'],['officer','Data Entry Staff','physical',marker],['director','Director','physical',marker],['chair','Executive Chairman',null,marker],['es','UBEC Executive Secretary',null,'UBEC'],['reviewer','UBEC Department Reviewer','academic','UBEC'],['foreign','Data Entry Staff','academic',marker+'B']]){
+ for(const [key,role,department,state]of [['admin','Super Admin',null,'ADMIN'],['admin2','Super Admin',null,'ADMIN'],['officer','Data Entry Staff','physical',marker],['director','Director','physical',marker],['chair','Executive Chairman',null,marker],['es','UBEC Executive Secretary',null,'UBEC'],['reviewer','UBEC Assessment Officer','academic','UBEC'],['foreign','Data Entry Staff','academic',marker+'B']]){
   const email=`${key}.${marker.toLowerCase()}@test.local`;
   const id=(await db.query('INSERT INTO users(email,full_name,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[email,`QA ${key}`,role,department,state,hashSync(password,4)])).rows[0].id;users[key]={id,email,role,state};
   const result=await login(key);assert.equal(result.destination,role==='Super Admin'?'/admin':role.startsWith('UBEC ')?'/ubec':'/dashboard');

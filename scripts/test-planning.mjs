@@ -46,8 +46,10 @@ try {
   await user('chair', 'Director', ['physical'], true);
   await user('ec', 'Executive Chairman', []);
   await user('es', 'UBEC Executive Secretary', [], false, 'UBEC');
-  await user('revPlanning', 'UBEC Department Reviewer', ['planning'], false, 'UBEC');
-  await user('revQuality', 'UBEC Department Reviewer', ['quality'], false, 'UBEC');
+  await user('ubecChair', 'UBEC BEAP Chair', [], false, 'UBEC');
+  await user('dprs', 'UBEC Director', ['planning'], false, 'UBEC');
+  await user('revPlanning', 'UBEC Assessment Officer', ['planning'], false, 'UBEC');
+  await user('revQuality', 'UBEC Assessment Officer', ['quality'], false, 'UBEC');
   // State contribution ₦400,000,000 → shared ₦800,000,000 → Planning, Research & Statistics gets ₦16,000,000 (2%).
   planId = (await db.query("INSERT INTO action_plans(state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,funding_policy_id) VALUES($1,2032,2032,2032,'{1}',400000000,0,(SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1)) RETURNING id", [state])).rows[0].id;
   await db.query('INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,2032,1)', [planId, state]);
@@ -131,11 +133,12 @@ try {
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));
   const esView = ok(await api('es', ubecPath));
   assert.equal(esView.round.snapshot.planning.length, 5);
-  ok(await api('es', ubecPath, { action: 'assign', version: esView.plan.version, roundId: esView.round.id, assignments: [{ pillar: 'planning', department: 'planning' }] }));
+  ok(await api('ubecChair', ubecPath, { action: 'release', version: esView.plan.version, roundId: esView.round.id, comment: 'Released for assessment.' }));
+  ok(await api('dprs', `/api/ubec/components?plan=${planId}`, { action: 'assign_officers', roundId: esView.round.id, pillar: 'planning', officerIds: [userIds[userIds.length - 2]], comment: 'Assess the planning lines.' }));
   assert.equal(ok(await api('revPlanning', ubecPath)).round.snapshot.planning.length, 5);
   fails(await api('revQuality', ubecPath), 404, /No assigned submission/);
   fails(await api('prs', url(), line(4, 100)), 409);
-  step('Planning flows Director → BEAP Chair → Executive Chairman → UBEC, with UBEC Planning, Research & Statistics assignment');
+  step('Planning flows Director → BEAP Chair → Executive Chairman → UBEC, released by the UBEC BEAP Chair and assigned by the Planning, Research & Statistics Director');
   console.log(`PASS: ${passed} planning checks.`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);

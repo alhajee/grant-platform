@@ -46,8 +46,13 @@ try {
   await user('chair', 'Director', ['physical'], true);
   await user('ec', 'Executive Chairman', []);
   await user('es', 'UBEC Executive Secretary', [], false, 'UBEC');
-  await user('revPhysical', 'UBEC Department Reviewer', ['physical'], false, 'UBEC');
-  await user('revAcademic', 'UBEC Department Reviewer', ['academic'], false, 'UBEC');
+  await user('ubecChair', 'UBEC BEAP Chair', [], false, 'UBEC');
+  await user('dpp', 'UBEC Director', ['physical'], false, 'UBEC');
+  await user('dacs', 'UBEC Director', ['academic'], false, 'UBEC');
+  await user('revPhysical', 'UBEC Assessment Officer', ['physical'], false, 'UBEC');
+  const revPhysicalId = userIds.at(-1);
+  await user('revAcademic', 'UBEC Assessment Officer', ['academic'], false, 'UBEC');
+  const revAcademicId = userIds.at(-1);
   // State contribution 100,000 → shared envelope 200,000 → each 2% component gets ₦4,000.00 under the default policy.
   planId = (await db.query('INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding) VALUES($1,2029,2029,100000,0) RETURNING id', [state])).rows[0].id;
   for (const [name, male, female] of [['QA Curriculum School A', 60, 40], ['QA Curriculum School B', 150, 150]]) schoolIds.push((await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,$2,'QA LGA','Primary','Rural',$3,$4) RETURNING id", [state, name, male, female])).rows[0].id);
@@ -229,7 +234,10 @@ try {
   assert.equal(esView.round.snapshot.curriculumDistribution.length, 2); assert.deepEqual(esView.round.snapshot.gscci, []); assert.deepEqual(esView.round.snapshot.gscciDistribution, []);
   assert.deepEqual(esView.round.snapshot.componentDocuments.map(d => d.id), [kept.id]);
   ok(await api('es', `/api/activities/documents?id=${kept.id}`));
-  ok(await api('es', ubecPath, { action: 'assign', version: esView.plan.version, roundId: esView.round.id, assignments: [{ pillar: 'monitoring', department: 'physical' }, { pillar: 'curriculum', department: 'academic' }] }));
+  ok(await api('ubecChair', ubecPath, { action: 'release', version: esView.plan.version, roundId: esView.round.id, comment: 'Released for assessment.' }));
+  const components = `/api/ubec/components?plan=${planId}`;
+  ok(await api('dpp', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'monitoring', officerIds: [revPhysicalId], comment: 'Assess monitoring.' }));
+  ok(await api('dacs', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'curriculum', officerIds: [revAcademicId], comment: 'Assess curriculum.' }));
   const physicalReview = ok(await api('revPhysical', ubecPath));
   assert.equal(physicalReview.round.snapshot.monitoring.length, 2); assert.deepEqual(physicalReview.round.snapshot.curriculum, []);
   assert.equal(physicalReview.round.snapshot.componentDocuments.length, 1);
@@ -238,7 +246,7 @@ try {
   assert.equal(academicReview.round.snapshot.curriculumDistribution.length, 2); assert.deepEqual(academicReview.round.snapshot.componentDocuments, []);
   fails(await api('revAcademic', `/api/activities/documents?id=${kept.id}`), 404);
   fails(await upload('physical', 'late.pdf', pdf), 409);
-  step('UBEC round: Monitoring and Curriculum sent with distribution and proforma; assignment and reviewer isolation');
+  step('UBEC round: Monitoring and Curriculum sent with distribution and proforma; release, officer assignment and officer isolation');
   console.log(`PASS: ${passed} activity-component checks.`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);

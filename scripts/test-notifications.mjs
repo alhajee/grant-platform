@@ -47,7 +47,11 @@ try {
   await user('ec', 'Executive Chairman', []);
   await user('foreignDir', 'Director', ['academic'], { stateCode: foreign });
   await user('es', 'UBEC Executive Secretary', [], { stateCode: 'UBEC' });
-  await user('reviewer', 'UBEC Department Reviewer', [], { stateCode: 'UBEC', department: 'academic' });
+  await user('ubecChair', 'UBEC BEAP Chair', [], { stateCode: 'UBEC' });
+  await user('dacs', 'UBEC Director', ['academic'], { stateCode: 'UBEC' });
+  await user('reviewer', 'UBEC Assessment Officer', ['academic'], { stateCode: 'UBEC' });
+  const officerId = userIds.at(-1);
+  for (const department of ['audit', 'procurement', 'finance']) await user(department, 'UBEC Oversight Director', [department], { stateCode: 'UBEC' });
 
   const rat = new ExcelJS.Workbook(); rat.addWorksheet('RAT').addRow(['Notifications QA']);
   const form = new FormData();
@@ -96,29 +100,39 @@ try {
   ok(await api('ec', ubecPath, { action: 'submit', version: ubec.plan.version }));
   items = await mine('es');
   assert.equal(items.length, 1); assert.equal(items[0].source, 'ubec'); assert.equal(items[0].action, 'submit'); assert.equal(items[0].stateCode, state); assert.equal(items[0].actorRole, 'Executive Chairman');
+  assert.ok((await mine('ubecChair')).some(n => n.action === 'submit' && n.source === 'ubec'), 'the UBEC BEAP Chair hears about the submission');
   assert.deepEqual((await feed('es')).todos, []);
   assert.equal((await feed('ec')).todos.filter(t => t.planId === planId).length, 0, 'no state to-dos while the plan is with UBEC');
-  step('submission to UBEC notifies the UBEC ES (source ubec); state to-dos clear while the plan is with UBEC');
+  step('submission to UBEC notifies the UBEC BEAP Chair and ES (source ubec); state to-dos clear while the plan is with UBEC');
 
-  ubec = ok(await api('es', ubecPath));
-  ok(await api('es', ubecPath, { action: 'assign', version: ubec.plan.version, roundId: ubec.round.id, assignments: [{ pillar: 'sports', department: 'academic' }] }));
+  const components = `/api/ubec/components${q}`;
+  ubec = ok(await api('ubecChair', ubecPath));
+  ok(await api('ubecChair', ubecPath, { action: 'release', version: ubec.plan.version, roundId: ubec.round.id, comment: 'Please assess.' }));
+  items = await mine('dacs');
+  assert.equal(items.length, 1); assert.equal(items[0].action, 'release'); assert.equal(items[0].source, 'ubec');
+  ok(await api('dacs', components, { action: 'assign_officers', roundId: ubec.round.id, pillar: 'sports', officerIds: [officerId], comment: 'Check quotations.' }));
   items = await mine('reviewer');
-  assert.equal(items.length, 1); assert.equal(items[0].action, 'assign'); assert.equal(items[0].source, 'ubec');
-  step('assignment notifies the UBEC reviewer of the assigned department');
+  assert.equal(items.length, 1); assert.equal(items[0].action, 'assign_officer'); assert.equal(items[0].scope, 'sports');
+  step('release notifies the Director of the department; officer assignment notifies the officer with the component');
 
-  ubec = ok(await api('reviewer', ubecPath));
-  ok(await api('reviewer', ubecPath, { action: 'feedback', version: ubec.plan.version, roundId: ubec.round.id, assignmentId: ubec.assignments[0].id, comment: 'Quotations needed.', recommendation: 'changes' }));
-  assert.ok((await mine('es')).some(n => n.action === 'feedback' && n.comment === 'Quotations needed.'));
-  step('department feedback notifies the UBEC ES with the feedback text');
+  for (const line of ok(await api('reviewer', ubecPath)).round.snapshot.sports) ok(await api('reviewer', `/api/ubec/decisions${q}`, { roundId: ubec.round.id, pillar: 'sports', rowRef: String(line.id), decision: 'reject', note: 'Quotations needed.' }, { method: 'PUT' }));
+  ok(await api('reviewer', components, { action: 'complete_assessment', roundId: ubec.round.id, pillar: 'sports', note: 'Quotations needed.' }));
+  assert.ok((await mine('dacs')).some(n => n.action === 'complete_assessment' && n.comment === 'Quotations needed.'));
+  ok(await api('dacs', components, { action: 'send_oversight', roundId: ubec.round.id, pillar: 'sports', comment: 'Rejected pending quotations.' }));
+  assert.ok((await mine('audit')).some(n => n.action === 'send_oversight'));
+  for (const who of ['audit', 'procurement', 'finance']) ok(await api(who, components, { action: 'observations_done', roundId: ubec.round.id, pillar: 'sports', note: '' }));
+  assert.ok((await mine('ubecChair')).some(n => n.action === 'ready_for_chair' && n.scope === 'sports'));
+  step('completed assessment notifies the Director with the note; oversight is notified; the third observation notifies the UBEC BEAP Chair');
 
-  ubec = ok(await api('es', ubecPath));
-  ok(await api('es', ubecPath, { action: 'return', version: ubec.plan.version, roundId: ubec.round.id, comment: 'Please attach quotations.' }));
-  for (const who of ['des', 'dir', 'ec']) assert.ok((await mine(who)).some(n => n.source === 'state' && n.action === 'request_changes' && n.actorRole === 'UBEC Executive Secretary'), who);
+  ubec = ok(await api('ubecChair', ubecPath));
+  ok(await api('ubecChair', ubecPath, { action: 'return', version: ubec.plan.version, roundId: ubec.round.id, comment: 'Please attach quotations.' }));
+  for (const who of ['des', 'dir', 'ec', 'chair']) assert.ok((await mine(who)).some(n => n.source === 'state' && n.action === 'request_changes' && n.actorRole === 'UBEC BEAP Chair'), who);
   const returned = (await mine('dir')).find(n => n.action === 'request_changes');
   assert.ok(Number.isInteger(returned.eventId) && returned.comment === 'Please attach quotations.', 'the return note carries its review event id for the history link');
+  assert.ok((await mine('es')).some(n => n.action === 'return'), 'the ES is told about the decision');
   ok(await markRead('es', { all: true }));
   assert.ok((await mine('es')).every(n => n.readAt));
-  step('UBEC return notifies the state team with the note and its review event id; the ES can mark all as read');
+  step('the UBEC BEAP Chair\'s return notifies the state team (incl. its BEAP Chair) with the note and its review event id; the ES can mark all as read');
 
   console.log(`\nPASS: ${passed} notification checks.`);
 } finally {

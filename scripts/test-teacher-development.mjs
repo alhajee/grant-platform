@@ -58,8 +58,11 @@ try {
   await user('chair', 'Director', ['physical'], true);
   await user('ec', 'Executive Chairman', []);
   await user('es', 'UBEC Executive Secretary', [], false, 'UBEC');
-  await user('revTeachers', 'UBEC Department Reviewer', ['teachers'], false, 'UBEC');
-  await user('revQuality', 'UBEC Department Reviewer', ['quality'], false, 'UBEC');
+  await user('ubecChair', 'UBEC BEAP Chair', [], false, 'UBEC');
+  await user('dtpd', 'UBEC Director', ['teachers'], false, 'UBEC');
+  await user('revTeachers', 'UBEC Assessment Officer', ['teachers'], false, 'UBEC');
+  const revTeachersId = userIds.at(-1);
+  await user('revQuality', 'UBEC Assessment Officer', ['quality'], false, 'UBEC');
   // State contribution ₦400,000,000 → shared ₦800,000,000 → Teacher Development & ICT share ₦40,000,000 (5%).
   planId = (await db.query("INSERT INTO action_plans(state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,funding_policy_id) VALUES($1,2032,2032,2032,'{1}',400000000,0,(SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1)) RETURNING id", [state])).rows[0].id;
   await db.query("INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,2032,1)", [planId, state]);
@@ -173,12 +176,13 @@ try {
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));
   const esView = ok(await api('es', ubecPath));
   assert.equal(esView.round.snapshot.teachers.length, 2); assert.deepEqual(esView.round.snapshot.ict, []);
-  ok(await api('es', ubecPath, { action: 'assign', version: esView.plan.version, roundId: esView.round.id, assignments: [{ pillar: 'teachers', department: 'teachers' }] }));
+  ok(await api('ubecChair', ubecPath, { action: 'release', version: esView.plan.version, roundId: esView.round.id, comment: 'Released for assessment.' }));
+  ok(await api('dtpd', `/api/ubec/components?plan=${planId}`, { action: 'assign_officers', roundId: esView.round.id, pillar: 'teachers', officerIds: [revTeachersId], comment: 'Assess Teacher Development.' }));
   assert.equal(ok(await api('revTeachers', ubecPath)).round.snapshot.teachers.length, 2);
   ok(await api('revTeachers', `/api/activities/line-documents?id=${mou.id}`));
   fails(await api('revQuality', `/api/activities/line-documents?id=${mou.id}`), 404);
   fails(await upload('tpd', literacy.id, 'late.pdf', pdf), 409);
-  step('Teacher Development flows Director → BEAP Chair → Executive Chairman → UBEC with the teachers department');
+  step('Teacher Development flows Director → BEAP Chair → Executive Chairman → UBEC released by the UBEC BEAP Chair and assigned by the Teacher Professional Development Director');
   console.log(`PASS: ${passed} teacher-development checks.`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2, component_documents_required=$3 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode, settings.component_documents_required]);

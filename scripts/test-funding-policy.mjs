@@ -16,7 +16,7 @@ async function api(who,path,body,method=body?'POST':'GET'){
 function expect(r,status=200){assert.equal(r.status,status,JSON.stringify(r.data));return r.data;}
 async function createPlan(year){const form=new FormData();form.set('setup',JSON.stringify({planningYear:year,implementationYear:year,quarters:[1],stateLodgment:'100',otherFunding:'0'}));form.append('rat',ratFile,'assessment.xlsx');const r=await fetch(base+'/api/plans',{method:'POST',headers:{Cookie:users.chair.cookie},body:form});return expect({status:r.status,data:await r.json()},201).plan;}
 try{
- for(const [key,role,department]of [['es','UBEC Executive Secretary',null],['reviewer','UBEC Department Reviewer','physical'],['chair','Executive Chairman',null],['director','Director','physical'],['officer','Data Entry Staff','physical'],['other','Director','academic']]){
+ for(const [key,role,department]of [['es','UBEC Executive Secretary',null],['reviewer','UBEC Assessment Officer','physical'],['chair','Executive Chairman',null],['director','Director','physical'],['officer','Data Entry Staff','physical'],['other','Director','academic']]){
   const email=`${key}.${marker.toLowerCase()}@test.local`;const id=(await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[`Test ${key}`,email,role,department,marker,hashSync(password,4)])).rows[0].id;
   users[key]={id};users[key].cookie=expectLogin(await api(key,'/api/auth/login',{email,password}));
  }
