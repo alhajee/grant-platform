@@ -105,7 +105,7 @@ function OfficerPicker({ flow, component, value, onChange, disabled }: { flow: U
 
 function ComponentSummary({ component, threads, showOfficers }: { component: FlowComponent; threads: number; showOfficers: boolean }) {
   return <div className="ubec-step-summary">
-    <DecisionBar counts={component.counts} />
+    <DecisionBar counts={component.counts} compact />
     <p className="ubec-step-stats"><span><CheckIcon aria-hidden="true" />{component.counts.accepted} accepted</span><span><XIcon aria-hidden="true" />{component.counts.rejected} rejected</span><span><MessageSquareTextIcon aria-hidden="true" />{threads} open {threads === 1 ? 'comment' : 'comments'}</span>{component.counts.undecided > 0 && <span><CircleDotIcon aria-hidden="true" />{component.counts.undecided} undecided</span>}</p>
     {showOfficers && component.officers.length > 0 && <ul className="ubec-step-notes">{component.officers.map(o => <li key={o.id}><strong>{o.officerName}</strong>{o.completedAt ? <span>{o.completionNote || 'Assessment complete.'}</span> : <Badge variant="outline">Assessing</Badge>}</li>)}</ul>}
     {component.directorComment && <p className="ubec-step-quote"><strong>{component.directorName}</strong> {component.directorComment}</p>}
