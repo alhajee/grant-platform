@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {packageSchema,modelFor,auditGaps,calculateInfrastructure,packageProblem,requirements} from '../lib/infrastructure-model.ts';
+import {packageSchema,modelFor,auditGaps,calculateInfrastructure,packageProblem,requirements,minimumKeys} from '../lib/infrastructure-model.ts';
 assert.deepEqual([1,240,241,320,321].map(modelFor),[0,0,1,1,2]);
 const make=kind=>packageSchema.parse({kind,schoolId:1,components:['Primary'],land:{available:true,documented:true,unencumbered:true}});
 const hope=make('new');assert.equal(hope.targeting,'nonhope','New-school packages default to Non-HOPE');assert.equal(hope.classroomStrategy,'Request for quotation','Request for quotation is the default strategy');hope.targeting='hope';hope.classroomStrategy='NCB';hope.prices={block3os:100,block3:200,eccdeBlock:50,toilet:70,dualDesk:2,fence:3};hope.fenceLength=10;hope.contingency=5;hope.preliminaries=10;
@@ -11,7 +11,10 @@ assert.equal(r.otherSubtotal,525);assert.equal(r.vat,61.88);assert.equal(r.total
 hope.classroomStrategy='Request for quotation';r=calculateInfrastructure(hope,300);assert.equal(r.vat,39.38);assert.equal(r.total,864.38);
 hope.grouping='storey';r=calculateInfrastructure(hope,321);assert.equal(r.items.find(i=>i.key==='block6os').quantity,1);assert.equal(r.items.find(i=>i.key==='block3').quantity,2);
 hope.targeting='nonhope';hope.lumpSum=450;hope.duration='6 months';r=calculateInfrastructure(hope,321);assert.equal(r.total,450);assert.equal(r.vat,0);assert.equal(r.items.find(i=>i.key==='dualDesk').cost,0);
-const whole=make('whole');whole.audit={classroomPri:{existing:4,functional:2,extra:0},dualDesk:{existing:100,functional:80,extra:3},fence:{existing:20,functional:10,extra:5}};whole.fenceRequired=50;whole.observations='QA site visit notes';whole.conditionNotes='Two classrooms have cracked walls';
+const whole=make('whole');whole.audit={classroomPri:{existing:4,functional:2,extra:0},dualDesk:{existing:100,functional:80,extra:3},fence:{existing:20,functional:10,extra:5}};whole.fenceRequired=50;
+// The audit now names its school model and records every Minimum Standard row (zero counts are entries).
+whole.model=modelFor(200);for(const key of minimumKeys)whole.audit[key]??={existing:0,functional:0,extra:0};
+
 let gaps=auditGaps(whole,200);assert.equal(gaps[0].additional,3);assert.equal(gaps[0].nonFunctional,2);assert.equal(gaps.find(g=>g.key==='dualDesk').toBuild,43);assert.equal(gaps.find(g=>g.key==='fence').toBuild,35);
 for(const item of calculateInfrastructure(whole,200).items)whole.packageCosts[item.key]={cost:10,strategy:'NCB',duration:'4 weeks'};
 r=calculateInfrastructure(whole,200);assert.equal(r.items.find(i=>i.key==='classroomPri-renovate').total,10);assert.equal(r.items.find(i=>i.key==='classroomPri-construct').total,10);assert.equal(r.items.find(i=>i.key==='dualDesk').total,430);assert.equal(packageProblem(whole,200),null);
