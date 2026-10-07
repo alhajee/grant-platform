@@ -34,6 +34,15 @@ assert.deepEqual(census.classFromCombo('Kindergarten 1/ECCD, Female'), { key: 'E
 assert.equal(census.classFromCombo('Useable'), null);
 step('school, LGA and ward names are cleaned; class and sex come from category option combos');
 
+{
+  const section = (dnemisId, name, ward, level, levels) => ({ dnemisId, name, lga: 'Alpha', ward, level, levels });
+  const merged = census.mergeSectionLevels([section('P1', 'Model School', 'North', 'Primary', ['ECCDE', 'Primary']), section('J1', 'model  school', 'North', 'JSS', ['JSS']),
+    section('J2', 'Model School', 'South', 'JSS', ['JSS']), section('P2', 'Other School', 'North', 'Primary', ['Primary'])]);
+  assert.deepEqual(merged.map(item => item.levels), [['ECCDE', 'Primary', 'JSS'], ['ECCDE', 'Primary', 'JSS'], ['JSS'], ['Primary']]);
+  assert.deepEqual(merged.map(item => item.level), ['Primary', 'JSS', 'JSS', 'Primary'], 'the main level is kept');
+  step('primary and JSS records of one school (same name and ward) show every level');
+}
+
 const at = text => new Date(text);
 const daily = { mode: 'daily', weekday: 1, time: '02:00' };
 // 02:00 Lagos = 01:00 UTC.
@@ -51,7 +60,7 @@ step('schedule slots are computed in Lagos time and run once');
 
 // ---- Mock DHIS2 ----
 const ids = { public: 'GPUBLIC0001', private: 'GPRIVATE001', rural: 'GRURAL00001', urban: 'GURBAN00001', state: 'STATE000001' };
-const el = { pre: 'EPRE0000001', pry: 'EPRY0000001', pry2: 'EPRY0000002', jss: 'EJSS0000001', cls: 'ECLS0000001', water: 'EWATER00001', fence: 'EFENCE00001', loc: 'ELOC0000001', lev: 'ELEV0000001', tch: 'ETCH0000001', phone: 'EPHONE00001' };
+const el = { pre: 'EPRE0000001', pry: 'EPRY0000001', pry2: 'EPRY0000002', jss: 'EJSS0000001', cls: 'ECLS0000001', water: 'EWATER00001', fence: 'EFENCE00001', loc: 'ELOC0000001', lev: 'ELEV0000001', jlev: 'EJLEV000001', tch: 'ETCH0000001', phone: 'EPHONE00001' };
 const coc = { p1m: 'CP1M0000001', p1f: 'CP1F0000001', p2f: 'CP2F0000001', n1m: 'CN1M0000001', j1f: 'CJ1F0000001', use: 'CUSE0000001', unuse: 'CUNUSE00001', tm: 'CTM00000001', tf: 'CTF00000001', def: 'CDEF0000001' };
 const cocNames = { [coc.p1m]: 'PRY1, Male', [coc.p1f]: 'PRY1, Female', [coc.p2f]: 'PRY2, Female', [coc.n1m]: 'Nursery 1, Male', [coc.j1f]: 'JS1, Female', [coc.use]: 'Useable', [coc.unuse]: 'Not useable', [coc.tm]: 'Male', [coc.tf]: 'Female', [coc.def]: 'default' };
 const unit = (id, name, ward, groups, form, extra = {}) => ({ id, name, code: extra.code, closedDate: extra.closedDate, parent: { name: `${state.toLowerCase().slice(0, 2)} ${ward} Ward`, parent: { name: `${state.toLowerCase().slice(0, 2)} ${extra.lga ?? 'Alpha'} LGA` } }, organisationUnitGroups: groups.map(id => ({ id })), dataSets: [{ id: form }] });
@@ -74,7 +83,7 @@ const valuesFor = (period, orgUnit) => {
     value(orgUnit, el.pre, coc.n1m, 12), value(orgUnit, el.cls, coc.use, 6), value(orgUnit, el.cls, coc.unuse, 2), value(orgUnit, el.water, coc.def, 'Borehole'),
     value(orgUnit, el.fence, coc.def, '3'), value(orgUnit, el.tch, coc.tm, 4), value(orgUnit, el.tch, coc.tf, 3), value(orgUnit, el.phone, coc.def, '0800')];
   if (orgUnit === 'OU_B000001' && period === now) return [value(orgUnit, el.pre, coc.n1m, 15), value(orgUnit, el.loc, coc.def, '1'), value(orgUnit, el.lev, coc.def, 'Pre-primary only')];
-  if (orgUnit === 'OU_C000001' && period === now) return [value(orgUnit, el.jss, coc.j1f, 40)];
+  if (orgUnit === 'OU_C000001' && period === now) return [value(orgUnit, el.jss, coc.j1f, 40), value(orgUnit, el.jlev, coc.def, 'Junior and Senior Secondary')];
   if (orgUnit === 'OU_F000001' && period === String(Number(now) - 1)) return [value(orgUnit, el.pry, coc.p1f, 9)];
   if (orgUnit === 'OU_G000001' && period === now) return [value(orgUnit, el.pry, coc.p1m, 1)];
   if (orgUnit === 'OU_H000001' && period === now) return [value(orgUnit, el.pry, coc.p1m, 2)];
@@ -90,7 +99,7 @@ async function mockFetch(path) {
     [el.fence, 'F.7 Fence/wall: Does the school have a fence or wall around it?'], [el.loc, 'B.2 Location'], [el.lev, 'B.3c PRP Levels of education offered'],
     [el.tch, 'D.2 How many teachers are working at the school regardless of whether they are currently present or on course or absent'], [el.phone, 'A.7 School Telephone'],
   ].map(([id, name]) => ({ dataElement: { id, name } })) };
-  if (p === `/api/dataSets/${JSS}`) return { dataSetElements: [{ dataElement: { id: el.jss, name: 'JSS_C.3_Junior Secondary enrolment by age for the the current school year (12 Years)' } }] };
+  if (p === `/api/dataSets/${JSS}`) return { dataSetElements: [{ dataElement: { id: el.jss, name: 'JSS_C.3_Junior Secondary enrolment by age for the the current school year (12 Years)' } }, { dataElement: { id: el.jlev, name: 'B.3a JSS_Levels of education offered' } }] };
   if (p === '/api/organisationUnits' && url.searchParams.get('level') === '2') return { organisationUnits: [{ id: ids.state, name: `${state.toLowerCase()} Test State` }, { id: 'OTHERSTATE1', name: 'zz Elsewhere State' }] };
   if (p === '/api/organisationUnits') {
     assert.ok(url.searchParams.getAll('filter').includes(`path:like:${ids.state}`));
@@ -146,6 +155,7 @@ try {
   const bravo = await school('OU_B000001'), charlie = await school('OU_C000001'), fox = await school('OU_F000001'), hotel = await school('OU_H000001');
   assert.deepEqual([bravo.level, bravo.location, bravo.enrolment_male], ['ECCDE', 'Urban', 15]);
   assert.deepEqual([charlie.level, charlie.lga, charlie.location, charlie.enrolment_by_class], ['JSS', 'Beta', 'Urban', { JSS1: { male: 0, female: 40 } }]);
+  assert.deepEqual([alpha.levels_offered, bravo.levels_offered, charlie.levels_offered, fox.levels_offered], [['ECCDE', 'Primary'], ['ECCDE'], ['JSS', 'SSS'], ['Primary']]);
   assert.equal(fox.dnemis_year, new Date().getFullYear() - 2, 'falls back to the previous year when the latest has no data');
   assert.equal(hotel.id, manual[0].id, 'the hand-added school with the same code is adopted');
   assert.deepEqual([hotel.name, hotel.town, hotel.latitude, hotel.location], ['Hotel Primary School', 'Hotel Town', '11.5', 'Rural']);

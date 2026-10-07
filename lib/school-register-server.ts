@@ -9,7 +9,7 @@ import { cachedSchoolList, invalidateSchoolLists } from './school-cache';
 import { isStateCode } from './state-names';
 
 export const noStoreJson = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
-export const registerFieldsSql = `id, school_code AS "schoolCode", name, town, ward, dnemis_id IS NOT NULL AS dnemis, lga, level, category, location, latitude, longitude,
+export const registerFieldsSql = `id, school_code AS "schoolCode", name, town, ward, dnemis_id IS NOT NULL AS dnemis, lga, level, levels_offered AS levels, category, location, latitude, longitude,
   enrolment_male AS male, enrolment_female AS female, enrolment_by_class AS enrolment, updated_at AS "updatedAt", updated_by_name AS "updatedBy"`;
 export const managerMessage = 'Only the Executive Chairman, the BEAP Chair or staff they authorise can manage the school register.';
 /** Clears the state's cached school lists once a successful change has committed. */

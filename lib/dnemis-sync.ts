@@ -7,7 +7,7 @@
 // * The access token is only ever passed to dhis2Fetch; nothing here logs or stores it.
 import { Client } from 'pg';
 import { DnemisError, dhis2Fetch, getDnemisConfig } from './dnemis';
-import { censusForms, elementRole, statePrefix, summariseCensus, toSyncedSchool, type CensusForm, type DhisDataValue, type DhisOrgUnit, type ElementRole, type SchoolCensus, type SyncedSchool } from './dnemis-census';
+import { censusForms, elementRole, mergeSectionLevels, statePrefix, summariseCensus, toSyncedSchool, type CensusForm, type DhisDataValue, type DhisOrgUnit, type ElementRole, type SchoolCensus, type SyncedSchool } from './dnemis-census';
 import { invalidateSchoolLists } from './school-cache';
 import { stateDisplayName } from './state-names';
 
@@ -168,20 +168,20 @@ function planWrites(records: SyncedSchool[], existing: ExistingRow[]) {
 }
 
 const upsertSql = `
-  INSERT INTO schools (state_code, dnemis_id, school_code, name, town, lga, ward, level, category, location, enrolment_male, enrolment_female,
+  INSERT INTO schools (state_code, dnemis_id, school_code, name, town, lga, ward, level, levels_offered, category, location, enrolment_male, enrolment_female,
     enrolment_by_class, facilities, teachers, dnemis_year, dnemis_synced_at, updated_at, updated_by_name)
-  SELECT $1, x.dnemis_id, x.school_code, x.name, '', x.lga, x.ward, x.level, 'Public', x.location, x.male, x.female,
+  SELECT $1, x.dnemis_id, x.school_code, x.name, '', x.lga, x.ward, x.level, ARRAY(SELECT jsonb_array_elements_text(x.levels)), 'Public', x.location, x.male, x.female,
     x.enrolment, x.facilities, x.teachers, x.year, NOW(), NOW(), 'DNEMIS sync'
-  FROM jsonb_to_recordset($2::jsonb) AS x(dnemis_id text, school_code text, name text, lga text, ward text, level text, location text,
+  FROM jsonb_to_recordset($2::jsonb) AS x(dnemis_id text, school_code text, name text, lga text, ward text, level text, levels jsonb, location text,
     male int, female int, enrolment jsonb, facilities jsonb, teachers jsonb, year int)
   ON CONFLICT (dnemis_id) DO UPDATE SET state_code = EXCLUDED.state_code, school_code = EXCLUDED.school_code, name = EXCLUDED.name,
-    lga = EXCLUDED.lga, ward = EXCLUDED.ward, level = EXCLUDED.level, category = EXCLUDED.category, location = EXCLUDED.location,
+    lga = EXCLUDED.lga, ward = EXCLUDED.ward, level = EXCLUDED.level, levels_offered = EXCLUDED.levels_offered, category = EXCLUDED.category, location = EXCLUDED.location,
     enrolment_male = EXCLUDED.enrolment_male, enrolment_female = EXCLUDED.enrolment_female, enrolment_by_class = EXCLUDED.enrolment_by_class,
     facilities = EXCLUDED.facilities, teachers = EXCLUDED.teachers, dnemis_year = EXCLUDED.dnemis_year,
     dnemis_synced_at = NOW(), updated_at = NOW(), updated_by_name = EXCLUDED.updated_by_name
-  WHERE (schools.state_code, schools.school_code, schools.name, schools.lga, schools.ward, schools.level, schools.category, schools.location,
+  WHERE (schools.state_code, schools.school_code, schools.name, schools.lga, schools.ward, schools.level, schools.levels_offered, schools.category, schools.location,
       schools.enrolment_male, schools.enrolment_female, schools.enrolment_by_class, schools.facilities, schools.teachers, schools.dnemis_year)
-    IS DISTINCT FROM (EXCLUDED.state_code, EXCLUDED.school_code, EXCLUDED.name, EXCLUDED.lga, EXCLUDED.ward, EXCLUDED.level, EXCLUDED.category,
+    IS DISTINCT FROM (EXCLUDED.state_code, EXCLUDED.school_code, EXCLUDED.name, EXCLUDED.lga, EXCLUDED.ward, EXCLUDED.level, EXCLUDED.levels_offered, EXCLUDED.category,
       EXCLUDED.location, EXCLUDED.enrolment_male, EXCLUDED.enrolment_female, EXCLUDED.enrolment_by_class, EXCLUDED.facilities, EXCLUDED.teachers, EXCLUDED.dnemis_year)
   RETURNING (xmax = 0) AS inserted`;
 
@@ -199,7 +199,7 @@ async function writeState(db: Client, stateCode: string, records: SyncedSchool[]
     await db.query(`UPDATE schools s SET school_code = NULL FROM jsonb_to_recordset($1::jsonb) AS x(dnemis_id text, school_code text)
       WHERE s.dnemis_id = x.dnemis_id AND s.school_code IS DISTINCT FROM x.school_code AND s.school_code IS NOT NULL`, [JSON.stringify(codes)]);
     const payload = plan.rows.map(row => ({ dnemis_id: row.dnemisId, school_code: row.schoolCode, name: row.name, lga: row.lga, ward: row.ward, level: row.level,
-      location: row.location, male: row.male, female: row.female, enrolment: row.enrolment, facilities: row.facilities, teachers: row.teachers, year: row.year }));
+      levels: row.levels, location: row.location, male: row.male, female: row.female, enrolment: row.enrolment, facilities: row.facilities, teachers: row.teachers, year: row.year }));
     const written = (await db.query<{ inserted: boolean }>(upsertSql, [stateCode, JSON.stringify(payload)])).rows;
     await db.query('UPDATE schools SET dnemis_synced_at = NOW() WHERE dnemis_id = ANY($1::text[])', [plan.rows.map(row => row.dnemisId)]);
     await db.query('COMMIT');
@@ -236,7 +236,8 @@ async function syncState(ctx: Context, db: Client, stateCode: string, stateId: s
       records.push(toSyncedSchool(unit, form, chosen?.census ?? null, chosen?.year ?? null, location));
     }
   }
-  for (const record of records) {
+  const merged = mergeSectionLevels(records);
+  for (const record of merged) {
     result.imported++;
     result[record.level === 'ECCDE' ? 'eccde' : record.level === 'JSS' ? 'jss' : 'primary']++;
     result.learners.male += record.male; result.learners.female += record.female;
@@ -245,7 +246,7 @@ async function syncState(ctx: Context, db: Client, stateCode: string, stateId: s
     const year = String(record.year ?? 'none');
     result.years[year] = (result.years[year] ?? 0) + 1;
   }
-  return { ...result, ...await writeState(db, stateCode, records, dryRun) };
+  return { ...result, ...await writeState(db, stateCode, merged, dryRun) };
 }
 
 async function startRun(db: Client, runId: number | null, scope: string, triggeredBy: string) {

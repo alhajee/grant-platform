@@ -17,7 +17,7 @@ export type DhisDataValue = { dataElement: string; orgUnit: string; categoryOpti
 export type ElementRole =
   | 'enrolEccde' | 'enrolPrimary' | 'enrolJss' | 'classrooms' | 'toilets' | 'waterPoints' | 'handWashing'
   | 'classroomsTotal' | 'classesOutside' | 'securityGuard' | 'waterSource' | 'power' | 'fence' | 'healthFacility'
-  | 'location' | 'levelsOffered' | 'teachers';
+  | 'location' | 'levelsOffered' | 'jssLevelsOffered' | 'teachers';
 
 const rolePatterns: [ElementRole, RegExp][] = [
   ['enrolEccde', /^prp_c\.3 pre-primary enrolment/],
@@ -36,6 +36,7 @@ const rolePatterns: [ElementRole, RegExp][] = [
   ['healthFacility', /^f\.6 health facility$/],
   ['location', /^b\.2 location$/],
   ['levelsOffered', /^b\.3c prp levels of education offered/],
+  ['jssLevelsOffered', /^b\.3a jss_? ?levels of education offered/],
   ['teachers', /^d\.2 how many teachers/],
 ];
 
@@ -96,6 +97,8 @@ export type SchoolCensus = {
   enrolment: ClassEnrolment; male: number; female: number; hasEnrolment: boolean;
   facilities: SchoolFacilities | null; teachers: SchoolTeachers | null;
   location: 'Urban' | 'Rural' | null; preprimaryOnly: boolean;
+  /** Levels named by the "levels of education offered" answer (B.3c primary form, B.3a JSS form). */
+  levelsAnswered: SchoolLevel[];
 };
 
 /** Sums one school's census values: enrolment by class and sex across the age rows, plus facilities and teachers. */
@@ -104,6 +107,7 @@ export function summariseCensus(values: DhisDataValue[], roles: ReadonlyMap<stri
   const usable: Partial<Record<'classrooms' | 'toilets' | 'waterPoints' | 'handWashing', UsableCount>> = {};
   const facilities: SchoolFacilities = {};
   let teachers: SchoolTeachers | null = null, location: SchoolCensus['location'] = null, preprimaryOnly = false;
+  let levelsAnswered: SchoolLevel[] = [];
   for (const item of values) {
     const role = roles.get(item.dataElement);
     if (!role) continue;
@@ -137,7 +141,11 @@ export function summariseCensus(values: DhisDataValue[], roles: ReadonlyMap<stri
       const text = (item.value ?? '').trim().toLowerCase();
       location = text === '1' || text === 'urban' ? 'Urban' : text === '2' || text === 'rural' ? 'Rural' : location;
     } else if (role === 'levelsOffered') {
-      preprimaryOnly = /^pre-?primary only$/i.test((item.value ?? '').trim());
+      const text = (item.value ?? '').trim().toLowerCase();
+      preprimaryOnly = /^pre-?primary only$/.test(text);
+      levelsAnswered = [...(/pre-?primary/.test(text) ? ['ECCDE' as const] : []), ...(/(^|\band )primary/.test(text) ? ['Primary' as const] : [])];
+    } else if (role === 'jssLevelsOffered') {
+      levelsAnswered = /senior/i.test(item.value ?? '') ? ['JSS', 'SSS'] : [];
     }
   }
   const ordered: ClassEnrolment = Object.fromEntries((['ECCDE', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'JSS1', 'JSS2', 'JSS3'] as const)
@@ -146,12 +154,18 @@ export function summariseCensus(values: DhisDataValue[], roles: ReadonlyMap<stri
   const allFacilities = { ...usable, ...facilities };
   return {
     enrolment: ordered, ...totals, hasEnrolment: Object.keys(ordered).length > 0,
-    facilities: Object.keys(allFacilities).length ? allFacilities : null, teachers, location, preprimaryOnly,
+    facilities: Object.keys(allFacilities).length ? allFacilities : null, teachers, location, preprimaryOnly, levelsAnswered,
   };
 }
 
+export type SchoolLevel = 'ECCDE' | 'Primary' | 'JSS' | 'SSS';
+const levelOrder: readonly SchoolLevel[] = ['ECCDE', 'Primary', 'JSS', 'SSS'];
+const orderedLevels = (levels: Iterable<SchoolLevel>) => { const set = new Set(levels); return levelOrder.filter(level => set.has(level)); };
+
 export type SyncedSchool = {
   dnemisId: string; schoolCode: string | null; name: string; lga: string; ward: string; level: 'ECCDE' | 'Primary' | 'JSS';
+  /** Every level the school offers, its main level included (schools.levels_offered). */
+  levels: SchoolLevel[];
   location: 'Urban' | 'Rural' | null; male: number; female: number; enrolment: ClassEnrolment;
   facilities: SchoolFacilities | null; teachers: SchoolTeachers | null; year: number | null;
 };
@@ -165,13 +179,27 @@ export function toSyncedSchool(unit: DhisOrgUnit, form: CensusForm, census: Scho
   const classes = Object.keys(census?.enrolment ?? {});
   const eccdeOnly = Boolean(census && (census.preprimaryOnly || (classes.includes('ECCDE') && !classes.some(key => key.startsWith('P')))));
   const code = (unit.code ?? '').trim().toUpperCase();
+  const level = form === 'jss' ? 'JSS' : eccdeOnly ? 'ECCDE' : 'Primary';
+  const taught: SchoolLevel[] = [...(classes.includes('ECCDE') ? ['ECCDE' as const] : []), ...(classes.some(key => /^P\d/.test(key)) ? ['Primary' as const] : []),
+    ...(classes.some(key => key.startsWith('JSS')) ? ['JSS' as const] : [])];
   return {
     dnemisId: unit.id, schoolCode: /^[A-Z0-9][A-Z0-9/_.-]*$/.test(code) && code.length <= 40 ? code : null,
     name: cleanSchoolName(unit.name).slice(0, 200), lga: cleanAreaName(unit.parent?.parent?.name, 'LGA').slice(0, 80),
     ward: cleanAreaName(unit.parent?.name, 'Ward').slice(0, 120),
-    level: form === 'jss' ? 'JSS' : eccdeOnly ? 'ECCDE' : 'Primary',
+    level, levels: orderedLevels([level, ...taught, ...(census?.levelsAnswered ?? [])]),
     location: groupLocation ?? census?.location ?? null,
     male: census?.male ?? 0, female: census?.female ?? 0, enrolment: census?.enrolment ?? {},
     facilities: census?.facilities ?? null, teachers: census?.teachers ?? null, year,
   };
+}
+
+/**
+ * DNEMIS keeps the primary and JSS sections of one school as separate records (different codes) with the same name
+ * in the same ward. Each record gets the levels of all of them, so the register shows every level the school offers.
+ */
+export function mergeSectionLevels(records: SyncedSchool[]): SyncedSchool[] {
+  const key = (record: SyncedSchool) => [record.name, record.lga, record.ward].map(value => collapse(value).toLowerCase()).join('|');
+  const levels = new Map<string, SchoolLevel[]>();
+  for (const record of records) levels.set(key(record), [...(levels.get(key(record)) ?? []), ...record.levels]);
+  return records.map(record => ({ ...record, levels: orderedLevels(levels.get(key(record)) ?? record.levels) }));
 }

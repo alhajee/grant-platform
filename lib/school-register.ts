@@ -35,6 +35,8 @@ export type SchoolFacilities = {
 export type SchoolTeachers = { male: number; female: number };
 export type RegisterSchool = {
   id: number; schoolCode: string | null; name: string; town: string; ward: string; lga: string; level: string; category: string; location: string;
+  /** Every level the school offers (DNEMIS); empty for schools added by hand, which offer `level` only. */
+  levels: string[];
   /** Imported from DNEMIS: the sync refreshes its details. */
   dnemis: boolean;
   latitude: string; longitude: string; male: number; female: number; enrolment: ClassEnrolment; updatedAt: string | null; updatedBy: string | null;
@@ -53,6 +55,8 @@ export type ImportIssue = { row: number; name: string; messages: string[] };
 export type ImportDuplicate = { row: number; name: string; reason: string };
 export type ImportResult = { mode: 'preview' | 'commit'; rows: number; ready: number; created: number; duplicates: ImportDuplicate[]; errors: ImportIssue[]; errorCount: number; schools: Pick<RegisterSchool, 'id' | 'name' | 'lga' | 'level'>[] };
 
+/** The levels to show for a school: every level it offers, or its one level when none are recorded. */
+export const offeredLevels = (school: Pick<RegisterSchool, 'level' | 'levels'>) => school.levels?.length ? school.levels : [school.level];
 export const schoolTotals = (enrolment: ClassEnrolment) => Object.values(enrolment).reduce((sum, item) => ({ male: sum.male + (item?.male ?? 0), female: sum.female + (item?.female ?? 0) }), { male: 0, female: 0 });
 export const collapseSpaces = (value: string) => value.replace(/\s+/g, ' ').trim();
 export const sameText = (a: string, b: string) => collapseSpaces(a).toLowerCase() === collapseSpaces(b).toLowerCase();

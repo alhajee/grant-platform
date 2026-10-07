@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (q) add(`%${escapeLike(q)}%`, ref => `(name ILIKE ${ref} OR town ILIKE ${ref} OR ward ILIKE ${ref} OR lga ILIKE ${ref} OR school_code ILIKE ${ref})`);
     if (id) add(id, ref => `id = ${ref}`);
     if (lga.length) add(lga, ref => `lga = ANY(${ref}::text[])`);
-    if (level.length) add(level, ref => `level = ANY(${ref}::text[])`);
+    if (level.length) add(level, ref => `(level = ANY(${ref}::text[]) OR levels_offered && ${ref}::text[])`);
     if (type.length) add(type, ref => `category = ANY(${ref}::text[])`);
     if (location.length) add(location, ref => `location = ANY(${ref}::text[])`);
     if (gap.length) where.push(`(${gap.map(key => gapSql[key]).join(' OR ')})`);
@@ -45,7 +45,10 @@ export async function GET(request: NextRequest) {
         const facet = async (column: string) => (await db.query<{ value: string; count: number }>(`SELECT ${column} AS value, COUNT(*)::int AS count FROM schools WHERE state_code=$1 AND ${column}<>'' GROUP BY ${column} ORDER BY ${column}`, [auth.workspace.stateCode])).rows;
         const gapCounts = (await db.query<Record<SchoolGap, number>>(`SELECT ${Object.entries(gapSql).map(([key, sql]) => `COUNT(*) FILTER (WHERE ${sql})::int AS ${key}`).join(', ')} FROM schools WHERE state_code=$1`, [auth.workspace.stateCode])).rows[0];
         const gaps = (Object.keys(gapSql) as SchoolGap[]).map(key => ({ value: key, count: gapCounts?.[key] ?? 0 }));
-        return { lgas: await facet('lga'), levels: await facet('level'), types: await facet('category'), locations: await facet('location'), gaps };
+        // A school counts once under each level it offers (its main level plus levels_offered).
+        const levels = (await db.query<{ value: string; count: number }>(`SELECT value, COUNT(*)::int AS count FROM schools, unnest(array_append(levels_offered, level)) AS value
+          WHERE state_code=$1 AND value<>'' GROUP BY value ORDER BY array_position(ARRAY['ECCDE','Primary','JSS','SSS'], value), value`, [auth.workspace.stateCode])).rows;
+        return { lgas: await facet('lga'), levels, types: await facet('category'), locations: await facet('location'), gaps };
       });
       return noStoreJson({ items, total, page: served, pageSize, facets });
     });
