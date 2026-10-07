@@ -21,6 +21,23 @@ export const strategicPillars: {id:string;name:string;components:ComponentId[]}[
   {id:'access',name:'Access',components:['infrastructure','monitoring','sbmc']},
   {id:'system',name:'System Optimisation',components:['planning']},
 ];
+/** The funding component a reviewed pillar belongs to: TLM sits in Infrastructure, ICT in Teacher development and ICT. */
+export const pillarComponent = (pillar: PillarId): ComponentId => pillar === 'tlm' ? 'infrastructure' : pillar === 'ict' ? 'teachers' : pillar;
+/**
+ * Splits items keyed by pillar into the strategic pillars, in `strategicPillars` order; within a group, items follow the
+ * group's component order (TLM right after Infrastructure, ICT after Teacher Development). Empty groups are left out.
+ */
+export function groupByStrategicPillar<T>(items: readonly T[], pillarOf: (item: T) => PillarId) {
+  const rank = (item: T) => { const pillar = pillarOf(item), sub = pillar === 'tlm' || pillar === 'ict' ? 1 : 0; return { component: pillarComponent(pillar), sub }; };
+  return strategicPillars.map(group => ({
+    id: group.id,
+    name: group.name,
+    items: items.filter(item => group.components.includes(rank(item).component)).sort((a, b) => {
+      const x = rank(a), y = rank(b);
+      return group.components.indexOf(x.component) - group.components.indexOf(y.component) || x.sub - y.sub;
+    }),
+  })).filter(group => group.items.length > 0);
+}
 export const componentSections: Record<PillarId,{name:string;department:string;href?:string}[]> = {
   infrastructure:[{name:'Infrastructure Projects',department:'physical',href:'/beap/infrastructure'},{name:'Teaching & Learning Materials',department:'academic',href:'/beap/tlm'}],
   tlm:[{name:'Teaching & Learning Materials',department:'academic',href:'/beap/tlm'}],
