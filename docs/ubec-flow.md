@@ -147,6 +147,13 @@ serialise and stale ones fail with 409. Plan-level steps also check `action_plan
   decisions, oversight progress "Waiting for Audit · Procurement · Finance"), the BEAP Chair bar (Release / Approve / Return),
   the item assessment table (Accept / Reject / View / Comment), Complete assessment modal, Assign staff dialog, Send for
   oversight dialog, Observations done dialog, the workbook with UBEC comments and the review trail.
-- `/ubec/team` – a Director or the BEAP Chair adds Assessment Officers.
+- `/ubec/team` – a Director or the BEAP Chair adds Assessment Officers, up to the department's officer limit.
+
+## Officer limits and default officers (migration 056)
+
+The Super Admin sets, on Admin > Workflow settings, how many active Assessment Officers each department may have (default one per
+component) and the default officer(s) of each component. The release assigns the defaults automatically ("Assigned by default
+(Admin)", event `default_officers`, officers and Director notified); without defaults the Director assigns. The Director can still
+add or remove officers, and the Super Admin can assign or remove officers on any component at stage `director` with the same rules.
 - SUBEB plan page: "UBEC assessment" card after a return or approval.
 - Admin Users: the new roles with department choices.

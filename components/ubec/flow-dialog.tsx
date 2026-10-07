@@ -15,6 +15,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
 import type { PlanCommentThread } from '@/lib/plan-comments';
+import { departmentName } from '@/lib/ubec';
 import { componentName, type FlowComponent, type UbecFlow } from '@/lib/ubec-flow';
 import { DecisionBar } from './flow-bits';
 
@@ -25,7 +26,7 @@ export type FlowRequest =
 
 const copy: Record<FlowRequest['kind'], { title: (name: string) => string; description: string; field: string; required: boolean; confirm: string }> = {
   release: { title: () => 'Release to UBEC departments', description: 'Each component goes to its department Director, who assigns Assessment Officers. Your comment is shared with them.', field: 'Your comment', required: true, confirm: 'Release to UBEC departments' },
-  assign: { title: name => `Assign staff · ${name}`, description: 'Choose one or more Assessment Officers from your department. They accept or reject each item and report back to you.', field: 'Comment for the officers', required: true, confirm: 'Assign staff' },
+  assign: { title: name => `Assign staff · ${name}`, description: 'Choose one or more Assessment Officers of the component’s department. They accept or reject each item and report back to the Director.', field: 'Comment for the officers', required: true, confirm: 'Assign staff' },
   complete: { title: name => `Complete assessment · ${name}`, description: 'Your decisions are locked and sent to your Director.', field: 'Note for your Director (optional)', required: false, confirm: 'Submit assessment' },
   oversight: { title: name => `Complete & send for oversight · ${name}`, description: 'Audit, Procurement and Finance review it next. When all three have finished their observations it goes to the UBEC BEAP Chair.', field: 'Your comment', required: true, confirm: 'Send for oversight' },
   observe: { title: name => `Observations done · ${name}`, description: 'Add any comments on items in the workbook first. Once Audit, Procurement and Finance are all done, the component goes to the UBEC BEAP Chair.', field: 'Your observations (optional)', required: false, confirm: 'Observations done' },
@@ -34,8 +35,8 @@ const copy: Record<FlowRequest['kind'], { title: (name: string) => string; descr
 };
 
 /** Every UBEC workflow step in one dialog: the step's summary, its fields, and the request to the right API. */
-export function FlowDialog({ request, planId, version, roundId, flow, threads, onClose, onDone }: {
-  request: FlowRequest | null; planId: number; version: number; roundId: number; flow: UbecFlow; threads: readonly PlanCommentThread[];
+export function FlowDialog({ request, planId, version, roundId, flow, threads, onClose, onDone, admin = false }: {
+  request: FlowRequest | null; planId: number; version: number; roundId: number; flow: UbecFlow; threads: readonly PlanCommentThread[]; admin?: boolean;
   onClose: () => void; onDone: () => void;
 }) {
   const [comment, setComment] = useState(''), [officers, setOfficers] = useState<number[]>([]), [share, setShare] = useState<number[] | null>(null);
@@ -73,7 +74,7 @@ export function FlowDialog({ request, planId, version, roundId, flow, threads, o
       {text && <>
         <DialogHeader><DialogTitle>{text.title(pillar ? componentName(pillar) : '')}</DialogTitle><DialogDescription>{text.description}</DialogDescription></DialogHeader>
         <form onSubmit={event => { event.preventDefault(); void submit(); }}><FieldGroup>
-          {kind === 'assign' && <OfficerPicker flow={flow} component={component} value={officers} onChange={setOfficers} disabled={saving} />}
+          {kind === 'assign' && <OfficerPicker flow={flow} component={component} value={officers} onChange={setOfficers} disabled={saving} admin={admin} />}
           {(kind === 'complete' || kind === 'oversight' || kind === 'observe') && component && <ComponentSummary component={component} threads={openThreads.filter(t => t.pillar === pillar).length} showOfficers={kind !== 'complete'} />}
           {(kind === 'approve' || kind === 'return') && <PlanSummary flow={flow} />}
           {kind === 'return' && <ShareCommentsField threads={openThreads} value={shareIds} onChange={setShare} disabled={saving} />}
@@ -87,13 +88,15 @@ export function FlowDialog({ request, planId, version, roundId, flow, threads, o
   </Dialog>;
 }
 
-function OfficerPicker({ flow, component, value, onChange, disabled }: { flow: UbecFlow; component?: FlowComponent; value: number[]; onChange: (ids: number[]) => void; disabled: boolean }) {
+function OfficerPicker({ flow, component, value, onChange, disabled, admin }: { flow: UbecFlow; component?: FlowComponent; value: number[]; onChange: (ids: number[]) => void; disabled: boolean; admin: boolean }) {
   const assigned = new Set(component?.officers.map(o => o.officerId));
-  if (!flow.officers.length) return <UbecEmpty art={<NoOfficersArt />} title="No Assessment Officers in your department yet" compact><a href="/ubec/team">Add an Assessment Officer</a> first, then assign them here.</UbecEmpty>;
+  // The Super Admin's list holds every department's officers; only the component's department can take it.
+  const officers = flow.officers.filter(o => !component || o.department === component.department);
+  if (!officers.length) return <UbecEmpty art={<NoOfficersArt />} title={admin ? `No Assessment Officers in ${departmentName(component?.department ?? '')} yet` : 'No Assessment Officers in your department yet'} compact><a href={admin ? '/admin/users' : '/ubec/team'}>Add an Assessment Officer</a> first, then assign them here.</UbecEmpty>;
   return <FieldSet>
     <FieldLegend variant="label">Assessment Officers</FieldLegend>
-    <FieldDescription>One officer per component by default; add more when the work needs it. <a href="/ubec/team">Manage officers</a></FieldDescription>
-    <ul className="ubec-officer-options">{flow.officers.map(officer => {
+    <FieldDescription>One officer per component by default; add more when the work needs it. {admin ? <>Officers of {departmentName(component?.department ?? '')}.</> : <a href="/ubec/team">Manage officers</a>}</FieldDescription>
+    <ul className="ubec-officer-options">{officers.map(officer => {
       const id = `officer-${officer.id}`, already = assigned.has(officer.id);
       return <li key={officer.id} data-checked={value.includes(officer.id) || already || undefined}>
         <Checkbox id={id} disabled={disabled || already} checked={already || value.includes(officer.id)} onCheckedChange={checked => onChange(checked ? [...value, officer.id] : value.filter(v => v !== officer.id))} />

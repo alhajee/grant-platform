@@ -24,7 +24,8 @@ export type FlowAbilities = {
   /** The viewer's own open officer assignments, by component. */
   complete: ImplementedPillar[];
 };
-export type DepartmentOfficer = { id: number; name: string; email: string; open: number };
+/** Active Assessment Officers the viewer may assign (a Director's department; every component department for the Super Admin). */
+export type DepartmentOfficer = { id: number; name: string; email: string; open: number; department: string };
 export type UbecFlow = {
   releasedAt: string | null; releasedByName: string | null; releaseComment: string;
   components: FlowComponent[]; decisions: ItemDecision[]; previousDecisions: ItemDecision[];
@@ -37,6 +38,12 @@ export type PipelineComponent = {
   pillar: ImplementedPillar; department: string; stage: ComponentStage | 'unreleased'; amount: number; counts: DecisionCounts;
   officers: { name: string; completed: boolean; mine: boolean }[]; oversightDone: OversightDepartment[];
 };
+
+/** The Super Admin may assign and remove officers on any released component (alongside the Director). */
+export const superAdminRole = 'Super Admin';
+/** Who and why on an assignment made by the release from the Admin defaults (migration 056). */
+export const defaultAssignerName = 'Default (Admin)';
+export const defaultAssignmentComment = 'Assigned by default (Admin)';
 
 export const stageLabels: Record<PipelineComponent['stage'], string> = { unreleased: 'With UBEC BEAP Chair', director: 'Department assessment', oversight: 'Oversight review', chair: 'Ready for BEAP Chair' };
 export const componentName = (pillar: string) => componentSections[pillar as ImplementedPillar]?.[0]?.name ?? pillar;

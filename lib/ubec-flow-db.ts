@@ -2,7 +2,7 @@ import type { QueryResult, QueryResultRow } from 'pg';
 import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
 import { activePillars, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound } from './ubec';
-import { componentAmount, componentItems, decisionCounts, type FlowAbilities, type FlowComponent, type ItemDecision, type OfficerAssignment, type OversightReview, type UbecFlow } from './ubec-flow';
+import { componentAmount, componentItems, decisionCounts, superAdminRole, type FlowAbilities, type FlowComponent, type ItemDecision, type OfficerAssignment, type OversightReview, type UbecFlow } from './ubec-flow';
 
 // Server-side reads and helpers for the UBEC review flow (docs/ubec-flow.md, migration 055).
 
@@ -11,7 +11,7 @@ export type UbecViewer = { id: number; role: string; department: string | null }
 export const openRoundStatuses = ['received', 'reviewing'];
 
 /** The viewer sees every component of every round (read-only for the ES). */
-export const seesEverything = (role: string) => role === ubecRoles.es || role === ubecRoles.chair;
+export const seesEverything = (role: string) => role === ubecRoles.es || role === ubecRoles.chair || role === superAdminRole;
 
 /**
  * SQL condition: the UBEC viewer may see component `pillar` (SQL expression; NULL = any component) of round `r`.
@@ -86,13 +86,15 @@ export const approvableComponents = (components: readonly FlowComponent[]) => co
 /** What the viewer may do on this round now (the round must be the plan's latest). */
 export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status'>, latest: boolean, components: readonly FlowComponent[]): FlowAbilities {
   const reviewing = latest && round.status === 'reviewing', chair = viewer.role === ubecRoles.chair;
+  // The Super Admin assigns and removes officers on any component (sendOversight stays with the Director).
+  const assigns = (c: FlowComponent) => viewer.role === superAdminRole || (viewer.role === ubecRoles.director && c.department === viewer.department);
   const ownDepartment = (c: FlowComponent) => viewer.role === ubecRoles.director && c.department === viewer.department;
   const mine = (c: FlowComponent) => viewer.role === ubecRoles.officer && c.officers.some(o => o.officerId === viewer.id && !o.completedAt);
   const atDirector = components.filter(c => reviewing && c.stage === 'director');
   return {
     release: chair && latest && round.status === 'received',
     decide: chair && reviewing && components.length > 0 && components.every(c => c.stage === 'chair'),
-    assign: atDirector.filter(ownDepartment).map(c => c.pillar),
+    assign: atDirector.filter(assigns).map(c => c.pillar),
     sendOversight: atDirector.filter(c => ownDepartment(c) && c.officers.length > 0 && c.officers.every(o => o.completedAt)).map(c => c.pillar),
     assess: atDirector.filter(mine).map(c => c.pillar),
     complete: atDirector.filter(mine).map(c => c.pillar),
@@ -107,11 +109,12 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
   const components = all.filter(c => visible.includes(c.pillar));
   const previous = (await db.query<{ id: number }>('SELECT id FROM ubec_rounds WHERE plan_id=$1 AND number<$2 ORDER BY number DESC LIMIT 1', [round.plan_id, round.number])).rows[0];
   const previousDecisions = previous ? (await readDecisions(db, previous.id)).filter(d => visible.includes(d.pillar)) : [];
-  const departmentOfficers = viewer.role === ubecRoles.director && isComponentDepartment(viewer.department)
-    ? (await db.query<{ id: number; name: string; email: string; open: number }>(`SELECT u.id, u.full_name AS name, u.email,
+  const officerDepartments = viewer.role === superAdminRole ? [...new Set(components.map(c => c.department))] : viewer.role === ubecRoles.director && isComponentDepartment(viewer.department) ? [viewer.department] : [];
+  const departmentOfficers = officerDepartments.length
+    ? (await db.query<{ id: number; name: string; email: string; open: number; department: string }>(`SELECT u.id, u.full_name AS name, u.email, u.department,
         (SELECT COUNT(*)::int FROM ubec_officer_assignments oa JOIN ubec_round_components rc ON rc.id=oa.round_component_id JOIN ubec_rounds r ON r.id=rc.round_id
           WHERE oa.officer_id=u.id AND oa.removed_at IS NULL AND oa.completed_at IS NULL AND r.status='reviewing') AS open
-        FROM users u WHERE u.role=$1 AND u.department=$2 AND u.active ORDER BY u.full_name`, [ubecRoles.officer, viewer.department])).rows
+        FROM users u WHERE u.role=$1 AND u.department=ANY($2::text[]) AND u.active ORDER BY u.full_name`, [ubecRoles.officer, officerDepartments])).rows
     : [];
   return {
     releasedAt: iso(round.released_at ?? null), releasedByName: round.released_by_name ?? null, releaseComment: round.release_comment ?? '',

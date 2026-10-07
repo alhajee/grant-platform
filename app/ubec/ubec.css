@@ -431,3 +431,7 @@
 .ubec-share-list span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; line-height: 1.4; }
 .ubec-share-list small { font-size: 11.5px; color: var(--muted-foreground); }
 .ubec-dialog-note { padding: 8px 10px; border-radius: 8px; font-size: 13px; line-height: 1.45; color: var(--muted-foreground); background: var(--muted); }
+
+/* Officers page: active officers against each department's limit (migration 056). */
+.ubec-team-limits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ubec-team-limit { margin-bottom: 16px; }

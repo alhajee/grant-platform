@@ -23,7 +23,7 @@ import { componentName } from '@/lib/ubec-flow';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 2 });
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
-const actionLabels: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to departments', assign_officer: 'Officers assigned', complete_assessment: 'Assessment completed', send_oversight: 'Sent for oversight', observations_done: 'Observations done', ready_for_chair: 'Ready for BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned', feedback: 'Department review completed' };
+const actionLabels: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to departments', assign_officer: 'Officers assigned', default_officers: 'Default officers assigned', complete_assessment: 'Assessment completed', send_oversight: 'Sent for oversight', observations_done: 'Observations done', ready_for_chair: 'Ready for BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned', feedback: 'Department review completed' };
 const queueIcons: Record<UbecQueueItem['kind'], typeof SendIcon> = { release: SendIcon, decide: Gavel, assign: UserRoundPlusIcon, consolidate: SendIcon, assess: ClipboardCheckIcon, observe: ShieldCheckIcon, oversight: ShieldCheckIcon };
 const queueTitles: Record<string, { title: string; empty: string; help: string }> = {
   [ubecRoles.chair]: { title: 'Waiting for you', empty: 'Nothing is waiting for you', help: 'New submissions to release and plans ready for your decision appear here.' },

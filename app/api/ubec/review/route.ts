@@ -14,6 +14,8 @@ import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { shareCommentIdsSchema } from '@/lib/plan-comments';
 import { shareableThreadIds } from '@/lib/ubec-comments';
 import { addUbecEvent, approvableComponents, notifyUbec, readActor, readDecisions, readFlow, readRoundComponents, readViewerRounds, releaseRows, ubecVisibleSnapshot, viewerPillars } from '@/lib/ubec-flow-db';
+import { assignDefaultOfficers } from '@/lib/ubec-officer-limits';
+import { superAdminRole } from '@/lib/ubec-flow';
 import { subebComponentDepartments, type ImplementedPillar } from "@/lib/beap-pillars";
 
 // Plan-level UBEC steps (docs/ubec-flow.md): the SUBEB Executive Chairman submits; the UBEC BEAP Chair releases the
@@ -28,7 +30,8 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getWorkspaceState(request);
     if (!user) return error('Sign in to view this plan.', 401);
-    const national = isUbec(user.role);
+    // The Super Admin opens any submitted plan read-only, with the officer assignment controls (migration 056).
+    const admin = user.role === superAdminRole, national = isUbec(user.role) || admin;
     if (!national && !canViewWholeStatePlan(user)) return error('Your account can view only its department components.', 403);
     const id = request.nextUrl.searchParams.get('plan');
     if (!id || !/^[1-9]\d{0,9}$/.test(id)) return error('Choose a valid plan.');
@@ -37,7 +40,7 @@ export async function GET(request: NextRequest) {
       if (!plan || (!national && plan.state_code !== user.stateCode)) return error('Plan not found.', 404);
       const viewer = { id: user.userId, role: user.role, department: user.department };
       const allRounds = (await db.query<UbecRound>('SELECT * FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC', [id])).rows;
-      const rounds = national ? await readViewerRounds(db, id, viewer) : allRounds;
+      const rounds = national && !admin ? await readViewerRounds(db, id, viewer) : allRounds;
       if (national && !rounds.length) return error('No assigned submission found.', 404);
       const selected = request.nextUrl.searchParams.get('round');
       const round = selected ? rounds.find(r => String(r.id) === selected) : rounds[0];
@@ -111,7 +114,10 @@ export async function POST(request: NextRequest) {
           if (!input.comment) return error('Enter your comment before releasing the plan to the UBEC departments.');
           const rows = releaseRows(round.snapshot);
           if (!rows.length) return error('This submission has no components to review.', 409);
-          for (const row of rows) await db.query('INSERT INTO ubec_round_components(round_id,pillar,department) VALUES($1,$2,$3)', [round.id, row.pillar, row.department]);
+          const released = [];
+          for (const row of rows) released.push({ ...row, id: (await db.query<{ id: number }>('INSERT INTO ubec_round_components(round_id,pillar,department) VALUES($1,$2,$3) RETURNING id', [round.id, row.pillar, row.department])).rows[0].id });
+          // The Admin's default officers start on their components straight away; the Director can still change them.
+          await assignDefaultOfficers(db, id, round.id, released, user);
           await db.query("UPDATE ubec_rounds SET status='reviewing',released_at=NOW(),released_by_name=$1,release_comment=$2 WHERE id=$3", [user.full_name, input.comment, round.id]);
           status = 'ubec_review';
         } else {

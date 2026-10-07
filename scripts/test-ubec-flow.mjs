@@ -16,7 +16,7 @@ assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).
 const marker = `UX${randomUUID().slice(0, 8).toUpperCase()}`, password = randomUUID();
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 const cookies = {}, users = {};
-let settings, planId, passed = 0;
+let settings, savedDefaults, planId, passed = 0;
 const step = message => { passed++; console.log('✓', message); };
 
 async function api(who, path, body, method = body ? 'POST' : 'GET', origin = true) {
@@ -41,6 +41,9 @@ await db.connect();
 try {
   settings = (await db.query("SELECT beap_chair_submission_mode, ubec_submission_mode FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
   await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode='individual_components', ubec_submission_mode='reviewed_components' WHERE state_code='GLOBAL'");
+  // Admin default officers (migration 056) would join the release; this flow assigns its own officers (restored below).
+  savedDefaults = (await db.query('SELECT * FROM ubec_default_officers')).rows;
+  await db.query('DELETE FROM ubec_default_officers');
   await user('desA', 'Data Entry Staff', ['academic']); await user('desP', 'Data Entry Staff', ['physical']); await user('desS', 'Data Entry Staff', ['social']);
   await user('dirA', 'Director', ['academic']); await user('dirP', 'Director', ['physical']);
   await user('subebChair', 'Director', ['planning'], { chair: true }); await user('ec', 'Executive Chairman', []);
@@ -197,6 +200,7 @@ try {
   console.log(`\nPASS: ${passed} UBEC flow checks.`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);
+  for (const r of savedDefaults ?? []) await db.query('INSERT INTO ubec_default_officers(pillar,officer_id,updated_by_name,updated_at) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING', [r.pillar, r.officer_id, r.updated_by_name, r.updated_at]);
   if (planId) {
     await db.query('DELETE FROM plan_comments WHERE plan_id=$1', [planId]);
     await db.query('DELETE FROM plan_notifications WHERE plan_id=$1', [planId]);

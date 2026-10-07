@@ -5,7 +5,8 @@ import { getAuthenticatedUser } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
 import { subebDepartments } from '@/lib/subeb-departments';
-import { ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
+import { isComponentDepartment, ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
+import { officerLimitProblem, pruneDefaultOfficers } from '@/lib/ubec-officer-limits';
 import { normalizeDepartments, replaceUserDepartments, userDepartmentsSql } from '@/lib/user-departments';
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -73,6 +74,14 @@ async function mutate(request: NextRequest, creating: boolean) {
         if (chair && (await db.query('SELECT id FROM users WHERE state_code=$1 AND is_beap_chair AND id<>$2', [input.stateCode, target?.id ?? 0])).rowCount) return json({ error: 'This SUBEB already has a BEAP Chair.' }, 409);
         // UBEC keeps one active BEAP Chair, one Director per component department and one Oversight Director per oversight department.
         if (input.active && [ubecRoles.chair, ubecRoles.director, ubecRoles.oversight].includes(input.role as typeof ubecRoles.chair) && (await db.query('SELECT 1 FROM users WHERE role=$1 AND active AND department IS NOT DISTINCT FROM $2 AND id<>$3 LIMIT 1', [input.role, input.role === ubecRoles.chair ? null : selectedDepartments[0], target?.id ?? 0])).rowCount) return json({ error: input.role === ubecRoles.chair ? 'UBEC already has an active BEAP Chair.' : 'This department already has an active account in this role.' }, 409);
+        // Assessment Officers per department are capped (migration 056): creating, reactivating, changing the role to
+        // officer or moving an officer to another department needs a free place there.
+        const officerDepartment = selectedDepartments[0];
+        const alreadyCounted = target && target.role === ubecRoles.officer && target.active && target.department === officerDepartment;
+        if (input.role === ubecRoles.officer && input.active && isComponentDepartment(officerDepartment) && !alreadyCounted) {
+          const full = await officerLimitProblem(db, officerDepartment, target?.id ?? 0);
+          if (full) return json({ error: full }, 409);
+        }
         if (input.role === 'Director' && !input.isBeapChair && input.active && (await db.query("SELECT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND ud.department=ANY($2::text[]) AND u.role='Director' AND NOT u.is_beap_chair AND u.active AND u.id<>$3 LIMIT 1", [input.stateCode, selectedDepartments, target?.id ?? 0])).rowCount) return json({ error: 'One or more selected departments already has an active Director.' }, 409);
       }
       const password = creating || resetting ? `Ubec-${crypto.randomUUID()}!` : undefined;
@@ -88,6 +97,8 @@ async function mutate(request: NextRequest, creating: boolean) {
         const selectedDepartments = normalizeDepartments(input.departments?.length ? input.departments : input.department);
         await db.query('UPDATE users SET full_name=$1,role=$2,department=$3,active=$4,session_version=session_version+1,can_create_plan=$6,is_beap_chair=$7,can_manage_schools=$8 WHERE id=$5', [input.name, input.role, selectedDepartments[0] || null, input.active, id, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? target.canManageSchools]);
         await replaceUserDepartments(db, id!, selectedDepartments);
+        // Default officer choices follow the account: none once it is deactivated, another role or department.
+        await pruneDefaultOfficers(db, id!);
       }
       const stateCode = resetting ? target.stateCode : input.stateCode;
       await db.query('INSERT INTO user_management_events(actor_id,target_id,state_code,action,details) VALUES($1,$2,$3,$4,$5::jsonb)', [actor.userId, id, stateCode, creating ? 'create' : resetting ? 'reset_password' : 'update', JSON.stringify(resetting ? {} : { role: input.role, departments: normalizeDepartments(input.departments?.length ? input.departments : input.department), active: input.active, canCreatePlan: input.canCreatePlan ?? false, canManageSchools: input.canManageSchools ?? target?.canManageSchools ?? false, isBeapChair: input.isBeapChair ?? false })]);

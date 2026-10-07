@@ -15,10 +15,14 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { departmentLabel } from '@/lib/ubec';
+import { departmentLabel, departmentShort } from '@/lib/ubec';
 
 type Officer = { id: number; name: string; email: string; department: string; active: boolean; open: number; completed: number };
-type Data = { officers: Officer[]; departments: string[]; user: { name: string; role: string; department: string | null } };
+type Limit = { department: string; name: string; limit: number; defaultLimit: number; active: number };
+type Data = { officers: Officer[]; departments: string[]; limits: Limit[]; user: { name: string; role: string; department: string | null } };
+const isFull = (limit: Limit | undefined) => !!limit && limit.active >= limit.limit;
+/** "2 of 2 officers". */
+const ofLimit = (limit: Limit) => `${limit.active} of ${limit.limit} ${limit.limit === 1 ? 'officer' : 'officers'}`;
 
 /** Assessment Officers of the Director's department (any component department for the UBEC BEAP Chair). */
 export default function TeamPage() {
@@ -26,6 +30,8 @@ export default function TeamPage() {
   const [adding, setAdding] = useState(false), [form, setForm] = useState({ name: '', email: '', department: '' }), [saving, setSaving] = useState(false), [formError, setFormError] = useState('');
   const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
   const busy = useRef(false);
+  // Departments with room for another active officer (migration 056 limits).
+  const open = data ? data.departments.filter(d => !isFull(data.limits?.find(l => l.department === d))) : [];
   const load = useCallback(async () => {
     setLoading(true); setError('');
     try {
@@ -42,7 +48,7 @@ export default function TeamPage() {
     if (busy.current || !data) return;
     busy.current = true; setSaving(true); setFormError('');
     try {
-      const response = await fetch('/api/ubec/officers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, email: form.email, department: form.department || data.departments[0] }) });
+      const response = await fetch('/api/ubec/officers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, email: form.email, department: form.department || open[0] || data.departments[0] }) });
       const result = await response.json() as { error?: string; password?: string };
       if (!response.ok) throw new Error(result.error || 'The officer could not be added.');
       setAdding(false); setCredentials({ email: form.email, password: result.password ?? '' }); toast.success('Assessment Officer added'); await load();
@@ -50,9 +56,11 @@ export default function TeamPage() {
     finally { busy.current = false; setSaving(false); }
   }
   return <UbecShell team user={data?.user}>
-    <div className="national-page-title"><div><span className="national-eyebrow">{data?.departments.length === 1 ? departmentLabel(data.departments[0]) : 'UBEC'}</span><h1>Assessment Officers</h1></div>{data && <Button onClick={() => { setForm({ name: '', email: '', department: data.departments[0] }); setFormError(''); setAdding(true); }}><PlusIcon data-icon="inline-start" />Add officer</Button>}</div>
+    <div className="national-page-title"><div><span className="national-eyebrow">{data?.departments.length === 1 ? departmentLabel(data.departments[0]) : 'UBEC'}</span><h1>Assessment Officers</h1></div>{data && <div className="ubec-team-add"><Button disabled={!open.length} aria-describedby={!open.length ? 'officer-limit-reason' : undefined} onClick={() => { setForm({ name: '', email: '', department: open[0] }); setFormError(''); setAdding(true); }}><PlusIcon data-icon="inline-start" />Add officer</Button></div>}</div>
+    {data && !open.length && data.limits.length > 0 && <Alert id="officer-limit-reason" className="ubec-team-limit"><AlertTitle>{data.limits.length === 1 ? `${departmentLabel(data.limits[0].department)} has ${ofLimit(data.limits[0])}` : 'Every department is at its officer limit'}</AlertTitle><AlertDescription>Deactivate an officer, or ask the Super Admin to raise the limit (Admin &gt; Workflow settings), before adding another.</AlertDescription></Alert>}
     {error && <Alert variant="destructive"><AlertTitle>Officers unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
-    {loading && !data ? <Skeleton className="h-64 w-full rounded-2xl" /> : data && <Card><CardHeader><CardTitle>Your officers <Badge variant="secondary">{data.officers.length}</Badge></CardTitle><CardDescription>One officer per component by default. An officer can hold several components of the same department.</CardDescription></CardHeader><CardContent>
+    {loading && !data ? <Skeleton className="h-64 w-full rounded-2xl" /> : data && <Card><CardHeader><CardTitle>Your officers <Badge variant="secondary">{data.officers.length}</Badge></CardTitle><CardDescription>One officer per component by default; the Super Admin sets each department&apos;s limit. An officer can hold several components of the same department.</CardDescription>
+      {data.limits.length > 0 && <div className="ubec-team-limits" aria-label="Active officers against each limit">{data.limits.map(l => <Badge key={l.department} variant={isFull(l) ? 'warning' : 'outline'} data-testid={`limit-${l.department}`}>{data.limits.length > 1 ? `${departmentShort(l.department)} · ` : ''}{ofLimit(l)}{isFull(l) ? ' · full' : ''}</Badge>)}</div>}</CardHeader><CardContent>
       {data.officers.length ? <Table><TableHeader><TableRow><TableHead>Officer</TableHead><TableHead>Department</TableHead><TableHead>Open assessments</TableHead><TableHead>Completed</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>
         {data.officers.map(o => <TableRow key={o.id}><TableCell><strong>{o.name}</strong><small className="block text-muted-foreground">{o.email}</small></TableCell><TableCell>{departmentLabel(o.department)}</TableCell><TableCell>{o.open}</TableCell><TableCell>{o.completed}</TableCell><TableCell><Badge variant={o.active ? 'secondary' : 'outline'}>{o.active ? 'Active' : 'Inactive'}</Badge></TableCell></TableRow>)}
       </TableBody></Table> : <UbecEmpty art={<NoOfficersArt />} title="No Assessment Officers yet">Add an officer, then assign them to components from the plan page.</UbecEmpty>}
@@ -61,7 +69,7 @@ export default function TeamPage() {
       <form onSubmit={event => { event.preventDefault(); void save(); }}><FieldGroup>
         <Field><FieldLabel htmlFor="officer-name">Full name</FieldLabel><Input id="officer-name" required minLength={2} maxLength={120} disabled={saving} value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></Field>
         <Field><FieldLabel htmlFor="officer-email">Email address</FieldLabel><Input id="officer-email" type="email" required disabled={saving} value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} /></Field>
-        {data && data.departments.length > 1 && <Field><FieldLabel htmlFor="officer-department">Department</FieldLabel><NativeSelect id="officer-department" disabled={saving} value={form.department} onChange={event => setForm({ ...form, department: event.target.value })}>{data.departments.map(d => <NativeSelectOption key={d} value={d}>{departmentLabel(d)}</NativeSelectOption>)}</NativeSelect></Field>}
+        {data && data.departments.length > 1 && <Field><FieldLabel htmlFor="officer-department">Department</FieldLabel><NativeSelect id="officer-department" disabled={saving} value={form.department} onChange={event => setForm({ ...form, department: event.target.value })}>{data.departments.map(d => { const limit = data.limits?.find(l => l.department === d); return <NativeSelectOption key={d} value={d} disabled={isFull(limit)}>{departmentLabel(d)}{limit ? ` (${ofLimit(limit)}${isFull(limit) ? ', full' : ''})` : ''}</NativeSelectOption>; })}</NativeSelect></Field>}
         {formError && <FieldError role="alert">{formError}</FieldError>}
       </FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={() => setAdding(false)}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}Add officer</Button></DialogFooter></form>
     </DialogContent></Dialog>

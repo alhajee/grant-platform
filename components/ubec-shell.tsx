@@ -22,25 +22,27 @@ const navigation = [
 
 export function UbecShell({ children, user, review = false, allocations = false, team = false }: { children: React.ReactNode; user?: { name: string; role: string; department?: string | null } | null; review?: boolean; allocations?: boolean; team?: boolean }) {
   const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash, () => '');
+  const admin = user?.role === 'Super Admin';
   const activeHash = allocations ? '#allocations' : team ? '#team' : review ? '#submissions' : hash;
 
   return (
     <div className="national-shell national-horizontal-shell">
       <header className="national-header">
         <div className="national-navigation-capsule">
-          <a href="/ubec" className="national-header-brand" aria-label="BEAPMS Portal overview">
+          <a href={admin ? "/admin" : "/ubec"} className="national-header-brand" aria-label="BEAPMS Portal overview">
             <UbecLogo /><span>BEAPMS Portal</span>
           </a>
           <nav aria-label="UBEC navigation" className="national-header-nav">
-            {navigation.map(({ label, hash: targetHash }) => (
+            {/* The Super Admin opens UBEC plan pages only to manage officer assignments (migration 056). */}
+            {admin ? <a href="/admin#ubec-officers">Administration</a> : navigation.map(({ label, hash: targetHash }) => (
               <a key={label} href={`/ubec${targetHash}`} aria-current={activeHash === targetHash ? (targetHash && !review ? 'location' : 'page') : undefined}>{label}</a>
             ))}
-            {(user?.role === ubecRoles.director || user?.role === ubecRoles.chair) && <a href="/ubec/team" aria-current={team ? 'page' : undefined}>Officers</a>}
+            {!admin && (user?.role === ubecRoles.director || user?.role === ubecRoles.chair) && <a href="/ubec/team" aria-current={team ? 'page' : undefined}>Officers</a>}
             {user?.role === ubecRoles.es && <a href="/ubec/allocations" aria-current={allocations?'page':undefined}>Allocations</a>}
           </nav>
         </div>
         <div className="national-header-actions">
-          <NotificationBell />
+          {!admin && <NotificationBell />}
           <div className="national-header-account">
             {/* The account shows the role and department, e.g. "UBEC Director · Physical Planning (DPP)". */}
             <AccountMenu user={user ? { ...user, role: ubecRoleTitle(user.role, user.department), email: '' } : null} />

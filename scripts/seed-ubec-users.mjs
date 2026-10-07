@@ -61,7 +61,7 @@ try {
   const retire = (await db.query(`SELECT id, email, full_name AS name, role, active FROM users WHERE ${ubecSide} AND NOT (id = ANY($1::int[])) ORDER BY id`, [keepIds])).rows;
   // Every foreign key to users(id), except the account's own rows (sessions and department links go with it).
   const refs = (await db.query(`SELECT c.conrelid::regclass::text AS tbl, a.attname AS col FROM pg_constraint c JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=ANY(c.conkey)
-    WHERE c.contype='f' AND c.confrelid='users'::regclass`)).rows.filter(r => !['sessions', 'user_departments'].includes(r.tbl));
+    WHERE c.contype='f' AND c.confrelid='users'::regclass`)).rows.filter(r => !['sessions', 'user_departments', 'ubec_default_officers'].includes(r.tbl));
   for (const user of retire) {
     let referenced = false;
     for (const ref of refs) if ((await db.query(`SELECT 1 FROM ${ref.tbl} WHERE "${ref.col}"=$1 LIMIT 1`, [user.id])).rowCount) { referenced = true; break; }
