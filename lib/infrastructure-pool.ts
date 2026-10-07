@@ -1,6 +1,7 @@
 import { infrastructurePoolEnvelope, toKobo, type EnvelopePlan } from './funding-policy';
 
 /**
+ * Shared-pool mode (state_workflow_settings.infrastructure_tlm_mode, migration 051; split mode is lib/budget-pairs.ts).
  * Infrastructure (school packages) and TLM (activity lines) draw from one pool with no split: the whole
  * infrastructure policy share plus their funding sources. Infrastructure proposed + TLM proposed may not exceed it.
  */

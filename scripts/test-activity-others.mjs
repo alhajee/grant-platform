@@ -63,8 +63,9 @@ try {
   await user('meDirector', 'Director', ['me']);
   await user('prsDirector', 'Director', ['planning']);
   await user('chair', 'Director', ['physical'], true);
-  // State contribution ₦400,000,000 → shared ₦800,000,000: Curriculum ₦16,000,000 (2%); ICT gets ₦10,000,000 of Teacher Development & ICT.
-  planId = (await db.query("INSERT INTO action_plans(state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,ict_allocation,funding_policy_id) VALUES($1,2033,2033,2033,'{1}',400000000,0,10000000,(SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1)) RETURNING id", [state])).rows[0].id;
+  // State contribution ₦400,000,000 → shared ₦800,000,000: Curriculum ₦16,000,000 (2%); ICT gets ₦10,000,000 of Teacher Development & ICT;
+  // TLM gets ₦100,000,000 of the Infrastructure & TLM pool (split mode, migration 051).
+  planId = (await db.query("INSERT INTO action_plans(state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,ict_allocation,tlm_allocation,funding_policy_id) VALUES($1,2033,2033,2033,'{1}',400000000,0,10000000,100000000,(SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1)) RETURNING id", [state])).rows[0].id;
   await db.query('INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,2033,1)', [planId, state]);
 
   const saved = {};

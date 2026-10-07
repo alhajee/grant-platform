@@ -1,5 +1,7 @@
-// Infrastructure and TLM share one pool with no split: the infrastructure policy share plus their funding sources.
-// Infrastructure proposed + TLM proposed may not exceed it, from either side (409); plan edits may not shrink it below both.
+// Shared-pool mode (state_workflow_settings.infrastructure_tlm_mode = 'shared_pool', migration 051): Infrastructure and TLM
+// share one pool with no split: the infrastructure policy share plus their funding sources. Infrastructure proposed + TLM
+// proposed may not exceed it, from either side (409); plan edits may not shrink it below both; a stored split is ignored.
+// The test switches the platform to shared_pool for its run and restores the previous mode. Split mode: test-infrastructure-tlm-split.mjs.
 // Usage: node --env-file=.env scripts/test-infrastructure-pool.mjs [baseUrl]   (local only; throwaway state, users and plan; cleans up)
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -40,8 +42,8 @@ async function api(who, path, body, method = body ? 'POST' : 'GET') {
 const ok = (r, status = 200) => { assert.equal(r.status, status, JSON.stringify(r.data)); return r.data; };
 const fails = (r, status, pattern) => { assert.equal(r.status, status, JSON.stringify(r.data)); if (pattern) assert.match(r.data.error ?? '', pattern); return r.data; };
 
-// Unit: both ceilings are the whole pool; TLM and Infrastructure sources add to it; a legacy TLM split is ignored.
-const plan = { stateLodgment: '10000.00', otherFunding: '0.00', fundingSources: [{ component: 'tlm', funder: 'UNICEF', amount: '500.00' }, { component: 'infrastructure', funder: 'AfDB', amount: '250.00' }] };
+// Unit: both ceilings are the whole pool; TLM and Infrastructure sources add to it; a legacy TLM split and a stored split are ignored.
+const plan = { infrastructureTlmMode: 'shared_pool', tlmAllocation: '100.00', stateLodgment: '10000.00', otherFunding: '0.00', fundingSources: [{ component: 'tlm', funder: 'UNICEF', amount: '500.00' }, { component: 'infrastructure', funder: 'AfDB', amount: '250.00' }] };
 assert.equal(infrastructurePoolEnvelope(plan), '15750.00');
 assert.equal(componentEnvelope(plan, 'tlm'), '15750.00'); assert.equal(componentEnvelope(plan, 'infrastructure'), '15750.00');
 const legacy = { ...plan, fundingPolicy: { id: 1, allocation: { ...defaultAllocation, tlmWithinInfrastructure: 2000 } } };
@@ -57,6 +59,9 @@ step('pool envelope, sources, legacy policy and edit shortfalls (unit)');
 
 await db.connect();
 let planId;
+const previousMode = (await db.query("SELECT infrastructure_tlm_mode AS mode FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0]?.mode;
+assert.ok(previousMode, 'Run migration 051 first.');
+await db.query("UPDATE state_workflow_settings SET infrastructure_tlm_mode='shared_pool' WHERE state_code='GLOBAL'");
 try {
   for (const [key, role, department] of [['physical', 'Data Entry Staff', 'physical'], ['academic', 'Data Entry Staff', 'academic'], ['chair', 'Executive Chairman', null]]) {
     const email = `${key}.${tag}@tlm-pool.test`.toLowerCase();
@@ -78,6 +83,8 @@ try {
   const tlmLine = unitCost => ({ workstream: 'tlm', entity: 'line', action: 'create', activity: 6, description: 'Story books', quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools' });
   const furniture = cost => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost }], documentIds: [] } });
 
+  assert.equal(ok(await api('academic', tlmUrl)).plan.infrastructureTlmMode, 'shared_pool');
+  fails(await api('academic', `/api/activities/budget-split?plan=${planId}`, { amount: '100', side: 'tlm' }, 'PATCH'), 409, /share one budget/);
   const whole = ok(await api('academic', tlmUrl, tlmLine(pool)));
   fails(await api('academic', tlmUrl, tlmLine(0.01)), 409, /Infrastructure and TLM share/);
   fails(await api('physical', infraUrl, furniture(1)), 409, /Together they would exceed it by ₦1\.00/);
@@ -106,6 +113,7 @@ try {
   assert.equal(review.snapshot.setup.fundingPolicy.id, created.fundingPolicy.id, 'snapshots carry the plan policy the cards read');
   console.log('PASS: Infrastructure and TLM share one pool.');
 } finally {
+  await db.query("UPDATE state_workflow_settings SET infrastructure_tlm_mode=$1 WHERE state_code='GLOBAL'", [previousMode]);
   if (planId) {
     for (const t of ['plan_notifications', 'plan_review_events', 'plan_submissions', 'plan_pillar_reviews', 'activity_plan_lines', 'infrastructure_packages', 'infrastructure_documents', 'plan_funding_sources']) await db.query(`DELETE FROM ${t} WHERE plan_id=$1`, [planId]);
     await db.query('DELETE FROM action_plans WHERE id=$1', [planId]);

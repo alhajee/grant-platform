@@ -32,7 +32,18 @@ export type FundingSourceTarget = typeof fundingSourceTargets[number];
 export const fundingSourceLabels: Record<FundingSourceTarget, string> = { all: 'All components', ...fundingComponentLabels };
 export type FundingSource = { id?: number; component: FundingSourceTarget; funder: string; amount: string };
 /** The plan fields the envelope helpers read; every plan loaded with planFields/planSetupFields has them. */
-export type EnvelopePlan = { stateLodgment?: string | null; otherFunding?: string | null; fundingPolicy?: FundingPolicy | null; fundingSources?: readonly FundingSource[] | null; ictAllocation?: string | null };
+export type EnvelopePlan = {
+  stateLodgment?: string | null; otherFunding?: string | null; fundingPolicy?: FundingPolicy | null; fundingSources?: readonly FundingSource[] | null; ictAllocation?: string | null;
+  /** TLM's amount of the Infrastructure & TLM pool (migration 051); Infrastructure keeps the rest. Null until set. Ignored in shared_pool mode. */
+  tlmAllocation?: string | null;
+  /** The platform's Infrastructure & TLM mode when the plan was read (GLOBAL setting, migration 051). Missing (older snapshots) means shared_pool. */
+  infrastructureTlmMode?: InfrastructureTlmMode | null;
+};
+/** How Infrastructure and TLM use their shared pool (Super Admin, platform-wide; migration 051). */
+export const infrastructureTlmModes = ['split', 'shared_pool'] as const;
+export type InfrastructureTlmMode = typeof infrastructureTlmModes[number];
+/** True when Infrastructure and TLM each have their own part of the pool (action_plans.tlm_allocation). */
+export const isSplitMode = (plan: EnvelopePlan) => plan.infrastructureTlmMode === 'split';
 /** Ceilings: every funding component plus ICT, which takes its allocation out of the shared Teacher Development and ICT envelope. */
 export type EnvelopeComponent = FundingComponent | 'ict';
 
@@ -53,14 +64,20 @@ export function sharedEnvelope(plan: EnvelopePlan) {
 /**
  * Budget ceiling of one component, in naira as a "123.45" string, or null until the plan funding is set.
  *   ceiling = component's policy share of sharedEnvelope(plan) (which includes plan-wide 'all' sources) + sum of the plan's funding sources for that component.
- * Infrastructure and TLM have no split: each one's ceiling is the whole shared pool (infrastructurePoolEnvelope), and
- * their proposed totals together may not exceed it (infrastructurePoolProblem in lib/infrastructure-pool.ts).
+ * Infrastructure and TLM share one pool (infrastructurePoolEnvelope). In split mode 'tlm' is plan.tlmAllocation and
+ * 'infrastructure' is the pool less it (both null until the split is set). In shared_pool mode each one's ceiling is the
+ * whole pool and their totals together may not exceed it (infrastructurePoolProblem in lib/infrastructure-pool.ts).
  * 'teachers' is the shared Teacher Development and ICT envelope (teachersSharedEnvelope) less ICT's allocation, and
  * 'ict' is that allocation (plan.ictAllocation, null until the ICT editor sets it). Other components are unaffected by a source.
  * Example: componentEnvelope(plan, 'monitoring'), with `plan` from resolveActionPlan/planFields or a snapshot's setup.
  */
 export function componentEnvelope(plan: EnvelopePlan, component: EnvelopeComponent) {
   if (component === 'ict') return sharedEnvelope(plan) == null || plan.ictAllocation == null ? null : fromKobo(toKobo(plan.ictAllocation));
+  if ((component === 'tlm' || component === 'infrastructure') && isSplitMode(plan)) {
+    const pool = infrastructurePoolEnvelope(plan);
+    if (pool == null || plan.tlmAllocation == null) return null;
+    return component === 'tlm' ? fromKobo(toKobo(plan.tlmAllocation)) : fromKobo(toKobo(pool) - toKobo(plan.tlmAllocation));
+  }
   const ceiling = fundingEnvelope(plan, component);
   if (ceiling == null || component !== 'teachers') return ceiling;
   return fromKobo(toKobo(ceiling) - toKobo(plan.ictAllocation ?? '0'));

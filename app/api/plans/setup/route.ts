@@ -7,7 +7,7 @@ import { stateDisplayName } from '@/lib/state-names';
 import { canCreateStatePlan } from '@/lib/subeb-access';
 import { statePlanOpen } from '@/lib/pillar-review';
 import { isSameRequestOrigin } from '@/lib/request-origin';
-import { beapName, envelopeShortfalls, sharedBelowIctProblem, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
+import { beapName, envelopeShortfalls, sharedBelowAllocationProblem, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
 import { fundingComponentIds, fundingSourceLabels, type FundingComponent, type FundingSource } from '@/lib/funding-policy';
 import { formatQuarters } from '@/lib/format-quarters';
 import type { ActionPlan } from '@/lib/action-plans';
@@ -87,9 +87,9 @@ export async function PATCH(request: NextRequest) {
         const overlap = (await db.query('SELECT quarter FROM plan_quarters WHERE state_code=$1 AND planning_year=$2 AND quarter=ANY($3::int[]) AND plan_id<>$4 ORDER BY quarter', [workspace.stateCode, input.planningYear, input.quarters, plan.id])).rows;
         if (overlap.length) return error(`${overlap.map(r => `Q${r.quarter}`).join(', ')} already belongs to another ${input.planningYear} plan. Choose other quarters.`, 409);
       }
-      const after = { stateLodgment: input.stateLodgment, otherFunding: plan.otherFunding, fundingPolicy: plan.fundingPolicy, fundingSources: input.fundingSources, ictAllocation: plan.ictAllocation };
+      const after = { stateLodgment: input.stateLodgment, otherFunding: plan.otherFunding, fundingPolicy: plan.fundingPolicy, fundingSources: input.fundingSources, ictAllocation: plan.ictAllocation, tlmAllocation: plan.tlmAllocation, infrastructureTlmMode: plan.infrastructureTlmMode };
       const shortfalls = envelopeShortfalls(plan, after, await proposedByComponent(db, plan.id));
-      const ictProblem = sharedBelowIctProblem(after);
+      const ictProblem = sharedBelowAllocationProblem(after);
       if (shortfalls.length || ictProblem) return error([...shortfalls.map(shortfallMessage), ictProblem].filter(Boolean).join(' '), 409);
       const name = beapName(stateDisplayName(workspace.stateCode), input.planningYear, input.quarters);
       await db.query('UPDATE action_plans SET start_year=$1,end_year=$1,implementation_year=$2,funding_quarters=$3,state_lodgment=$4,beap_name=$5,version=version+1 WHERE id=$6', [input.planningYear, input.implementationYear, input.quarters, input.stateLodgment, name, plan.id]);

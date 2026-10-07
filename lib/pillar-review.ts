@@ -4,7 +4,7 @@ import { canEditPillar } from './subeb-access';
 import type { PlanStatus } from './action-plans';
 import type { Snapshot } from './plan-review';
 import { infrastructureDocumentProblem } from './infrastructure-documents';
-import { componentReadinessProblem, readinessWorkstreams, hasReadinessRules } from './component-readiness';
+import { sendReadinessPillars, sendReadinessProblem } from './component-readiness';
 import type { DepartmentAccess } from './user-departments';
 import type { UbecSubmissionMode } from './workflow-settings';
 import { distributionSnapshotKeys, distributionWorkstreams } from './distribution-lists';
@@ -63,11 +63,11 @@ export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Sna
 }
 function planIsComplete(snapshot: Snapshot) {
   return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot)
-    && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup));
+    && sendReadinessPillars.every(p => !sendReadinessProblem(p, snapshot));
 }
-/** Components with the Executive Chairman that are not ready to reach UBEC (compulsory activities, line schools and documents, the Teacher Development split). */
+/** Components with the Executive Chairman that are not ready to reach UBEC (compulsory activities, line schools and documents, the Teacher Development and Infrastructure & TLM splits). */
 export function unreadySentComponents(snapshot: Snapshot, reviews: PillarReview[]) {
-  return componentsWithExecutiveChairman(reviews).flatMap(p => hasReadinessRules(p) && componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup) ? [p] : []);
+  return componentsWithExecutiveChairman(reviews).filter(p => sendReadinessProblem(p, snapshot));
 }
 export function aggregateReviewStatus(reviews: PillarReview[]): PlanStatus {
   if (implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready'))) return 'awaiting_chairman';

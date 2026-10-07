@@ -9,11 +9,12 @@ import { resolveActionPlan, planFields } from '@/lib/plan-workspace';
 import { type ActionPlan } from '@/lib/action-plans';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
-import { activityBudgetProblem, isCapped, lineKobo } from '@/lib/activity-budget';
+import { activityBudgetProblem, isCappedFor, lineKobo } from '@/lib/activity-budget';
+import { isSplitMode } from '@/lib/funding-policy';
 import { infrastructurePoolProblem, isPoolComponent } from '@/lib/infrastructure-pool';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, emptyDistributionMessage, hasDistribution } from '@/lib/activity-plans';
-import { componentReadinessProblem, hasReadinessRules } from '@/lib/component-readiness';
+import { sendReadinessProblem } from '@/lib/component-readiness';
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
 import { aggregateReviewStatus, readPillarReviews, readyForExecutiveChairman, readyForUbecSubmission, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
 import { readBeapChairSubmissionMode, readWorkflowSettings } from '@/lib/workflow-settings';
@@ -128,11 +129,12 @@ export async function POST(request: NextRequest) {
       if (input.action !== 'request_changes' && input.pillar==='infrastructure') { const problem=infrastructureDocumentProblem(snapshot); if(problem)return error(problem); }
       // TLM, GSCCI and Curriculum: the distribution list needs at least one school at every send step.
       if (input.action !== 'request_changes' && hasDistribution(input.pillar) && !snapshot[distributionSnapshotKeys[input.pillar]]?.length) return error(emptyDistributionMessage(input.pillar));
-      // Quality Assurance, ICT and Teacher Development: compulsory activities, line schools, line documents and the Teacher Development split block every send step.
-      if (input.action !== 'request_changes' && hasReadinessRules(input.pillar)) { const problem=componentReadinessProblem(input.pillar,snapshot[input.pillar]??[],snapshot.setup); if(problem)return error(problem,409); }
-      // Infrastructure and TLM share one pool: neither is sent while their combined proposals exceed it.
-      if (input.action !== 'request_changes' && isPoolComponent(input.pillar)) { const problem=infrastructurePoolProblem(plan,{infrastructure:(snapshot.infrastructure??[]).reduce((sum,item)=>sum+lineKobo(item),BigInt(0)),tlm:(snapshot.tlm??[]).reduce((sum,line)=>sum+lineKobo(line),BigInt(0))}); if(problem)return error(problem,409); }
-      if (input.action !== 'request_changes' && (isCapped(input.pillar) || input.pillar === 'sbmc')) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,kobo:lineKobo(line)})),plan); if(problem)return error(problem); }
+      // Quality Assurance, ICT and Teacher Development: compulsory activities, line schools, line documents and the Teacher Development split block every send step;
+      // in split mode Infrastructure and TLM also need their split set and each side within its part.
+      if (input.action !== 'request_changes') { const problem=sendReadinessProblem(input.pillar,snapshot); if(problem)return error(problem,409); }
+      // Shared-pool mode: Infrastructure and TLM share one pool, so neither is sent while their combined proposals exceed it.
+      if (input.action !== 'request_changes' && isPoolComponent(input.pillar) && !isSplitMode(plan)) { const problem=infrastructurePoolProblem(plan,{infrastructure:(snapshot.infrastructure??[]).reduce((sum,item)=>sum+lineKobo(item),BigInt(0)),tlm:(snapshot.tlm??[]).reduce((sum,line)=>sum+lineKobo(line),BigInt(0))}); if(problem)return error(problem,409); }
+      if (input.action !== 'request_changes' && (isCappedFor(input.pillar, plan) || input.pillar === 'sbmc')) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,kobo:lineKobo(line)})),plan); if(problem)return error(problem); }
       await db.query('INSERT INTO plan_pillar_reviews(plan_id,pillar,status) VALUES($1,$2,$3) ON CONFLICT(plan_id,pillar) DO UPDATE SET status=EXCLUDED.status,updated_at=NOW()', [plan.id,input.pillar,status]);
       const number = plan.submissionNumber + 1;
       await db.query('INSERT INTO plan_submissions(plan_id,number,snapshot) VALUES($1,$2,$3::jsonb)', [plan.id,number,JSON.stringify(snapshot)]);

@@ -141,19 +141,21 @@ try {
   assert.equal(ok(await api('academic', url('tlm'))).distribution.length, 0);
   step('Curriculum distribution: bulk add, duplicate skip, single add/remove, kept apart from TLM');
 
-  // TLM has no fixed share: it shares one pool with Infrastructure (75% of ₦200,000 = ₦150,000 under the default policy).
-  const pool = 150000, tlmLine = line('tlm', 6, pool);
+  // TLM has no fixed share: it shares the 75% pool with Infrastructure (₦150,000 under the default policy). In split mode
+  // (the default platform setting, migration 051) TLM first sets its part; scripts/test-infrastructure-tlm-split.mjs covers the rest.
+  const tlmLine = line('tlm', 6, 100000), split = `/api/activities/budget-split?plan=${planId}`;
+  fails(await api('academic', url('tlm'), tlmLine), 409, /Set how much of the shared Infrastructure & TLM budget TLM will use/);
+  ok(await api('academic', split, { amount: '100000', side: 'tlm' }, { method: 'PATCH' }));
   const fullTlm = ok(await api('academic', url('tlm'), tlmLine));
   assert.equal(ok(await api('academic', url('tlm'))).partnerProposed, '0');
-  fails(await api('academic', url('tlm'), line('tlm', 6, 0.01)), 409, /Infrastructure and TLM share ₦150,000\.00\. Together they would exceed it by ₦0\.01/);
-  // Infrastructure's packages count against the same pool (a package written directly, as the infrastructure API needs documents).
-  ok(await api('academic', url('tlm'), { ...tlmLine, action: 'update', id: fullTlm.id, unitCost: pool - 1000 }));
+  fails(await api('academic', url('tlm'), line('tlm', 6, 0.01)), 409, /exceeded the Teaching & Learning Materials allocation \(₦100,000\.00\) by ₦0\.01/);
+  // Infrastructure's packages protect its part (a package written directly, as the infrastructure API needs documents).
   const packageId = (await db.query("INSERT INTO infrastructure_packages(plan_id,school_id,kind,input,result,total_cost) VALUES($1,$2,'furniture','{}'::jsonb,'{}'::jsonb,1000) RETURNING id", [planId, schoolIds[0]])).rows[0].id;
   assert.equal(Number(ok(await api('academic', url('tlm'))).partnerProposed), 1000);
-  fails(await api('academic', url('tlm'), { ...tlmLine, action: 'update', id: fullTlm.id, unitCost: pool - 999.99 }), 409, /exceed it by ₦0\.01/);
+  fails(await api('academic', split, { amount: '149000.01', side: 'tlm' }, { method: 'PATCH' }), 409, /Infrastructure packages already propose ₦1,000\.00, so TLM can use up to ₦149,000\.00/);
   await db.query('DELETE FROM infrastructure_packages WHERE id=$1', [packageId]);
   ok(await api('academic', url('tlm'), { ...tlmLine, action: 'delete', id: fullTlm.id }));
-  step('TLM shares the infrastructure pool: it may use all of it while Infrastructure has nothing; together they may not exceed it (409)');
+  step('TLM shares the infrastructure pool: its lines wait for the split and stay within its part (409); Infrastructure keeps its packages');
 
   // GSCCI distribution list: the schools that get the interventions, kept apart from Curriculum and TLM.
   const greened = ok(await api('academic', url('gscci'), { workstream: 'gscci', entity: 'school', action: 'create', schoolIds: [schoolIds[1], schoolIds[1]] }));

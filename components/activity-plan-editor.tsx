@@ -19,7 +19,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, useComboboxAnchor } from '@/components/ui/combobox';
 import { activityHints, activityInfo, activityLabel, activityNames, activityLineSchema, activityTitles, allocateByEnrolment, activityShareCaps, hasDistribution, isOtherActivity, maxActivityNameLength, selectableActivityIndexes, textbookActivityIndex, textbookClasses, textbookSubjects, implementationStrategies, targetGroups, type ActivityLine, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { activityBudgetProblem, componentEnvelopeKobo, activityCapKobo, activityFixedCaps, isCapped, type BudgetLine } from '@/lib/activity-budget';
+import { activityBudgetProblem, componentEnvelopeKobo, activityCapKobo, activityFixedCaps, isCapped, isCappedFor, type BudgetLine } from '@/lib/activity-budget';
+import { sideSplits, storedAllocation } from '@/lib/budget-pairs';
+import { isSplitMode } from '@/lib/funding-policy';
 import { isCompulsory, lineDocumentLabel } from '@/lib/activity-extras';
 import { ActivityInfoHint, CompulsoryChecklist, LineDocumentsField, LineExtraFields, LineSchoolPicker, RequiredBadge, uploadLineDocuments } from '@/components/activity-line-extras';
 import { SharedBudgetPanel } from '@/components/shared-budget-panel';
@@ -54,7 +56,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const classesAnchor=useComboboxAnchor();
  const lock=useRef(false),dirty=JSON.stringify(draft)!==JSON.stringify(baseline);
  const required=<span className="text-destructive" aria-label="required">*</span>;
- const title=activityTitles[workstream],name=shortTitle(workstream),capped=isCapped(workstream),withDistribution=hasDistribution(workstream);
+ const title=activityTitles[workstream],name=shortTitle(workstream),capped=data?isCappedFor(workstream,data.plan):isCapped(workstream),withDistribution=hasDistribution(workstream);
  const endpoint=()=>currentPlanHref('/api/activities')+(currentPlanHref('/api/activities').includes('?')?'&':'?')+'workstream='+workstream;
  const load=useCallback(async()=>{const r=await fetch(currentPlanHref('/api/activities')+(currentPlanHref('/api/activities').includes('?')?'&':'?')+'workstream='+workstream,{cache:'no-store'});if(!r.ok)throw new Error((await r.json() as {error?:string}).error||'Unable to load component.');const next=await r.json() as Data;setData(next);{const suggested=(next.renovated??[]).filter(id=>!next.distribution.some(d=>d.id===id));setPicked(suggested);setPinned(suggested);};setError('');return next;},[workstream]);
  useEffect(()=>{void Promise.resolve().then(load).catch(e=>setError(e.message));},[load]);
@@ -62,15 +64,15 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const [pendingDocs,setPendingDocs]=useState<File[]>([]);
  const reset=()=>{setDraft(empty);setBaseline(empty);setPendingDocs([]);};
  const guard=(run:()=>void)=>{if(dirty)setPending(()=>run);else run();};
- const training=workstream==='teachers',sharesBudget=workstream==='ict'||training;
- // ICT and Teacher Development first split their shared budget (action_plans.ict_allocation).
- const needsIctAllocation=sharesBudget&&!!data&&data.plan.ictAllocation==null;
- const disabled=busy||!data?.canEdit||!!error||needsIctAllocation;
+ const training=workstream==='teachers',splitSide=data&&sideSplits(data.plan,workstream)?workstream:null,sharesBudget=!!splitSide;
+ // ICT and Teacher Development, and TLM in split mode (with Infrastructure), first split their shared budget (lib/budget-pairs.ts).
+ const needsSplit=!!splitSide&&!!data&&storedAllocation(data.plan,splitSide)==null&&(splitSide!=='tlm'||data.plan.stateLodgment!=null);
+ const disabled=busy||!data?.canEdit||!!error||needsSplit;
  const total=(data?.lines.reduce((s,l)=>s+Math.round(l.unitCost*100)*l.quantity,0)??0)/100;
  const envelopeKobo=data?componentEnvelopeKobo(data.plan,workstream):null;
  const envelope=envelopeKobo===null?null:Number(envelopeKobo)/100;
- // TLM shares one pool with Infrastructure's school packages (partnerProposed): "left" counts both.
- const pooled=workstream==='tlm',poolUsed=pooled?Number(data?.partnerProposed??0):0;
+ // Shared-pool mode: TLM shares one pool with Infrastructure's school packages (partnerProposed), so "left" counts both.
+ const pooled=workstream==='tlm'&&!!data&&!isSplitMode(data.plan),poolUsed=pooled?Number(data?.partnerProposed??0):0;
  const savedKobo=(data?.lines??[]).reduce((sum,l)=>sum+budgetKobo(l.unitCost.toFixed(2))*BigInt(l.quantity),BigInt(0));
  const draftCheck=activityLineSchema.safeParse(payload(draft,workstream)),draftValid=draftCheck.success;
  const draftKobo=Number.isSafeInteger(Number(draft.quantity)) && Number(draft.quantity)>=0 && Number(draft.unitCost)>=0 && Number(draft.unitCost)<=999999999999.99 ? budgetKobo(Number(draft.unitCost||0).toFixed(2))*BigInt(Number(draft.quantity||0)) : BigInt(0);
@@ -131,7 +133,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
    <section className="workspace-pane editor-pane" aria-label={`${title} editor`}><ScrollArea className="pane-scroll"><div className="editor-canvas">
     <header className="editor-heading"><h1>{view==='distribution'?'Add schools':draft.id?'Edit budget item':'Add a budget item'}</h1></header>
     {error&&<Alert variant="destructive"><AlertTitle>Unable to load</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={()=>void load().catch(e=>setError(e.message))}>Retry</Button></AlertDescription></Alert>}
-    {sharesBudget&&data&&!error&&<SharedBudgetPanel key={data.plan.ictAllocation??'unset'} side={training?'teachers':'ict'} plan={data.plan} proposed={total} partnerProposed={Number(data.partnerProposed??0)} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
+    {splitSide&&data&&!error&&<SharedBudgetPanel key={storedAllocation(data.plan,splitSide)??'unset'} side={splitSide} plan={data.plan} proposed={total} partnerProposed={Number(data.partnerProposed??0)} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
     {data&&!data.canEdit&&<Alert><AlertTitle>Read-only</AlertTitle><AlertDescription>This component cannot be edited by your account at its current review stage.</AlertDescription></Alert>}
     <form id="activity-form" onSubmit={view==='budget'?save:e=>{e.preventDefault();if(picked.length)void mutate({entity:'school',action:'create',schoolIds:picked});}}><fieldset disabled={disabled}><FieldGroup>
      {view==='distribution'?<Field><FieldLabel htmlFor="school-search">Schools {required}</FieldLabel><Input id="school-search" type="search" placeholder="Search by school, LGA or level…" value={schoolQuery} onChange={e=>{setPinned(picked);setSchoolQuery(e.target.value);}}/>
@@ -160,11 +162,11 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
     </FieldGroup></fieldset></form>
    </div></ScrollArea><div className="editor-footer"><div className="line-total"><span>{view==='budget'?capped?'Sub-total':'Line total':'Distribution schools'}</span><strong>{view==='budget'?money.format((Math.round(Number(draft.unitCost||0)*100)*Number(draft.quantity||0))/100):data?.distribution.length??0}</strong></div><div className="footer-actions">{draft.id&&<><Button variant="ghost" disabled={busy} onClick={()=>guard(reset)}>Cancel</Button><ButtonGroup className="activity-line-navigation" aria-label="Budget item navigation"><Button size="icon" variant="secondary" aria-label="Previous budget item" title="Previous budget item" disabled={disabled||selectedLineIndex<=0} onClick={()=>navigateLine(-1)}><ChevronLeftIcon/></Button><ButtonGroupSeparator/><Button size="icon" variant="secondary" aria-label="Next budget item" title="Next budget item" disabled={disabled||selectedLineIndex<0||selectedLineIndex===visibleLines.length-1} onClick={()=>navigateLine(1)}><ChevronRightIcon/></Button></ButtonGroup></>}{(()=>{const blocked=disabled||(view==='distribution'&&!picked.length)||(view==='budget'&&!draftValid)||!!budgetError;
    // A disabled button gets no hover, so the reason sits on a wrapper the pointer and keyboard can reach.
-   const reason=blocked?saveBlockedReason({busy,canEdit:!!data?.canEdit,failed:!!error,needsIctAllocation,splitName:training?'Teacher Development':'ICT',view:view==='distribution'?'distribution':'budget',pickedSchools:picked.length,issues:draftCheck.success?[]:draftCheck.error.issues,budgetError}):null;
+   const reason=blocked?saveBlockedReason({busy,canEdit:!!data?.canEdit,failed:!!error,needsIctAllocation:needsSplit,splitName:name,view:view==='distribution'?'distribution':'budget',pickedSchools:picked.length,issues:draftCheck.success?[]:draftCheck.error.issues,budgetError}):null;
    const button=<Button form="activity-form" type="submit" disabled={blocked}>{busy?'Saving…':draft.id?'Save changes':view==='budget'?'Add item':`Add ${picked.length?count.format(picked.length)+' ':''}school${picked.length===1?'':'s'}`}</Button>;
    return reason?<Tooltip delayDuration={0}><TooltipTrigger asChild><span className="save-button-wrap" tabIndex={0} aria-label={reason}>{button}</span></TooltipTrigger><TooltipContent side="top" className="soft-tip max-w-64">{reason}</TooltipContent></Tooltip>:button;})()}</div></div></section>
    <section className="workspace-pane preview-pane" aria-label="Saved component"><ScrollArea className="pane-scroll"><article className="preview-document sports-preview">
-    <div className="plan-overview"><div><span>Proposed {name} budget</span><strong>{error?'Unavailable':data?money.format(total):'Loading…'}</strong></div><p>{!data?'':envelope===null?(sharesBudget&&data.plan.stateLodgment!=null?(training?'Teacher Development budget not set':'ICT allocation not set'):'Funding envelope not set'):<>{pooled?'Shared with Infrastructure':'Funding envelope'}: {money.format(envelope)} · <span className="envelope-left" data-empty={envelope-poolUsed-total<=0||undefined}>{money.format(Math.max(envelope-poolUsed-total,0))} left</span></>}</p></div>
+    <div className="plan-overview"><div><span>Proposed {name} budget</span><strong>{error?'Unavailable':data?money.format(total):'Loading…'}</strong></div><p>{!data?'':envelope===null?(sharesBudget&&data.plan.stateLodgment!=null?(workstream==='ict'?'ICT allocation not set':`${name} budget not set`):'Funding envelope not set'):<>{pooled?'Shared with Infrastructure':'Funding envelope'}: {money.format(envelope)} · <span className="envelope-left" data-empty={envelope-poolUsed-total<=0||undefined}>{money.format(Math.max(envelope-poolUsed-total,0))} left</span></>}</p></div>
     {envelope!==null&&poolUsed+total>envelope&&<Alert variant="destructive"><AlertTitle>Above funding envelope</AlertTitle><AlertDescription>{pooled?'Infrastructure and TLM together exceed':'The planned total exceeds'} the envelope by {money.format(poolUsed+total-envelope)}.</AlertDescription></Alert>}
     {workstream==='monitoring'&&view==='budget'&&<section className="activity-documents" aria-labelledby="proforma-title"><div className="flex items-baseline justify-between gap-3"><h2 id="proforma-title">Proforma Invoice</h2><span className="text-sm text-muted-foreground">Optional · {data?.documents.length??0} file{data?.documents.length===1?'':'s'}</span></div><FileUpload compact id="proforma-invoice" label="Proforma Invoice" multiple accept={proformaAccept} disabled={disabled} busy={busy} onFiles={upload}/>{!!data?.documents.length&&<DocumentFiles compact documents={data.documents.map(d=>({...d,url:'/api/activities/documents?id='+d.id,description:'Proforma invoice'}))} disabled={disabled} onRemove={data.canEdit?id=>void removeDocument(id):undefined}/>}</section>}
     {view==='distribution'?<><h2>Distribution list</h2>

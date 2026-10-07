@@ -16,7 +16,8 @@ try{
   if(department)await db.query('INSERT INTO user_departments(user_id,department) VALUES($1,$2)',[ids.at(-1),department]);
   const r=await api(who,'/api/auth/login',{email,password});ok(r);cookies[who]=r.cookie;
  }
- plan=(await db.query('INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding) VALUES($1,2028,2028,3757.50,0) RETURNING id',[state])).rows[0].id;
+ // TLM gets ₦1,000 of the Infrastructure & TLM pool (split mode, migration 051), enough for its lines here.
+ plan=(await db.query('INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding,tlm_allocation) VALUES($1,2028,2028,3757.50,0,1000) RETURNING id',[state])).rows[0].id;
  school=(await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,'QA School','QA LGA','Primary','Rural',60,40) RETURNING id",[state])).rows[0].id;
  school2=(await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES($1,'QA School Two','QA LGA','Primary','Urban') RETURNING id",[state])).rows[0].id;
  const url=`/api/activities?plan=${plan}&workstream=sbmc`;

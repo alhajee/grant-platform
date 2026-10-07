@@ -7,7 +7,7 @@ import { activePillars, departments, isUbec, type UbecRound, type UbecAssignment
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
 import { readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
-import { componentReadinessProblem } from '@/lib/component-readiness';
+import { sendReadinessProblem } from '@/lib/component-readiness';
 import { readUbecSubmissionMode } from '@/lib/workflow-settings';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         const snapshot: Snapshot = await readPlanSnapshot(db, plan.id);
         const reviews = await readPillarReviews(db, plan.id);
         const unready = unreadySentComponents(snapshot, reviews)[0];
-        if (unready) return error(componentReadinessProblem(unready, snapshot[unready] ?? [], snapshot.setup)!, 409);
+        if (unready) return error(sendReadinessProblem(unready, snapshot)!, 409);
         if (!readyForUbecSubmission(ubecMode, reviews, snapshot)) return error(partial ? 'At least one component must reach the Executive Chairman before sending to UBEC.' : 'Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(ubecSubmissionSnapshot(snapshot, reviews)), user.id])).rows[0];
         status = 'submitted_ubec';

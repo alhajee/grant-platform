@@ -1,17 +1,18 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { createRequire } from 'node:module';
 import ts from 'typescript';
 
 // Execute the project's pure TypeScript rules without a server or test accounts.
-const cache = new Map();
+const cache = new Map(), requireModule = createRequire(import.meta.url);
 function load(path) {
   path = resolve(path);
   if (cache.has(path)) return cache.get(path);
   const loaded = { exports: {} };
   cache.set(path, loaded.exports);
   const code = ts.transpileModule(readFileSync(path, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  new Function('require', 'module', 'exports', code)(id => load(resolve(dirname(path), id.endsWith('.ts') ? id : id + '.ts')), loaded, loaded.exports);
+  new Function('require', 'module', 'exports', code)(id => id.startsWith('.') ? load(resolve(dirname(path), id.endsWith('.ts') ? id : id + '.ts')) : requireModule(id), loaded, loaded.exports);
   return loaded.exports;
 }
 const { mayEditPillar, readyForExecutiveChairman, readyForUbec, readyForUbecSubmission, ubecSubmissionSnapshot, aggregateReviewStatus } = load('lib/pillar-review.ts');

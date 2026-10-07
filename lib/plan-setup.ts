@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { formatQuarters } from './format-quarters';
-import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabels, fundingSourceTargets, teachersSharedEnvelope, toKobo, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
+import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabels, fundingSourceTargets, isSplitMode, toKobo, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
+export { sharedBelowAllocationProblem } from './budget-pairs';
 
 const year = z.number().int().min(2004).max(2100);
 export const implementationYearError = (fundingYear: number, implementationYear: number) => Number.isInteger(fundingYear) && Number.isInteger(implementationYear) && implementationYear < fundingYear ? `Implementation year can't be earlier than the funding year (${fundingYear}).` : '';
@@ -40,25 +41,21 @@ export function fundingTotal(lodgment: string, other: string) {
 export function otherFundingTotal(setup: Pick<Partial<PlanSetup>, 'otherFunding' | 'fundingSources'>) {
   return fromKobo(toKobo(setup.otherFunding ?? '0') + toKobo(sourcesSum(setup.fundingSources ?? [])));
 }
-export type EnvelopeShortfall = { component: FundingComponent; ceiling: string; proposed: string };
+export type EnvelopeShortfall = { component: FundingComponent; ceiling: string; proposed: string; /** Infrastructure and TLM together (shared_pool mode). */ pooled?: boolean };
 /** Components whose ceiling an edit would lower below what their saved lines already propose. Existing overruns the edit does not worsen are allowed.
- * Infrastructure and TLM share one pool, so they are checked together and reported as 'infrastructure' (see shortfallMessage). */
+ * In shared_pool mode Infrastructure and TLM share one pool, so they are checked together and reported as pooled (see shortfallMessage);
+ * in split mode each is checked against its own part (TLM's is a fixed amount; the pool falling below it is sharedBelowAllocationProblem). */
 export function envelopeShortfalls(before: EnvelopePlan, after: EnvelopePlan, proposed: Partial<Record<FundingComponent, string>>): EnvelopeShortfall[] {
-  return fundingComponentIds.filter(component => component !== 'tlm').flatMap(component => {
-    const pooled = component === 'infrastructure';
-    const used = toKobo(proposed[component] ?? '0') + (pooled ? toKobo(proposed.tlm ?? '0') : BigInt(0)), next = componentEnvelope(after, component), previous = componentEnvelope(before, component);
+  const pooled = !isSplitMode(after);
+  return fundingComponentIds.filter(component => !(pooled && component === 'tlm')).flatMap(component => {
+    const combined = pooled && component === 'infrastructure';
+    const used = toKobo(proposed[component] ?? '0') + (combined ? toKobo(proposed.tlm ?? '0') : BigInt(0)), next = componentEnvelope(after, component), previous = componentEnvelope(before, component);
     if (!used || next == null || used <= toKobo(next) || (previous != null && toKobo(next) >= toKobo(previous))) return [];
-    return [{ component, ceiling: next, proposed: fromKobo(used) }];
+    return [{ component, ceiling: next, proposed: fromKobo(used), pooled: combined }];
   });
 }
 const naira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
-/** Why an edit cannot shrink the shared Teacher Development and ICT envelope: it may not fall below ICT's allocation. */
-export function sharedBelowIctProblem(after: EnvelopePlan) {
-  const shared = teachersSharedEnvelope(after);
-  if (after.ictAllocation == null || shared == null || toKobo(shared) >= toKobo(after.ictAllocation)) return null;
-  return `Teacher Development & ICT would have ${naira.format(Number(shared))} available, but ICT has already been allocated ${naira.format(Number(after.ictAllocation))}. Ask ICT to reduce its allocation first or keep this funding.`;
-}
-export const shortfallMessage = (s: EnvelopeShortfall) => s.component === 'infrastructure'
+export const shortfallMessage = (s: EnvelopeShortfall) => s.pooled
   ? `Infrastructure and TLM would share ${naira.format(Number(s.ceiling))}, but ${naira.format(Number(s.proposed))} is already proposed. Reduce their budgets first or keep this funding.`
   : `${fundingComponentLabels[s.component]} would have ${naira.format(Number(s.ceiling))} available, but ${naira.format(Number(s.proposed))} is already proposed. Reduce its lines first or keep its funding.`;
 export function beapName(state: string, year: number, quarters: number[]) {
@@ -74,6 +71,10 @@ export type PlanSetup = {
   fundingSources?: FundingSource[];
   /** ICT's share of the shared Teacher Development and ICT envelope (migration 038); null until the ICT editor sets it. */
   ictAllocation?: string | null;
+  /** TLM's share of the Infrastructure & TLM pool (migration 051); null until set. */
+  tlmAllocation?: string | null;
+  /** The platform's Infrastructure & TLM mode when read (migration 051). */
+  infrastructureTlmMode?: import('./funding-policy').InfrastructureTlmMode | null;
   beapName: string | null; documents: PlanDocument[];
 };
 export const maxRatFileBytes = 5 * 1024 * 1024;

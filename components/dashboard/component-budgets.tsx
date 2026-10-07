@@ -3,7 +3,7 @@
 import type { CSSProperties } from 'react';
 import type { InvestmentArea } from '@/components/investment-filter';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { componentEnvelope } from '@/lib/funding-policy';
+import { componentEnvelope, isSplitMode } from '@/lib/funding-policy';
 import { isPoolComponent } from '@/lib/infrastructure-pool';
 import type { PlanOverview } from '@/lib/action-plans';
 
@@ -85,8 +85,8 @@ export function ComponentBudgets({ plans, areas, amounts, totalFunding, unavaila
         const { label, fill, ink } = componentPalette[tile.area], on = selected.includes(tile.area);
         // The column is the ceiling; the solid block rises to the share proposed (never so short the text cannot fit).
         const level = tile.share === null ? 100 : Math.max(Math.min(tile.share, 100), 60);
-        // Infrastructure and TLM share one pool (their ceiling): what is left counts both sides.
-        const left = Math.max(tile.ceiling - (isPoolComponent(tile.area) ? amounts.infrastructure + amounts.tlm : tile.amount), 0);
+        // Shared-pool mode: Infrastructure and TLM share one pool (their ceiling), so what is left counts both sides; in split mode each has its own part.
+        const left = Math.max(tile.ceiling - (isPoolComponent(tile.area) && !plans.some(isSplitMode) ? amounts.infrastructure + amounts.tlm : tile.amount), 0);
         return <li key={tile.area} data-selected={on || undefined} style={{ '--tile-fill': fill, '--tile-ink': ink } as CSSProperties}>
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
