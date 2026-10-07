@@ -15,7 +15,7 @@ export type StatusPanelProps = {
   scopeLabel: (scope: string) => string;
 };
 
-const stepLabel = (event: ReviewEvent) => event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action];
+const stepLabel = (event: ReviewEvent) => event.action === 'approve' && event.actorRole.startsWith('UBEC ') ? 'Approved by UBEC' : reviewActionLabels[event.action];
 
 /**
  * Beside the funding summary: what the plan is waiting on (the latest change request) and the last few review

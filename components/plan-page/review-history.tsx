@@ -14,7 +14,7 @@ const full = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 
 // One glyph per step: sent by Data Entry, endorsed by a Director, forwarded by the BEAP Chair, and so on.
 const icons: Record<ReviewAction, LucideIcon> = { submit: SendHorizontalIcon, endorse: UserCheckIcon, forward: CrownIcon, request_changes: CornerUpLeftIcon, approve: ShieldCheckIcon, edit: FilePenLineIcon };
 const tone = (action: ReviewAction) => action === 'request_changes' ? 'changes' : action === 'approve' ? 'approved' : action === 'edit' ? 'edited' : action === 'forward' ? 'forwarded' : 'sent';
-const label = (event: ReviewEvent) => event.action === 'approve' && event.actorRole === 'UBEC Executive Secretary' ? 'Approved by UBEC' : reviewActionLabels[event.action];
+const label = (event: ReviewEvent) => event.action === 'approve' && event.actorRole.startsWith('UBEC ') ? 'Approved by UBEC' : reviewActionLabels[event.action];
 const initials = (name: string) => name.split(/\s+/).filter(word => /^[A-Za-z]/.test(word)).slice(0, 2).map(word => word[0]).join('').toUpperCase();
 
 /** Consecutive steps of the same kind by the same person fold into one entry ("Show N similar steps"). */

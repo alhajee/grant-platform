@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ubecSeesPillarSql } from '@/lib/ubec-flow-db';
 import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { resolveActionPlan } from '@/lib/plan-workspace';
@@ -61,9 +62,8 @@ export async function GET(req:NextRequest){
   const stateVisible=owner.stateCode===user.stateCode&&(await readStageVisibility(db,user,owner.planId)).includes(owner.component);
   const doc=(await db.query(`SELECT d.name,d.media_type,d.content,d.component FROM component_documents d JOIN action_plans p ON p.id=d.plan_id WHERE d.id=$1 AND (
     (p.state_code=$2 AND $3) OR
-    ($4='UBEC Executive Secretary' AND EXISTS(SELECT 1 FROM ubec_rounds r WHERE r.plan_id=p.id AND (r.snapshot->'componentDocuments') @> jsonb_build_array(jsonb_build_object('id',d.id::text)))) OR
-    ($4='UBEC Department Reviewer' AND EXISTS(SELECT 1 FROM ubec_rounds r JOIN ubec_assignments a ON a.round_id=r.id WHERE r.plan_id=p.id AND a.department=$5 AND a.pillar=d.component AND (r.snapshot->'componentDocuments') @> jsonb_build_array(jsonb_build_object('id',d.id::text))))
-  )`,[id.data,user.stateCode,stateVisible,user.role,user.department])).rows[0];
+    EXISTS(SELECT 1 FROM ubec_rounds r WHERE r.plan_id=p.id AND (r.snapshot->'componentDocuments') @> jsonb_build_array(jsonb_build_object('id',d.id::text)) AND ${ubecSeesPillarSql('r','d.component','$4::text','$6::int','$5::text')})
+  )`,[id.data,user.stateCode,stateVisible,user.role,user.department,user.userId])).rows[0];
   if(!doc)return error('Document not found.',404);
   return new Response(new Uint8Array(doc.content),{headers:{'Content-Type':doc.media_type,'Content-Disposition':`attachment; filename="component-document"; filename*=UTF-8''${encodeURIComponent(doc.name).replace(/'/g,'%27')}`,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"sandbox; default-src 'none'"}});
  }catch(cause){console.error(cause);return error('Unable to download.',503);}

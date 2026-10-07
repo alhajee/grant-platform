@@ -39,8 +39,18 @@ function stateWording(item: NotificationItem): Wording {
 }
 
 function ubecWording(item: NotificationItem): Wording {
+  const component = componentName(item.scope) ?? 'a component';
   switch (item.action) {
     case 'submit': return { verb: 'Sent', target: 'the plan', suffix: 'to UBEC for review', kind: 'sent' };
+    case 'release': return { verb: 'Released', target: 'the plan', suffix: 'to the UBEC departments', kind: 'assigned' };
+    case 'assign_officer': return { verb: 'Assigned you', target: component, suffix: 'to assess', kind: 'assigned' };
+    case 'complete_assessment': return { verb: 'Completed the assessment of', target: component, suffix: '', kind: 'feedback' };
+    case 'send_oversight': return { verb: 'Sent', target: component, suffix: 'for your observations', kind: 'sent' };
+    case 'observations_done': return { verb: 'Finished observations on', target: component, suffix: '', kind: 'feedback' };
+    case 'ready_for_chair': return { verb: 'Cleared', target: component, suffix: 'for your decision', kind: 'approved' };
+    case 'return': return { verb: 'Returned', target: 'the plan', suffix: 'to the SUBEB', kind: 'changes' };
+    case 'approve': return { verb: 'Approved', target: 'the plan', suffix: '', kind: 'approved' };
+    // Earlier flow (before migration 055).
     case 'assign': return { verb: 'Assigned', target: 'a component', suffix: 'to your department', kind: 'assigned' };
     case 'feedback': return { verb: 'Finished', target: 'a department review', suffix: '', kind: 'feedback' };
     default: return { verb: 'Updated', target: 'the plan', suffix: '', kind: 'sent' };
@@ -50,7 +60,8 @@ function ubecWording(item: NotificationItem): Wording {
 export function describeNotification(item: NotificationItem): NotificationMessage {
   if (item.source === 'ubec') {
     const state = subebDisplayName(item.stateCode);
-    return { ...ubecWording(item), actor: item.action === 'submit' ? state : item.actorName, context: `${state} · ${planName(item)}`, href: `/ubec/review?plan=${item.planId}` };
+    const anchor = componentName(item.scope) ? `#ubec-${item.scope}` : '';
+    return { ...ubecWording(item), actor: item.action === 'submit' ? state : item.actorName, context: `${state} · ${planName(item)}`, href: `/ubec/review?plan=${item.planId}${anchor}` };
   }
   // A note lands on its entry in the review page's history; otherwise open the component's sheet.
   const anchor = item.comment && item.eventId ? reviewEventAnchor(item.eventId) : componentName(item.scope) ? `#review-${item.scope}` : '';

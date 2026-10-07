@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ubecSeesPillarSql } from '@/lib/ubec-flow-db';
+import { isUbec } from '@/lib/ubec';
 import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { resolveActionPlan } from '@/lib/plan-workspace';
@@ -59,11 +61,10 @@ export async function GET(req: NextRequest) {
     const db = getPostgres();
     const doc = (await db.query<{ name: string; media_type: string; content: Buffer; component: LineDocumentWorkstream; state_code: string; plan_id: number }>('SELECT d.name,d.media_type,d.content,d.component,p.state_code,p.id AS plan_id FROM activity_line_documents d JOIN action_plans p ON p.id=d.plan_id WHERE d.id=$1', [id.data])).rows[0];
     if (!doc) return error('Document not found.', 404);
-    const inRound = `SELECT 1 FROM ubec_rounds r %JOIN% WHERE r.plan_id=$1 AND (r.snapshot->$2) @> jsonb_build_array(jsonb_build_object('documents', jsonb_build_array(jsonb_build_object('id', $3::text)))) %AND% LIMIT 1`;
+    const inRound = `SELECT 1 FROM ubec_rounds r WHERE r.plan_id=$1 AND (r.snapshot->$2) @> jsonb_build_array(jsonb_build_object('documents', jsonb_build_array(jsonb_build_object('id', $3::text)))) AND ${ubecSeesPillarSql('r', '$2::text', '$4::text', '$5::int', '$6::text')} LIMIT 1`;
     // State users: only once the component has reached them (lib/stage-visibility.ts).
     const allowed = doc.state_code === user.stateCode ? (await readStageVisibility(db, user, doc.plan_id)).includes(doc.component)
-      : user.role === 'UBEC Executive Secretary' ? Boolean((await db.query(inRound.replace('%JOIN%', '').replace('%AND%', ''), [doc.plan_id, doc.component, id.data])).rowCount)
-      : user.role === 'UBEC Department Reviewer' ? Boolean((await db.query(inRound.replace('%JOIN%', 'JOIN ubec_assignments a ON a.round_id=r.id').replace('%AND%', 'AND a.department=$4 AND a.pillar=$2'), [doc.plan_id, doc.component, id.data, user.department])).rowCount)
+      : isUbec(user.role) ? Boolean((await db.query(inRound, [doc.plan_id, doc.component, id.data, user.role, user.userId, user.department])).rowCount)
       : false;
     if (!allowed) return error('Document not found.', 404);
     return new Response(new Uint8Array(doc.content), { headers: { 'Content-Type': doc.media_type, 'Content-Disposition': `attachment; filename="line-document"; filename*=UTF-8''${encodeURIComponent(doc.name).replace(/'/g, '%27')}`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'" } });

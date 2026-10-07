@@ -5,11 +5,11 @@ import { getAuthenticatedUser } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
 import { subebDepartments } from '@/lib/subeb-departments';
-import { departments as ubecDepartments } from '@/lib/ubec';
+import { ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
 import { normalizeDepartments, replaceUserDepartments, userDepartmentsSql } from '@/lib/user-departments';
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
-const roles = z.enum(['Data Entry Staff', 'Director', 'Executive Chairman', 'UBEC Department Reviewer', 'UBEC Executive Secretary']);
+const roles = z.enum(['Data Entry Staff', 'Director', 'Executive Chairman', ...ubecRoleList] as [string, ...string[]]);
 const profile = z.object({
   name: z.string().trim().min(2).max(120),
   role: roles,
@@ -34,14 +34,14 @@ async function requireAdmin(request: NextRequest) {
 function validProfile(input: z.infer<typeof profile>) {
   const ubec = input.stateCode === 'UBEC';
   const roleMatchesWorkspace = ubec
-    ? input.role === 'UBEC Department Reviewer' || input.role === 'UBEC Executive Secretary'
+    ? (ubecRoleList as readonly string[]).includes(input.role)
     : input.role === 'Data Entry Staff' || input.role === 'Director' || input.role === 'Executive Chairman';
   if (!roleMatchesWorkspace) return 'Choose a role that belongs to this workspace.';
-  const needsDepartment = ['Data Entry Staff', 'Director', 'UBEC Department Reviewer'].includes(input.role);
-  const allowedDepartments = ubec ? ubecDepartments : subebDepartments;
+  const needsDepartment = ['Data Entry Staff', 'Director'].includes(input.role) || ubecRoleDepartments(input.role).length > 0;
+  const allowedDepartments = ubec ? ubecRoleDepartments(input.role) : subebDepartments;
   const selected = normalizeDepartments(input.departments?.length ? input.departments : input.department);
   if (needsDepartment && (!selected.length || selected.some(department => !allowedDepartments.some(item => item.id === department)))) return 'Choose at least one valid department.';
-  if (ubec && input.role === 'UBEC Department Reviewer' && selected.length !== 1) return 'A UBEC Department Reviewer must have one department.';
+  if (ubec && needsDepartment && selected.length !== 1) return `A ${input.role} must have exactly one department.`;
   if (!needsDepartment && selected.length) return 'This role is not assigned to a department.';
   if (input.isBeapChair && (ubec || input.role !== 'Director')) return 'The BEAP Chair must be a SUBEB Director.';
   if (input.canManageSchools && ubec) return 'School register access applies to SUBEB accounts only.';
@@ -71,6 +71,8 @@ async function mutate(request: NextRequest, creating: boolean) {
         if (!target && !(await db.query("SELECT 1 FROM users WHERE state_code=$1 AND role<>'Super Admin' LIMIT 1", [input.stateCode])).rowCount) return json({ error: 'Choose an existing workspace.' }, 400);
         const chair = input.isBeapChair ?? target?.isBeapChair ?? false;
         if (chair && (await db.query('SELECT id FROM users WHERE state_code=$1 AND is_beap_chair AND id<>$2', [input.stateCode, target?.id ?? 0])).rowCount) return json({ error: 'This SUBEB already has a BEAP Chair.' }, 409);
+        // UBEC keeps one active BEAP Chair, one Director per component department and one Oversight Director per oversight department.
+        if (input.active && [ubecRoles.chair, ubecRoles.director, ubecRoles.oversight].includes(input.role as typeof ubecRoles.chair) && (await db.query('SELECT 1 FROM users WHERE role=$1 AND active AND department IS NOT DISTINCT FROM $2 AND id<>$3 LIMIT 1', [input.role, input.role === ubecRoles.chair ? null : selectedDepartments[0], target?.id ?? 0])).rowCount) return json({ error: input.role === ubecRoles.chair ? 'UBEC already has an active BEAP Chair.' : 'This department already has an active account in this role.' }, 409);
         if (input.role === 'Director' && !input.isBeapChair && input.active && (await db.query("SELECT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND ud.department=ANY($2::text[]) AND u.role='Director' AND NOT u.is_beap_chair AND u.active AND u.id<>$3 LIMIT 1", [input.stateCode, selectedDepartments, target?.id ?? 0])).rowCount) return json({ error: 'One or more selected departments already has an active Director.' }, 409);
       }
       const password = creating || resetting ? `Ubec-${crypto.randomUUID()}!` : undefined;
