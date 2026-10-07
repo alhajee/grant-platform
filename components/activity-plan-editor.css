@@ -56,7 +56,7 @@
 .ict-allocation h2 { font-size:16px;font-weight:600; }
 .ict-allocation p { color:var(--muted-foreground);font-size:14px; }
 .ict-allocation-summary { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding:10px 14px;border:1px solid var(--border);border-radius:10px; }
-.ict-allocation-summary div { display:flex;flex-direction:column; }
+.ict-allocation-summary > div { display:flex;flex-direction:column; }
 .ict-allocation-summary span, .ict-allocation-summary small { color:var(--muted-foreground);font-size:12px; }
 .activity-picked-meta > span:last-child { color:var(--muted-foreground);font-size:13px; }
 
