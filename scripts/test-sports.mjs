@@ -56,10 +56,9 @@ try {
   for (const section of ["competitions", "publicity"]) assert.equal((await api({ ...budget, section, activityType: `QA ${section}`, quantity: 2, unitCost: 100.1 })).status, 400, "Sub-activities must come from the UBEC list.");
   for (const section of ["competitions", "publicity", "supervision"]) assert.equal((await api({ ...budget, section, activityType: subActivity[section], quantity: 2, unitCost: 100.1 })).status, 201);
   assert.equal((await api()).body.lines.find((line) => line.section === "supervision").activityType, "Supervision, Assessment and Verification", "Supervision lines carry the section name.");
-  // Procurement: at most three distinct sports; listed-only items for Basketball.
-  assert.equal((await api({ ...budget, activityType: "Basketball", description: "Trampoline", quantity: 1, unitCost: 1 })).status, 400);
+  // Procurement: at most three distinct sports; items outside the suggestions are allowed for every sport.
   const sportLines = [];
-  for (const activityType of ["Basketball", "football"]) { const created = await api({ ...budget, activityType, description: activityType === "Basketball" ? "Basketballs" : "Footballs", quantity: 1, unitCost: 1 }); assert.equal(created.status, 201, JSON.stringify(created.body)); sportLines.push(created.body.id); }
+  for (const activityType of ["Basketball", "football"]) { const created = await api({ ...budget, activityType, description: activityType === "Basketball" ? "Shot clock" : "Footballs", quantity: 1, unitCost: 1 }); assert.equal(created.status, 201, JSON.stringify(created.body)); sportLines.push(created.body.id); }
   assert.equal((await api({ ...budget, activityType: "Tennis", description: "Tennis balls", quantity: 1, unitCost: 1 })).status, 409, "A fourth sport must be rejected.");
   const sameSport = await api({ ...budget, activityType: " CHILDREN'S FOOTBALL ", description: "Bibs", quantity: 1, unitCost: 1 });
   assert.equal(sameSport.status, 201, "An existing sport (any case) is not a new sport.");
@@ -101,7 +100,7 @@ try {
   assert.deepEqual(overview.infrastructure, { lineCount: 0, schoolCount: 0, budget: 0 });
   const after = (await db.query("SELECT id, row_to_json(line)::text AS snapshot FROM infrastructure_lines line WHERE id = ANY($1::int[]) ORDER BY id", [original.map((line) => line.id)])).rows;
   assert.deepEqual(after, original, "Existing infrastructure data must be unchanged.");
-  console.log("PASS: four sections, sub-activity lists, max three procurement sports, Basketball item list, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
+  console.log("PASS: four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
 } finally {
   await db.query("DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code = ANY($1::text[]))", [[marker, foreignMarker]]);
   await db.query("DELETE FROM sports_budget_lines WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);

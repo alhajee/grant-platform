@@ -11,17 +11,18 @@ export const sportsSections = [
 
 /** Procurement: at most this many distinct sports per plan (QA UBEC19). */
 export const maxEquipmentSports = 3;
-type SportCatalogEntry = { name: string; items: readonly string[]; customItems: boolean };
+/** Suggestions only: any sport (up to the limit) and any item can be typed, since no list can be complete. */
+type SportCatalogEntry = { name: string; items: readonly string[] };
 export const sportsCatalog: readonly SportCatalogEntry[] = [
-  { name: "Football", items: ["Footballs", "Goal posts", "Football nets", "Cones", "Bibs/Jerseys", "Whistles", "Corner flags"], customItems: true },
-  { name: "Volleyball", items: ["Volleyballs", "Volleyball net", "Net poles", "Knee pads", "Whistles"], customItems: true },
-  { name: "Basketball", items: ["Basketballs", "Basketball hoop/backboard", "Bibs/Jerseys", "Whistles"], customItems: false },
-  { name: "Badminton", items: ["Badminton rackets", "Shuttlecocks", "Badminton net", "Net poles"], customItems: true },
-  { name: "Handball", items: ["Handballs", "Goal posts", "Bibs/Jerseys", "Whistles"], customItems: true },
-  { name: "Tennis", items: ["Tennis rackets", "Tennis balls", "Tennis net", "Net poles"], customItems: true },
-  { name: "Athletics", items: ["Starting blocks", "Stopwatches", "Measuring tape", "Hurdles", "Javelins", "Discus", "Shot put", "Relay batons", "Cones"], customItems: true },
-  { name: "Gymnastics", items: ["Gymnastic mats", "Balance beam", "Vaulting box", "Ribbons/hoops"], customItems: true },
-  { name: "Board Games", items: ["Chess sets", "Ludo sets", "Draughts/Checkers sets", "Scrabble sets"], customItems: true },
+  { name: "Football", items: ["Footballs", "Goal posts", "Football nets", "Cones", "Bibs/Jerseys", "Whistles", "Corner flags"] },
+  { name: "Volleyball", items: ["Volleyballs", "Volleyball net", "Net poles", "Knee pads", "Whistles"] },
+  { name: "Basketball", items: ["Basketballs", "Basketball hoop/backboard", "Bibs/Jerseys", "Whistles"] },
+  { name: "Badminton", items: ["Badminton rackets", "Shuttlecocks", "Badminton net", "Net poles"] },
+  { name: "Handball", items: ["Handballs", "Goal posts", "Bibs/Jerseys", "Whistles"] },
+  { name: "Tennis", items: ["Tennis rackets", "Tennis balls", "Tennis net", "Net poles"] },
+  { name: "Athletics", items: ["Starting blocks", "Stopwatches", "Measuring tape", "Hurdles", "Javelins", "Discus", "Shot put", "Relay batons", "Cones"] },
+  { name: "Gymnastics", items: ["Gymnastic mats", "Balance beam", "Vaulting box", "Ribbons/hoops"] },
+  { name: "Board Games", items: ["Chess sets", "Ludo sets", "Draughts/Checkers sets", "Scrabble sets"] },
 ];
 /** Sub-activities per section. `share` is the indicative % of the competitions share (UBEC guidance note). */
 export const sportsSubActivities: Record<"competitions" | "publicity", readonly { name: string; share?: number }[]> = {
@@ -44,8 +45,6 @@ export function sportsCatalogError(line: { section: SportsSection; activityType:
   if (line.section === "equipment") {
     const used = equipmentSports(others, exceptId);
     if (!used.some((sport) => key(sport) === key(line.activityType)) && used.length >= maxEquipmentSports) return { field: "activityType", message: `You can select up to ${maxEquipmentSports} sports (${used.join(", ")}). Add items to one of these sports instead.` };
-    const sport = findSport(line.activityType);
-    if (sport && !sport.customItems && !sport.items.some((item) => key(item) === key(line.description))) return { field: "description", message: `Choose a ${sport.name} item from the list.` };
     return null;
   }
   if (line.section === "competitions" || line.section === "publicity") {

@@ -58,7 +58,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled }: 
       <SelectOrType id="sports-type" items={sportNames} value={draft.activityType} onChange={(value) => onChange({ ...draft, activityType: value, description: "" })} allowCustom={!sportLimitReached} disabled={locked}
         isDisabled={(name) => sportLimitReached && !usedSports.some((used) => used.toLowerCase() === name.toLowerCase())} placeholder={section.placeholder}
         emptyText={sportLimitReached ? `You have selected ${maxEquipmentSports} sports. Add items to one of them.` : "Others: type the sport's name to add it."} error={errors.activityType} />
-      <FieldDescription>Select up to {maxEquipmentSports} sports, then add the equipment needed for each.</FieldDescription>
+      <FieldDescription>Select up to {maxEquipmentSports} sports, then add the equipment needed for each. Not in the list? Type the sport&apos;s name.</FieldDescription>
       {errors.activityType && <FieldError id="sports-type-error">{errors.activityType}</FieldError>}
     </Field>}
     {subActivities.length > 0 && <Field data-invalid={Boolean(errors.activityType)} data-disabled={locked}>
@@ -78,9 +78,10 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled }: 
     <Field data-invalid={Boolean(errors.description)}>
       <FieldLabel htmlFor="sports-description">{section.itemLabel}</FieldLabel>
       {draft.section === "equipment"
-        ? <SelectOrType id="sports-description" items={sportItems} value={draft.description} onChange={setText("description")} allowCustom={!sport || sport.customItems} disabled={disabled || !draft.activityType.trim()}
-          placeholder={draft.activityType.trim() ? sport?.customItems === false ? "Choose an item…" : "Choose an item or type another…" : "Choose a sport first"} emptyText={sport?.customItems === false ? `Choose a listed ${sport.name} item.` : "Others: type the item's name to add it."} error={errors.description} />
+        ? <SelectOrType id="sports-description" items={sportItems} value={draft.description} onChange={setText("description")} allowCustom disabled={disabled || !draft.activityType.trim()}
+          placeholder={draft.activityType.trim() ? "Choose an item or type another…" : "Choose a sport first"} emptyText="Others: type the item's name to add it." error={errors.description} />
         : <Input id="sports-description" value={draft.description} maxLength={1000} placeholder="Enter a description" onChange={(event) => onChange({ ...draft, description: event.target.value })} aria-invalid={Boolean(errors.description)} aria-describedby={errors.description ? "sports-description-error" : undefined} />}
+      {draft.section === "equipment" && draft.activityType.trim() && <FieldDescription>Not in the list? Type the item&apos;s name.</FieldDescription>}
       {errors.description && <FieldError id="sports-description-error">{errors.description}</FieldError>}
     </Field>
     <FieldGroup className="field-columns">
