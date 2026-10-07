@@ -33,7 +33,7 @@ const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value
 // Compulsory activities, line schools and documents, and the Sports caps must be in place before any send step.
 // The same checks the server runs on every send step, so a holder sees the problem on the card before sending.
 const readiness = (data: PlanReview, pillar: ImplementedPillar) => pillar === 'infrastructure' ? (data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot) : null)
-  : componentSendProblem(pillar, data.snapshot);
+  : componentSendProblem(pillar, data.snapshot, { documentsRequired: data.documentsRequired });
 const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length);
 
 /** The plan page: summary, components, workflow steps, the plan workbook and its review history. */

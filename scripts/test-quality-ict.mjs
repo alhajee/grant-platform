@@ -50,7 +50,9 @@ const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
 
 await db.connect();
 try {
-  settings = (await db.query("SELECT beap_chair_submission_mode, ubec_submission_mode FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
+  settings = (await db.query("SELECT beap_chair_submission_mode, ubec_submission_mode, component_documents_required FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
+  // This test checks the ICT document refusals, so supporting documents are required for its run (migration 052).
+  await db.query("UPDATE state_workflow_settings SET component_documents_required=TRUE WHERE state_code='GLOBAL'");
   await user('qa', 'Data Entry Staff', ['me']);
   await user('ict', 'Data Entry Staff', ['ict']);
   await user('academic', 'Data Entry Staff', ['academic']);
@@ -219,7 +221,7 @@ try {
   step('Quality Assurance and ICT flow Director → BEAP Chair → Executive Chairman → UBEC with department assignment');
   console.log(`PASS: ${passed} quality-ict checks.`);
 } finally {
-  if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);
+  if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2, component_documents_required=$3 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode, settings.component_documents_required]);
   if (planId) { await db.query('DELETE FROM ubec_events WHERE plan_id=$1', [planId]); await db.query('DELETE FROM ubec_assignments WHERE round_id IN (SELECT id FROM ubec_rounds WHERE plan_id=$1)', [planId]); await db.query('DELETE FROM ubec_rounds WHERE plan_id=$1', [planId]); }
   if (planId) for (const t of ['plan_comments', 'plan_notifications', 'plan_review_events', 'plan_submissions', 'plan_pillar_reviews', 'activity_line_documents', 'activity_plan_lines', 'plan_quarters']) await db.query(`DELETE FROM ${t} WHERE plan_id=$1`, [planId]);
   if (planId) await db.query('DELETE FROM action_plans WHERE id=$1', [planId]);

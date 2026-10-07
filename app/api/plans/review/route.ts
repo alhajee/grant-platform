@@ -15,6 +15,7 @@ import { implementedPillars } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, emptyDistributionMessage, hasDistribution } from '@/lib/activity-plans';
 import { componentReadinessProblem, hasReadinessRules } from '@/lib/component-readiness';
 import { sportsSnapshotProblem } from '@/lib/sports';
+import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
 import { aggregateReviewStatus, readPillarReviews, readyForExecutiveChairman, readyForUbecSubmission, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
 import { readBeapChairSubmissionMode, readWorkflowSettings } from '@/lib/workflow-settings';
@@ -39,11 +40,12 @@ export async function GET(request: NextRequest) {
       const events = (await db.query(`SELECT id, action, actor_name AS "actorName", actor_role AS "actorRole", comment, scope, submission_number AS "submissionNumber", created_at AS "createdAt" FROM plan_review_events WHERE plan_id = $1 ORDER BY id DESC`, [plan.id])).rows;
       const pillarReviews = await readPillarReviews(db, plan.id);
       const { mode: beapChairSubmissionMode, ubecMode: ubecSubmissionMode } = await readWorkflowSettings(db);
+      const documentsRequired = await readComponentDocumentsRequired(db);
       const visiblePillars = visibleComponents(workspace);
       const visibleEvents = canViewWholeStatePlan(workspace) ? events : events.filter(event => visiblePillars.includes(event.scope));
       const visibleSubmissions = canViewWholeStatePlan(workspace) ? submissions : submissions.filter(submission => visibleEvents.some(event => event.submissionNumber === submission.number));
       if (requested && !visibleSubmissions.some(submission => submission.number === Number(requested))) return error('Submission not found.', 404);
-      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot, { documentsRequired }), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot, { documentsRequired }), plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, documentsRequired, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }
@@ -65,10 +67,11 @@ export async function POST(request: NextRequest) {
       const reviews = await readPillarReviews(db, plan.id);
       const snapshot = await readPlanSnapshot(db, plan.id);
       const beapChairSubmissionMode = await readBeapChairSubmissionMode(db);
+      const readiness = { documentsRequired: await readComponentDocumentsRequired(db) };
       if (input.action === 'forward' && beapChairSubmissionMode === 'complete_plan') {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send the plan to the SUBEB Executive Chairman.', 403);
         if (input.pillar) return error('This state sends the complete BEAP to the Executive Chairman at once.', 409);
-        if (!readyForExecutiveChairman(reviews,snapshot)) return error('Every implemented component must reach the BEAP Chair before all components can be sent together to the Executive Chairman.', 409);
+        if (!readyForExecutiveChairman(reviews,snapshot,readiness)) return error('Every implemented component must reach the BEAP Chair before all components can be sent together to the Executive Chairman.', 409);
         const recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Executive Chairman'", [workspace.stateCode])).rows;
         if (!recipients.length) return error('No active SUBEB Executive Chairman is configured for this state.',409);
         await db.query("UPDATE plan_pillar_reviews SET status='chairman_ready',updated_at=NOW() WHERE plan_id=$1 AND status='beap_review'",[plan.id]);
@@ -130,7 +133,7 @@ export async function POST(request: NextRequest) {
       // TLM, GSCCI and Curriculum: the distribution list needs at least one school at every send step.
       if (input.action !== 'request_changes' && hasDistribution(input.pillar) && !snapshot[distributionSnapshotKeys[input.pillar]]?.length) return error(emptyDistributionMessage(input.pillar));
       // Quality Assurance, ICT and Teacher Development: compulsory activities, line schools, line documents and the Teacher Development split block every send step.
-      if (input.action !== 'request_changes' && hasReadinessRules(input.pillar)) { const problem=componentReadinessProblem(input.pillar,snapshot[input.pillar]??[],snapshot.setup); if(problem)return error(problem,409); }
+      if (input.action !== 'request_changes' && hasReadinessRules(input.pillar)) { const problem=componentReadinessProblem(input.pillar,snapshot[input.pillar]??[],snapshot.setup,readiness); if(problem)return error(problem,409); }
       // Infrastructure and TLM share one pool: neither is sent while their combined proposals exceed it.
       if (input.action !== 'request_changes' && isPoolComponent(input.pillar)) { const problem=infrastructurePoolProblem(plan,{infrastructure:(snapshot.infrastructure??[]).reduce((sum,item)=>sum+lineKobo(item),BigInt(0)),tlm:(snapshot.tlm??[]).reduce((sum,line)=>sum+lineKobo(line),BigInt(0))}); if(problem)return error(problem,409); }
       // Sports: the envelope and each section's share of it are caps at every send step.

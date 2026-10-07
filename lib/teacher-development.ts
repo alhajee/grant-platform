@@ -43,7 +43,7 @@ export const venueTypes = ['Hall', 'Classroom'] as const;
 export const minTrainingDays = 3;
 export const maxTrainingDays = 365;
 
-/** Every Teacher Development line needs at least one supporting document (PDF or Excel). */
+/** Every Teacher Development line takes supporting documents (PDF or Excel); required only while the Super Admin setting is on (migration 052). */
 export const teacherDocumentLabel = 'Supporting documents';
 export const teacherDocumentHint = 'MoU with training providers, training list for teachers, proof of SSO, proof of Instructional Leads selection, pre-test and post-test items, budget breakdown';
 
