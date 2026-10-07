@@ -6,6 +6,7 @@ import { AdminHeader, useAdminMe } from '@/components/admin-header';
 import { SchoolRegisterTable } from '@/components/school-register-table';
 import { SchoolEntryForm } from '@/components/school-register-form';
 import { SchoolBulkUpload } from '@/components/school-register-import';
+import { DnemisOnlyNote } from '@/components/school-register-dnemis-note';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -30,7 +31,7 @@ function initialState() {
   return isStateCode(wanted) ? wanted : isStateCode(last) ? last : statesByName[0];
 }
 
-/** The national school register: the Super Admin picks a state and manages it as that state's managers do. */
+/** The national school register: the Super Admin picks a state and manages it as that state's managers do (read-only while schools come from DNEMIS only). */
 export default function AdminSchoolsPage() {
   const { me, error: meError, reload } = useAdminMe();
   const [state, setState] = useState<string | null>(null), [loaded, setLoaded] = useState<Loaded | null>(null), [attempt, setAttempt] = useState(0);
@@ -61,23 +62,23 @@ export default function AdminSchoolsPage() {
           <SelectTrigger className="h-9! w-48 justify-start rounded-full bg-card pl-3.5 shadow-xs hover:bg-accent/50 [&>svg:last-child]:ml-auto" aria-label="State"><MapPinIcon className="text-primary" /><SelectValue placeholder="Choose a state" /></SelectTrigger>
           <SelectContent><SelectGroup>{statesByName.map(code => <SelectItem key={code} value={code}>{stateDisplayName(code).replace(/ State$/, '')}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
-        {options && <><Button variant="outline" onClick={() => setBulk(true)}><FileUpIcon data-icon="inline-start" />Bulk entry</Button><Button onClick={() => setEditing('new')}><PlusIcon data-icon="inline-start" />Add school</Button></>}
+        {options?.manualEntry && <><Button variant="outline" onClick={() => setBulk(true)}><FileUpIcon data-icon="inline-start" />Bulk entry</Button><Button onClick={() => setEditing('new')}><PlusIcon data-icon="inline-start" />Add school</Button></>}
       </div>
     </div>
     {error && <Alert variant="destructive"><AlertTitle>School register unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => void (meError ? reload() : setAttempt(value => value + 1))}>Try again</Button></AlertDescription></Alert>}
     {me?.impersonating ? <Alert><AlertTitle>You are using another account</AlertTitle><AlertDescription>Return to your administrator account to manage schools.</AlertDescription></Alert>
       : !options && !error ? <Skeleton className="h-80 w-full" />
-      : options && state && <SchoolRegisterTable key={state} stateCode={state} refreshKey={refreshKey} onEdit={setEditing} />}
+      : options && state && <>{!options.manualEntry && <DnemisOnlyNote admin />}<SchoolRegisterTable key={state} stateCode={state} refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} /></>}
     <Dialog open={Boolean(editing)} onOpenChange={open => { if (!open) setEditing(null); }}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle>{editing === 'new' ? 'Add school' : 'Edit school'}</DialogTitle><DialogDescription>{editing === 'new' ? `Add one school to the ${options?.stateName ?? 'state'} register.` : 'Update the school details and its enrolment by class.'}</DialogDescription></DialogHeader>
-        {editing && options && state && <SchoolEntryForm key={editing === 'new' ? 'new' : editing.id} stateCode={state} school={editing === 'new' ? null : editing} lgas={options.lgas} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
+        {editing && options?.manualEntry && state && <SchoolEntryForm key={editing === 'new' ? 'new' : editing.id} stateCode={state} school={editing === 'new' ? null : editing} lgas={options.lgas} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
       </DialogContent>
     </Dialog>
     <Dialog open={bulk} onOpenChange={setBulk}>
       <DialogContent variant="inset-footer" className="sm:max-w-[34rem]" onOpenAutoFocus={event => event.preventDefault()}>
         <DialogHeader className="items-center px-6! pt-7! pb-5! text-center!"><DialogTitle className="px-6 text-lg!">Bulk entry</DialogTitle><DialogDescription>Add many schools to the {options?.stateName ?? 'state'} register at once.</DialogDescription></DialogHeader>
-        {bulk && state && <SchoolBulkUpload dialog stateCode={state} onImported={result => { if (result.created) refresh(); }} />}
+        {bulk && options?.manualEntry && state && <SchoolBulkUpload dialog stateCode={state} onImported={result => { if (result.created) refresh(); }} />}
       </DialogContent>
     </Dialog>
   </main></div>;

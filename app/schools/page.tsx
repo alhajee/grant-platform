@@ -6,6 +6,7 @@ import { SubebHeader } from '@/components/subeb-header';
 import { SchoolRegisterTable } from '@/components/school-register-table';
 import { SchoolEntryForm } from '@/components/school-register-form';
 import { SchoolBulkUpload } from '@/components/school-register-import';
+import { DnemisOnlyNote } from '@/components/school-register-dnemis-note';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -26,7 +27,7 @@ export default function SchoolsPage() {
       setOptions(body);
       // "Update in the School register" links from the plan editors open one school directly.
       const editId = Number(new URLSearchParams(window.location.search).get('edit'));
-      if (body.canManage && Number.isInteger(editId) && editId > 0) {
+      if (body.manualEntry && Number.isInteger(editId) && editId > 0) {
         const found = await fetch(`/api/schools?id=${editId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<RegisterPage> : null).catch(() => null);
         if (found?.items[0]) setEditing(found.items[0]);
       }
@@ -39,21 +40,21 @@ export default function SchoolsPage() {
   return <div className="dashboard-page"><SubebHeader schools /><main className="state-users-main">
     <div className="state-users-heading">
       <div><p className="text-muted-foreground">{options?.stateName ?? 'SUBEB'}</p><h1>School register</h1></div>
-      {options?.canManage && <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setBulk(true)}><FileUpIcon data-icon="inline-start" />Bulk entry</Button><Button onClick={() => setEditing('new')}><PlusIcon data-icon="inline-start" />Add school</Button></div>}
+      {options?.manualEntry && <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setBulk(true)}><FileUpIcon data-icon="inline-start" />Bulk entry</Button><Button onClick={() => setEditing('new')}><PlusIcon data-icon="inline-start" />Add school</Button></div>}
     </div>
     {error && <Alert variant="destructive"><AlertTitle>School register unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={load}>Try again</Button></AlertDescription></Alert>}
     {!options && !error ? <Skeleton className="h-80 w-full" /> : options && !options.canManage ? <Alert><AlertTitle>School register access</AlertTitle><AlertDescription>Only the Executive Chairman, the BEAP Chair or staff they authorise can manage your state&apos;s schools.<Button asChild variant="outline"><a href="/dashboard">Back to plans</a></Button></AlertDescription></Alert>
-      : options && <SchoolRegisterTable refreshKey={refreshKey} onEdit={setEditing} />}
+      : options && <>{!options.manualEntry && <DnemisOnlyNote />}<SchoolRegisterTable refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} /></>}
     <Dialog open={Boolean(editing)} onOpenChange={open => { if (!open) closeEdit(); }}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle>{editing === 'new' ? 'Add school' : 'Edit school'}</DialogTitle><DialogDescription>{editing === 'new' ? 'Add one school to your state register.' : 'Update the school details and its enrolment by class.'}</DialogDescription></DialogHeader>
-        {editing && options && <SchoolEntryForm key={editing === 'new' ? 'new' : editing.id} school={editing === 'new' ? null : editing} lgas={options.lgas} onCancel={closeEdit} onSaved={() => { closeEdit(); refresh(); }} />}
+        {editing && options?.manualEntry && <SchoolEntryForm key={editing === 'new' ? 'new' : editing.id} school={editing === 'new' ? null : editing} lgas={options.lgas} onCancel={closeEdit} onSaved={() => { closeEdit(); refresh(); }} />}
       </DialogContent>
     </Dialog>
     <Dialog open={bulk} onOpenChange={setBulk}>
       <DialogContent variant="inset-footer" className="sm:max-w-[34rem]" onOpenAutoFocus={event => event.preventDefault()}>
         <DialogHeader className="items-center px-6! pt-7! pb-5! text-center!"><DialogTitle className="px-6 text-lg!">Bulk entry</DialogTitle><DialogDescription>Add many schools at once from your school list.</DialogDescription></DialogHeader>
-        {bulk && <SchoolBulkUpload dialog onImported={result => { if (result.created) refresh(); }} />}
+        {bulk && options?.manualEntry && <SchoolBulkUpload dialog onImported={result => { if (result.created) refresh(); }} />}
       </DialogContent>
     </Dialog>
   </main></div>;

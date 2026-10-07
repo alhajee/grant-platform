@@ -1,5 +1,6 @@
 // School register (UBEC07/UBEC03): access, single entry, edit, template and bulk import.
 // Usage: node scripts/test-school-register.mjs [baseUrl]  (needs DATABASE_URL; creates and removes throwaway states).
+// Manual changes need the register source "DNEMIS and manual changes" (migration 046); the run sets it and restores it.
 import assert from 'node:assert/strict';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
@@ -27,6 +28,8 @@ const school = (overrides = {}) => ({ name: 'QA Register Primary School', town: 
 const upload = (bytes, name = 'schools.xlsx') => { const form = new FormData(); form.set('file', new File([bytes], name, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); return form; };
 
 await db.connect();
+const sourceBefore = (await db.query("SELECT school_register_source AS source FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0]?.source ?? null;
+await db.query("INSERT INTO state_workflow_settings(state_code,beap_chair_submission_mode,school_register_source) VALUES('GLOBAL','complete_plan','dnemis_and_manual') ON CONFLICT(state_code) DO UPDATE SET school_register_source='dnemis_and_manual'");
 try {
   for (const [who, role, state, department, isBeapChair] of [['chair', 'Executive Chairman', marker, null, false], ['beap', 'Director', marker, 'physical', true], ['director', 'Director', marker, 'social', false], ['officer', 'Data Entry Staff', marker, 'physical', false], ['foreign', 'Executive Chairman', foreignState, null, false], ['admin', 'Super Admin', 'ADMIN', null, false]]) {
     const email = `${who}.${marker.toLowerCase()}@test.local`;
@@ -44,7 +47,7 @@ try {
   ok(await api('director', '/api/schools'), 403);
   assert.equal(ok(await api('officer', '/api/schools/options')).canManage, false);
   const options = ok(await api('beap', '/api/schools/options'));
-  assert.equal(options.canManage, true); assert.deepEqual(options.lgas, ['QA North', 'QA South']);
+  assert.equal(options.canManage, true); assert.equal(options.manualEntry, true); assert.deepEqual(options.lgas, ['QA North', 'QA South']);
   assert.equal(ok(await api('officer', '/api/auth/session')).user.canManageSchools, false);
   let list = ok(await api('chair', '/api/schools?sort=name'));
   assert.equal(list.total, 2); assert.equal(list.items[0].name, 'QA Existing School');
@@ -212,6 +215,8 @@ try {
   ok(await api('officer', '/api/schools'), 401);
   console.log('School register checks passed.');
 } finally {
+  if (sourceBefore) await db.query("UPDATE state_workflow_settings SET school_register_source=$1 WHERE state_code='GLOBAL'", [sourceBefore]);
+  else await db.query("DELETE FROM state_workflow_settings WHERE state_code='GLOBAL'");
   const ids = Object.values(accounts).map(account => account.id);
   await db.query('DELETE FROM user_management_events WHERE state_code=ANY($1::text[]) OR actor_id=ANY($2::int[]) OR target_id=ANY($2::int[])', [states, ids]);
   await db.query('DELETE FROM tlm_distribution WHERE plan_id IN (SELECT id FROM action_plans WHERE state_code=ANY($1::text[]))', [states]);

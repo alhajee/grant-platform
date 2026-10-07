@@ -6,6 +6,7 @@ import { getPostgres } from '@/lib/postgres';
 import { cachedSchoolList } from '@/lib/school-cache';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { canManageSchoolRegister, canViewComponent } from '@/lib/subeb-access';
+import { manualSchoolsAllowed } from '@/lib/school-register-source';
 import { mayEditPillar, readPillarReviews } from '@/lib/pillar-review';
 import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
 import { readPoolState } from '@/lib/infrastructure-pool-db';
@@ -24,8 +25,10 @@ export async function GET(req:NextRequest){
    db.query(`SELECT p.*,p.result->'school' AS school FROM infrastructure_packages p WHERE p.plan_id=$1 ORDER BY p.id DESC`,[plan.id]),
    db.query('SELECT d.id,d.kind,d.name,d.size,d.school_id AS "schoolId",s.name AS "schoolName" FROM infrastructure_documents d LEFT JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.removed_at IS NULL ORDER BY d.created_at',[plan.id]),readPillarReviews(db,plan.id)]);
   // Infrastructure shares its pool with TLM: the editor shows what TLM's lines already propose.
+  // While schools come from DNEMIS only, nobody is offered the School register edit link.
+  const manualSchools=await manualSchoolsAllowed(db);
   const tlmProposed=(await db.query<{total:string}>("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='tlm'",[plan.id])).rows[0].total;
-  return NextResponse.json({plan,schools,packages:packages.rows,tlmProposed,documents:documents.rows,canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews),canManageSchools:canManageSchoolRegister(user.role,user.isBeapChair,user.canManageSchools)},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({plan,schools,packages:packages.rows,tlmProposed,documents:documents.rows,canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews),canManageSchools:manualSchools&&canManageSchoolRegister(user.role,user.isBeapChair,user.canManageSchools),manualSchools},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load infrastructure.',503);}
 }
 export async function POST(req:NextRequest){

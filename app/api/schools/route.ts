@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
 async function save(request: NextRequest, creating: boolean) {
   try {
-    const auth = await registerActor(request, { write: true });
+    const auth = await registerActor(request, { write: true, manual: true });
     if ('error' in auth) return auth.error;
     const parsed = (creating ? schoolCreateSchema : schoolEditSchema).safeParse(await request.json().catch(() => null));
     if (!parsed.success) return noStoreJson({ error: schoolIssues(parsed.error)[0] ?? 'Enter valid school details.', issues: parsed.error.issues.map(issue => ({ field: String(issue.path[0] ?? ''), message: issue.message })) }, 400);
@@ -100,7 +100,7 @@ export const PATCH = (request: NextRequest) => save(request, false);
 /** Deletes ticked schools from the state register; schools already used in any plan are kept and listed. */
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await registerActor(request, { write: true });
+    const auth = await registerActor(request, { write: true, manual: true });
     if ('error' in auth) return auth.error;
     const parsed = schoolSelectionSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return noStoreJson({ error: 'Choose the schools to delete.' }, 400);

@@ -7,6 +7,8 @@ import { canonicalLevel, canonicalOption, collapseSpaces, schoolClasses, schoolI
 import type { ParsedSchoolRow } from './school-register-xlsx';
 import { cachedSchoolList, invalidateSchoolLists } from './school-cache';
 import { isStateCode } from './state-names';
+import { getPostgres } from './postgres';
+import { manualSchoolsAllowed, manualSchoolsOffMessage } from './school-register-source';
 
 export const noStoreJson = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 export const registerFieldsSql = `id, school_code AS "schoolCode", name, town, ward, dnemis_id IS NOT NULL AS dnemis, lga, level, levels_offered AS levels, category, location, latitude, longitude,
@@ -25,8 +27,17 @@ type Workspace = NonNullable<Awaited<ReturnType<typeof getWorkspaceState>>>;
 export type RegisterWorkspace = Workspace & { superAdmin?: true };
 export const superAdminRole = 'Super Admin';
 
-/** Signed-in state user (writes: same origin) who may manage the register; `allowViewer` returns non-managers too. A Super Admin manages any state chosen with `?state=`. */
-export async function registerActor(request: NextRequest, { write = false, allowViewer = false } = {}): Promise<{ error: NextResponse } | { workspace: RegisterWorkspace; canManage: boolean }> {
+/**
+ * Signed-in state user (writes: same origin) who may manage the register; `allowViewer` returns non-managers too. A Super Admin manages any state chosen with `?state=`.
+ * `manual` marks a hand change (add, edit, delete, import): refused with 409 while the register source is DNEMIS only (migration 046).
+ */
+export async function registerActor(request: NextRequest, { write = false, allowViewer = false, manual = false } = {}): Promise<{ error: NextResponse } | { workspace: RegisterWorkspace; canManage: boolean }> {
+  const result = await registerActorFor(request, write || manual, allowViewer);
+  if (manual && !('error' in result) && !await manualSchoolsAllowed(getPostgres())) return { error: noStoreJson({ error: manualSchoolsOffMessage, code: 'dnemis_only' }, 409) };
+  return result;
+}
+
+async function registerActorFor(request: NextRequest, write: boolean, allowViewer: boolean): Promise<{ error: NextResponse } | { workspace: RegisterWorkspace; canManage: boolean }> {
   if (write && !isSameRequestOrigin(request)) return { error: noStoreJson({ error: 'This action must come from the portal.' }, 403) };
   const workspace = await getWorkspaceState(request);
   if (!workspace) return { error: noStoreJson({ error: 'Sign in to continue.' }, 401) };
