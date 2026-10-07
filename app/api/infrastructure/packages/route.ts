@@ -12,6 +12,8 @@ import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
 import { readPoolState } from '@/lib/infrastructure-pool-db';
 import { isSplitMode, toKobo } from '@/lib/funding-policy';
 import { infrastructureSplitProblem } from '@/lib/budget-pairs';
+import { resolveLineQuarters } from '@/lib/line-quarters';
+import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
 import { packageSchema, packageProblem, calculateInfrastructure, landDeclarationCount,schoolComponents} from '@/lib/infrastructure-model';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude,enrolment_by_class AS "enrolmentByClass"';
@@ -52,7 +54,9 @@ export async function POST(req:NextRequest){
    }
    const parsed=packageSchema.safeParse(v.input);if(!parsed.success)return error(parsed.error.issues[0].message);
    // HOPE targeting is retired (UBEC10): every new-school package is costed as one Non-HOPE package.
-   const base=parsed.data.kind==='new'?{...parsed.data,targeting:'nonhope' as const}:parsed.data;
+   // Timeline: within the plan's quarters, read under the plan lock; none sent = the plan's quarters (migration 050).
+   const timeline=resolveLineQuarters(parsed.data.quarters,await readPlanQuarterSetup(db,plan.id));if(timeline.problem)return error(timeline.problem);
+   const base={...(parsed.data.kind==='new'?{...parsed.data,targeting:'nonhope' as const}:parsed.data),quarters:timeline.quarters};
    const school=(await db.query(`SELECT ${schoolFields} FROM schools WHERE id=$1 AND state_code=$2 FOR SHARE`,[base.schoolId,user.stateCode])).rows[0];
    if(!school)return error('Select a school from your state register.',404);
    // School components are read-only: always taken from the School register.
@@ -76,9 +80,9 @@ export async function POST(req:NextRequest){
     const poolProblem=isSplitMode(pool.plan)?infrastructureSplitProblem(pool.plan,pool.proposed.infrastructure+cost):infrastructurePoolProblem(pool.plan,{...pool.proposed,infrastructure:pool.proposed.infrastructure+cost});
     if(poolProblem)return error(poolProblem,409);
    }
-   const args=[JSON.stringify(input),JSON.stringify(result),result.total.toFixed(2),input.schoolId,input.kind];
-   if(prior)await db.query('UPDATE infrastructure_packages SET input=$1::jsonb,result=$2::jsonb,total_cost=$3,school_id=$4,kind=$5,version=version+1,updated_at=NOW() WHERE id=$6 AND plan_id=$7',[...args,v.id,plan.id]);
-   else await db.query('INSERT INTO infrastructure_packages(input,result,total_cost,school_id,kind,plan_id) VALUES($1::jsonb,$2::jsonb,$3,$4,$5,$6)',[...args,plan.id]);
+   const args=[JSON.stringify(input),JSON.stringify(result),result.total.toFixed(2),input.schoolId,input.kind,timeline.quarters];
+   if(prior)await db.query('UPDATE infrastructure_packages SET input=$1::jsonb,result=$2::jsonb,total_cost=$3,school_id=$4,kind=$5,quarters=$6,version=version+1,updated_at=NOW() WHERE id=$7 AND plan_id=$8',[...args,v.id,plan.id]);
+   else await db.query('INSERT INTO infrastructure_packages(input,result,total_cost,school_id,kind,quarters,plan_id) VALUES($1::jsonb,$2::jsonb,$3,$4,$5,$6,$7)',[...args,plan.id]);
    return NextResponse.json({ok:true});
   });
  }catch(cause){console.error(cause);return error('Unable to save the infrastructure package.',503);}

@@ -6,8 +6,8 @@ import { getPostgres } from '@/lib/postgres';
 import { activePillars, departments, isUbec, type UbecRound, type UbecAssignment } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
-import { readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
-import { sendReadinessProblem } from '@/lib/component-readiness';
+import { componentSendProblem, readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
+import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 import { readUbecSubmissionMode } from '@/lib/workflow-settings';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       const events = round ? (await db.query(`SELECT id,action,actor,comment,created_at FROM ubec_events WHERE round_id=$1 ${reviewer ? 'AND (actor_id=$2 OR action=\'assign\')' : !national ? "AND action IN ('submit','return','approve')" : ''} ORDER BY id DESC`, reviewer ? [round.id, user.userId] : [round.id])).rows : [];
       const ubecMode = await readUbecSubmissionMode(db);
       const reviews = user.role === 'Executive Chairman' ? await readPillarReviews(db, plan.id) : [];
-      const canSubmit = user.role === 'Executive Chairman' && (!rounds[0] || rounds[0].status === 'returned') && (ubecMode === 'reviewed_components' ? statePlanOpen(plan.status) : plan.status === 'awaiting_chairman') && readyForUbecSubmission(ubecMode, reviews, await readPlanSnapshot(db, plan.id));
+      const canSubmit = user.role === 'Executive Chairman' && (!rounds[0] || rounds[0].status === 'returned') && (ubecMode === 'reviewed_components' ? statePlanOpen(plan.status) : plan.status === 'awaiting_chairman') && readyForUbecSubmission(ubecMode, reviews, await readPlanSnapshot(db, plan.id), { documentsRequired: await readComponentDocumentsRequired(db) });
       return NextResponse.json({ canSubmit, ubecMode, plan: { ...plan, stateName: stateDisplayName(plan.state_code) }, user: { name: user.name, role: user.role }, role: user.role, department: user.department, rounds: rounds.map(r => ({ id: r.id, plan_id: r.plan_id, number: r.number, state_submission: r.state_submission, status: r.status, submitted_at: r.submitted_at, decision: r.decision, decided_at: r.decided_at })), round: round ? { ...round, snapshot } : null, assignments, events }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error(cause); return error('Unable to load the UBEC review.', 503); }
@@ -73,9 +73,10 @@ export async function POST(request: NextRequest) {
         if (round && !input.comment) return error('Describe how the UBEC feedback was addressed.');
         const snapshot: Snapshot = await readPlanSnapshot(db, plan.id);
         const reviews = await readPillarReviews(db, plan.id);
-        const unready = unreadySentComponents(snapshot, reviews)[0];
-        if (unready) return error(sendReadinessProblem(unready, snapshot)!, 409);
-        if (!readyForUbecSubmission(ubecMode, reviews, snapshot)) return error(partial ? 'At least one component must reach the Executive Chairman before sending to UBEC.' : 'Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
+        const readiness = { documentsRequired: await readComponentDocumentsRequired(db) };
+        const unready = unreadySentComponents(snapshot, reviews, readiness)[0];
+        if (unready) return error(componentSendProblem(unready, snapshot, readiness)!, 409);
+        if (!readyForUbecSubmission(ubecMode, reviews, snapshot, readiness)) return error(partial ? 'At least one component must reach the Executive Chairman before sending to UBEC.' : 'Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(ubecSubmissionSnapshot(snapshot, reviews)), user.id])).rows[0];
         status = 'submitted_ubec';
       } else {

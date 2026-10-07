@@ -11,6 +11,8 @@ import { beapName, envelopeShortfalls, sharedBelowAllocationProblem, planEditSch
 import { fundingComponentIds, fundingSourceLabels, type FundingComponent, type FundingSource } from '@/lib/funding-policy';
 import { formatQuarters } from '@/lib/format-quarters';
 import type { ActionPlan } from '@/lib/action-plans';
+import { quarterRemovalProblem } from '@/lib/line-quarters';
+import { readQuarterUsage } from '@/lib/line-quarters-db';
 
 // Edits a plan's period and funding after creation (UBEC33). Anyone who may create plans can edit
 // them while the plan is still at the state; every saved change is written to the review history.
@@ -41,8 +43,8 @@ export async function GET(request: NextRequest) {
     if (!plan) return error('Action plan not found.', 404);
     const allowed = canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair);
     const lockedReason = !allowed ? notAllowed : !statePlanOpen(plan.status) ? lockedMessage(plan.status) : null;
-    const [reserved, proposed] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id)]);
-    return NextResponse.json({ plan, reserved, proposed, allowed, canEdit: !lockedReason, lockedReason }, { headers: { 'Cache-Control': 'no-store' } });
+    const [reserved, proposed, quarterUsage] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id), readQuarterUsage(db, plan.id)]);
+    return NextResponse.json({ plan, reserved, proposed, quarterUsage, allowed, canEdit: !lockedReason, lockedReason }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (cause) {
     console.error('Unable to load plan details', cause);
     return error('The plan details could not be loaded. Please try again.', 503);
@@ -86,6 +88,9 @@ export async function PATCH(request: NextRequest) {
         await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`plan-period:${workspace.stateCode}:${input.planningYear}`]);
         const overlap = (await db.query('SELECT quarter FROM plan_quarters WHERE state_code=$1 AND planning_year=$2 AND quarter=ANY($3::int[]) AND plan_id<>$4 ORDER BY quarter', [workspace.stateCode, input.planningYear, input.quarters, plan.id])).rows;
         if (overlap.length) return error(`${overlap.map(r => `Q${r.quarter}`).join(', ')} already belongs to another ${input.planningYear} plan. Choose other quarters.`, 409);
+        // Line timelines must stay within the plan's quarters (migration 050): a quarter still in use cannot go.
+        const quarterProblem = quarterRemovalProblem(plan.fundingQuarters, input.quarters, await readQuarterUsage(db, plan.id));
+        if (quarterProblem) return error(quarterProblem, 409);
       }
       const after = { stateLodgment: input.stateLodgment, otherFunding: plan.otherFunding, fundingPolicy: plan.fundingPolicy, fundingSources: input.fundingSources, ictAllocation: plan.ictAllocation, tlmAllocation: plan.tlmAllocation, infrastructureTlmMode: plan.infrastructureTlmMode };
       const shortfalls = envelopeShortfalls(plan, after, await proposedByComponent(db, plan.id));

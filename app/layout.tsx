@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ImpersonationBanner } from '@/components/impersonation-banner';
+import { SessionKeepalive } from '@/components/session-keepalive';
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function RootLayout({
       <body className="antialiased">
         <TooltipProvider delayDuration={350} skipDelayDuration={100}>
           <ImpersonationBanner />
+          <SessionKeepalive />
           {children}
           <Toaster theme="light" position="top-right" />
         </TooltipProvider>

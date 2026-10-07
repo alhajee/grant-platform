@@ -176,34 +176,10 @@
 .create-plan-dialog [data-slot="field"] { gap: 6px; }
 .create-plan-dialog [data-slot="field-label"] { gap: 6px; font-size: 13px; }
 .create-plan-dialog [data-slot="input"] { height: 36px; }
-.create-plan-dialog .plan-quarter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; gap: 8px; }
-.create-plan-dialog .plan-quarter {
-  display: flex; flex-direction: column; align-items: stretch; justify-content: center;
-  height: auto; min-height: 52px; padding: 10px 11px; gap: 4px; border: 1px solid var(--border);
-  border-radius: 12px; background: var(--card); color: var(--foreground); text-align: left;
-  box-shadow: 0 2px 3px rgb(0 40 35 / 3%); white-space: normal;
-  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
-}
-.quarter-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.quarter-number { font-size: 18px; line-height: 1; font-weight: 650; letter-spacing: -.5px; }
-.quarter-indicator { display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid var(--border); border-radius: 50%; color: var(--primary); }
-.quarter-indicator svg { width: 10px; height: 10px; }
-.create-plan-dialog .plan-quarter[data-state="on"] { background: #edf4e7; border-color: #709781; box-shadow: inset 0 0 0 1px #709781; color: #004740; }
-.plan-quarter[data-state="on"] .quarter-indicator { background: #004740; border-color: #004740; color: white; }
-.create-plan-dialog .plan-quarter:disabled { opacity: 1; background: #f5f6f5; color: #88918e; box-shadow: none; border-style: dashed; cursor: not-allowed; }
-.plan-quarter:disabled .quarter-indicator { border: 0; color: #88918e; }
-.create-plan-dialog .quarter-select-all { height: 24px; padding-inline: 7px; font-size: 11px; color: var(--primary); }
-.create-plan-dialog .quarter-guidance { font-size: 11px; line-height: 1.35; margin-top: 0; }
-@media (hover: hover) {
-  .create-plan-dialog .plan-quarter:not(:disabled):hover { background: #e5eee1; border-color: #709781; }
-}
-.create-plan-dialog .plan-quarter:not(:disabled):active { transform: scale(.98); }
-@media (prefers-reduced-motion: reduce) { .create-plan-dialog .plan-quarter { transition: none; } }
 @media (max-width: 600px) {
   .create-plan-dialog[data-variant] > [data-slot="dialog-header"] { padding: 16px 18px; }
   .plan-calendar-art { width: 60px; height: 60px; }
   .create-plan-dialog[data-variant] [data-slot="dialog-title"] { font-size: 22px; }
-  .create-plan-dialog .plan-quarter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .portal-shell { height: 100dvh; min-height: 0; overflow: hidden; }
 .portal-workspace { display: flex; flex: 1; flex-direction: column; min-width: 0; height: 100dvh; overflow: hidden; }

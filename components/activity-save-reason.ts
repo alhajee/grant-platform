@@ -8,7 +8,7 @@ const fieldLabels: Record<string, string> = {
   textbookSubject: 'Subject', equipmentType: 'Equipment type', websiteType: 'Website type',
   subscriptionTypes: 'Subscription types', schoolIds: 'Schools',
   trainingProvider: 'Training provider', targetParticipants: 'Target participants', schoolLevels: 'School level',
-  venueType: 'Venue type',
+  venueType: 'Venue type', quarters: 'Timeline',
 };
 
 export type SaveState = {
@@ -18,6 +18,8 @@ export type SaveState = {
   view: 'budget' | 'distribution'; pickedSchools: number;
   /** Validation issues of the item being added or edited (empty when it is complete). */
   issues: readonly ZodIssue[];
+  /** Why the item's timeline does not fit the plan's quarters. */
+  timelineError?: string | null;
   budgetError: string | null;
 };
 
@@ -33,5 +35,5 @@ export function saveBlockedReason(state: SaveState): string | null {
     const missing = fields.filter(field => !field.endsWith('.'));
     return missing.length ? `Fill in ${missing.join(', ')}.` : fields[0];
   }
-  return state.budgetError;
+  return state.timelineError || state.budgetError;
 }

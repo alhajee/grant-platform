@@ -15,7 +15,13 @@ function load(path) {
   new Function('require', 'module', 'exports', code)(id => id.startsWith('.') ? load(resolve(dirname(path), id.endsWith('.ts') ? id : id + '.ts')) : requireModule(id), loaded, loaded.exports);
   return loaded.exports;
 }
-const { mayEditPillar, readyForExecutiveChairman, readyForUbec, readyForUbecSubmission, ubecSubmissionSnapshot, aggregateReviewStatus } = load('lib/pillar-review.ts');
+const rules = load('lib/pillar-review.ts');
+const { mayEditPillar, ubecSubmissionSnapshot, aggregateReviewStatus } = rules;
+// Readiness takes the platform settings (migration 052); these checks run with supporting documents required.
+const required = { documentsRequired: true };
+const readyForExecutiveChairman = (reviews, snapshot) => rules.readyForExecutiveChairman(reviews, snapshot, required);
+const readyForUbec = (reviews, snapshot) => rules.readyForUbec(reviews, snapshot, required);
+const readyForUbecSubmission = (mode, reviews, snapshot) => rules.readyForUbecSubmission(mode, reviews, snapshot, required);
 const { beapPillars, implementedPillars } = load('lib/beap-pillars.ts');
 // The activity-line components (migrations 036 and 038) follow the Sports status unless a test sets them.
 const reviews = (infrastructure, sports, sbmc= sports, tlm= sports, rest = sports) => [
@@ -24,7 +30,7 @@ const reviews = (infrastructure, sports, sbmc= sports, tlm= sports, rest = sport
   ...['monitoring', 'gscci', 'curriculum', 'quality', 'teachers', 'ict', 'planning'].map(pillar => ({ pillar, status: rest })),
 ];
 const completeSnapshot = {
-  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1}}}], sports:[{}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}], monitoring:[{}], gscci:[{}], gscciDistribution:[{}], curriculum:[{}], curriculumDistribution:[{}],
+  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1}}}], sports:[{section:'equipment',unit_cost:'0',quantity:1}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}], monitoring:[{}], gscci:[{}], gscciDistribution:[{}], curriculum:[{}], curriculumDistribution:[{}],
   // Quality Assurance and ICT: every compulsory activity, line schools and line documents (migration 038).
   quality:[2,3,6,7,8,9,10].map(activity=>({id:activity,activity,description:'QA'})),
   ict:[{id:12,activity:2,description:'Smart',schools:[{id:1}]},{id:13,activity:3,description:'Connect',documents:[{id:'d'}]},{id:16,activity:6,description:'Website'}],

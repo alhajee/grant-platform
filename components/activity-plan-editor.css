@@ -65,3 +65,4 @@
 .save-button-wrap:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 45%,transparent)}
 .envelope-left{font-weight:600;color:var(--primary)}
 .envelope-left[data-empty]{color:var(--warning-foreground)}
+.activity-line-code { margin-top:4px;font-family:var(--font-mono, ui-monospace, monospace);font-size:11px;color:var(--muted-foreground);overflow-wrap:anywhere; }

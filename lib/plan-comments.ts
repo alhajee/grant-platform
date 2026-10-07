@@ -23,11 +23,11 @@ export type CommentScope = typeof commentScopes[number];
 export const ubecAuthorRoles = ['UBEC Executive Secretary', 'UBEC Department Reviewer'] as const;
 
 // Column ids and headers mirror components/plan-workbook/sheets.tsx (scripts/test-plan-comments.mjs checks they stay in sync).
-const activityColumns = { activity: 'Allowable activity', description: 'Description' };
-const activityTail = { strategy: 'Strategy', target: 'Target group', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' };
+const activityColumns = { activity: 'Allowable activity', code: 'Code', description: 'Description' };
+const activityTail = { strategy: 'Strategy', target: 'Target group', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' };
 export const commentColumns: Record<CommentSheet, Record<string, string>> = {
-  infrastructure: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', type: 'Project type', code: 'Code', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', scope: 'Components', learners: 'Learners', strategy: 'Strategy', duration: 'Duration' },
-  sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Sport / sub-activity', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty.' },
+  infrastructure: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', type: 'Project type', code: 'Code', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', scope: 'Components', learners: 'Learners', strategy: 'Strategy', duration: 'Duration' },
+  sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Sport / sub-activity', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty.' },
   sbmc: { ...activityColumns, rationale: 'Rationale', approach: 'Implementation approach', ...activityTail },
   tlm: { ...activityColumns, material: 'Material type', subject: 'Subject', classes: 'Classes', ...activityTail },
   distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
@@ -38,7 +38,7 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   curriculumDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
   quality: { ...activityColumns, equipment: 'Equipment type', ...activityTail },
   ict: { ...activityColumns, details: 'Details', schools: 'Schools', documents: 'Documents', ...activityTail },
-  teachers: { activity: 'Allowable activity', provider: 'Training provider', participants: 'Target participants', levels: 'School level', days: 'Training days', venue: 'Venue', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' },
+  teachers: { activity: 'Allowable activity', code: 'Code', provider: 'Training provider', participants: 'Target participants', levels: 'School level', days: 'Training days', venue: 'Venue', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' },
   planning: { ...activityColumns, ...activityTail },
 };
 
