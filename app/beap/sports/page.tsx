@@ -18,13 +18,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsPlan } from "@/lib/sports";
+import { supervisionActivity, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsLine, type SportsPlan } from "@/lib/sports";
 import { toKobo } from "@/lib/funding-policy";
 import { EnvelopeMeter } from "@/components/envelope-meter";
+import { PanelSummary, PanelToolbar } from "@/components/line-panel/line-section";
+import type { InlineField } from "@/components/line-panel/line-table";
+import { scrollLineIntoView, useLineFlash, usePanelMode } from "@/components/line-panel/use-line-panel";
+import type { SportsSection } from "@/lib/sports";
 import { lineQuartersProblem, planQuarters } from "@/lib/line-quarters";
 
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
+/** A saved line as the form edits it. */
+const budgetDraft = (line: SportsLine): BudgetDraft => ({ id: line.id, section: line.section, activityType: line.activityType, description: line.description, quantity: String(line.quantity), unitCost: String(line.unitCost), quarters: line.quarters });
 
 export default function SportsPage() {
   const [plan, setPlan] = useState<SportsPlan>(blankPlan);
@@ -47,6 +53,8 @@ export default function SportsPage() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLElement>(null);
   const savingRef = useRef(false);
+  const panel = usePanelMode(), { flashId, flash } = useLineFlash();
+  const [query, setQuery] = useState("");
   const budgetDirty = JSON.stringify(budget) !== JSON.stringify(budgetBaseline);
   const allocationDirty = JSON.stringify(allocation) !== JSON.stringify(allocationBaseline);
   const dirty = budgetDirty || allocationDirty;
@@ -112,7 +120,8 @@ export default function SportsPage() {
   useEffect(() => {
     if (!editingId) return;
     const frame = requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>(`[data-sports-row-id="${view}-${editingId}"]`)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest", inline: "nearest" });
+      if (view === "budget") scrollLineIntoView(editingId);
+      else document.querySelector<HTMLElement>(`[data-sports-row-id="${view}-${editingId}"]`)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest", inline: "nearest" });
     });
     return () => cancelAnimationFrame(frame);
   }, [editingId, view]);
@@ -143,11 +152,34 @@ export default function SportsPage() {
   function edit(target: SportsTarget) {
     const run = () => {
       changeView(target.entity);
-      if (target.entity === "budget") { resetBudget({ ...target.item, quantity: String(target.item.quantity), unitCost: String(target.item.unitCost) }); focusEditor("sports-description"); }
+      if (target.entity === "budget") { resetBudget(budgetDraft(target.item)); panel.follow(); focusEditor("sports-description"); }
       else { resetAllocation({ ...target.item, quantity: String(target.item.quantity) }); focusEditor("allocation-quantity"); }
     };
     if (target.entity === "budget" ? budgetDirty : allocationDirty) setPendingAction({ run, leaving: false });
     else run();
+  }
+  function startSection(section: SportsSection) {
+    const run = () => { changeView("budget"); resetBudget({ ...emptyBudget, section, activityType: section === "supervision" ? supervisionActivity : "", quarters: availableQuarters }); panel.follow(); focusEditor("sports-section"); };
+    if (budgetDirty) setPendingAction({ run, leaving: false }); else run();
+  }
+  // Quantity, unit cost or description edited in the table: the whole line goes through the same schema and API as the form.
+  async function saveCell(id: number, field: InlineField, value: string): Promise<string | null> {
+    const line = plan.lines.find((item) => item.id === id);
+    if (!line) return "This line is no longer in the plan.";
+    const before = budgetDraft(line);
+    const next = { ...before, [field]: value };
+    const parsed = sportsLineSchema.safeParse({ ...next, quantity: Number(next.quantity), unitCost: Number(next.unitCost) });
+    if (!parsed.success) return parsed.error.issues[0].message;
+    try { await write({ ...parsed.data, entity: "budget", action: "update", id }); }
+    catch (cause) { return cause instanceof Error ? cause.message : "Unable to save this change."; }
+    // The form keeps its draft; if it shows this line unchanged, it picks up the saved values.
+    const saved = await loadPlan().then(() => true).catch(() => false);
+    if (saved) {
+      const after = { ...before, [field]: field === "description" ? value.trim() : String(Number(value)) }, was = JSON.stringify(before);
+      setBudgetBaseline((current) => current.id === id ? after : current);
+      setBudget((current) => current.id === id && JSON.stringify(current) === was ? after : current);
+    }
+    return null;
   }
   function navigateLine(offset: number) {
     const target = orderedTargets[editingIndex + offset];
@@ -155,8 +187,9 @@ export default function SportsPage() {
   }
   async function write(body: unknown) {
     const response = await fetch(currentPlanHref("/api/sports"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const payload = await response.json() as { error?: string };
+    const payload = await response.json().catch(() => ({})) as { error?: string; id?: number };
     if (!response.ok) throw new Error(payload.error ?? "Could not save your change.");
+    return payload;
   }
   async function refreshAfterSave() {
     try { await loadPlan(); }
@@ -184,11 +217,13 @@ export default function SportsPage() {
     }
     setErrors({}); savingRef.current = true; setSaving(true);
     try {
-      await write({ ...parsed.data, entity: view, action: editingId ? "update" : "create", ...(editingId ? { id: editingId } : {}) });
+      const result = await write({ ...parsed.data, entity: view, action: editingId ? "update" : "create", ...(editingId ? { id: editingId } : {}) });
+      const savedId = view === "budget" ? editingId ?? result.id : undefined;
       if (view === "budget") resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), quarters: availableQuarters });
       else resetAllocation({ ...emptyAllocation, schoolId: allocation.schoolId, longitude: allocation.longitude, latitude: allocation.latitude });
       toast.success(editingId ? "Line updated." : view === "budget" ? "Budget line added." : "Equipment allocated to school.");
       await refreshAfterSave();
+      if (savedId) flash(savedId);
       focusEditor(view === "budget" ? "sports-description" : "sports-equipment");
     } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to save. Please try again."); }
     finally { savingRef.current = false; setSaving(false); }
@@ -212,7 +247,7 @@ export default function SportsPage() {
       <header className="editor-heading"><h1>{view === "budget" ? editingId ? "Edit budget item" : "Add a budget item" : editingId ? "Edit school allocation" : "Add a beneficiary school"}</h1></header>
       {loadError && <Alert variant="destructive"><AlertTitle>Unable to refresh the plan</AlertTitle><AlertDescription>{loadError}<Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); void initialize(); }}>Try again</Button></AlertDescription></Alert>}
       <form id="sports-form" onSubmit={save} noValidate><fieldset className="project-fields" disabled={disabled}>
-        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
+        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { if (next.section !== budget.section || next.activityType !== budget.activityType) panel.follow(); setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
       </fieldset></form>
       {view === "allocation" && !hasEquipment && !loading && !loadError && <div className="sports-empty-action"><Button variant="outline" onClick={() => changeView("budget")}>Go to budget</Button></div>}
     </div></ScrollArea>
@@ -227,16 +262,24 @@ export default function SportsPage() {
     </div>
   </section>;
 
-  const preview = <section className="workspace-pane preview-pane" aria-label="Sports plan preview"><ScrollArea className="pane-scroll"><article className="preview-document sports-preview">
-    <div className="plan-overview"><div><span>{view === "budget" ? "Proposed sports budget" : "Beneficiary schools"}</span>{loading ? <Skeleton className="h-8 w-48" /> : <strong>{view === "budget" ? money.format(budgetTotal) : `${schoolCount} ${schoolCount === 1 ? "school" : "schools"}`}</strong>}</div><p>{view === "budget" ? `${plan.lines.length} budget ${plan.lines.length === 1 ? "line" : "lines"} · ${schoolCount} beneficiary ${schoolCount === 1 ? "school" : "schools"}` : `${allocatedQuantity.toLocaleString()} of ${equipmentQuantity.toLocaleString()} equipment items allocated`}</p>
-      {view === "budget" && !loading && (envelope == null ? <p>Funding envelope not set</p> : <EnvelopeMeter label="Funding envelope" envelope={Number(envelope)} used={budgetTotal} />)}</div>
-    {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : view === "budget" ? <>
+  const meter = envelope == null ? <p>Funding envelope not set</p> : <EnvelopeMeter label="Funding envelope" envelope={Number(envelope)} used={budgetTotal} />;
+  const otherLines = panel.mode === "focus" ? plan.lines.filter((line) => line.section !== budget.section).length : 0;
+  const budgetPanel = <article className="preview-document line-panel-document">
+    <PanelSummary label="Proposed sports budget" total={loading ? <Skeleton className="h-8 w-48" /> : money.format(budgetTotal)} meta={`${plan.lines.length} budget ${plan.lines.length === 1 ? "line" : "lines"} · ${schoolCount} beneficiary ${schoolCount === 1 ? "school" : "schools"}`} meter={loading ? null : meter}>
+      <PanelToolbar mode={panel.mode} onMode={panel.setMode} focusLabel="This section" allLabel={`All sections${otherLines ? ` · ${otherLines} more` : ""}`} query={query} onQuery={setQuery} searchLabel="Search sports lines" />
+    </PanelSummary>
+    {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : <>
       {(plan.lines.length > 0 || envelope != null) && <dl className="sports-breakdown" aria-label="Budget by section">{sectionBudgets.map(({ section, proposed, cap }) => <div key={section.id}><dt>{section.label}</dt><dd>{cap == null
         ? <>{money.format(Number(proposed) / 100)}<small className="block font-normal text-muted-foreground">Up to {section.share}% of the sports budget</small></>
         : <EnvelopeMeter compact label={`Up to ${section.share}%`} envelope={Number(cap) / 100} used={Number(proposed) / 100} />}</dd></div>)}</dl>}
-      <SportsBudgetPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} editingId={budget.id} />
-    </> : <SportsBeneficiaryPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} editingId={allocation.id} />}
-  </article></ScrollArea></section>;
+      <div className="line-panel"><SportsBudgetPreview plan={plan} disabled={disabled} selectedSection={budget.section} selectedType={budget.activityType} editingId={budget.id} dirtyId={budgetDirty ? budget.id : undefined}
+        flashId={flashId} mode={panel.mode} onShowAll={() => panel.setMode("all")} query={query} onEdit={edit} onRemove={setRemoveTarget} onSaveCell={saveCell} onStart={startSection} /></div>
+    </>}
+  </article>;
+  const preview = <section className="workspace-pane preview-pane" aria-label="Sports plan preview"><ScrollArea className="pane-scroll">{view === "budget" ? budgetPanel : <article className="preview-document sports-preview">
+    <div className="plan-overview"><div><span>Beneficiary schools</span>{loading ? <Skeleton className="h-8 w-48" /> : <strong>{`${schoolCount} ${schoolCount === 1 ? "school" : "schools"}`}</strong>}</div><p>{`${allocatedQuantity.toLocaleString()} of ${equipmentQuantity.toLocaleString()} equipment items allocated`}</p></div>
+    {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : <SportsBeneficiaryPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} editingId={allocation.id} />}
+  </article>}</ScrollArea></section>;
 
   return <div className="portal-shell"><div className="portal-workspace" ref={workspaceRef}>
     <header className="workspace-header editor-page-header" aria-label="Plan editor"><div className="editor-header-heading"><Button variant="ghost" size="icon" disabled={saving} aria-label="Back to the plan" onClick={finish}><XIcon /></Button><span className="editor-plan-title">{actionPlan ? planPeriod(actionPlan) + " " : ""}Sports activities plan</span>{actionPlan && <PlanStatusBadge status={actionPlan.status} />}</div><div className="workspace-actions"><span className="save-status" aria-live="polite">{loading ? "Loading plan…" : saving ? "Saving…" : loadError ? "Connection issue" : dirty ? "Unfinished line" : <><CheckIcon aria-hidden="true" />All lines saved</>}</span><Button disabled={saving || loading} onClick={finish}>Done</Button></div></header>
