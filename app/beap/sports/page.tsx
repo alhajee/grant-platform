@@ -18,7 +18,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { sportsAllocationSchema, sportsBudget, sportsCatalogError, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSections, type SportsPlan } from "@/lib/sports";
+import { sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsPlan } from "@/lib/sports";
+import { toKobo } from "@/lib/funding-policy";
+import { EnvelopeMeter } from "@/components/envelope-meter";
 
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
@@ -26,6 +28,8 @@ type PlanView = "budget" | "allocation";
 export default function SportsPage() {
   const [plan, setPlan] = useState<SportsPlan>(blankPlan);
   const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
+  // The sports funding envelope ("123.45"), null until the plan has funding.
+  const [envelope, setEnvelope] = useState<string | null>(null);
   const [view, setView] = useState<PlanView>("budget");
   const [budget, setBudget] = useState<BudgetDraft>(emptyBudget);
   const [budgetBaseline, setBudgetBaseline] = useState<BudgetDraft>(emptyBudget);
@@ -57,14 +61,25 @@ export default function SportsPage() {
     ? sportsSections.flatMap((section) => plan.lines.filter((line) => line.section === section.id).map((item) => ({ entity: "budget" as const, item })))
     : [...new Set(plan.allocations.map((item) => item.schoolId))].flatMap((schoolId) => plan.allocations.filter((item) => item.schoolId === schoolId).map((item) => ({ entity: "allocation" as const, item })));
   const editingIndex = editingId ? orderedTargets.findIndex((target) => target.item.id === editingId) : -1;
+  // The sports envelope and each section's share of it are caps (same rule as the API): a draft that raises
+  // its section's cost may not take the section or the whole budget past them. Lowering is always allowed.
+  const envelopeKobo = envelope == null ? null : toKobo(envelope);
+  const savedLines = plan.lines.map((line) => ({ id: line.id, section: line.section, kobo: sportsLineKobo(line) }));
+  const sectionBudgets = sportsSectionBudgets(savedLines, envelopeKobo);
+  const draftQuantity = Number(budget.quantity), draftUnitCost = Number(budget.unitCost);
+  const draftKobo = Number.isSafeInteger(draftQuantity) && draftQuantity >= 0 && draftQuantity <= 1000000 && draftUnitCost >= 0 && draftUnitCost <= 999999999999.99 ? sportsLineKobo({ unitCost: draftUnitCost, quantity: draftQuantity }) : BigInt(0);
+  const savedDraft = budget.id ? savedLines.find((line) => line.id === budget.id) : undefined;
+  const beforeKobo = savedDraft && savedDraft.section === budget.section ? savedDraft.kobo : BigInt(0);
+  const budgetProblem = view === "budget" && draftKobo > beforeKobo ? sportsCapProblem([...savedLines.filter((line) => line.id !== budget.id), { section: budget.section, kobo: draftKobo }], envelopeKobo, budget.section) : null;
 
   const loadPlan = useCallback(async () => {
     const response = await fetch(currentPlanHref("/api/sports"), { cache: "no-store" });
     if (response.status === 401) { window.location.replace("/"); throw new Error("Sign in to continue."); }
     if (!response.ok) throw new Error("Your sports plan could not be loaded. Please try again.");
-    const data = await response.json() as SportsPlan & { plan: ActionPlan; canEdit: boolean };
+    const data = await response.json() as SportsPlan & { plan: ActionPlan; envelope: string | null; canEdit: boolean };
     if (!data.canEdit) { window.location.replace(currentPlanHref('/beap/review')); return; }
     setActionPlan(data.plan);
+    setEnvelope(data.envelope ?? null);
     setPlan(data);
     setLoadError("");
   }, []);
@@ -152,8 +167,9 @@ export default function SportsPage() {
     const saved = view === "budget" && editingId ? plan.lines.find((line) => line.id === editingId) : undefined;
     const rule = parsed.success && view === "budget" ? sportsCatalogError({ ...budget, activityType: budget.activityType.trim(), description: budget.description.trim() }, plan.lines, editingId) : null;
     const ruleError = rule && !(rule.field === "activityType" && saved?.section === budget.section && saved.activityType === budget.activityType.trim()) ? { [rule.field]: rule.message } : null;
-    if (!parsed.success || ruleError) {
-      const nextErrors = ruleError ?? (parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((issue) => [issue.path[0], issue.message])));
+    const capError: Record<string, string> | null = parsed.success && !ruleError && budgetProblem ? { unitCost: budgetProblem } : null;
+    if (!parsed.success || ruleError || capError) {
+      const nextErrors = ruleError ?? capError ?? (parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((issue) => [issue.path[0], issue.message])));
       if (nextErrors.schoolId) nextErrors.schoolId = "Choose a school from the directory.";
       if (nextErrors.lineId) nextErrors.lineId = "Choose an equipment item from your budget.";
       setErrors(nextErrors);
@@ -190,7 +206,7 @@ export default function SportsPage() {
       <header className="editor-heading"><h1>{view === "budget" ? editingId ? "Edit budget item" : "Add a budget item" : editingId ? "Edit school allocation" : "Add a beneficiary school"}</h1></header>
       {loadError && <Alert variant="destructive"><AlertTitle>Unable to refresh the plan</AlertTitle><AlertDescription>{loadError}<Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); void initialize(); }}>Try again</Button></AlertDescription></Alert>}
       <form id="sports-form" onSubmit={save} noValidate><fieldset className="project-fields" disabled={disabled}>
-        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { setBudget(next); setErrors({}); }} plan={plan} errors={errors} disabled={disabled} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
+        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
       </fieldset></form>
       {view === "allocation" && !hasEquipment && !loading && !loadError && <div className="sports-empty-action"><Button variant="outline" onClick={() => changeView("budget")}>Go to budget</Button></div>}
     </div></ScrollArea>
@@ -200,15 +216,18 @@ export default function SportsPage() {
         const run = () => view === "budget" ? resetBudget() : resetAllocation();
         if (view === "budget" ? budgetDirty : allocationDirty) setPendingAction({ run, leaving: false }); else run();
       }}>Cancel</Button><ButtonGroup className="sports-line-navigation" aria-label={`${view === "budget" ? "Budget item" : "School allocation"} navigation`}><Button size="icon" variant="secondary" aria-label={`Previous ${view === "budget" ? "budget item" : "school allocation"}`} title="Previous item" disabled={disabled || editingIndex <= 0} onClick={() => navigateLine(-1)}><ChevronLeftIcon /></Button><ButtonGroupSeparator /><Button size="icon" variant="secondary" aria-label={`Next ${view === "budget" ? "budget item" : "school allocation"}`} title="Next item" disabled={disabled || editingIndex < 0 || editingIndex === orderedTargets.length - 1} onClick={() => navigateLine(1)}><ChevronRightIcon /></Button></ButtonGroup></>}
-        <Button type="submit" form="sports-form" disabled={disabled || (view === "allocation" && !hasEquipment)} aria-busy={saving}>{saving ? <Spinner data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}{saving ? "Saving…" : editingId ? "Save changes" : view === "budget" ? "Add item" : "Add to school"}</Button>
+        <Button type="submit" form="sports-form" disabled={disabled || (view === "allocation" && !hasEquipment) || Boolean(budgetProblem)} title={budgetProblem ?? undefined} aria-busy={saving}>{saving ? <Spinner data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}{saving ? "Saving…" : editingId ? "Save changes" : view === "budget" ? "Add item" : "Add to school"}</Button>
       </div>
     </div>
   </section>;
 
   const preview = <section className="workspace-pane preview-pane" aria-label="Sports plan preview"><ScrollArea className="pane-scroll"><article className="preview-document sports-preview">
-    <div className="plan-overview"><div><span>{view === "budget" ? "Proposed sports budget" : "Beneficiary schools"}</span>{loading ? <Skeleton className="h-8 w-48" /> : <strong>{view === "budget" ? money.format(budgetTotal) : `${schoolCount} ${schoolCount === 1 ? "school" : "schools"}`}</strong>}</div><p>{view === "budget" ? `${plan.lines.length} budget ${plan.lines.length === 1 ? "line" : "lines"} · ${schoolCount} beneficiary ${schoolCount === 1 ? "school" : "schools"}` : `${allocatedQuantity.toLocaleString()} of ${equipmentQuantity.toLocaleString()} equipment items allocated`}</p></div>
+    <div className="plan-overview"><div><span>{view === "budget" ? "Proposed sports budget" : "Beneficiary schools"}</span>{loading ? <Skeleton className="h-8 w-48" /> : <strong>{view === "budget" ? money.format(budgetTotal) : `${schoolCount} ${schoolCount === 1 ? "school" : "schools"}`}</strong>}</div><p>{view === "budget" ? `${plan.lines.length} budget ${plan.lines.length === 1 ? "line" : "lines"} · ${schoolCount} beneficiary ${schoolCount === 1 ? "school" : "schools"}` : `${allocatedQuantity.toLocaleString()} of ${equipmentQuantity.toLocaleString()} equipment items allocated`}</p>
+      {view === "budget" && !loading && (envelope == null ? <p>Funding envelope not set</p> : <EnvelopeMeter label="Funding envelope" envelope={Number(envelope)} used={budgetTotal} />)}</div>
     {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : view === "budget" ? <>
-      {plan.lines.length > 0 && <dl className="sports-breakdown">{sportsSections.map((section) => <div key={section.id}><dt>{section.label} · {section.share}% indicative</dt><dd>{money.format(sportsBudget(plan.lines.filter((line) => line.section === section.id)))}<small className="block font-normal text-muted-foreground">{budgetTotal ? Math.round(sportsBudget(plan.lines.filter((line) => line.section === section.id)) / budgetTotal * 100) : 0}% of budget</small></dd></div>)}</dl>}
+      {(plan.lines.length > 0 || envelope != null) && <dl className="sports-breakdown" aria-label="Budget by section">{sectionBudgets.map(({ section, proposed, cap }) => <div key={section.id}><dt>{section.label}</dt><dd>{cap == null
+        ? <>{money.format(Number(proposed) / 100)}<small className="block font-normal text-muted-foreground">Up to {section.share}% of the sports budget</small></>
+        : <EnvelopeMeter compact label={`Up to ${section.share}%`} envelope={Number(cap) / 100} used={Number(proposed) / 100} />}</dd></div>)}</dl>}
       <SportsBudgetPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} editingId={budget.id} />
     </> : <SportsBeneficiaryPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} editingId={allocation.id} />}
   </article></ScrollArea></section>;

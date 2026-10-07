@@ -1,0 +1,13 @@
+/* Funding envelope meter (components/envelope-meter.tsx): one look in every component editor. */
+.envelope-meter{display:flex;flex-direction:column;gap:6px;width:100%;max-width:520px;color:var(--muted-foreground);font-size:14px;font-weight:400;text-align:left}
+.envelope-meter-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
+.envelope-meter .envelope-meter-head strong{display:inline;margin:0;font-size:inherit;font-weight:600;letter-spacing:normal;line-height:inherit;color:var(--foreground);font-variant-numeric:tabular-nums}
+.envelope-meter p.envelope-meter-foot{display:block;margin:0;font-size:13px;font-variant-numeric:tabular-nums}
+.envelope-meter .envelope-left{font-weight:600;color:var(--primary);font-variant-numeric:tabular-nums}
+.envelope-meter .envelope-left[data-empty]{color:var(--warning-foreground)}
+.envelope-meter[data-over] .envelope-left{color:var(--destructive)}
+.envelope-meter[data-over] .envelope-meter-bar{background:color-mix(in srgb,var(--destructive) 18%,transparent)}
+.envelope-meter[data-over] .envelope-meter-bar [data-slot=progress-indicator]{background:var(--destructive)}
+.envelope-meter[data-compact]{gap:4px;font-size:13px}
+.envelope-meter[data-compact] p.envelope-meter-foot{font-size:12px}
+.envelope-meter[data-compact] .envelope-meter-bar{height:6px}

@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { hashSync } from "bcryptjs";
-import { sportsAllocationSchema, sportsLineSchema, sportsLineTotal, sportsBudget } from "../lib/sports.ts";
+import { sportsAllocationSchema, sportsLineSchema, sportsLineTotal, sportsBudget, sportsSections } from "../lib/sports.ts";
 
 const baseUrl = process.env.UBEC_TEST_URL ?? "http://localhost:5174";
 assert.ok(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(baseUrl), "Tests must target the local app.");
 const marker = `SPORTS-QA-${randomUUID()}`;
 const foreignMarker = `${marker}-OTHER`;
 const email = `${marker.toLowerCase()}@ubec.test`;
+const directorEmail = `${marker.toLowerCase()}-director@ubec.test`;
 const password = randomUUID();
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 let cookie;
@@ -100,12 +101,47 @@ try {
   assert.deepEqual(overview.infrastructure, { lineCount: 0, schoolCount: 0, budget: 0 });
   const after = (await db.query("SELECT id, row_to_json(line)::text AS snapshot FROM infrastructure_lines line WHERE id = ANY($1::int[]) ORDER BY id", [original.map((line) => line.id)])).rows;
   assert.deepEqual(after, original, "Existing infrastructure data must be unchanged.");
-  console.log("PASS: four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
+  // Funding caps: no ceiling until the plan has funding; then the sports envelope and each section's share of it.
+  assert.equal((await api()).body.envelope, null, "No envelope until the plan has funding.");
+  await db.query("UPDATE action_plans SET state_lodgment = 500000, other_funding = 0 WHERE state_code = $1", [marker]);
+  const envelopeKobo = Math.round(Number((await api()).body.envelope) * 100);
+  assert.ok(envelopeKobo > 0, "The plan funding gives Sports an envelope.");
+  const capKobo = (id) => Math.round(envelopeKobo * sportsSections.find((section) => section.id === id).share / 100);
+  const naira = (kobo) => kobo / 100;
+  const volleyball = { ...budget, activityType: "Volleyball", description: "Volleyballs", quantity: 1 };
+  const atCap = await api({ ...volleyball, unitCost: naira(capKobo("equipment")) });
+  assert.equal(atCap.status, 201, `A section may use exactly its share: ${JSON.stringify(atCap.body)}`);
+  const overSection = await api({ ...volleyball, description: "Net", unitCost: 0.01 });
+  assert.equal(overSection.status, 409, "A line that takes a section past its share must be refused.");
+  assert.match(overSection.body.error, /may use up to \d+% of the sports allocation/);
+  const competitionsLeft = capKobo("competitions") - 20020;
+  const finals = { ...budget, section: "competitions", activityType: "State Finals Competition", description: "Finals", quantity: 1 };
+  assert.equal((await api({ ...finals, unitCost: naira(competitionsLeft + 1) })).status, 409);
+  const finalsLine = await api({ ...finals, unitCost: naira(competitionsLeft) });
+  assert.equal(finalsLine.status, 201, JSON.stringify(finalsLine.body));
+  const update = { ...volleyball, action: "update", id: atCap.body.id };
+  assert.equal((await api({ ...update, quantity: 2, unitCost: naira(capKobo("equipment")) })).status, 409, "Raising a line past the cap must be refused.");
+  assert.equal((await api({ ...update, unitCost: naira(capKobo("equipment") - 100) })).status, 200, "Lowering is always allowed.");
+  // Funding cut below the proposals: the plan is over budget, still editable downward, and cannot be sent.
+  await db.query("UPDATE action_plans SET state_lodgment = 1000 WHERE state_code = $1", [marker]);
+  const over = await api({ ...update, unitCost: naira(capKobo("equipment")) });
+  assert.equal(over.status, 409);
+  assert.match(over.body.error, /exceeded the Sports allocation/);
+  assert.equal((await api({ ...update, unitCost: 1 })).status, 200, "An over-budget plan can still be lowered.");
+  const directorId = (await db.query("INSERT INTO users (email, full_name, role, department, password_hash, state_code) VALUES ($1, 'Sports QA Director', 'Director', 'academic', $2, $3) RETURNING id", [directorEmail, hashSync(password, 4), marker])).rows[0].id;
+  await db.query("INSERT INTO user_departments (user_id, department) VALUES ($1, 'academic')", [directorId]);
+  const reviewView = await api(undefined, true, "/api/plans/review");
+  assert.equal(reviewView.status, 200, JSON.stringify(reviewView.body));
+  const send = await api({ action: "submit", pillar: "sports", version: reviewView.body.plan.version }, true, "/api/plans/review");
+  assert.equal(send.status, 409, `Sending an over-budget Sports component must be refused: ${JSON.stringify(send.body)}`);
+  assert.match(send.body.error, /exceeded the Sports allocation/);
+  for (const id of [atCap.body.id, finalsLine.body.id]) assert.equal((await api({ entity: "budget", action: "delete", id })).status, 200);
+  console.log("PASS: four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, sports envelope and section caps (save and send; lowering allowed), concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
 } finally {
   await db.query("DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code = ANY($1::text[]))", [[marker, foreignMarker]]);
   await db.query("DELETE FROM sports_budget_lines WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);
   await db.query("DELETE FROM action_plans WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);
   await db.query("DELETE FROM schools WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);
-  await db.query("DELETE FROM users WHERE email = $1", [email]);
+  await db.query("DELETE FROM users WHERE email = ANY($1::text[])", [[email, directorEmail]]);
   await db.end();
 }

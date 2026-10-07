@@ -8,7 +8,8 @@ import { planPeriod } from "@/lib/action-plans";
 import { getPostgres } from "@/lib/postgres";
 import { cachedSchoolList } from '@/lib/school-cache';
 import { getWorkspaceState, sqlText } from "@/lib/workspace-state";
-import { sportsAllocationSchema, sportsCatalogError, sportsLineSchema } from "@/lib/sports";
+import { sportsAllocationSchema, sportsBudgetProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema } from "@/lib/sports";
+import { componentEnvelope } from "@/lib/funding-policy";
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const commandSchema = z.object({ entity: z.enum(["budget", "allocation"]), action: z.enum(["create", "update", "delete"]), id: z.number().int().positive().optional() });
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
         WHERE b.state_code = ${state} AND b.plan_id = ${plan.id} AND s.state_code = ${state} ORDER BY s.name, a.id`),
       cachedSchoolList(workspace.stateCode, 'sports', async () => (await db.query(`SELECT id, name, lga, level, location FROM schools WHERE state_code = ${state} ORDER BY name`)).rows),
     ]);
-    return NextResponse.json({ plan, canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, schools }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ plan, envelope: componentEnvelope(plan, "sports"), canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, schools }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Unable to load sports plan", cause);
     return error("Your sports plan could not be loaded. Please try again.", 503);
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
       // allocation requests cannot exceed the equipment procurement quantity.
       await db.query(`SELECT pg_advisory_xact_lock(hashtext(${sqlText(`sports:${workspace.stateCode}`)}))`);
       if (entity === "budget") {
-        const existing = id ? (await db.query(`SELECT section, activity_type FROM sports_budget_lines WHERE id = ${id} AND state_code = ${state} AND plan_id = ${plan.id} FOR UPDATE`)).rows[0] : null;
+        const existing = id ? (await db.query(`SELECT section, activity_type, quantity, unit_cost::text AS unit_cost FROM sports_budget_lines WHERE id = ${id} AND state_code = ${state} AND plan_id = ${plan.id} FOR UPDATE`)).rows[0] : null;
         if (action !== "create" && !existing) return error("Budget line not found.", 404);
         const allocated = id ? Number((await db.query(`SELECT COALESCE(SUM(quantity), 0)::int AS quantity FROM sports_allocations WHERE line_id = ${id}`)).rows[0].quantity) : 0;
         if (action === "delete") {
@@ -72,9 +73,18 @@ export async function POST(request: NextRequest) {
         // Catalogue rules (max 3 procurement sports, listed sub-activities). A legacy line
         // keeps its saved sport/sub-activity when it is edited without changing it.
         const unchanged = existing && existing.section === line.section && existing.activity_type === line.activityType;
-        const others = (await db.query(`SELECT id, section, activity_type AS "activityType" FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id}`)).rows;
+        const others = (await db.query(`SELECT id, section, activity_type AS "activityType", quantity, unit_cost::text AS unit_cost FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id}`)).rows;
         const rule = sportsCatalogError(line, others, id);
         if (rule && !(unchanged && rule.field === "activityType")) return error(rule.message, rule.field === "activityType" && line.section === "equipment" ? 409 : 400);
+        // The sports envelope and each section's share of it are caps. A change that raises the cost of
+        // its section is refused while it would pass either; lowering is always allowed, so plans that are
+        // already over can be brought back down.
+        const cost = sportsLineKobo(line), before = existing && existing.section === line.section ? sportsLineKobo(existing) : BigInt(0);
+        if (cost > before) {
+          const lines = [...others.filter((other) => other.id !== id).map((other) => ({ section: other.section, kobo: sportsLineKobo(other) })), { section: line.section, kobo: cost }];
+          const problem = sportsBudgetProblem(lines, plan, line.section);
+          if (problem) return error(problem, 409);
+        }
         if (line.quantity < allocated) return error(`${allocated} items are already allocated to schools. Reduce those allocations first.`, 409);
         const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${line.quantity}, ${line.unitCost.toFixed(2)}`;
         const result = action === "create"

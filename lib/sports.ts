@@ -1,7 +1,9 @@
 import { z } from "zod";
+// Explicit .ts so the Node test scripts can load this file directly.
+import { componentEnvelope, toKobo, type EnvelopePlan } from "./funding-policy.ts";
 
-// The four UBEC sports budget sections (QA UBEC18) with their indicative share
-// of the sports allocation. Shares are guidance only and are not enforced.
+// The four UBEC sports budget sections (QA UBEC18) with their share of the sports
+// allocation. Each share is a cap: a section's lines may not exceed share × the sports envelope.
 export const sportsSections = [
   { id: "equipment", label: "Procurement & Training of PHE Officers", shortLabel: "Procurement & PHE training", share: 60, typeLabel: "Sport", itemLabel: "Item", placeholder: "Choose a sport or type another…" },
   { id: "competitions", label: "Sports Competitions", shortLabel: "Competitions", share: 30, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose a competition…" },
@@ -24,7 +26,7 @@ export const sportsCatalog: readonly SportCatalogEntry[] = [
   { name: "Gymnastics", items: ["Gymnastic mats", "Balance beam", "Vaulting box", "Ribbons/hoops"] },
   { name: "Board Games", items: ["Chess sets", "Ludo sets", "Draughts/Checkers sets", "Scrabble sets"] },
 ];
-/** Sub-activities per section. `share` is the indicative % of the competitions share (UBEC guidance note). */
+/** Sub-activities per section. `share` is UBEC's suggested % of the competitions share (guidance note, not a cap). */
 export const sportsSubActivities: Record<"competitions" | "publicity", readonly { name: string; share?: number }[]> = {
   competitions: [{ name: "Inter School Competition", share: 5 }, { name: "Inter Local Government Competition", share: 10 }, { name: "State Finals Competition", share: 40 }, { name: "Geo-Political (Zonal) Finals", share: 25 }, { name: "National Finals", share: 10 }, { name: "Other Competitions", share: 10 }],
   publicity: [{ name: "Sensitization of Key Stakeholders" }, { name: "Electronic Media" }, { name: "Print Media" }, { name: "Social Media" }, { name: "Others" }],
@@ -89,3 +91,53 @@ export function sportsBudget(lines: SportsLine[]) {
 }
 
 export const sportsMoney = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const formatKobo = (kobo: bigint) => {
+  const absolute = kobo < 0 ? -kobo : kobo;
+  return `₦${(absolute / BigInt(100)).toLocaleString("en-NG")}.${String(absolute % BigInt(100)).padStart(2, "0")}`;
+};
+/** A sports line's cost in kobo (editor lines carry unitCost, snapshot lines unit_cost). */
+// Snapshot lines come from to_jsonb, so their numeric unit_cost may arrive as a JSON number.
+export const sportsLineKobo = (line: { unitCost?: number; unit_cost?: string | number; quantity: number }) => {
+  const cost = line.unit_cost ?? line.unitCost ?? 0;
+  return toKobo(typeof cost === "number" ? cost.toFixed(2) : cost) * BigInt(line.quantity);
+};
+/** The sports funding envelope in kobo, or null until the plan has funding. */
+export function sportsEnvelopeKobo(plan: EnvelopePlan) {
+  const envelope = componentEnvelope(plan, "sports");
+  return envelope == null ? null : toKobo(envelope);
+}
+/** A section's cap: its share of the sports envelope, rounded to the kobo. */
+export const sportsSectionCapKobo = (envelope: bigint, share: number) => (envelope * BigInt(Math.round(share * 100)) + BigInt(5000)) / BigInt(10000);
+
+export type SportsBudgetLine = { section: string; kobo: bigint };
+export type SportsSectionBudget = { section: typeof sportsSections[number]; proposed: bigint; cap: bigint | null };
+/** Proposed total and cap of every section (cap null until the plan has funding). */
+export function sportsSectionBudgets(lines: readonly SportsBudgetLine[], envelope: bigint | null): SportsSectionBudget[] {
+  return sportsSections.map((section) => ({
+    section,
+    proposed: lines.filter((line) => line.section === section.id).reduce((sum, line) => sum + line.kobo, BigInt(0)),
+    cap: envelope == null ? null : sportsSectionCapKobo(envelope, section.share),
+  }));
+}
+/**
+ * Why these sports lines break the budget, or null: the whole sports envelope first, then each section's cap
+ * (share × envelope). No limit until the plan has funding. `only` limits the section check to one section.
+ */
+export function sportsBudgetProblem(lines: readonly SportsBudgetLine[], plan: EnvelopePlan, only?: string): string | null {
+  return sportsCapProblem(lines, sportsEnvelopeKobo(plan), only);
+}
+/** sportsBudgetProblem with the envelope already known (kobo, null = no funding yet), as the editor has it. */
+export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: bigint | null, only?: string): string | null {
+  if (envelope == null) return null;
+  const total = lines.reduce((sum, line) => sum + line.kobo, BigInt(0));
+  if (total > envelope) return `You have exceeded the Sports allocation (${formatKobo(envelope)}) by ${formatKobo(total - envelope)}. Reduce the budget to continue.`;
+  for (const { section, proposed, cap } of sportsSectionBudgets(lines, envelope)) {
+    if (only && section.id !== only) continue;
+    if (cap != null && proposed > cap) return `${section.label} may use up to ${section.share}% of the sports allocation (${formatKobo(cap)}). Its lines come to ${formatKobo(proposed)}, ${formatKobo(proposed - cap)} over. Reduce them to continue.`;
+  }
+  return null;
+}
+/** sportsBudgetProblem for snapshot lines (unit_cost strings), used by every send step. */
+export const sportsSnapshotProblem = (lines: readonly { section: string; unit_cost: string | number; quantity: number }[] | undefined, plan: EnvelopePlan | null | undefined) =>
+  plan ? sportsBudgetProblem((lines ?? []).map((line) => ({ section: line.section, kobo: sportsLineKobo(line) })), plan) : null;
