@@ -15,7 +15,7 @@ import { isSplitMode, toKobo } from '@/lib/funding-policy';
 import { infrastructureSplitProblem } from '@/lib/budget-pairs';
 import { resolveLineQuarters } from '@/lib/line-quarters';
 import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
-import { packageSchema, packageProblem, calculateInfrastructure, landDeclarationCount,schoolComponents} from '@/lib/infrastructure-model';
+import { packageSchema, packageProblem, calculateInfrastructure, landDeclarationCount,schoolComponents,photoEvidenceRequired} from '@/lib/infrastructure-model';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude,enrolment_by_class AS "enrolmentByClass"';
 export async function GET(req:NextRequest){
@@ -68,8 +68,7 @@ export async function POST(req:NextRequest){
    if(new Set(input.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan.');
    if(docs.some(d=>d.school_id!==null&&d.school_id!==input.schoolId))return error('One or more attachments belong to a different school.');
    if(input.kind==='new'){const ticked=landDeclarationCount(input),attached=docs.filter(d=>d.kind==='land').length;if(attached<ticked)return error(`Attach one land document for each ticked land declaration (${ticked} ticked, ${attached} attached).`);}
-   const primaryAudit=input.audit.classroomPri;
-   if(input.kind==='whole'&&primaryAudit&&primaryAudit.existing>primaryAudit.functional&&!docs.some(d=>d.kind==='photo'))return error('Attach photographic evidence for the Whole School audit.');
+   if(photoEvidenceRequired(input)&&!docs.some(d=>d.kind==='photo'))return error('Attach photographic evidence for the Whole School audit.');
    if(prior&&prior.kind!==input.kind)return error('An existing package’s intervention type cannot be changed.');
    if(prior?.kind==='whole'&&!docs.some(d=>d.kind==='boq'&&d.school_id===input.schoolId&&!prior.input.documentIds.includes(d.id)&&new Date(d.created_at)>new Date(prior.updated_at)))return error('Attach an updated BOQ for this school before saving changes to a Whole School Renovation/Expansion package.');
    const result={...calculateInfrastructure(input,school.male+school.female),school};
