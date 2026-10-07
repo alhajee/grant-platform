@@ -249,7 +249,7 @@ DNEMIS is a DHIS2 server (`https://asc.education.gov.ng/dhis`, API at `<base>/ap
 - Plan title is shown as `<year> · <quarters> BEAP`, not “action plan”.
 - Workspace branding is `<STATE> SUBEB`; FCT is `FCT UBEB`.
 - Admin workspace has Users first, then Workflow settings, then Activity; platform settings are global.
-- Login uses a full-page UBEC education-photo slideshow with soft image transitions, overlaid login card, HOPE-site identity link, and a custard orbit/glow on the login button. Videos were intentionally abandoned in favor of images.
+- Login uses a full-page UBEC education-photo slideshow with soft image transitions, overlaid login card, UBEC identity link to ubec.gov.ng, and a custard orbit/glow on the login button. Videos were intentionally abandoned in favor of images.
 
 ## Critical production incident and permanent fix
 

@@ -42,7 +42,7 @@ export default function Home() {
         <LoginPhotos />
         <div className="login-hero-sheen" aria-hidden="true" />
         <div className="login-hero-inner">
-          <a className="login-agency" href="https://hope-gov.ubec.gov.ng/" target="_blank" rel="noreferrer" aria-label="Visit the UBEC HOPE website (opens in a new tab)">
+          <a className="login-agency" href="https://ubec.gov.ng" target="_blank" rel="noopener noreferrer" aria-label="Visit the UBEC website (opens in a new tab)">
             <UbecLogo size={58} />
             <span><strong>Universal Basic Education Commission</strong><small>Federal Republic of Nigeria</small></span>
             <ExternalLinkIcon className="login-agency-link-icon" aria-hidden="true" />
