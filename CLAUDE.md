@@ -231,6 +231,10 @@ DNEMIS is a DHIS2 server (`https://asc.education.gov.ng/dhis`, API at `<base>/ap
 - `lib/redis.ts` loads ioredis only when `REDIS_URL` is set and fails open: without Redis, or while it is down, nothing is cached and syncs run in the web process. The URL is never logged.
 - `lib/school-cache.ts`: per-state cache (1 hour) of the school lists read by the register (facet counts, LGA list) and the component editors' pickers (sports, activities, infrastructure). Keys `beapms:schools:<state>:v<version>:<list>`; invalidation bumps the state's version after a sync, a manual add/edit/delete/import, or the purge script. Only state-wide data that the caller was already allowed to read is cached; nothing per user.
 
+## Sessions
+
+- Sign-in cookie `ubec_session` (`lib/local-session.ts`): slides with use. `components/session-keepalive.tsx` (root layout) sends `POST /api/auth/session` on activity at most every 10 minutes and when the tab comes back into view; each renewal re-issues the cookie for the idle limit (12 hours), never past 7 days from sign-in (`sessionIdleSeconds`, `sessionMaxSeconds`). The renewal also extends the Super Admin `sessions` row and keeps a running impersonation bound to the new cookie (`session_binding`), extending it to an hour from the last activity. Same origin only. Test: `node --env-file=.env scripts/test-session-renewal.mjs [baseUrl]`.
+
 ## Roles and department access
 
 - Data Entry Staff and ordinary Directors can have one, several, or all departments.

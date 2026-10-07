@@ -1,6 +1,6 @@
 import { compareSync } from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
-import { createLocalSession } from "@/lib/local-session";
+import { createLocalSession, sessionCookieName, sessionCookieOptions, sessionIdleSeconds } from "@/lib/local-session";
 import { getPostgres } from "@/lib/postgres";
 import { isUbec } from '@/lib/ubec';
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     if(adminSessionId)await getPostgres().query("INSERT INTO sessions(token,user_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '12 hours')",[adminSessionId,user.id]);
     const token = await createLocalSession({ name: user.full_name, role: user.role, email, sessionVersion: user.session_version, adminSessionId });
     const response = NextResponse.json({ user: { name: user.full_name, role: user.role }, destination: user.role==='Super Admin'?'/admin':isUbec(user.role) ? '/ubec' : '/dashboard' });
-    response.cookies.set("ubec_session", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 12 });
+    response.cookies.set(sessionCookieName, token, sessionCookieOptions(sessionIdleSeconds));
     response.cookies.delete('ubec_impersonation');
     return response;
   } catch (cause) {
