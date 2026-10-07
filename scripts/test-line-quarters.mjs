@@ -129,11 +129,14 @@ try {
   step('plan edits refuse removing a quarter lines use (409, with the line count); adding a quarter opens it to lines');
 
   // Snapshots (plan page, UBEC submission and workbook all read lib/plan-snapshot.ts) carry the timeline.
-  const { snapshot } = ok(await api('ec', `/api/plans/review?plan=${planId}`));
-  assert.deepEqual(snapshot.planning.find(l => l.id === narrowed.id).quarters, [1, 3]);
-  assert.deepEqual(snapshot.planning.find(l => l.id === q4.id).quarters, [4]);
-  assert.deepEqual(snapshot.sports.find(l => l.id === sportsLine.id).quarters, [2, 3]);
-  assert.deepEqual(snapshot.infrastructure.find(l => l.id === -pkg.id).quarters, [3]);
+  // Drafts are read through each component's Data Entry Staff (stage-gated visibility: nothing has reached the Executive Chairman yet).
+  const snapshotOf = async who => ok(await api(who, `/api/plans/review?plan=${planId}`)).snapshot;
+  const planning = await snapshotOf('prs'), academic = await snapshotOf('academic'), physical = await snapshotOf('physical');
+  assert.deepEqual(planning.planning.find(l => l.id === narrowed.id).quarters, [1, 3]);
+  assert.deepEqual(planning.planning.find(l => l.id === q4.id).quarters, [4]);
+  assert.deepEqual(academic.sports.find(l => l.id === sportsLine.id).quarters, [2, 3]);
+  assert.deepEqual(physical.infrastructure.find(l => l.id === -pkg.id).quarters, [3]);
+  assert.equal(ok(await api('ec', `/api/plans/review?plan=${planId}`)).snapshot.planning, undefined);
   step('plan snapshot carries the timeline of activity, sports and infrastructure lines');
   console.log(`PASS: ${passed} line timeline checks.`);
 } finally {

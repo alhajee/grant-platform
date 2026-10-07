@@ -1,4 +1,5 @@
 import { canViewComponent } from '@/lib/subeb-access';
+import { notSentYetMessage, readStageVisibility } from '@/lib/stage-visibility';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
@@ -27,6 +28,7 @@ export async function GET(req:NextRequest){
   const parsed=z.enum(activityWorkstreams).safeParse(req.nextUrl.searchParams.get('workstream')); if(!parsed.success)return error('Choose a component.');
   const db=getPostgres(), workstream=parsed.data;
   if(!canViewComponent(user,workstream))return error('This component belongs to another department.',403);
+  if(!(await readStageVisibility(db,user,plan.id)).includes(workstream))return error(notSentYetMessage,403);
   const lines=(await db.query('SELECT id,code,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject",equipment_type AS "equipmentType",subscription_types AS "subscriptionTypes",website_type AS "websiteType",training_provider AS "trainingProvider",target_participants AS "targetParticipants",school_levels AS "schoolLevels",training_days AS "trainingDays",venue_type AS "venueType",quarters FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
   // Quality Assurance, ICT and Teacher Development lines carry their chosen schools and documents (migrations 038, 040).
   const extras=await readLineExtras(db,plan.id,workstream);

@@ -59,8 +59,9 @@ try {
   fails(await api('ec', url(), line(1, 100)), 403);
   const empty = ok(await api('prs', url()));
   assert.deepEqual(empty.lines, []); assert.equal(empty.canEdit, true);
-  ok(await api('ec', url()));
-  step('Planning editor: department access for Data Entry, other departments refused, Executive Chairman reads only');
+  // Stage-gated visibility: the Executive Chairman reads it only once it has been sent to them (below).
+  fails(await api('ec', url()), 403, /not been sent to you/);
+  step('Planning editor: department access for Data Entry, other departments refused, Executive Chairman refused until it reaches them');
 
   // Line form: description, quantity, implementation strategy, target group, unit cost; six activities.
   fails(await api('prs', url(), line(7, 100)), 400, /valid allowable activity/);
@@ -91,11 +92,14 @@ try {
   // Visibility, snapshot and dashboard totals.
   const qaView = ok(await api('qa', `/api/plans/review?plan=${planId}`));
   assert.ok(!qaView.visiblePillars.includes('planning')); assert.equal(qaView.snapshot.planning, undefined);
-  const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
-  assert.ok(chairView.visiblePillars.includes('planning')); assert.equal(chairView.snapshot.planning.length, 5);
+  // Stage-gated visibility: the BEAP Chair and Executive Chairman see the draft's status only.
+  const draftChairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
+  assert.ok(!draftChairView.visiblePillars.includes('planning')); assert.equal(draftChairView.snapshot.planning, undefined);
+  assert.equal(ok(await api('prs', `/api/plans/review?plan=${planId}`)).snapshot.planning.length, 5);
   const overview = ok(await api('prs', `/api/beap?plan=${planId}`));
   assert.equal(overview.planning.lineCount, 5); assert.ok(overview.editablePillars.includes('planning'));
-  const listed = ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId);
+  assert.equal(ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId).planningBudget, 0);
+  const listed = ok(await api('prs', '/api/plans')).plans.find(p => p.id === planId);
   assert.equal(listed.planningBudget, 6000000 + 3 * 1000000 + 500000);
   step('Snapshots, department visibility, overview and /api/plans planningBudget');
 
@@ -115,7 +119,12 @@ try {
   fails(await review('prsDirector', { action: 'endorse', pillar: 'planning' }), 409, /Conduct annual school census/);
   ok(await api('prsDirector', url(), line(0, 1000000)));
   ok(await review('prsDirector', { action: 'endorse', pillar: 'planning' }));
+  const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
+  assert.ok(chairView.visiblePillars.includes('planning')); assert.equal(chairView.snapshot.planning.length, 5);
+  fails(await api('ec', url()), 403, /not been sent to you/);
   ok(await review('chair', { action: 'forward', pillar: 'planning' }));
+  ok(await api('ec', url()));
+  assert.equal(ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId).planningBudget, 6000000 + 3 * 1000000 + 500000);
   const ecView = ok(await api('ec', `/api/plans/review?plan=${planId}`));
   assert.equal(ecView.pillarReviews.find(r => r.pillar === 'planning').status, 'chairman_ready');
   const ubecPath = `/api/ubec/review?plan=${planId}`;

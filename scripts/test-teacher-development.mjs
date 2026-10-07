@@ -145,14 +145,15 @@ try {
   fails(await review('tpd', { action: 'submit', pillar: 'teachers' }), 409, /supporting documents for “Peer coaching circles”/);
   ok(await upload('tpd', others.id, 'list.pdf', pdf));
   fails(await review('ict', { action: 'submit', pillar: 'teachers' }), 403);
-  const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
-  assert.ok(chairView.visiblePillars.includes('teachers'));
-  const snapLine = chairView.snapshot.teachers.find(l => l.id === literacy.id);
+  // Stage-gated visibility: the draft is the Data Entry Staff's alone; the BEAP Chair and Executive Chairman see it once sent to them (below).
+  const draftChairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
+  assert.ok(!draftChairView.visiblePillars.includes('teachers')); assert.equal(draftChairView.snapshot.teachers, undefined);
+  const snapLine = ok(await api('tpd', `/api/plans/review?plan=${planId}`)).snapshot.teachers.find(l => l.id === literacy.id);
   assert.deepEqual([snapLine.training_provider, snapLine.school_levels, snapLine.training_days, snapLine.venue_type, snapLine.documents.length], ['International Development Partners', ['Primary', 'JSS'], 4, 'Hall', 2]);
   const ictView = ok(await api('ict', `/api/plans/review?plan=${planId}`));
   assert.equal(ictView.snapshot.teachers, undefined);
   assert.equal(ok(await api('tpd', `/api/beap?plan=${planId}`)).teachers.budget, 15000000);
-  assert.equal(ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId).teachersBudget, 15000000);
+  assert.equal(ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId).teachersBudget, 0);
   step('Send blocked until every line has documents; snapshots, visibility and totals include Teacher Development');
 
   // Review chain: Data Entry → Teacher Development Director → BEAP Chair → Executive Chairman → UBEC (lead: teachers).
@@ -163,7 +164,10 @@ try {
   const comment = ok(await api('tpdDirector', `/api/plans/comments?plan=${planId}`, { sheet: 'teachers', rowRef: String(literacy.id), columnId: 'provider', body: 'Confirm the provider MoU.' }), 201);
   assert.ok(comment.id);
   ok(await review('tpdDirector', { action: 'endorse', pillar: 'teachers' }));
+  const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
+  assert.ok(chairView.visiblePillars.includes('teachers')); assert.equal(chairView.snapshot.teachers.find(l => l.id === literacy.id).documents.length, 2);
   ok(await review('chair', { action: 'forward', pillar: 'teachers' }));
+  assert.equal(ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId).teachersBudget, 15000000);
   assert.equal(ok(await api('ec', `/api/plans/review?plan=${planId}`)).pillarReviews.find(r => r.pillar === 'teachers').status, 'chairman_ready');
   const ubecPath = `/api/ubec/review?plan=${planId}`;
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));

@@ -111,9 +111,9 @@ try {
   step('Others lines do not satisfy compulsory activities');
 
   // The name travels with the plan snapshot the workbook and UBEC review read.
-  const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
-  for (const { workstream } of components) {
-    const snap = chairView.snapshot[workstream].find(l => l.id === saved[workstream]);
+  // Read through each component's Data Entry Staff: the drafts have not been sent on yet (stage-gated visibility).
+  for (const { workstream, who } of components) {
+    const snap = ok(await api(who, `/api/plans/review?plan=${planId}`)).snapshot[workstream].find(l => l.id === saved[workstream]);
     assert.equal(snap.custom_activity, `Renamed ${workstream} ${tag}`, workstream);
   }
   step('Plan snapshot carries the activity name for every component');

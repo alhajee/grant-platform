@@ -119,22 +119,27 @@ try {
   step('isolation: cross-origin (403), other state (404), UBEC (403), anonymous (401), other department sees and touches nothing (404)');
 
   ok(await api('des', comments, { parentId: root, body: 'Quotations uploaded to the dossier.' }), 201);
-  ok(await api('chair', comments, { parentId: root, body: 'Noted.' }), 201);
+  // Sports has not reached the BEAP Chair yet (stage-gated visibility), so their thread lookups find nothing.
+  expect(await api('chair', comments, { parentId: root, body: 'Noted.' }), 404);
+  ok(await api('dir', comments, { parentId: root, body: 'Noted.' }), 201);
   expect(await api('des', comments, { parentId: 999999999, body: 'x' }), 404);
   data = ok(await api('des', comments));
-  assert.deepEqual(data.threads.find(t => t.id === root).replies.map(r => [r.authorRole, r.mine]), [['Data Entry Staff', true], ['BEAP Chair', false]]);
-  step('replies: Data Entry Staff and BEAP Chair (anyone who can view) reply; replies carry role and ownership');
+  assert.deepEqual(data.threads.find(t => t.id === root).replies.map(r => [r.authorRole, r.mine]), [['Data Entry Staff', true], ['Director', false]]);
+  assert.ok(ok(await api('chair', comments)).threads.every(t => t.pillar !== 'sports'), 'the BEAP Chair sees no Sports threads before Sports reaches them');
+  step('replies: Data Entry Staff and Director reply; replies carry role and ownership; the BEAP Chair cannot see or reply before the component reaches them (404)');
 
-  expect(await api('chair', comments, { id: rowThread, action: 'resolve' }, { method: 'PATCH' }), 403, /Data Entry Staff/);
+  expect(await api('chair', comments, { id: rowThread, action: 'resolve' }, { method: 'PATCH' }), 404);
   ok(await api('des', comments, { id: rowThread, action: 'resolve' }, { method: 'PATCH' }));
   expect(await api('des', comments, { id: rowThread, action: 'resolve' }, { method: 'PATCH' }), 409, /already resolved/);
   expect(await api('des', comments, { parentId: rowThread, body: 'x' }), 409, /Reopen/);
   expect(await api('des', comments, { id: rowThread, action: 'reopen' }, { method: 'PATCH' }), 403, /reopen/);
-  ok(await api('chair', comments, { id: rowThread, action: 'reopen' }, { method: 'PATCH' }));
+  expect(await api('chair', comments, { id: rowThread, action: 'reopen' }, { method: 'PATCH' }), 404);
+  expect(await api('ec', comments, { id: rowThread, action: 'reopen' }, { method: 'PATCH' }), 404);
+  ok(await api('dir', comments, { id: rowThread, action: 'reopen' }, { method: 'PATCH' }));
   ok(await api('dir', comments, { id: rowThread, action: 'resolve' }, { method: 'PATCH' }));
-  ok(await api('ec', comments, { id: rowThread, action: 'reopen' }, { method: 'PATCH' }));
+  ok(await api('dir', comments, { id: rowThread, action: 'reopen' }, { method: 'PATCH' }));
   data = ok(await api('dir', comments)); assert.equal(data.threads.find(t => t.id === rowThread).resolvedAt, null);
-  step('resolve/reopen: Data Entry and holder resolve, non-holder non-author refused (403); reopen only by reviewers (Data Entry 403); double resolve 409; reply to resolved 409');
+  step('resolve/reopen: Data Entry and holder resolve; reopen only by reviewers (Data Entry 403); BEAP Chair and Executive Chairman cannot touch a thread on a component not yet sent to them (404); double resolve 409; reply to resolved 409');
 
   // Request changes: comments stand in for the note.
   ok(await review('dir', 'request_changes', 'sports'));

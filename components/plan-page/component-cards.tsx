@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { HandCoinsIcon, MessageSquareTextIcon, SendHorizontalIcon, Sheet } from 'lucide-react';
+import { HandCoinsIcon, LockIcon, MessageSquareTextIcon, SendHorizontalIcon, Sheet } from 'lucide-react';
 import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
 import { PillarIllustration } from '@/components/pillar-illustration';
 import { componentPalette } from '@/components/dashboard/component-budgets';
@@ -25,7 +25,7 @@ import { commentCount, ubecCount } from './review-action-dialog';
 /** What the viewer can do with one component card: open its editor, and the workflow step they hold (if any). */
 export type CardActions = { editHref?: string; step?: { label: string; run: () => void; /** Why the step cannot run yet (missing documents or compulsory activities); the button is then disabled. */ blocked?: string | null } };
 
-type CardProps = { plan: PlanReview['plan']; envelopePlan: EnvelopePlan; review: PillarReview; totals: PlanTotals; comments: CommentsController | null; actions: CardActions };
+type CardProps = { plan: PlanReview['plan']; envelopePlan: EnvelopePlan; review: PillarReview; totals: PlanTotals; comments: CommentsController | null; actions: CardActions; /** False until the component has been sent to the viewer: the card then shows only its status. */ detail: boolean };
 
 /**
  * Proposed amount against the component's ceiling (policy share plus its own funding sources): a slim bar, then "₦X of ₦Y".
@@ -65,7 +65,7 @@ function ComponentFunding({ sources }: { sources: readonly { funder: string; amo
   </Tooltip>;
 }
 
-function ComponentCard({ plan, envelopePlan, review, totals, comments, actions }: CardProps) {
+function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, detail }: CardProps) {
   const { pillar } = review, section = componentSections[pillar][0], summary = totals[pillar];
   const ceilingValue = componentEnvelope(envelopePlan, pillar), ceiling = ceilingValue == null ? null : Number(ceilingValue);
   // Infrastructure and TLM in shared-pool mode: the ceiling is the pool they share, so the partner's proposals count against it too.
@@ -74,6 +74,17 @@ function ComponentCard({ plan, envelopePlan, review, totals, comments, actions }
   const partner = pooled ? totals[poolPartner(pillar)].budget : 0, used = summary.budget + partner;
   const sheet = `#review-${pillar}`, own = comments?.openCount(pillar) ?? 0, ubec = comments?.openCount(pillar, 'ubec') ?? 0;
   const palette = componentPalette[pillar];
+  if (!detail) return <li className="component-card" data-component={pillar} data-pending style={{ '--component-fill': palette.fill, '--component-ink': palette.ink } as CSSProperties}>
+    <span className="component-card-art" aria-hidden="true">{pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={pillar} standalone />}</span>
+    <div className="component-card-body">
+      <div className="component-card-title">
+        <h4>{section.name}</h4>
+        <Badge variant={review.status === 'changes_requested' ? 'warning' : 'secondary'}>{pillarReviewLabels[review.status]}</Badge>
+      </div>
+      <div className="component-card-department"><span>{subebDepartmentName(subebComponentDepartments[pillar])}</span><PolicyShare plan={envelopePlan} pillar={pillar} /></div>
+      <p className="component-card-amount component-card-pending"><LockIcon aria-hidden="true" />Details appear once it is sent to you</p>
+    </div>
+  </li>;
   return <li className="component-card" data-component={pillar} data-over={ceiling != null && used > ceiling || undefined} style={{ '--component-fill': palette.fill, '--component-ink': palette.ink } as CSSProperties}>
     <span className="component-card-art" aria-hidden="true">{pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={pillar} standalone />}</span>
     <div className="component-card-body">
@@ -115,7 +126,7 @@ export function ComponentCards({ data, totals, comments, actionsFor }: { data: P
         <Separator className="component-group-rule" />
       </div>
       <ul className="component-cards">
-        {group.items.map(review => <ComponentCard key={review.pillar} plan={data.plan} envelopePlan={envelopePlan} review={review} totals={totals} comments={comments} actions={actionsFor(review)} />)}
+        {group.items.map(review => <ComponentCard key={review.pillar} plan={data.plan} envelopePlan={envelopePlan} review={review} totals={totals} comments={comments} actions={actionsFor(review)} detail={data.visiblePillars.includes(review.pillar)} />)}
       </ul>
     </section>)}
   </div>;

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readStageVisibility } from '@/lib/stage-visibility';
 import type { QueryResult, QueryResultRow } from 'pg';
 import { getPostgres } from '@/lib/postgres';
 import { getWorkspaceState } from '@/lib/workspace-state';
@@ -43,7 +44,9 @@ export async function GET(request: NextRequest) {
     if (!plan) return error('Action plan not found.', 404);
     const allowed = canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair);
     const lockedReason = !allowed ? notAllowed : !statePlanOpen(plan.status) ? lockedMessage(plan.status) : null;
-    const [reserved, proposed, quarterUsage] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id), readQuarterUsage(db, plan.id)]);
+    const [reserved, allProposed, quarterUsage, visible] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id), readQuarterUsage(db, plan.id), readStageVisibility(db, workspace, plan.id)]);
+    // Proposed amounts only for components that have reached the viewer (lib/stage-visibility.ts); the save still checks them all.
+    const proposed = Object.fromEntries(Object.entries(allProposed).filter(([component]) => (visible as readonly string[]).includes(component)));
     return NextResponse.json({ plan, reserved, proposed, quarterUsage, allowed, canEdit: !lockedReason, lockedReason }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (cause) {
     console.error('Unable to load plan details', cause);

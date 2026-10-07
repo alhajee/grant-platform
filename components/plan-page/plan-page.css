@@ -82,6 +82,9 @@
 .component-card-amount { margin-top: 6px; font-size: 12px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .component-card-amount b { font-weight: 600; color: var(--foreground); }
 .component-card[data-over] .component-card-amount, .component-card[data-over] .component-card-amount b { color: var(--destructive); }
+/* A component not yet sent to the viewer: status only, no figures. */
+.component-card-pending { display: flex; align-items: center; gap: 5px; white-space: normal; }
+.component-card-pending svg { width: 12px; height: 12px; flex: none; }
 .component-card-foot { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; margin-top: 10px; }
 
 .component-card-foot :is(a, button) { position: relative; z-index: 1; }

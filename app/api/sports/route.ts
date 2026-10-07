@@ -1,4 +1,5 @@
 import { canViewComponent } from '@/lib/subeb-access';
+import { notSentYetMessage, readStageVisibility } from '@/lib/stage-visibility';
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { resolveActionPlan } from "@/lib/plan-workspace";
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
     if (!plan) return error("Action plan not found.", 404);
     const state = sqlText(workspace.stateCode);
     const db = getPostgres();
+    if (!(await readStageVisibility(db, workspace, plan.id)).includes('sports')) return error(notSentYetMessage, 403);
     const [lines, allocations, schools] = await Promise.all([
       db.query(`SELECT id, code, section, activity_type AS "activityType", description, quantity, unit_cost::float8 AS "unitCost", quarters
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),
