@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { UbecLogo } from './ubec-logo';
 import { AccountMenu } from './workspace-account-menu';
 import { NotificationBell } from './notifications/notification-bell';
+import { ubecRoles, ubecRoleTitle } from '@/lib/ubec';
 
 function subscribeToHash(callback: () => void) {
   window.addEventListener('hashchange', callback);
@@ -14,14 +15,14 @@ function subscribeToHash(callback: () => void) {
 }
 const navigation = [
   { label: 'Overview', hash: '' },
+  { label: 'Plans', hash: '#plans' },
   { label: 'Submissions', hash: '#submissions' },
-  { label: 'Departments', hash: '#departments' },
   { label: 'Activity', hash: '#activity' },
 ];
 
-export function UbecShell({ children, user, review = false, allocations = false }: { children: React.ReactNode; user?: { name: string; role: string } | null; review?: boolean; allocations?: boolean }) {
+export function UbecShell({ children, user, review = false, allocations = false, team = false }: { children: React.ReactNode; user?: { name: string; role: string; department?: string | null } | null; review?: boolean; allocations?: boolean; team?: boolean }) {
   const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash, () => '');
-  const activeHash = allocations ? '#allocations' : review ? '#submissions' : hash;
+  const activeHash = allocations ? '#allocations' : team ? '#team' : review ? '#submissions' : hash;
 
   return (
     <div className="national-shell national-horizontal-shell">
@@ -34,13 +35,15 @@ export function UbecShell({ children, user, review = false, allocations = false 
             {navigation.map(({ label, hash: targetHash }) => (
               <a key={label} href={`/ubec${targetHash}`} aria-current={activeHash === targetHash ? (targetHash && !review ? 'location' : 'page') : undefined}>{label}</a>
             ))}
-            {user?.role==='UBEC Executive Secretary' && <a href="/ubec/allocations" aria-current={allocations?'page':undefined}>Allocations</a>}
+            {(user?.role === ubecRoles.director || user?.role === ubecRoles.chair) && <a href="/ubec/team" aria-current={team ? 'page' : undefined}>Officers</a>}
+            {user?.role === ubecRoles.es && <a href="/ubec/allocations" aria-current={allocations?'page':undefined}>Allocations</a>}
           </nav>
         </div>
         <div className="national-header-actions">
           <NotificationBell />
           <div className="national-header-account">
-            <AccountMenu user={user ? { ...user, email: '' } : null} />
+            {/* The account shows the role and department, e.g. "UBEC Director · Physical Planning (DPP)". */}
+            <AccountMenu user={user ? { ...user, role: ubecRoleTitle(user.role, user.department), email: '' } : null} />
           </div>
         </div>
       </header>

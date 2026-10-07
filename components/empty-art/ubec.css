@@ -6,3 +6,13 @@
 /* State map with no submissions at all: faint dashed outlines of the states. */
 .nigeria-map[data-empty=true] path:not([data-active=true]):not(:focus-visible) { fill: rgb(44 122 94 / .05); stroke: rgb(44 122 94 / .38); stroke-dasharray: 3 3; }
 .nigeria-map[data-empty=true] path[data-active=true] { fill: rgb(44 122 94 / .14); stroke: #2c7a5e; }
+
+/* UBEC review flow empty states (ubec-flow.tsx): theme-aware colours, picture above a short caption. */
+:root { --ubec-art-ink: #2c7a5e; --ubec-art-paper: #fff; --ubec-art-accent: #e5fa9c; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme=light]) { --ubec-art-ink: #8fd3b5; --ubec-art-paper: #1d2420; --ubec-art-accent: #4b5a2a; } }
+:root[data-theme=dark], .dark { --ubec-art-ink: #8fd3b5; --ubec-art-paper: #1d2420; --ubec-art-accent: #4b5a2a; }
+.ubec-flow-empty figcaption { display: flex; flex-direction: column; gap: 2px; max-width: 320px; }
+.ubec-flow-empty figcaption strong { font-size: 14px; font-weight: 600; color: var(--foreground); }
+.ubec-flow-empty figcaption span { font-size: 13px; color: var(--muted-foreground); }
+.ubec-flow-empty[data-compact] { padding: 12px; }
+.ubec-flow-empty[data-compact] .ubec-empty-art { width: 120px; }

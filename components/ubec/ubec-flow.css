@@ -1,0 +1,148 @@
+/* UBEC review flow UI (components/ubec): stage pills, decision bars, oversight chips, item table, queue, plan cards. */
+.ubec-stage-pill[data-slot=badge] { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; }
+.ubec-stage-pill > span { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .7; }
+.ubec-stage-pill[data-tone=waiting] { background: #f3eefe; color: #5b45b0; }
+.ubec-stage-pill[data-tone=working] { background: #fff4dc; color: #8a5a00; }
+.ubec-stage-pill[data-tone=oversight] { background: #e6f0ff; color: #1d58b8; }
+.ubec-stage-pill[data-tone=done] { background: #e3f5ea; color: #1f6b43; }
+
+.ubec-decision { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.ubec-decision-bar { display: flex; height: 6px; overflow: hidden; border-radius: 999px; background: rgb(0 50 40 / 9%); }
+.ubec-decision-bar > span { height: 100%; transition: width 420ms cubic-bezier(.2, .8, .2, 1); }
+.ubec-decision-bar > [data-kind=accept] { background: #2f9e64; }
+.ubec-decision-bar > [data-kind=reject] { background: var(--destructive); }
+.ubec-decision-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12.5px; color: var(--muted-foreground); }
+.ubec-decision-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.ubec-decision-legend svg { width: 13px; height: 13px; }
+.ubec-decision-legend [data-kind=accept] svg { color: #2f9e64; }
+.ubec-decision-legend [data-kind=reject] svg { color: var(--destructive); }
+@media (prefers-reduced-motion: reduce) { .ubec-decision-bar > span { transition: none; } }
+
+.ubec-oversight { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 8px; font-size: 11.5px; }
+.ubec-oversight > svg { width: 14px; height: 14px; color: #1d58b8; }
+.ubec-oversight-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 8px; border: 1px dashed rgb(29 88 184 / 40%); border-radius: 999px; color: #1d58b8; background: rgb(255 255 255 / 60%); }
+.ubec-oversight-chip[data-done] { border-style: solid; background: #e6f0ff; }
+.ubec-oversight-chip svg { width: 11px; height: 11px; }
+
+.ubec-officers { position: relative; z-index: 1; display: inline-flex; margin-right: auto; }
+.ubec-officer { display: grid; place-items: center; width: 26px; height: 26px; margin-left: -6px; border: 2px solid var(--card); border-radius: 50%; background: #efe9fd; color: #4b3a96; font-size: 10.5px; font-weight: 700; }
+.ubec-officer:first-child { margin-left: 0; }
+.ubec-officer[data-done] { background: #dff3e7; color: #1f6b43; }
+.ubec-card-meta { margin-top: 4px; font-size: 11.5px; color: var(--muted-foreground); }
+.ubec-card-link { all: unset; cursor: pointer; }
+.ubec-component-card .component-card-foot { flex-wrap: wrap; }
+/* Workflow steps on UBEC cards always show their label. */
+.ubec-component-card .card-pill-step { grid-template-columns: auto 1fr !important; gap: 6px !important; padding: 0 12px !important; }
+.ubec-component-card .card-pill-step > svg { width: 15px !important; opacity: 1 !important; }
+.ubec-component-card .card-pill-step .card-pill-label { opacity: 1; transform: none; }
+
+.ubec-release-note { display: flex; gap: 12px; align-items: flex-start; margin: 4px 0 18px; padding: 14px 16px; border-radius: 18px; background: color-mix(in srgb, var(--national-lavender, #d4c5fc) 45%, var(--card)); }
+.ubec-release-note > svg { flex: none; width: 18px; height: 18px; margin-top: 2px; color: #5b45b0; }
+.ubec-release-note p { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.ubec-release-note small { color: var(--muted-foreground); }
+.ubec-decision-note[data-status=returned] { border-color: color-mix(in srgb, var(--warning, #e3a008) 40%, var(--border)); }
+.ubec-role-note, .ubec-decision-note { margin-bottom: 14px; }
+.ubec-chair-bar { border-radius: 22px; }
+.ubec-chair-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.ubec-pipeline-card { margin-top: 18px; }
+.ubec-pipeline-steps { display: flex; flex-direction: column; gap: 8px; }
+.ubec-pipeline-steps li { display: flex; align-items: center; justify-content: space-between; opacity: .55; }
+.ubec-pipeline-steps li[data-active] { opacity: 1; }
+.ubec-pipeline-steps b { font-variant-numeric: tabular-nums; }
+.ubec-pipeline-meta { margin-top: 12px; font-size: 12.5px; color: var(--muted-foreground); }
+
+.ubec-assessment { margin-top: 28px; margin-bottom: 24px; }
+.ubec-assessment-tabs { margin-bottom: 12px; }
+.ubec-items-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.ubec-items-head h3 { font-size: 17px; font-weight: 600; }
+.ubec-items-table { margin-top: 12px; overflow-x: auto; }
+.ubec-items-table tr { transition: background-color 160ms ease; }
+.ubec-items-table tr[data-decision=reject] { background: color-mix(in srgb, var(--destructive) 5%, transparent); }
+.ubec-items-table tr[data-decision=accept] { background: rgb(47 158 100 / 5%); }
+.ubec-item-cell { display: flex; flex-direction: column; gap: 2px; min-width: 220px; white-space: normal; }
+.ubec-item-cell small { font-size: 12px; color: var(--muted-foreground); }
+.ubec-item-code { font-family: var(--font-mono, monospace); font-size: 11px !important; }
+.ubec-item-note { color: var(--foreground) !important; font-style: italic; }
+.ubec-item-previous { display: inline-flex; align-items: center; gap: 4px; }
+.ubec-item-previous svg { width: 12px; height: 12px; }
+.ubec-item-actions { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 4px; }
+.ubec-item-actions [data-slot=button] { position: relative; }
+.ubec-item-thread-count { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; background: #1a73e8; color: #fff; }
+.ubec-item-pill[data-kind=accept] { background: #e3f5ea; color: #1f6b43; }
+.ubec-item-pill[data-kind=reject] { background: color-mix(in srgb, var(--destructive) 12%, transparent); color: var(--destructive); }
+.ubec-item-pill { display: inline-flex; gap: 3px; align-items: center; }
+.ubec-item-pill svg { width: 12px; height: 12px; }
+
+.ubec-people { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.ubec-people ul { display: grid; flex: 1; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.ubec-people li { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
+.ubec-people li[data-done] { border-color: rgb(47 158 100 / 30%); }
+.ubec-people li small { font-size: 11.5px; color: var(--muted-foreground); }
+.ubec-people li p { margin-top: 4px; font-size: 13px; }
+.ubec-people-empty { font-size: 13px; color: var(--muted-foreground); }
+.ubec-legacy-reviews { display: flex; flex-direction: column; gap: 12px; }
+.ubec-legacy-reviews li { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.ubec-legacy-reviews span { font-size: 12.5px; color: var(--muted-foreground); }
+
+.ubec-flow-dialog .ubec-officer-options, .ubec-plan-summary { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow: auto; }
+.ubec-officer-options li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; transition: border-color 160ms ease, background-color 160ms ease; }
+.ubec-officer-options li[data-checked] { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.ubec-officer-option { display: flex; flex-direction: column; gap: 0; font-weight: 400; }
+.ubec-officer-option span { font-size: 12px; color: var(--muted-foreground); }
+.ubec-step-summary { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--muted); }
+.ubec-step-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+.ubec-step-stats span { display: inline-flex; align-items: center; gap: 4px; }
+.ubec-step-stats svg { width: 14px; height: 14px; }
+.ubec-step-notes { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.ubec-step-notes li { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.ubec-step-quote { font-size: 13px; }
+.ubec-plan-summary li { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; align-items: center; gap: 10px; font-size: 13px; }
+.ubec-plan-summary .ubec-decision { margin: 0; }
+.ubec-plan-summary small { color: var(--muted-foreground); white-space: nowrap; }
+
+.ubec-queue { margin-bottom: 22px; }
+.ubec-queue-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.ubec-queue-list a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 16px; color: inherit; text-decoration: none; background: var(--card); transition: transform 180ms cubic-bezier(.2, .8, .2, 1), box-shadow 180ms ease, border-color 180ms ease; }
+.ubec-queue-list a:hover, .ubec-queue-list a:focus-visible { transform: translateY(-2px); border-color: color-mix(in srgb, var(--primary) 30%, var(--border)); box-shadow: 0 14px 28px -20px rgb(0 0 0 / 35%); }
+.ubec-queue-list span:nth-child(2) { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.ubec-queue-list strong { font-size: 14px; font-weight: 600; }
+.ubec-queue-list small { font-size: 12.5px; color: var(--muted-foreground); }
+.ubec-queue-icon { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: var(--national-lime, #e5fa9c); color: #252531; }
+.ubec-queue-icon svg { width: 17px; height: 17px; }
+.ubec-queue-list [data-kind=observe] .ubec-queue-icon { background: #e6f0ff; color: #1d58b8; }
+.ubec-queue-list [data-kind=decide] .ubec-queue-icon, .ubec-queue-list [data-kind=release] .ubec-queue-icon { background: var(--national-lavender, #d4c5fc); }
+.ubec-queue-arrow { width: 16px; height: 16px; color: var(--muted-foreground); }
+@media (prefers-reduced-motion: reduce) { .ubec-queue-list a { transition: none; } .ubec-queue-list a:hover { transform: none; } }
+
+.ubec-plans { margin: 22px 0; }
+.ubec-plan-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; margin-top: 12px; }
+.ubec-plan-card:hover { transform: translateY(-3px); }
+.ubec-card-components { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.ubec-card-components li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: 12px; background: rgb(0 50 40 / 4%); }
+.ubec-card-components a { display: flex; min-width: 0; flex-direction: column; color: inherit; text-decoration: none; font-size: 13px; font-weight: 550; }
+.ubec-card-components a small { font-weight: 400; color: var(--muted-foreground); }
+.ubec-row-link { cursor: pointer; }
+.ubec-map-only { grid-template-columns: 1fr !important; }
+@media (max-width: 640px) {
+  .ubec-plan-list, .ubec-queue-list { grid-template-columns: 1fr; }
+  .ubec-plan-summary li { grid-template-columns: 1fr; }
+  .ubec-chair-actions { width: 100%; } .ubec-chair-actions [data-slot=button] { flex: 1; }
+}
+
+/* SUBEB plan page: UBEC assessment results (components/plan-page/ubec-results.tsx). */
+.ubec-results { margin-top: 18px; }
+.ubec-results h2 { font-size: 17px; font-weight: 600; }
+.ubec-results-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.ubec-results-list > li { padding: 12px 14px; border: 1px solid var(--border); border-radius: 16px; }
+.ubec-results-trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; font-size: 14px; text-align: left; }
+.ubec-results-counts { display: inline-flex; gap: 10px; font-size: 12.5px; color: var(--muted-foreground); }
+.ubec-results-counts span { display: inline-flex; align-items: center; gap: 3px; }
+.ubec-results-counts svg { width: 13px; height: 13px; }
+.ubec-results-counts [data-kind=reject] { color: var(--destructive); }
+.ubec-results-body { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.ubec-results-items { display: flex; flex-direction: column; gap: 6px; }
+.ubec-results-items li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; font-size: 13px; }
+.ubec-results-items li > span:first-child { display: flex; flex-direction: column; min-width: 0; }
+.ubec-results-items small { color: var(--muted-foreground); font-style: italic; }
+.ubec-results-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 13px; }

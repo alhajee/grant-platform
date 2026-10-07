@@ -27,6 +27,7 @@ import { summarizeSnapshot } from '@/lib/plan-summary';
 import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
 import { hasDepartment } from '@/lib/user-departments';
 import { usePlanComments } from '@/components/plan-workbook/comments-context';
+import { UbecResultsCard } from '@/components/plan-page/ubec-results';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
@@ -135,6 +136,7 @@ export default function PlanPage() {
             <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} />
           </aside>
         </div>
+        {selected === 'current' && <UbecResultsCard planId={data.plan.id} reloadKey={data.plan.version} />}
         <div className="review-layout">
           <PlanReviewContent showPlanReference={false} showDocuments={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} {...workbookLinks} />
           {/* Documents and the review history share a row; each takes the full width on narrow screens. */}

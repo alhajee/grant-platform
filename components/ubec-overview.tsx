@@ -25,7 +25,7 @@ function BudgetMotif() {
 export function UbecOverview({ data, onStage, children }: { data: UbecDashboard; onStage: (stage: string) => void; children?: React.ReactNode }) {
   const [months, setMonths] = useState('6');
   const stripeId = useId().replaceAll(':', '');
-  const reviewer = data.user.role === 'UBEC Department Reviewer';
+  const reviewer = !['UBEC Executive Secretary', 'UBEC BEAP Chair'].includes(data.user.role);
   const items = data.items;
   const budget = items.reduce((sum, plan) => sum + plan.budget, 0);
   const schools = new Set(items.flatMap(plan => plan.schools)).size;

@@ -18,17 +18,17 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { subebDisplayName } from '@/lib/state-names';
 import { subebDepartmentName, subebDepartments } from '@/lib/subeb-departments';
-import { departmentName, departments as ubecDepartments } from '@/lib/ubec';
+import { departmentLabel as departmentName, ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
 import { toast } from 'sonner';
 import { DepartmentCheckboxes } from '@/components/department-checkboxes';
 
 export type AdminManagedUser = { id:number; name:string; email:string; role:string; department:string|null; departments:string[]; stateCode:string; active:boolean; canCreatePlan:boolean; canManageSchools:boolean; isBeapChair:boolean };
 type Form = Omit<AdminManagedUser, 'id'>;
 const helper = createColumnHelper<DataTableFeatures, AdminManagedUser>();
-const blank = (stateCode:string):Form => ({ name:'', email:'', role:stateCode === 'UBEC' ? 'UBEC Department Reviewer' : 'Data Entry Staff', department:'', departments:[], stateCode, active:true, canCreatePlan:false, canManageSchools:false, isBeapChair:false });
+const blank = (stateCode:string):Form => ({ name:'', email:'', role:stateCode === 'UBEC' ? ubecRoles.officer : 'Data Entry Staff', department:'', departments:[], stateCode, active:true, canCreatePlan:false, canManageSchools:false, isBeapChair:false });
 
 const workspaceName = (stateCode:string) => stateCode === 'UBEC' ? 'UBEC' : subebDisplayName(stateCode);
-const roleNeedsDepartment = (role:string) => ['Data Entry Staff','Director','UBEC Department Reviewer'].includes(role);
+const roleNeedsDepartment = (role:string) => ['Data Entry Staff','Director'].includes(role) || ubecRoleDepartments(role).length > 0;
 const departmentNames = (user:AdminManagedUser) => (user.departments ?? []).map(value => user.stateCode === 'UBEC' ? departmentName(value) : subebDepartmentName(value));
 const NO_DEPARTMENT = 'No department', CHAIR = 'BEAP Chair';
 // Facet filters receive the selected values; a row matches when it has any of them.
@@ -94,7 +94,7 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
   ]),[busy,onSwitch,open]);
 
   const isUbec = form.stateCode === 'UBEC';
-  const departments = isUbec ? ubecDepartments : subebDepartments;
+  const departments = isUbec ? ubecRoleDepartments(form.role) : subebDepartments;
   return <div className="flex flex-col gap-4">
     <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-lg font-semibold">Manage users</h2></div><Button onClick={()=>open('new')} disabled={!workspaces.length}><PlusIcon data-icon="inline-start"/>Add user</Button></div>
     <DataTable data={users} columns={columns} searchPlaceholder="Search users…" itemLabel="users" columnLabels={{role:'Role',stateCode:'Workspace',department:'Department',active:'Status'}} facets={facets} persistKey="admin-users" />
@@ -102,8 +102,8 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
       <Field><FieldLabel htmlFor="admin-user-workspace">Workspace</FieldLabel><NativeSelect id="admin-user-workspace" required disabled={saving||editing!=='new'} value={form.stateCode} onChange={event=>changeWorkspace(event.target.value)}>{workspaces.map(code=><NativeSelectOption key={code} value={code}>{workspaceName(code)}</NativeSelectOption>)}</NativeSelect></Field>
       <Field><FieldLabel htmlFor="admin-user-name">Full name</FieldLabel><Input id="admin-user-name" required minLength={2} maxLength={120} disabled={saving} value={form.name} onChange={event=>setForm({...form,name:event.target.value})}/></Field>
       <Field><FieldLabel htmlFor="admin-user-email">Email address</FieldLabel><Input id="admin-user-email" type="email" required disabled={saving||editing!=='new'} value={form.email} onChange={event=>setForm({...form,email:event.target.value})}/></Field>
-      <Field><FieldLabel htmlFor="admin-user-role">Role</FieldLabel><NativeSelect id="admin-user-role" disabled={saving} value={form.role} onChange={event=>changeRole(event.target.value)}>{isUbec?<><NativeSelectOption value="UBEC Department Reviewer">UBEC Department Reviewer</NativeSelectOption><NativeSelectOption value="UBEC Executive Secretary">UBEC Executive Secretary</NativeSelectOption></>:<><NativeSelectOption value="Data Entry Staff">Data Entry Staff</NativeSelectOption><NativeSelectOption value="Director">Director</NativeSelectOption><NativeSelectOption value="Executive Chairman">Executive Chairman</NativeSelectOption></>}</NativeSelect></Field>
-      {roleNeedsDepartment(form.role) && (isUbec ? <Field><FieldLabel htmlFor="admin-user-department">Department</FieldLabel><NativeSelect id="admin-user-department" required disabled={saving} value={form.departments[0]??''} onChange={event=>setForm({...form,department:event.target.value,departments:[event.target.value]})}><NativeSelectOption value="" disabled>Select department</NativeSelectOption>{departments.map(item=><NativeSelectOption key={item.id} value={item.id}>{item.name}</NativeSelectOption>)}</NativeSelect></Field> : <DepartmentCheckboxes departments={departments} selected={form.departments} disabled={saving} onChange={values=>setForm({...form,departments:values,department:values[0]??''})}/>)}
+      <Field><FieldLabel htmlFor="admin-user-role">Role</FieldLabel><NativeSelect id="admin-user-role" disabled={saving} value={form.role} onChange={event=>changeRole(event.target.value)}>{isUbec?ubecRoleList.map(role=><NativeSelectOption key={role} value={role}>{role}</NativeSelectOption>):<><NativeSelectOption value="Data Entry Staff">Data Entry Staff</NativeSelectOption><NativeSelectOption value="Director">Director</NativeSelectOption><NativeSelectOption value="Executive Chairman">Executive Chairman</NativeSelectOption></>}</NativeSelect></Field>
+      {roleNeedsDepartment(form.role) && (isUbec ? <Field><FieldLabel htmlFor="admin-user-department">Department</FieldLabel><NativeSelect id="admin-user-department" required disabled={saving} value={form.departments[0]??''} onChange={event=>setForm({...form,department:event.target.value,departments:[event.target.value]})}><NativeSelectOption value="" disabled>Select department</NativeSelectOption>{departments.map(item=><NativeSelectOption key={item.id} value={item.id}>{departmentName(item.id)}</NativeSelectOption>)}</NativeSelect></Field> : <DepartmentCheckboxes departments={departments} selected={form.departments} disabled={saving} onChange={values=>setForm({...form,departments:values,department:values[0]??''})}/>)}
       <Field><FieldLabel htmlFor="admin-user-active">Account access</FieldLabel><NativeSelect id="admin-user-active" disabled={saving} value={String(form.active)} onChange={event=>setForm({...form,active:event.target.value==='true'})}><NativeSelectOption value="true">Active</NativeSelectOption><NativeSelectOption value="false">Inactive</NativeSelectOption></NativeSelect></Field>
       {!isUbec&&<Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="admin-user-create-plan">Allow creating action plans</FieldLabel><Switch id="admin-user-create-plan" disabled={saving||form.isBeapChair} checked={form.isBeapChair||form.canCreatePlan} onCheckedChange={canCreatePlan=>setForm({...form,canCreatePlan})}/></Field>}
       {!isUbec&&<Field orientation="horizontal" data-disabled={saving}><FieldContent><FieldLabel htmlFor="admin-user-manage-schools">Allow managing the School register</FieldLabel><FieldDescription>Opens the School register. Adding or changing schools also needs the administrator to allow manual changes; otherwise schools come from DNEMIS only.</FieldDescription></FieldContent><Switch id="admin-user-manage-schools" disabled={saving||form.isBeapChair||form.role==='Executive Chairman'} checked={form.isBeapChair||form.role==='Executive Chairman'||form.canManageSchools} onCheckedChange={canManageSchools=>setForm({...form,canManageSchools})}/></Field>}
