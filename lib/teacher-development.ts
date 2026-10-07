@@ -2,6 +2,11 @@
 // Teacher Development and ICT component. Pure constants, shared by the line schema, the editor, the readiness
 // rules and the workbook. Kept free of imports so the node rule tests can load it directly.
 
+/** The last activity of every activity-line component: the line names its own activity (migration 047). */
+export const othersActivityName = 'Others (specify)';
+/** Longest activity name an Others line may give (activity_plan_lines.custom_activity). */
+export const maxActivityNameLength = 160;
+
 /** Activities from UBEC's Teacher Professional Development form, stored by index (0-18). */
 export const teacherActivityNames = [
   'Literacy Training',
@@ -22,7 +27,7 @@ export const teacherActivityNames = [
   'Teaching at the Right Level (TaRL) Training',
   'Teachers training in school sport activities',
   'Teachers training on Agriculture/Greening schools',
-  'Others (specify)',
+  othersActivityName,
 ] as const;
 /** "Others (specify)": the line names its own training. */
 export const teacherOtherActivity = 18;

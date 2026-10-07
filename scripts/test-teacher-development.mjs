@@ -98,7 +98,7 @@ try {
   fails(await api('tpd', url('teachers'), training(0, 100, { trainingDays: null })), 400, /number of training days/);
   fails(await api('tpd', url('teachers'), training(0, 100, { venueType: 'Stadium' })), 400, /venue type/);
   fails(await api('tpd', url('teachers'), training(0, 100, { strategy: 'NCB' })), 400, /do not apply to Teacher Development/);
-  fails(await api('tpd', url('teachers'), training(18, 100)), 400, /Enter the allowable activity/);
+  fails(await api('tpd', url('teachers'), training(18, 100)), 400, /Enter the activity name/);
   fails(await api('ict', url('ict'), ictLine(1, 100, { trainingProvider: 'International Development Partners' })), 400, /only apply to Teacher Development/);
   const literacy = ok(await api('tpd', url('teachers'), training(0, 100000, { trainingDays: 3, description: 'Early grade reading' })));
   const others = ok(await api('tpd', url('teachers'), training(18, 200000, { customActivity: 'Peer coaching circles', schoolLevels: ['ECCDE'], venueType: 'Classroom', targetParticipants: 'Headteachers/Principals' })));

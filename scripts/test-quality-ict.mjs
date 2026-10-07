@@ -70,7 +70,7 @@ try {
   // Quality Assurance: M&E department only, eleven activities, equipment type on activity 0, ₦40M ceiling.
   fails(await api('academic', url('quality')), 403);
   fails(await api('ict', url('quality'), line('quality', 1, 100)), 403);
-  fails(await api('qa', url('quality'), line('quality', 11, 100)), 400, /valid allowable activity/);
+  fails(await api('qa', url('quality'), line('quality', 12, 100)), 400, /valid allowable activity/);
   fails(await api('qa', url('quality'), line('quality', 0, 100)), 400, /equipment type/);
   fails(await api('qa', url('quality'), line('quality', 0, 100, { equipmentType: 'Bicycles' })), 400, /equipment type/);
   fails(await api('qa', url('quality'), line('quality', 1, 100, { equipmentType: 'Vehicles' })), 400, /only applies/);

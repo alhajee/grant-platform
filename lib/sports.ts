@@ -28,6 +28,8 @@ export const sportsSubActivities: Record<"competitions" | "publicity", readonly 
   competitions: [{ name: "Inter School Competition", share: 5 }, { name: "Inter Local Government Competition", share: 10 }, { name: "State Finals Competition", share: 40 }, { name: "Geo-Political (Zonal) Finals", share: 25 }, { name: "National Finals", share: 10 }, { name: "Other Competitions", share: 10 }],
   publicity: [{ name: "Sensitization of Key Stakeholders" }, { name: "Electronic Media" }, { name: "Print Media" }, { name: "Social Media" }, { name: "Others" }],
 };
+/** The "Other Competitions" and "Others" sub-activities: the description names the activity. */
+export const isOtherSubActivity = (name: string) => /^others?\b/i.test(name.trim());
 /** Supervision has no sub-activity list; its lines carry the section name as their activity type. */
 export const supervisionActivity = "Supervision, Assessment and Verification";
 

@@ -72,7 +72,9 @@ function activityExtraValues(key: ActivitySheetKey, line: NonNullable<Snapshot['
   if (key === 'sbmc') return { rationale: line.rationale || '', approach: line.implementation_approach || '' };
   if (key === 'quality') return { equipment: line.equipment_type || '' };
   if (key === 'ict') return { details: line.subscription_types?.length ? line.subscription_types.join(', ') : line.website_type || '', schools: line.schools?.length || '', documents: line.documents?.length || '' };
-  return key === 'curriculum' ? { share: `${(curriculumActivityShares[line.activity] ?? 0) / 100}%` } : {};
+  // Others (specify) has no share of its own; it only counts toward the Curriculum allocation.
+  const share = (curriculumActivityShares as readonly number[])[line.activity];
+  return key === 'curriculum' ? { share: share === undefined ? '' : `${share / 100}%` } : {};
 }
 function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc']>, editHref?: string): WorkbookSheet {
   // Quality Assurance and ICT rows expand to their extra details, chosen schools and documents.
