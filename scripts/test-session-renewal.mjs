@@ -6,7 +6,7 @@ import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import { tsImport } from 'tsx/esm/api';
 
-const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? 'http://localhost:5173';
+const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname));
 const session = await tsImport('../lib/local-session.ts', import.meta.url);
 const db = new Client({ connectionString: process.env.DATABASE_URL });

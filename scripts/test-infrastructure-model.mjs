@@ -11,7 +11,7 @@ assert.equal(r.otherSubtotal,525);assert.equal(r.vat,61.88);assert.equal(r.total
 hope.classroomStrategy='Request for quotation';r=calculateInfrastructure(hope,300);assert.equal(r.vat,39.38);assert.equal(r.total,864.38);
 hope.grouping='storey';r=calculateInfrastructure(hope,321);assert.equal(r.items.find(i=>i.key==='block6os').quantity,1);assert.equal(r.items.find(i=>i.key==='block3').quantity,2);
 hope.targeting='nonhope';hope.lumpSum=450;hope.duration='6 months';r=calculateInfrastructure(hope,321);assert.equal(r.total,450);assert.equal(r.vat,0);assert.equal(r.items.find(i=>i.key==='dualDesk').cost,0);
-const whole=make('whole');whole.audit={classroomPri:{existing:4,functional:2,extra:0},dualDesk:{existing:100,functional:80,extra:3},fence:{existing:20,functional:10,extra:5}};whole.fenceRequired=50;
+const whole=make('whole');whole.audit={classroomPri:{existing:4,functional:2,extra:0},dualDesk:{existing:100,functional:80,extra:3},fence:{existing:20,functional:10,extra:5}};whole.fenceRequired=50;whole.observations='QA site visit notes';whole.conditionNotes='Two classrooms have cracked walls';
 let gaps=auditGaps(whole,200);assert.equal(gaps[0].additional,3);assert.equal(gaps[0].nonFunctional,2);assert.equal(gaps.find(g=>g.key==='dualDesk').toBuild,43);assert.equal(gaps.find(g=>g.key==='fence').toBuild,35);
 for(const item of calculateInfrastructure(whole,200).items)whole.packageCosts[item.key]={cost:10,strategy:'NCB',duration:'4 weeks'};
 r=calculateInfrastructure(whole,200);assert.equal(r.items.find(i=>i.key==='classroomPri-renovate').total,10);assert.equal(r.items.find(i=>i.key==='classroomPri-construct').total,10);assert.equal(r.items.find(i=>i.key==='dualDesk').total,430);assert.equal(packageProblem(whole,200),null);

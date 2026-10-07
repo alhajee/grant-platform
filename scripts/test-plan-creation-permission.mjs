@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
+import ExcelJS from 'exceljs';
 
-const base = process.env.TEST_BASE_URL || 'http://localhost:5174';
+const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost','127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
 const db = new Client({connectionString:process.env.DATABASE_URL});
@@ -15,10 +16,13 @@ async function api(who,path,body,method=body?'POST':'GET') {
 function ok(result,status=200) {assert.equal(result.status,status,JSON.stringify(result.data));return result.data;}
 async function login(who) {const r=await api(who,'/api/auth/login',{email:accounts[who].email,password});ok(r);accounts[who].cookie=r.cookie;}
 const profile=who=>({id:accounts[who].id,name:`QA ${who}`,role:accounts[who].role,department:'physical',active:true});
+// Plan creation requires the RAT as a real .xlsx workbook.
+const ratWorkbook=new ExcelJS.Workbook();ratWorkbook.addWorksheet('RAT').addRow(['Permission QA']);
+const rat=Buffer.from(await ratWorkbook.xlsx.writeBuffer());
 const createPlan=async (who,year=2026)=>{
   const body=new FormData();
   body.set('setup',JSON.stringify({planningYear:year,implementationYear:year,quarters:[1],stateLodgment:'100.25',otherFunding:'0'}));
-  body.append('rat',new Blob(['%PDF-1.4\n%%EOF']), 'assessment.pdf');
+  body.append('rat',new Blob([rat]),'assessment.xlsx');
   const response=await fetch(base+'/api/plans',{method:'POST',headers:accounts[who]?.cookie?{Cookie:accounts[who].cookie}:{},body});
   return {status:response.status,data:await response.json()};
 };
@@ -32,9 +36,9 @@ try {
   ok(await createPlan('anonymous'),401);
   for(const who of ['director','officer','ubec']) {ok(await createPlan(who),403);assert.equal(ok(await api(who,'/api/plans')).canCreatePlan,false);}
   assert.equal(ok(await api('chair','/api/plans')).canCreatePlan,true);
-  ok(await api('officer','/api/infrastructure?plan=2147483647'),404);
+  ok(await api('officer','/api/infrastructure/packages?plan=2147483647'),404);
   const plan=ok(await createPlan('chair'),201).plan;
-  assert.equal(ok(await api('officer',`/api/infrastructure?plan=${plan.id}`)).canEdit,true);
+  assert.equal(ok(await api('officer',`/api/infrastructure/packages?plan=${plan.id}`)).canEdit,true);
   ok(await createPlan('chair'),409);
   ok(await api('director','/api/users',{...profile('officer'),isBeapChair:true},'PATCH'),403);
   ok(await api('foreign','/api/users',{...profile('director'),isBeapChair:true},'PATCH'),404);
@@ -56,7 +60,7 @@ try {
   await login('director');
   assert.equal(ok(await api('director','/api/plans')).canCreatePlan,true);
   const delegated=ok(await createPlan('director',2027),201).plan;
-  ok(await api('foreign',`/api/infrastructure?plan=${delegated.id}`),404);
+  ok(await api('foreign',`/api/infrastructure/packages?plan=${delegated.id}`),404);
   ok(await api('director','/api/users',{...profile('officer'),canCreatePlan:true},'PATCH'),403);
   ok(await api('chair','/api/users',{...profile('officer'),canCreatePlan:true},'PATCH'));
   await login('officer');

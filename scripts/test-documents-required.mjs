@@ -21,7 +21,7 @@ function load(path) {
   return loaded.exports;
 }
 
-const base = process.argv[2] ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
+const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname), 'Run this test against a local server only.');
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname), 'Use a local database only.');
 const tag = randomUUID().slice(0, 8).toUpperCase(), state = `DR${tag}`, password = randomUUID();

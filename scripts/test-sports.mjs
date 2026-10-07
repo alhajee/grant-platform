@@ -4,7 +4,7 @@ import { Client } from "pg";
 import { hashSync } from "bcryptjs";
 import { sportsAllocationSchema, sportsLineSchema, sportsLineTotal, sportsBudget, sportsSections } from "../lib/sports.ts";
 
-const baseUrl = process.env.UBEC_TEST_URL ?? "http://localhost:5174";
+const baseUrl = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? "http://localhost:5173";
 assert.ok(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(baseUrl), "Tests must target the local app.");
 const marker = `SPORTS-QA-${randomUUID()}`;
 const foreignMarker = `${marker}-OTHER`;

@@ -57,7 +57,7 @@ The assignment catalogue contains the ten UBEC departments plus Zonal and State 
 
 For local testing only, `DATABASE_URL=<local connection> node scripts/create-ubec-demo-users.mjs` creates `ubec.es@demo.local` and `ubec.<department-id>@demo.local` for the 11 assignment destinations. It prints a randomly generated password once, refuses remote databases and never changes existing accounts. Obtain approval before provisioning privileged accounts; do not use demo identities in production. Real deployments require provisioned staff identities and a private `AUTH_SECRET`.
 
-Run `DATABASE_URL=<local connection> node scripts/test-ubec-review.mjs` with the app on port 5174. It covers routing, role/state/department isolation, frozen submissions, feedback, return/resubmission, final approval, concurrent decisions and real analytics, then removes its own test records. These account-based suites target the older whole-state workflow. Run `node scripts/test-department-review-rules.mjs` for the new pure department and readiness rules.
+Run `node --env-file=.env scripts/test-ubec-review.mjs [baseUrl]` against a local server (default `http://localhost:5173`). It covers routing, role/state/department isolation, frozen rounds, feedback, return/resubmission, final approval, concurrent decisions and dashboard figures, then removes its own test records. `node scripts/run-tests.mjs [baseUrl]` runs every test script in turn.
 
 ## Local UBEC PostgreSQL data
 

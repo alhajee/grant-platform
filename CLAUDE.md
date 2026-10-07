@@ -21,6 +21,7 @@ This file is the working context for any agent continuing this project. Read it 
 
 - Validate changes with `npm run lint` and `npm run build`.
 - The lint run currently has four pre-existing warnings; do not claim zero warnings unless they are actually removed.
+- API/unit tests: `node scripts/run-tests.mjs [baseUrl]` runs every `scripts/test-*.mjs` one after another against a running local server (they share the local database, so never run them in parallel), loading the repository `.env` (`--env-file=path` or `TEST_ENV_FILE` to override; `--only=sports,plan-setup` for a subset). It prints PASS/FAIL per script plus a summary and exits non-zero on any failure. Every test script takes `[baseUrl]` as its first argument, else `TEST_BASE_URL` / `UBEC_TEST_URL`, else `http://localhost:5173`; tests that change GLOBAL workflow settings restore them in `finally`.
 - Use `apply_patch` for source edits.
 - Preserve unrelated user changes in a dirty worktree.
 - The host Git binary may fail while creating an Xcode cache file. The known working fallback is:
@@ -187,7 +188,7 @@ Google-Sheets-style review comments on cells and whole rows of the review-page p
 - `request_changes` (`app/api/plans/review/route.ts`): the note is optional when the component has open state root comments (shared UBEC threads do not count); the event comment then reads "N comments on specific cells". Without open comments the note stays required.
 - UI: `components/plan-workbook/comments-context.tsx` (loading and actions), `comment-layer.tsx` (popover and hover preview), `comment-thread.tsx`, `comments-panel.tsx`; markers in `sheet-grid.tsx`, menu items in `cell-menu.tsx` (Ctrl/Cmd+Alt+M). The review page passes `comments` to `PlanReviewContent` only for the current working plan; the UBEC page passes its own UBEC-scope controller (`usePlanComments(..., { scope: 'ubec', roundId })`). Column ids/headers in `lib/plan-comments.ts` mirror `sheets.tsx`; `scripts/test-plan-comments.mjs` checks they stay in sync.
 - The workbook also has a full-screen mode (`use-expanded.ts`, Expand button or `F`, Esc exits): the same element becomes a fixed overlay (z-index 45, below the z-50 Radix portals).
-- Test: `node scripts/test-plan-comments.mjs [baseUrl]` (default `http://127.0.0.1:5174`) creates throwaway states, users and a plan, then removes them.
+- Test: `node scripts/test-plan-comments.mjs [baseUrl]` (default `http://localhost:5173`) creates throwaway states, users and a plan, then removes them.
 
 ## UBEC comments (migration 029)
 

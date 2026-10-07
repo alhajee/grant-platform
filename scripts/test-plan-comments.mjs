@@ -8,7 +8,7 @@ import ExcelJS from 'exceljs';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 
-const base = process.argv[2] ?? process.env.UBEC_TEST_URL ?? 'http://127.0.0.1:5174';
+const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
 const tag = randomUUID().slice(0, 8).toUpperCase();
 const state = `CQ${tag}`, foreign = `CF${tag}`, password = randomUUID();

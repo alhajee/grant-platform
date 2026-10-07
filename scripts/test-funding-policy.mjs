@@ -4,7 +4,7 @@ import {hashSync} from 'bcryptjs';
 import ExcelJS from 'exceljs';
 const ratWorkbook=new ExcelJS.Workbook();ratWorkbook.addWorksheet('RAT').addRow(['Funding policy QA']);
 const ratFile=new Blob([await ratWorkbook.xlsx.writeBuffer()]);
-const base=process.argv[2]||process.env.TEST_BASE_URL||'http://localhost:5174';
+const base=process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost','127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
 const db=new Client({connectionString:process.env.DATABASE_URL});await db.connect();
