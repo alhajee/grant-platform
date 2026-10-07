@@ -38,7 +38,8 @@ export const teacherActivityInfo: Record<number, string> = {
 
 export const trainingProviders = ['Government-accredited Teacher Training Institutions', 'Special training provider approved by UBEC', 'International Development Partners'] as const;
 export const targetParticipants = ['Headteachers/Principals', 'Teachers', 'Education managers'] as const;
-export const trainingSchoolLevels = ['ECCDE', 'Primary', 'JSS'] as const;
+/** School levels a training covers; SUBEB is for training SUBEB staff rather than school staff (migration 054). */
+export const trainingSchoolLevels = ['ECCDE', 'Primary', 'JSS', 'SUBEB'] as const;
 export const venueTypes = ['Hall', 'Classroom'] as const;
 export const minTrainingDays = 3;
 export const maxTrainingDays = 365;

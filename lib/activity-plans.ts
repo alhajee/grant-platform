@@ -100,7 +100,7 @@ export const activityLineSchema = z.object({
   quarters: lineQuartersSchema.optional(),
 }).superRefine((v,ctx)=>{
   const training=v.workstream==='teachers';
-  if(!training&&!v.description)ctx.addIssue({code:'custom',path:['description'],message:'Enter a description.'});
+  if(!v.description)ctx.addIssue({code:'custom',path:['description'],message:'Enter a description.'});
   if(!training&&!v.strategy)ctx.addIssue({code:'custom',path:['strategy'],message:'Choose the implementation strategy.'});
   if(!training&&!v.targetGroup)ctx.addIssue({code:'custom',path:['targetGroup'],message:'Choose the target group.'});
   if(training&&(v.strategy||v.targetGroup))ctx.addIssue({code:'custom',path:['strategy'],message:'Implementation strategy and target group do not apply to Teacher Development.'});

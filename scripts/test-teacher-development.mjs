@@ -34,7 +34,7 @@ async function user(key, role, departments, chair = false, stateCode = state) {
   ok(await api(key, '/api/auth/login', { email, password }));
 }
 const url = workstream => `/api/activities?plan=${planId}&workstream=${workstream}`;
-const training = (activity, unitCost, extra = {}) => ({ workstream: 'teachers', entity: 'line', action: 'create', activity, description: '', quantity: 50, unitCost, trainingProvider: 'Special training provider approved by UBEC', targetParticipants: 'Teachers', schoolLevels: ['Primary', 'JSS'], trainingDays: 5, venueType: 'Hall', schoolIds: [], ...extra });
+const training = (activity, unitCost, extra = {}) => ({ workstream: 'teachers', entity: 'line', action: 'create', activity, description: 'TD training', quantity: 50, unitCost, trainingProvider: 'Special training provider approved by UBEC', targetParticipants: 'Teachers', schoolLevels: ['Primary', 'JSS'], trainingDays: 5, venueType: 'Hall', schoolIds: [], ...extra });
 const ictLine = (activity, unitCost, extra = {}) => ({ workstream: 'ict', entity: 'line', action: 'create', activity, description: `TD ict ${activity}`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...extra });
 const split = (who, side, amount) => api(who, `/api/activities/ict-allocation?plan=${planId}`, { amount, side }, { method: 'PATCH' });
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
@@ -94,21 +94,24 @@ try {
   fails(await api('tpd', url('teachers'), training(0, 100, { targetParticipants: 'Pupils' })), 400, /target participants/);
   fails(await api('tpd', url('teachers'), training(0, 100, { schoolLevels: [] })), 400, /at least one school level/);
   fails(await api('tpd', url('teachers'), training(0, 100, { schoolLevels: ['SSS'] })), 400);
+  const subeb = ok(await api('tpd', url('teachers'), training(1, 100, { schoolLevels: ['SUBEB'] })));
+  ok(await api('tpd', url('teachers'), { workstream: 'teachers', entity: 'line', action: 'delete', id: subeb.id }));
   fails(await api('tpd', url('teachers'), training(0, 100, { schoolLevels: ['JSS', 'JSS'] })), 400, /each school level once/);
   fails(await api('tpd', url('teachers'), training(0, 100, { trainingDays: 2 })), 400, /at least 3 days/);
   fails(await api('tpd', url('teachers'), training(0, 100, { trainingDays: 3.5 })), 400);
   fails(await api('tpd', url('teachers'), training(0, 100, { trainingDays: null })), 400, /number of training days/);
   fails(await api('tpd', url('teachers'), training(0, 100, { venueType: 'Stadium' })), 400, /venue type/);
   fails(await api('tpd', url('teachers'), training(0, 100, { strategy: 'NCB' })), 400, /do not apply to Teacher Development/);
+  fails(await api('tpd', url('teachers'), training(0, 100, { description: '   ' })), 400, /Enter a description/);
   fails(await api('tpd', url('teachers'), training(18, 100)), 400, /Enter the activity name/);
   fails(await api('ict', url('ict'), ictLine(1, 100, { trainingProvider: 'International Development Partners' })), 400, /only apply to Teacher Development/);
   const literacy = ok(await api('tpd', url('teachers'), training(0, 100000, { trainingDays: 3, description: 'Early grade reading' })));
-  const others = ok(await api('tpd', url('teachers'), training(18, 200000, { customActivity: 'Peer coaching circles', schoolLevels: ['ECCDE'], venueType: 'Classroom', targetParticipants: 'Headteachers/Principals' })));
+  const others = ok(await api('tpd', url('teachers'), training(18, 200000, { customActivity: 'Peer coaching circles', description: 'Peer coaching circles', schoolLevels: ['ECCDE'], venueType: 'Classroom', targetParticipants: 'Headteachers/Principals' })));
   ok(await api('tpd', url('teachers'), { ...training(10, 100000, { trainingProvider: 'International Development Partners' }), action: 'update', id: literacy.id, activity: 10, trainingDays: 4 }));
   let tpd = ok(await api('tpd', url('teachers')));
   const saved = tpd.lines.find(l => l.id === literacy.id);
   assert.deepEqual([saved.activity, saved.trainingProvider, saved.targetParticipants, saved.schoolLevels, saved.trainingDays, saved.venueType, saved.description, saved.strategy, saved.targetGroup],
-    [10, 'International Development Partners', 'Teachers', ['Primary', 'JSS'], 4, 'Hall', '', '', '']);
+    [10, 'International Development Partners', 'Teachers', ['Primary', 'JSS'], 4, 'Hall', 'TD training', '', '']);
   assert.equal(tpd.lines.find(l => l.id === others.id).customActivity, 'Peer coaching circles');
   // Teacher Development keeps ₦30,000,000 (₦40M shared − ₦10M ICT); 50 × ₦100,000 + 50 × ₦200,000 = ₦15M is used.
   fails(await api('tpd', url('teachers'), training(3, 300000.01)), 400, /exceeded the Teacher Development allocation \(₦30,000,000\.00\) by ₦0\.50/);
