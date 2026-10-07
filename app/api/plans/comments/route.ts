@@ -7,7 +7,7 @@ import { resolveActionPlan, planFields } from '@/lib/plan-workspace';
 import type { ActionPlan } from '@/lib/action-plans';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { readPillarReviews, statePlanOpen } from '@/lib/pillar-review';
-import { visibleComponents } from '@/lib/plan-visibility';
+import { readStageVisibility } from '@/lib/stage-visibility';
 import { subebRoles } from '@/lib/subeb-access';
 import { userDepartmentsSql } from '@/lib/user-departments';
 import { commentAbilities, commentColumns, createCommentSchema, displayRole, sharedUbecAbilities, sheetPillar, sheetRows, targetLabel, updateCommentSchema, type PlanCommentThread } from '@/lib/plan-comments';
@@ -38,12 +38,12 @@ export async function GET(request: NextRequest) {
     if (!(subebRoles as readonly string[]).includes(workspace.role)) return error(stateOnly, 403);
     const found = await resolveActionPlan(request, workspace.stateCode);
     if (!found) return error('Action plan not found.', 404);
-    const visible = visibleComponents(workspace);
     // Shared UBEC threads come along (never unshared ones); see lib/ubec-comments.ts for the visibility rules.
-    const { rows, snapshot, reviews } = await getPostgres().transaction(async db => ({
-      rows: await readStateVisibleRows(db, found.id, visible),
-      snapshot: await readPlanSnapshot(db, found.id), reviews: await readPillarReviews(db, found.id),
-    }));
+    // Threads on a component appear only once it has reached the viewer (lib/stage-visibility.ts).
+    const { rows, snapshot, reviews, visible } = await getPostgres().transaction(async db => {
+      const visible = await readStageVisibility(db, workspace, found.id);
+      return { visible, rows: await readStateVisibleRows(db, found.id, visible), snapshot: await readPlanSnapshot(db, found.id), reviews: await readPillarReviews(db, found.id) };
+    });
     const status = (pillar: PlanCommentThread['pillar']) => reviews.find(r => r.pillar === pillar)?.status ?? 'draft';
     const abilities = Object.fromEntries(visible.map(pillar => [pillar, commentAbilities(workspace, pillar, status(pillar))]));
     const otherAbilities = Object.fromEntries(visible.map(pillar => [pillar, sharedUbecAbilities(workspace, pillar, status(pillar))]));
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 }
 
 /** Shared guard for writes: signed-in state user, same origin, plan in this state and still open. */
-async function withOpenPlan(request: NextRequest, run: (db: Db, context: { plan: ActionPlan; actor: Actor; name: string; status: (pillar: PlanCommentThread['pillar']) => string }) => Promise<NextResponse>) {
+async function withOpenPlan(request: NextRequest, run: (db: Db, context: { plan: ActionPlan; actor: Actor; name: string; status: (pillar: PlanCommentThread['pillar']) => string; visible: readonly PlanCommentThread['pillar'][] }) => Promise<NextResponse>) {
   const workspace = await getWorkspaceState(request);
   if (!workspace) return error('Sign in to continue.', 401);
   if (!isSameRequestOrigin(request)) return error('This action must come from the portal.', 403);
@@ -67,7 +67,8 @@ async function withOpenPlan(request: NextRequest, run: (db: Db, context: { plan:
     if (!plan) return error('Action plan not found.', 404);
     if (!statePlanOpen(plan.status)) return error('The plan is locked during UBEC review, so comments are read-only.', 409);
     const reviews = await readPillarReviews(db, plan.id);
-    return run(db, { plan, actor, name: workspace.name, status: pillar => reviews.find(r => r.pillar === pillar)?.status ?? 'draft' });
+    const visible = await readStageVisibility(db, actor, plan.id);
+    return run(db, { plan, actor, name: workspace.name, status: pillar => reviews.find(r => r.pillar === pillar)?.status ?? 'draft', visible });
   });
 }
 
@@ -76,17 +77,18 @@ export async function POST(request: NextRequest) {
     const parsed = createCommentSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return error(parsed.error.issues.find(issue => issue.path[0] === 'body')?.message ?? 'Choose a cell or row and write a comment of up to 2,000 characters.');
     const input = parsed.data;
-    return await withOpenPlan(request, async (db, { plan, actor, name, status }) => {
+    return await withOpenPlan(request, async (db, { plan, actor, name, status, visible }) => {
       const role = displayRole(actor.role, actor.isBeapChair);
       if ('parentId' in input) {
         const parent = await readRoot(db, plan.id, input.parentId);
-        if (!parent || !threadAbilities(actor, parent, status(parent.pillar)).reply) return error('Comment not found.', 404);
+        if (!parent || !visible.includes(parent.pillar) || !threadAbilities(actor, parent, status(parent.pillar)).reply) return error('Comment not found.', 404);
         if (parent.resolved_at) return error(parent.scope === 'ubec' ? 'This UBEC comment is resolved. Only UBEC can reopen it.' : 'This comment is resolved. Reopen it before replying.', 409);
         const id = (await db.query('INSERT INTO plan_comments(plan_id,pillar,sheet,row_ref,column_id,parent_id,body,author_id,author_name,author_role,submission_number,target_label,scope,ubec_round_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id',
           [plan.id, parent.pillar, parent.sheet, parent.row_ref, parent.column_id, parent.id, input.body, actor.id, name, role, plan.submissionNumber, parent.target_label, parent.scope, parent.ubec_round_id])).rows[0].id;
         return NextResponse.json({ id: Number(id) }, { status: 201 });
       }
       const pillar = sheetPillar[input.sheet];
+      // Only the holder starts threads, and a component always reaches its holder first (lib/stage-visibility.ts).
       const can = commentAbilities(actor, pillar, status(pillar));
       if (!can.reply) return error('This component is not assigned to your departments.', 403);
       if (!can.start) return error('Only the reviewer currently holding this component can start a new comment. You can still reply to existing comments.', 403);
@@ -109,10 +111,10 @@ export async function PATCH(request: NextRequest) {
     const parsed = updateCommentSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return error('Choose a comment to resolve or reopen.');
     const input = parsed.data;
-    return await withOpenPlan(request, async (db, { plan, actor, name, status }) => {
+    return await withOpenPlan(request, async (db, { plan, actor, name, status, visible }) => {
       const root = await readRoot(db, plan.id, input.id);
       const can = root && threadAbilities(actor, root, status(root.pillar));
-      if (!root || !can?.reply) return error('Comment not found.', 404);
+      if (!root || !visible.includes(root.pillar) || !can?.reply) return error('Comment not found.', 404);
       if (input.action === 'resolve') {
         if (root.resolved_at) return error('This comment is already resolved.', 409);
         if (root.scope === 'ubec' && !can.resolveAny) return error('Only this department’s Data Entry Staff or the reviewer holding the component can resolve a UBEC comment.', 403);

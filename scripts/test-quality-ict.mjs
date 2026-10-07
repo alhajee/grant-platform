@@ -153,8 +153,9 @@ try {
   const download = await api('ict', `/api/activities/line-documents?id=${specDoc.id}`);
   assert.equal(download.status, 200); assert.equal(download.headers.get('content-type'), 'application/pdf'); assert.deepEqual(download.bytes, pdf);
   fails(await api('qa', `/api/activities/line-documents?id=${specDoc.id}`), 404);
-  ok(await api('ec', `/api/activities/line-documents?id=${specDoc.id}`));
-  step('ICT line documents: PDF/XLSX accepted; PNG, fake PDF, non-workbook XLSX and DOCX refused; access by component');
+  // Stage-gated visibility: the Executive Chairman downloads only once ICT has been sent to them (checked below).
+  fails(await api('ec', `/api/activities/line-documents?id=${specDoc.id}`), 404);
+  step('ICT line documents: PDF/XLSX accepted; PNG, fake PDF, non-workbook XLSX and DOCX refused; access by component and workflow stage');
 
   // Sending ICT: compulsory activities, then their documents, must be in place.
   fails(await review('ict', { action: 'submit', pillar: 'ict' }), 409, /supporting document for “QI ict 3”/);
@@ -172,19 +173,19 @@ try {
   step('Plan edits refused when the shared Teacher Development & ICT envelope would fall below the ICT allocation');
 
   // Snapshots, visibility and overview.
-  const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
-  assert.ok(['quality', 'ict'].every(p => chairView.visiblePillars.includes(p)));
-  assert.equal(chairView.snapshot.ict.find(l => l.id === dlc.id).documents[0].id, boq.id);
-  assert.equal(chairView.snapshot.ict.find(l => l.id === smart.id).schools[0].name, 'QI Smart School A');
-  assert.equal(chairView.snapshot.quality.find(l => l.id === equipment.id).equipment_type, 'Vehicles');
-  assert.equal(chairView.plan.ictAllocation, '35000000.00');
+  // Stage-gated visibility: neither component has been sent to the BEAP Chair or Executive Chairman yet.
+  const draftChairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
+  assert.ok(['quality', 'ict'].every(p => !draftChairView.visiblePillars.includes(p) && draftChairView.pillarReviews.some(r => r.pillar === p)));
+  assert.equal(draftChairView.snapshot.ict, undefined); assert.equal(draftChairView.plan.ictAllocation, '35000000.00');
   const qaView = ok(await api('qa', `/api/plans/review?plan=${planId}`));
   assert.deepEqual(qaView.visiblePillars, ['quality']); assert.equal(qaView.snapshot.ict, undefined);
   const overview = ok(await api('ict', `/api/beap?plan=${planId}`));
   assert.equal(overview.ict.schoolCount, 2); assert.ok(overview.editablePillars.includes('ict'));
-  const plans = ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId);
-  assert.equal(plans.qualityBudget, 10000000 + 1000000 + 6 * 100000); assert.ok(plans.ictBudget > 0);
-  step('Snapshots carry line schools, documents and extras; department visibility; overview and dashboard totals');
+  const draftPlans = ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId);
+  assert.equal(draftPlans.qualityBudget, 0); assert.equal(draftPlans.ictBudget, 0);
+  const qaPlans = ok(await api('qa', '/api/plans')).plans.find(p => p.id === planId);
+  assert.equal(qaPlans.qualityBudget, 10000000 + 1000000 + 6 * 100000); assert.equal(qaPlans.ictBudget, 0);
+  step('Department visibility before sending: Data Entry sees its own component; the BEAP Chair and Executive Chairman see statuses only; overview and dashboard totals');
 
   // Review chain: Data Entry → department Director → BEAP Chair → Executive Chairman → UBEC.
   await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode='individual_components', ubec_submission_mode='reviewed_components' WHERE state_code='GLOBAL'");
@@ -201,7 +202,16 @@ try {
   ok(await api('meDirector', url('quality'), line('quality', 9, 100000)));
   ok(await review('meDirector', { action: 'endorse', pillar: 'quality' }));
   ok(await review('ictDirector', { action: 'endorse', pillar: 'ict' }));
+  const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
+  assert.ok(['quality', 'ict'].every(p => chairView.visiblePillars.includes(p)));
+  assert.equal(chairView.snapshot.ict.find(l => l.id === dlc.id).documents[0].id, boq.id);
+  assert.equal(chairView.snapshot.ict.find(l => l.id === smart.id).schools[0].name, 'QI Smart School A');
+  assert.equal(chairView.snapshot.quality.find(l => l.id === equipment.id).equipment_type, 'Vehicles');
+  fails(await api('ec', `/api/activities/line-documents?id=${specDoc.id}`), 404);
   for (const pillar of ['quality', 'ict']) ok(await review('chair', { action: 'forward', pillar }));
+  ok(await api('ec', `/api/activities/line-documents?id=${specDoc.id}`));
+  const plans = ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId);
+  assert.equal(plans.qualityBudget, 10000000 + 1000000 + 6 * 100000); assert.ok(plans.ictBudget > 0);
   const ecView = ok(await api('ec', `/api/plans/review?plan=${planId}`));
   assert.ok(['quality', 'ict'].every(p => ecView.pillarReviews.find(r => r.pillar === p).status === 'chairman_ready'));
   const ubecPath = `/api/ubec/review?plan=${planId}`;
@@ -216,7 +226,7 @@ try {
   fails(await api('revQuality', `/api/activities/line-documents?id=${boq.id}`), 404);
   assert.equal(ok(await api('revQuality', ubecPath)).round.snapshot.quality.length, 8);
   fails(await upload('ict', spec.id, 'late.pdf', pdf), 409);
-  step('Quality Assurance and ICT flow Director → BEAP Chair → Executive Chairman → UBEC with department assignment');
+  step('Quality Assurance and ICT flow Director → BEAP Chair → Executive Chairman → UBEC with department assignment; snapshots carry line schools, documents and extras once sent to the BEAP Chair; Executive Chairman documents and totals once sent to them');
   console.log(`PASS: ${passed} quality-ict checks.`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);

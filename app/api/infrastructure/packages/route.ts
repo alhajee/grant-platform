@@ -6,6 +6,7 @@ import { getPostgres } from '@/lib/postgres';
 import { cachedSchoolList } from '@/lib/school-cache';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { canManageSchoolRegister, canViewComponent } from '@/lib/subeb-access';
+import { notSentYetMessage, readStageVisibility } from '@/lib/stage-visibility';
 import { manualSchoolsAllowed } from '@/lib/school-register-source';
 import { mayEditPillar, readPillarReviews } from '@/lib/pillar-review';
 import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
@@ -20,6 +21,7 @@ export async function GET(req:NextRequest){
   if(!canViewComponent(user,'infrastructure'))return error('Infrastructure belongs to another department.',403);
   const plan=await resolveActionPlan(req,user.stateCode);if(!plan)return error('Plan not found.',404);
   const db=getPostgres();
+  if(!(await readStageVisibility(db,user,plan.id)).includes('infrastructure'))return error(notSentYetMessage,403);
   const [schools,packages,documents,reviews]=await Promise.all([
    cachedSchoolList(user.stateCode,'infrastructure',async()=>(await db.query(`SELECT ${schoolFields} FROM schools WHERE state_code=$1 ORDER BY name`,[user.stateCode])).rows),
    db.query(`SELECT p.*,p.result->'school' AS school FROM infrastructure_packages p WHERE p.plan_id=$1 ORDER BY p.id DESC`,[plan.id]),

@@ -51,7 +51,9 @@ try{
  review=ok(await api('officer',reviewPath));assert.equal(infrastructureDocumentProblem(review.snapshot),null);
  const furnitureRecord=ok(await api('officer',path)).packages.find(p=>p.school_id===secondSchool);
  ok(await api('officer',path,{action:'delete',id:furnitureRecord.id,version:furnitureRecord.version}));
- ok(await api('social','/api/infrastructure/documents?id='+docs[0]),404);ok(await api('chair','/api/infrastructure/documents?id='+docs[0]));
+ ok(await api('social','/api/infrastructure/documents?id='+docs[0]),404);ok(await api('officer','/api/infrastructure/documents?id='+docs[0]));
+ // Stage-gated visibility: the Director and Executive Chairman download only once Infrastructure has been sent to them.
+ ok(await api('director','/api/infrastructure/documents?id='+docs[0]),404);ok(await api('chair','/api/infrastructure/documents?id='+docs[0]),404);
  const whole=packageSchema.parse({kind:'whole',schoolId:school,components:['Primary'],observations:'QA site visit',conditionNotes:'QA condition',documentIds:[docs[1]]});
  for(const i of calculateInfrastructure(whole,400).items)whole.packageCosts[i.key]={cost:1,strategy:'NCB',duration:'8 weeks'};
  ok(await api('officer',path,{action:'save',input:whole}));current=ok(await api('officer',path));const assessment=current.packages.find(p=>p.kind==='whole');

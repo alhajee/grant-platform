@@ -80,22 +80,30 @@ try{
  assert.equal(scoped.events.length,0);
  assert.equal(scoped.submissions.length,0);
  const directorReview=ok(await api('director',`/api/plans/review?plan=${plan}`));
- assert.deepEqual(directorReview.visiblePillars,['sports','tlm','gscci','curriculum']);
+ // Stage-gated visibility: the Academic Director sees only TLM, the one Academic component sent to them; the rest show their status only.
+ assert.deepEqual(directorReview.visiblePillars,['tlm']);
+ assert.deepEqual(directorReview.pillarReviews.map(r=>r.pillar),['sports','tlm','gscci','curriculum']);
  const submission=directorReview.submissions[0].number;
  ok(await api('social',`/api/plans/review?plan=${plan}&submission=${submission}`),404);
  const historic=ok(await api('director',`/api/plans/review?plan=${plan}&submission=${submission}`));
  assert.equal(historic.snapshot.sbmc,undefined);
+ // Nothing has reached the Executive Chairman yet: every status, no details.
  const chairman=ok(await api('chair',`/api/plans/review?plan=${plan}`));
- assert.equal(chairman.visiblePillars.length,11);
- assert.equal(chairman.snapshot.sbmc.length,1);
- assert.equal(chairman.snapshot.tlm.length,2);
+ assert.equal(chairman.visiblePillars.length,0);
+ assert.equal(chairman.pillarReviews.length,11);
+ assert.equal(chairman.snapshot.sbmc,undefined);
+ assert.equal(chairman.snapshot.tlm,undefined);
+ // As BEAP Chair, the Academic Director still sees their own department's TLM (sent to its Director), not the SBMC draft.
  await db.query('UPDATE users SET is_beap_chair=true WHERE id=$1',[ids[3]]);
  const beapChair=ok(await api('director',`/api/plans/review?plan=${plan}`));
- assert.equal(beapChair.visiblePillars.length,11);
- assert.equal(beapChair.snapshot.sbmc.length,1);
- ok(await api('director',url));
+ assert.deepEqual(beapChair.visiblePillars,['tlm']);
+ assert.equal(beapChair.pillarReviews.length,11);
+ assert.equal(beapChair.snapshot.sbmc,undefined);
+ ok(await api('director',url),403);
  await db.query('UPDATE users SET is_beap_chair=false WHERE id=$1',[ids[3]]);
- const dashboard=ok(await api('social','/api/plans'));assert.equal(dashboard.plans[0].budget,876.75);assert.equal(dashboard.plans[0].schoolCount,1);
+ // The dashboard counts only components whose details reach the viewer: SBMC for its Data Entry Staff, TLM for its Director.
+ const dashboard=ok(await api('social','/api/plans'));assert.equal(dashboard.plans[0].budget,375.75);assert.equal(dashboard.plans[0].schoolCount,0);
+ const academicDashboard=ok(await api('director','/api/plans'));assert.equal(academicDashboard.plans[0].budget,501);assert.equal(academicDashboard.plans[0].schoolCount,1);
  const exactReview=ok(await api('social',`/api/plans/review?plan=${plan}`));
  ok(await api('social',`/api/plans/review?plan=${plan}`,{action:'submit',pillar:'sbmc',version:exactReview.plan.version}));
  ok(await api('social',url,{...line,action:'delete',id:saved.lines[0].id}),409);

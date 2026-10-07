@@ -4,7 +4,7 @@ import { getWorkspaceState } from '@/lib/workspace-state';
 import { resolveActionPlan } from '@/lib/plan-workspace';
 import { getPostgres } from '@/lib/postgres';
 import { mutatePlan } from '@/lib/plan-mutations';
-import { canViewComponent } from '@/lib/subeb-access';
+import { readStageVisibility } from '@/lib/stage-visibility';
 import { planFormData, PlanInputError } from '@/lib/plan-upload';
 import { lineDocumentLabel, lineDocumentWorkstreams, maxLineDocumentBytes, maxLineDocuments, type LineDocumentWorkstream } from '@/lib/activity-extras';
 import { lineDocumentTypeError, lineDocumentTypes, safeFileName, validLineDocument } from '@/lib/line-document-upload';
@@ -60,7 +60,8 @@ export async function GET(req: NextRequest) {
     const doc = (await db.query<{ name: string; media_type: string; content: Buffer; component: LineDocumentWorkstream; state_code: string; plan_id: number }>('SELECT d.name,d.media_type,d.content,d.component,p.state_code,p.id AS plan_id FROM activity_line_documents d JOIN action_plans p ON p.id=d.plan_id WHERE d.id=$1', [id.data])).rows[0];
     if (!doc) return error('Document not found.', 404);
     const inRound = `SELECT 1 FROM ubec_rounds r %JOIN% WHERE r.plan_id=$1 AND (r.snapshot->$2) @> jsonb_build_array(jsonb_build_object('documents', jsonb_build_array(jsonb_build_object('id', $3::text)))) %AND% LIMIT 1`;
-    const allowed = doc.state_code === user.stateCode ? canViewComponent(user, doc.component)
+    // State users: only once the component has reached them (lib/stage-visibility.ts).
+    const allowed = doc.state_code === user.stateCode ? (await readStageVisibility(db, user, doc.plan_id)).includes(doc.component)
       : user.role === 'UBEC Executive Secretary' ? Boolean((await db.query(inRound.replace('%JOIN%', '').replace('%AND%', ''), [doc.plan_id, doc.component, id.data])).rowCount)
       : user.role === 'UBEC Department Reviewer' ? Boolean((await db.query(inRound.replace('%JOIN%', 'JOIN ubec_assignments a ON a.round_id=r.id').replace('%AND%', 'AND a.department=$4 AND a.pillar=$2'), [doc.plan_id, doc.component, id.data, user.department])).rowCount)
       : false;

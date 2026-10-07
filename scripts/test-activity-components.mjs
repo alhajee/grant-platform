@@ -88,7 +88,9 @@ try {
   const download = await api('physical', `/api/activities/documents?id=${firstDoc.id}`);
   assert.equal(download.status, 200); assert.equal(download.headers.get('content-type'), 'application/pdf'); assert.deepEqual(download.bytes, pdf);
   fails(await api('academic', `/api/activities/documents?id=${firstDoc.id}`), 404);
-  ok(await api('ec', `/api/activities/documents?id=${firstDoc.id}`));
+  // Stage-gated visibility: a draft's documents stay with its Data Entry Staff (the Executive Chairman downloads after Monitoring reaches them, below).
+  fails(await api('ec', `/api/activities/documents?id=${firstDoc.id}`), 404);
+  fails(await api('physicalDirector', `/api/activities/documents?id=${firstDoc.id}`), 404);
   ok(await api('physical', `/api/activities/documents?plan=${planId}&workstream=monitoring&id=${firstDoc.id}`, undefined, { method: 'DELETE' }));
   fails(await api('physical', `/api/activities/documents?plan=${planId}&workstream=monitoring&id=${firstDoc.id}`, undefined, { method: 'DELETE' }), 404);
   monitoring = ok(await api('physical', url('monitoring')));
@@ -165,12 +167,15 @@ try {
   step('GSCCI distribution: add, duplicate refused, department access, kept apart from Curriculum');
 
   // Snapshot, visibility and overview totals.
+  // Stage-gated visibility: nothing has been sent yet, so the BEAP Chair sees statuses only; each Data Entry Staff sees their own drafts.
   const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
-  assert.ok(['monitoring', 'gscci', 'curriculum'].every(p => chairView.visiblePillars.includes(p)));
-  assert.equal(chairView.snapshot.curriculum.length, 4); assert.equal(chairView.snapshot.curriculumDistribution.length, 2);
-  assert.equal(chairView.snapshot.componentDocuments.length, 1); assert.equal(chairView.snapshot.tlmDistribution.length, 0);
-  assert.equal(chairView.snapshot.gscci.length, 8); assert.deepEqual(chairView.snapshot.gscciDistribution.map(s => s.id), [schoolIds[1]]);
+  assert.ok(['monitoring', 'gscci', 'curriculum'].every(p => !chairView.visiblePillars.includes(p) && chairView.pillarReviews.some(r => r.pillar === p)));
+  assert.equal(chairView.snapshot.curriculum, undefined); assert.deepEqual(chairView.snapshot.componentDocuments, []);
+  const physicalView = ok(await api('physical', `/api/plans/review?plan=${planId}`));
+  assert.equal(physicalView.snapshot.componentDocuments.length, 1); assert.equal(physicalView.snapshot.monitoring.length, 2);
   const academicView = ok(await api('academic', `/api/plans/review?plan=${planId}`));
+  assert.equal(academicView.snapshot.curriculum.length, 4); assert.equal(academicView.snapshot.curriculumDistribution.length, 2); assert.equal(academicView.snapshot.tlmDistribution.length, 0);
+  assert.equal(academicView.snapshot.gscci.length, 8); assert.deepEqual(academicView.snapshot.gscciDistribution.map(s => s.id), [schoolIds[1]]);
   assert.equal(academicView.snapshot.monitoring, undefined); assert.equal(academicView.snapshot.gscciDistribution.length, 1); assert.deepEqual(academicView.snapshot.componentDocuments, []);
   assert.deepEqual(academicView.visiblePillars, ['sports', 'tlm', 'gscci', 'curriculum']);
   const overview = ok(await api('physical', `/api/beap?plan=${planId}`));
@@ -214,6 +219,7 @@ try {
   const kept = ok(await upload('physicalDirector', 'invoice-3.pdf', pdf));
   ok(await review('physicalDirector', { action: 'endorse', pillar: 'monitoring' }));
   for (const pillar of ['monitoring', 'curriculum']) ok(await review('chair', { action: 'forward', pillar }));
+  ok(await api('ec', `/api/activities/documents?id=${kept.id}`));
   const ubecPath = `/api/ubec/review?plan=${planId}`;
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));
   const esView = ok(await api('es', ubecPath));

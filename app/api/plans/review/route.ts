@@ -1,6 +1,7 @@
 import { visibleComponents, visibleSnapshot } from '@/lib/plan-visibility';
 import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
 import { canViewWholeStatePlan } from '@/lib/subeb-access';
+import { readStageVisibility, readSubmissionVisibility } from '@/lib/stage-visibility';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getPostgres } from '@/lib/postgres';
@@ -39,11 +40,16 @@ export async function GET(request: NextRequest) {
       const events = (await db.query(`SELECT id, action, actor_name AS "actorName", actor_role AS "actorRole", comment, scope, submission_number AS "submissionNumber", created_at AS "createdAt" FROM plan_review_events WHERE plan_id = $1 ORDER BY id DESC`, [plan.id])).rows;
       const pillarReviews = await readPillarReviews(db, plan.id);
       const { mode: beapChairSubmissionMode, ubecMode: ubecSubmissionMode } = await readWorkflowSettings(db);
-      const visiblePillars = visibleComponents(workspace);
-      const visibleEvents = canViewWholeStatePlan(workspace) ? events : events.filter(event => visiblePillars.includes(event.scope));
-      const visibleSubmissions = canViewWholeStatePlan(workspace) ? submissions : submissions.filter(submission => visibleEvents.some(event => event.submissionNumber === submission.number));
+      // Cards and statuses follow the role/department ceiling; details follow the workflow stage (lib/stage-visibility.ts).
+      const ceiling = visibleComponents(workspace);
+      const current = await readStageVisibility(db, workspace, plan.id);
+      const visiblePillars = requested ? await readStageVisibility(db, workspace, plan.id, Number(requested)) : current;
+      // Review history: whole-plan entries (whole-state viewers), and component entries once that component has reached the viewer.
+      const visibleEvents = events.filter(event => event.scope === 'general' ? canViewWholeStatePlan(workspace) : (current as readonly string[]).includes(String(event.scope).split(':')[0]));
+      const bySubmission = await readSubmissionVisibility(db, workspace, plan.id, submissions.map(submission => submission.number));
+      const visibleSubmissions = submissions.filter(submission => (canViewWholeStatePlan(workspace) || visibleEvents.some(event => event.submissionNumber === submission.number)) && (bySubmission.get(submission.number)?.length ?? 0) > 0);
       if (requested && !visibleSubmissions.some(submission => submission.number === Number(requested))) return error('Submission not found.', 404);
-      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => visiblePillars.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, snapshot: visibleSnapshot(snapshot, workspace), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => ceiling.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot), plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, snapshot: visibleSnapshot(snapshot, visiblePillars), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }

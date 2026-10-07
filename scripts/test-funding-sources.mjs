@@ -71,8 +71,10 @@ try {
   step('GET setup: permissions, proposed totals and reserved quarters');
   ok(await api('anonymous', `/api/plans/setup?plan=${created.id}`), 401);
   const info = ok(await api('chair', `/api/plans/setup?plan=${created.id}`));
-  assert.equal(info.canEdit, true); assert.equal(info.allowed, true); assert.equal(kobo(info.proposed.sbmc), ceiling - 100); assert.deepEqual(info.reserved, []);
+  // Stage-gated visibility: SBMC has not been sent to the Executive Chairman, so its proposed amount is left out for them.
+  assert.equal(info.canEdit, true); assert.equal(info.allowed, true); assert.equal(info.proposed.sbmc, undefined); assert.deepEqual(info.reserved, []);
   const staffInfo = ok(await api('social', `/api/plans/setup?plan=${created.id}`));
+  assert.equal(kobo(staffInfo.proposed.sbmc), ceiling - 100);
   assert.equal(staffInfo.allowed, false); assert.equal(staffInfo.canEdit, false); assert.match(staffInfo.lockedReason, /authorised/);
 
   step('PATCH guards: origin, permission, version and ceilings');
