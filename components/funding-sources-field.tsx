@@ -33,7 +33,7 @@ export function FundingSourcesField({ value, onChange, disabled, showErrors }: F
   const row = 'grid items-start gap-2 sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto]';
   return <FieldSet disabled={disabled} className="gap-2">
     <FieldLegend variant="label" className="mb-0">Other funding sources <span className="font-normal text-muted-foreground">Optional</span></FieldLegend>
-    <FieldDescription>Money for one component is available only to that component. Choose All components to share it across every component by the funding policy percentages, like the state contribution.</FieldDescription>
+    <FieldDescription>Money for one component is available only to that component. Choose All components to share it across every component by the funding policy percentages, like the state counterpart fund.</FieldDescription>
     {value.length > 0 && <div className={`${row} hidden text-xs font-medium text-muted-foreground sm:grid`} aria-hidden="true"><span>Component</span><span>Funder</span><span>Amount (₦)</span><span className="w-9" /></div>}
     {value.map((source, index) => <Field key={source.key} data-invalid={!!errors[source.key]} className="gap-1">
       <div className={row}>

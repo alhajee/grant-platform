@@ -54,7 +54,7 @@ function describeChanges(before: ActionPlan, after: { planningYear: number; impl
   if (before.startYear !== after.planningYear) changes.push(`funding year ${before.startYear} → ${after.planningYear}`);
   if (before.implementationYear !== after.implementationYear) changes.push(`implementation year ${before.implementationYear ?? '—'} → ${after.implementationYear}`);
   if (formatQuarters(before.fundingQuarters ?? []) !== formatQuarters(after.quarters)) changes.push(`quarters ${formatQuarters(before.fundingQuarters ?? [])} → ${formatQuarters(after.quarters)}`);
-  if (Number(before.stateLodgment) !== Number(after.stateLodgment)) changes.push(`state contribution ${money.format(Number(before.stateLodgment ?? 0))} → ${money.format(Number(after.stateLodgment))}`);
+  if (Number(before.stateLodgment) !== Number(after.stateLodgment)) changes.push(`state counterpart fund ${money.format(Number(before.stateLodgment ?? 0))} → ${money.format(Number(after.stateLodgment))}`);
   if (sourceKey(before.fundingSources ?? []) !== sourceKey(after.fundingSources)) {
     const list = after.fundingSources.map(s => `${fundingSourceLabels[s.component]} · ${s.funder} · ${money.format(Number(s.amount))}`).join('; ');
     changes.push(`other funding sources ${money.format(Number(sourcesSum(before.fundingSources ?? [])))} → ${money.format(Number(sourcesSum(after.fundingSources)))}${list ? ` (${list})` : ' (none)'}`);

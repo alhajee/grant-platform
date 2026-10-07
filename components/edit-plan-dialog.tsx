@@ -100,7 +100,7 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
           {data && <>
             {data.lockedReason && <Alert><LockKeyholeIcon /><AlertTitle>Plan details are read-only</AlertTitle><AlertDescription>{data.lockedReason}</AlertDescription></Alert>}
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border bg-muted/40 p-3 text-sm sm:grid-cols-4">{[
-              ['Total funding', money.format(Number(total))], ['State contribution', money.format(Number(lodgment || 0))], ['UBEC match', money.format(Number(lodgment || 0))], ['Other funding', money.format(Number(other) + legacy)],
+              ['Total funding', money.format(Number(total))], ['State counterpart fund', money.format(Number(lodgment || 0))], ['UBEC match', money.format(Number(lodgment || 0))], ['Other funding', money.format(Number(other) + legacy)],
             ].map(([label, value]) => <div key={label} className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-semibold tabular-nums break-words">{value}</dd></div>)}</dl>
             <FieldGroup className="gap-3">
               <FieldSet disabled={disabled} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend>Plan period</FieldLegend><FieldGroup className="gap-3">
@@ -119,7 +119,7 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
                 </Field>
               </FieldGroup></FieldSet>
               <FieldSet disabled={disabled} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend>Funding</FieldLegend><FieldGroup className="gap-3">
-                <Field data-invalid={!!errors.stateLodgment} className="md:max-w-[calc(50%-6px)]"><FieldLabel htmlFor="edit-state-lodgment">State contribution (₦)<FieldHelp>The amount paid by the state. UBEC adds the same amount, and both are shared across components by the funding policy.</FieldHelp></FieldLabel><CurrencyInput id="edit-state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
+                <Field data-invalid={!!errors.stateLodgment} className="md:max-w-[calc(50%-6px)]"><FieldLabel htmlFor="edit-state-lodgment">State counterpart fund (₦)<FieldHelp>The amount paid by the state. UBEC adds the same amount, and both are shared across components by the funding policy.</FieldHelp></FieldLabel><CurrencyInput id="edit-state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>
                 <FundingSourcesField value={sources} onChange={next => { setSources(next); setErrors(current => ({ ...current, fundingSources: '' })); }} disabled={disabled} showErrors />
                 {errors.fundingSources && <FieldError>{errors.fundingSources}</FieldError>}
               </FieldGroup></FieldSet>
