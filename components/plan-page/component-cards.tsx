@@ -10,8 +10,9 @@ import type { CommentsController } from '@/components/plan-workbook/comments-con
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { componentSections, subebComponentDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
+import { componentSections, groupByStrategicPillar, subebComponentDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
 import { componentEnvelope, percent, policyShare, type EnvelopeComponent, type EnvelopePlan } from '@/lib/funding-policy';
 import { isPoolComponent, poolLabels, poolPartner } from '@/lib/infrastructure-pool';
 import { pillarReviewLabels, type PillarReview } from '@/lib/pillar-review';
@@ -75,7 +76,7 @@ function ComponentCard({ plan, envelopePlan, review, totals, comments, actions }
     <span className="component-card-art" aria-hidden="true">{pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={pillar} standalone />}</span>
     <div className="component-card-body">
       <div className="component-card-title">
-        <h3><a className="component-card-link" href={actions.editHref ?? sheet}>{section.name}<span className="sr-only">{actions.editHref ? ', open editor' : ', view sheet'}</span></a></h3>
+        <h4><a className="component-card-link" href={actions.editHref ?? sheet}>{section.name}<span className="sr-only">{actions.editHref ? ', open editor' : ', view sheet'}</span></a></h4>
         <Badge variant={review.status === 'changes_requested' ? 'warning' : 'secondary'}>{pillarReviewLabels[review.status]}</Badge>
       </div>
       <div className="component-card-department"><span>{subebDepartmentName(subebComponentDepartments[pillar])}</span><PolicyShare plan={envelopePlan} pillar={pillar} /></div>
@@ -103,7 +104,17 @@ export function ComponentCards({ data, totals, comments, actionsFor }: { data: P
   // Ceilings and policy shares come from the loaded snapshot's setup (a saved submission shows its own), else the plan.
   const setup = data.snapshot.setup;
   const envelopePlan: EnvelopePlan = setup ? { ...data.plan, ...setup, fundingPolicy: setup.fundingPolicy ?? data.plan.fundingPolicy } : data.plan;
-  return <ul className="component-cards">
-    {data.pillarReviews.map(review => <ComponentCard key={review.pillar} plan={data.plan} envelopePlan={envelopePlan} review={review} totals={totals} comments={comments} actions={actionsFor(review)} />)}
-  </ul>;
+  // Grouped by strategic pillar (Quality, Access, System Optimisation; `strategicPillars`); groups the viewer cannot see are left out.
+  const groups = groupByStrategicPillar(data.pillarReviews, review => review.pillar);
+  return <div className="component-groups">
+    {groups.map(group => <section key={group.id} className="component-group" aria-labelledby={`component-group-${group.id}`}>
+      <div className="component-group-head">
+        <h3 id={`component-group-${group.id}`}>{group.name}</h3>
+        <Separator className="component-group-rule" />
+      </div>
+      <ul className="component-cards">
+        {group.items.map(review => <ComponentCard key={review.pillar} plan={data.plan} envelopePlan={envelopePlan} review={review} totals={totals} comments={comments} actions={actionsFor(review)} />)}
+      </ul>
+    </section>)}
+  </div>;
 }
