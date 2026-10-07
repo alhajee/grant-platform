@@ -289,12 +289,22 @@ DNEMIS is a DHIS2 server (`https://asc.education.gov.ng/dhis`, API at `<base>/ap
   - `app/users/page.tsx`
   - `components/department-checkboxes.tsx`
 
+## Whole School audit (Deliverables workbook, no migration)
+
+Infrastructure → Whole School Renovation/Expansion, step 2 "Audit" (`components/infrastructure-audit-table.tsx`, wired into `components/infrastructure-editor.tsx`). The step is one full-width editable table (`.activity-split[data-layout=wide]`, no side form, no preview pane).
+
+- Catalogue `lib/infrastructure-deliverables.ts` (re-exported by `lib/infrastructure-model.ts`) follows UBEC's Deliverables workbook: sheet "Minimum Standard Requirements" (24 deliverables; `category: 'minimum'`, per-model `qty`, workbook wording `standard`, `remark`, `tick` for ✓ cells, `sn`) and sheet "Other Requirements" (30, `category: 'other'`, no standard quantity). Deliverable 1 Classroom stays two rows (`classroomPri` general, built in blocks of 3; `classroomEccde`, built as one ECCDE block) so it counts once (by S/N) in "x/24 complete". The fence (S/N 6) is `fenceDeliverable`; its standard is the metres the site needs (`input.fenceRequired`, required > 0). Teachers' furniture Model III is 32 sets (the workbook prints "= 14", user confirmed 32). Keys are the earlier catalogue's, so older packages load and recalculate unchanged; quantities changed to the workbook (ECCDE classrooms M1 1, ECCDE furniture M1 6, magnetic boards M1 7, teachers' furniture M1 16, solar lights 20 at every model, hybrid solar 7.5/7.5/10 KVA).
+- Model choice (step 1 inside the audit): three cards (`modelSummary`), enrolment pre-selects and labels "Suggested for N learners"; the choice is stored in `input.model` (0-2) and drives every Minimum Standard row's standard, required quantity, tooltip and costs (`packageModel`). Packages saved before it have no `model` and use the enrolment model (`modelFor`); entering the audit step sets it. Rows a model does not ask for (`appliesToModel`: empty workbook cell) are not shown; a model change that would drop entered rows asks first (none today: every Minimum Standard cell is filled).
+- Table: ToggleGroup All / Minimum Standard (default, "x/24 complete") / Other Requirements ("n added"); group sub-header rows; sticky first column (S/N, name, info Tooltip with the chosen model's standard, the remark and all three models); Standard, Required, Existing, Functional, Non-functional, Additional, Extra beyond standard, Status. Audit rows keep `{existing?, functional?, extra}`: a Minimum Standard row is complete once existing and functional are entered (`auditRowProblem`); Other Requirements are optional and join the package once any figure is entered (clearing all removes the row). Enter / Shift+Enter move down / up a column. Phone: the table scrolls inside its card.
+- Rules shared by client and server (`packageProblem`): a Whole School package needs `model` ("Choose the school model for the audit."), every Minimum Standard row (`wholeAuditProblem`), and unknown audit keys are refused by the schema. Retired fields: Site observations, Extent of dilapidation and Structural condition notes are no longer asked or required (`observations`/`dilapidation`/`conditionNotes` stay in the schema so old packages load; old values still show in package details and `observations` still feeds the snapshot `rationale`). Photographic evidence moved to the Review step's Supporting documents, next to the Bill of Quantities; it is still required while general classrooms are recorded non-functional (`photoEvidenceRequired`, server and client).
+- Display: `AuditSummaryTable` in `components/infrastructure-package-details.tsx` (workbook row details, UBEC view, Gaps step) lists every Minimum Standard row plus Other Requirements that were filled in, with the Standard column.
+- Test: `scripts/test-infrastructure-packages.mjs` (model required and honoured, Minimum Standard required, fence, functional ≤ existing, unknown keys, Other Requirements optional, an old-catalogue package loads/displays/recalculates).
+
 ## Recent user-facing work
 
 - Removed the unneeded “Accessible by design” component.
 - Renamed “Whole School Approach” to “Whole School Renovation/Expansion”.
-- Whole-school audit uses the table as the editing entry point; redundant edit buttons were removed.
-- Audit fields are required except “Extra beyond standard”.
+- Whole-school audit: see "Whole School audit" below (one editable table, model choice, Minimum Standard / Other Requirements).
 - Selecting a school already used by another activity shows a dismissible orange warning toast.
 - Furniture/equipment items use a compact editor plus table instead of endlessly duplicating full forms.
 - Required item fields are visually marked and incomplete items block Continue.

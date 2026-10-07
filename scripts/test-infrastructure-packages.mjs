@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {Client} from 'pg';
 import {hashSync} from 'bcryptjs';
-import {packageSchema,calculateInfrastructure} from '../lib/infrastructure-model.ts';
+import {packageSchema,calculateInfrastructure,auditGaps,minimumKeys,requirements,wholeAuditProblem} from '../lib/infrastructure-model.ts';
 const base=process.argv[2]||process.env.TEST_BASE_URL||'http://localhost:5174';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost','127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
@@ -54,9 +54,44 @@ try{
  ok(await api('social','/api/infrastructure/documents?id='+docs[0]),404);ok(await api('officer','/api/infrastructure/documents?id='+docs[0]));
  // Stage-gated visibility: the Director and Executive Chairman download only once Infrastructure has been sent to them.
  ok(await api('director','/api/infrastructure/documents?id='+docs[0]),404);ok(await api('chair','/api/infrastructure/documents?id='+docs[0]),404);
- const whole=packageSchema.parse({kind:'whole',schoolId:school,components:['Primary'],observations:'QA site visit',conditionNotes:'QA condition',documentIds:[docs[1]]});
+ // Catalogue (Deliverables workbook): 24 Minimum Standard deliverables (Classroom split into general + ECCDE rows, the fence included) and 30 Other Requirements.
+ assert.equal(new Set(requirements.filter(r=>r.category==='minimum').map(r=>r.sn).concat(6)).size,24);
+ assert.equal(requirements.filter(r=>r.category==='other').length,30);
+ assert.deepEqual(requirements.find(r=>r.key==='teachersFurniture').qty,[16,20,32],'Teachers’ furniture Model III is 32 sets (confirmed)');
+ // Old-catalogue package (before the model choice; retired observations/condition notes; a partial audit) still loads, displays and recalculates.
+ const oldInput={kind:'whole',schoolId:school,components:['Primary'],targeting:'nonhope',grouping:'standard',land:{available:false,documented:false,unencumbered:false},documentIds:[],audit:{classroomPri:{existing:3,functional:2,extra:0},labFurniture:{existing:0,functional:0,extra:1}},fenceRequired:0,fenceLength:0,prices:{},classroomStrategy:'Request for quotation',packageCosts:{},lumpSum:0,duration:'',contingency:0,preliminaries:0,observations:'Old site notes',dilapidation:'Moderate deterioration',conditionNotes:'Old condition notes',furniture:[]};
+ const oldParsed=packageSchema.parse(oldInput);assert.equal(oldParsed.model,undefined);
+ const oldResult=calculateInfrastructure(oldParsed,400);assert.equal(oldResult.model,2,'No model choice = the model enrolment suggests');
+ assert.ok(oldResult.items.some(i=>i.key==='labFurniture'),'Other Requirements entered in the old catalogue still cost');
+ assert.match(wholeAuditProblem(oldParsed,400),/Classroom · ECCDE: enter existing and functional/,'Reopening an old package asks for the rest of the Minimum Standard');
+ const oldId=(await db.query('INSERT INTO infrastructure_packages(input,result,total_cost,school_id,kind,plan_id) VALUES($1::jsonb,$2::jsonb,0,$3,$4,$5) RETURNING id',[JSON.stringify(oldInput),JSON.stringify({...oldResult,school:{id:school,name:'Infrastructure QA',lga:'QA',level:'Primary',location:'Rural',male:200,female:200,latitude:'',longitude:''}}),school,'whole',plan])).rows[0].id;
+ const oldLoaded=ok(await api('officer',path)).packages.find(p=>p.id===oldId);assert.equal(oldLoaded.input.observations,'Old site notes');
+ assert.ok(auditGaps(packageSchema.parse(oldLoaded.input),400).some(g=>g.key==='labFurniture'&&g.included));
+ review=ok(await api('officer',reviewPath));assert.ok(review.snapshot.infrastructure.some(l=>l.id===-oldId),'Old package appears in the workbook snapshot');
+ const oldSave=await api('officer',path,{action:'save',id:oldId,version:oldLoaded.version,input:oldInput});ok(oldSave,400);assert.match(oldSave.data.error,/Choose the school model/);
+ ok(await api('officer',path,{action:'delete',id:oldId,version:oldLoaded.version}));
+ // New Whole School package: the model is chosen (Model 2 for a school whose enrolment suggests Model 3); Minimum Standard rows are required.
+ const whole=packageSchema.parse({kind:'whole',schoolId:school,components:['Primary'],documentIds:[docs[1]]});
+ const noModel=await api('officer',path,{action:'save',input:whole});ok(noModel,400);assert.match(noModel.data.error,/Choose the school model/);
+ whole.model=1;
+ const empty=await api('officer',path,{action:'save',input:whole});ok(empty,400);assert.match(empty.data.error,/Classroom · General: enter existing and functional/);
+ whole.audit=Object.fromEntries(minimumKeys.map(key=>[key,{existing:0,functional:0,extra:0}]));
+ const noFence=await api('officer',path,{action:'save',input:whole});ok(noFence,400);assert.match(noFence.data.error,/fence length required/);
+ whole.fenceRequired=120;
+ ok(await api('officer',path,{action:'save',input:{...whole,model:3}}),400);
+ ok(await api('officer',path,{action:'save',input:{...whole,audit:{...whole.audit,office:{existing:1,functional:2,extra:0}}}}),400);
+ ok(await api('officer',path,{action:'save',input:{...whole,audit:{...whole.audit,notADeliverable:{existing:1,functional:1,extra:0}}}}),400);
+ const partial=await api('officer',path,{action:'save',input:{...whole,audit:{...whole.audit,toilet:{existing:4,extra:0}}}});ok(partial,400);assert.match(partial.data.error,/Toilet: enter functional/);
+ // Other Requirements are optional: one is added (a science laboratory), the rest stay blank.
+ whole.audit.scienceLab={extra:1};
  for(const i of calculateInfrastructure(whole,400).items)whole.packageCosts[i.key]={cost:1,strategy:'NCB',duration:'8 weeks'};
- ok(await api('officer',path,{action:'save',input:whole}));current=ok(await api('officer',path));const assessment=current.packages.find(p=>p.kind==='whole');
+ ok(await api('officer',path,{action:'save',input:whole}));
+ const savedWhole=ok(await api('officer',path)).packages.find(p=>p.kind==='whole');
+ assert.equal(savedWhole.input.model,1);assert.equal(savedWhole.result.model,1,'The server costs the chosen model, not the enrolment suggestion');
+ assert.equal(savedWhole.result.items.find(i=>i.key==='classroomPri-construct').quantity,9,'Model 2 general classrooms');
+ assert.equal(savedWhole.result.items.find(i=>i.key==='teachersFurniture').quantity,20);
+ assert.ok(savedWhole.result.items.some(i=>i.key==='scienceLab-construct'));assert.ok(!savedWhole.result.items.some(i=>i.key.startsWith('workshop')),'Blank Other Requirements are left out');
+ assert.ok(savedWhole.result.items.find(i=>i.key==='solarPower').label.length>0);current=ok(await api('officer',path));const assessment=current.packages.find(p=>p.kind==='whole');
  ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole}),400);
  const updatedBoq=await upload('boq');whole.documentIds.push(updatedBoq.id);
  ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole}));
