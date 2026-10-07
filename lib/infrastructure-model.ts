@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { implementationStrategies } from './activity-plans.ts';
+import { lineQuartersSchema } from './line-quarters.ts';
 
 // Request for quotation leads the infrastructure list and is the default method (UBEC10).
 export const strategies = ['Request for quotation', ...implementationStrategies.filter(s => s !== 'Request for quotation')] as [typeof implementationStrategies[number], ...typeof implementationStrategies[number][]];
@@ -92,6 +93,8 @@ export const packageSchema = z.object({
  lumpSum:amount.default(0),duration:z.string().trim().max(100).default(''),contingency:amount.default(0),preliminaries:amount.default(0),
  observations:z.string().max(5000).default(''),dilapidation:z.enum(['Minor repairs required','Moderate deterioration','Unsafe / reconstruction recommended','Severe dilapidation / major rehabilitation']).default('Minor repairs required'),conditionNotes:z.string().max(5000).default(''),
  furniture:z.array(z.object({description:z.string().trim().min(1).max(500),quantity:quantity.refine(n=>n>0),cost:amount.refine(n=>n>0)})).max(100).default([]),
+ /** Timeline: implementation quarters within the plan's quarters (migration 050, also the package's quarters column); omitted = the plan's quarters. */
+ quarters:lineQuartersSchema.optional(),
 });
 export const landDeclarationCount = (input: Pick<InfrastructureInput, 'land'>) => Object.values(input.land ?? {}).filter(Boolean).length;
 export type InfrastructureInput = z.infer<typeof packageSchema>;
@@ -111,7 +114,9 @@ export function schoolComponents(school:Pick<InfrastructureSchool,'level'|'enrol
 }
 export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'photo';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
 export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string};
-export type InfrastructurePackage = {id:number;version:number;kind:InfrastructureInput['kind'];input:InfrastructureInput;result:ReturnType<typeof calculateInfrastructure>;school:InfrastructureSchool;total_cost:string};
+export type InfrastructurePackage = {id:number;version:number;kind:InfrastructureInput['kind'];input:InfrastructureInput;result:ReturnType<typeof calculateInfrastructure>;school:InfrastructureSchool;total_cost:string;
+ /** Timeline (infrastructure_packages.quarters, migration 050): authoritative over input.quarters, which packages saved earlier lack. */
+ quarters?:number[]};
 const cents = (n:number) => Math.round(n*100);
 const money = (n:number) => Math.round(n)/100;
 export function auditGaps(input:InfrastructureInput, enrolment:number) {

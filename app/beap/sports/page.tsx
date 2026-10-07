@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsPlan } from "@/lib/sports";
 import { toKobo } from "@/lib/funding-policy";
 import { EnvelopeMeter } from "@/components/envelope-meter";
+import { lineQuartersProblem, planQuarters } from "@/lib/line-quarters";
 
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
@@ -71,6 +72,8 @@ export default function SportsPage() {
   const savedDraft = budget.id ? savedLines.find((line) => line.id === budget.id) : undefined;
   const beforeKobo = savedDraft && savedDraft.section === budget.section ? savedDraft.kobo : BigInt(0);
   const budgetProblem = view === "budget" && draftKobo > beforeKobo ? sportsCapProblem([...savedLines.filter((line) => line.id !== budget.id), { section: budget.section, kobo: draftKobo }], envelopeKobo, budget.section) : null;
+  // Timeline: a new line starts with all of the plan's quarters (migration 050).
+  const availableQuarters = actionPlan ? planQuarters(actionPlan) : [];
 
   const loadPlan = useCallback(async () => {
     const response = await fetch(currentPlanHref("/api/sports"), { cache: "no-store" });
@@ -80,6 +83,8 @@ export default function SportsPage() {
     if (!data.canEdit) { window.location.replace(currentPlanHref('/beap/review')); return; }
     setActionPlan(data.plan);
     setEnvelope(data.envelope ?? null);
+    const quarters = planQuarters(data.plan), fill = (draft: BudgetDraft) => !draft.id && !draft.quarters.length ? { ...draft, quarters } : draft;
+    setBudget(fill); setBudgetBaseline(fill);
     setPlan(data);
     setLoadError("");
   }, []);
@@ -112,7 +117,7 @@ export default function SportsPage() {
     return () => cancelAnimationFrame(frame);
   }, [editingId, view]);
 
-  function resetBudget(next: BudgetDraft = emptyBudget) { setBudget(next); setBudgetBaseline(next); setErrors({}); }
+  function resetBudget(next: BudgetDraft = { ...emptyBudget, quarters: availableQuarters }) { setBudget(next); setBudgetBaseline(next); setErrors({}); }
   function resetAllocation(next: AllocationDraft = emptyAllocation) { setAllocation(next); setAllocationBaseline(next); setErrors({}); }
   function changeAllocation(next: AllocationDraft) {
     if (next.schoolId && next.schoolId !== allocation.schoolId) {
@@ -166,7 +171,8 @@ export default function SportsPage() {
     // Same catalogue rules as the API; a saved line keeps its legacy sport/sub-activity if unchanged.
     const saved = view === "budget" && editingId ? plan.lines.find((line) => line.id === editingId) : undefined;
     const rule = parsed.success && view === "budget" ? sportsCatalogError({ ...budget, activityType: budget.activityType.trim(), description: budget.description.trim() }, plan.lines, editingId) : null;
-    const ruleError = rule && !(rule.field === "activityType" && saved?.section === budget.section && saved.activityType === budget.activityType.trim()) ? { [rule.field]: rule.message } : null;
+    const timelineProblem = parsed.success && view === "budget" && actionPlan ? lineQuartersProblem(budget.quarters, actionPlan) : null;
+    const ruleError = rule && !(rule.field === "activityType" && saved?.section === budget.section && saved.activityType === budget.activityType.trim()) ? { [rule.field]: rule.message } as FormErrors : timelineProblem ? { quarters: timelineProblem } as FormErrors : null;
     const capError: Record<string, string> | null = parsed.success && !ruleError && budgetProblem ? { unitCost: budgetProblem } : null;
     if (!parsed.success || ruleError || capError) {
       const nextErrors = ruleError ?? capError ?? (parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((issue) => [issue.path[0], issue.message])));
@@ -179,7 +185,7 @@ export default function SportsPage() {
     setErrors({}); savingRef.current = true; setSaving(true);
     try {
       await write({ ...parsed.data, entity: view, action: editingId ? "update" : "create", ...(editingId ? { id: editingId } : {}) });
-      if (view === "budget") resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim() });
+      if (view === "budget") resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), quarters: availableQuarters });
       else resetAllocation({ ...emptyAllocation, schoolId: allocation.schoolId, longitude: allocation.longitude, latitude: allocation.latitude });
       toast.success(editingId ? "Line updated." : view === "budget" ? "Budget line added." : "Equipment allocated to school.");
       await refreshAfterSave();
@@ -206,7 +212,7 @@ export default function SportsPage() {
       <header className="editor-heading"><h1>{view === "budget" ? editingId ? "Edit budget item" : "Add a budget item" : editingId ? "Edit school allocation" : "Add a beneficiary school"}</h1></header>
       {loadError && <Alert variant="destructive"><AlertTitle>Unable to refresh the plan</AlertTitle><AlertDescription>{loadError}<Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); void initialize(); }}>Try again</Button></AlertDescription></Alert>}
       <form id="sports-form" onSubmit={save} noValidate><fieldset className="project-fields" disabled={disabled}>
-        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
+        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
       </fieldset></form>
       {view === "allocation" && !hasEquipment && !loading && !loadError && <div className="sports-empty-action"><Button variant="outline" onClick={() => changeView("budget")}>Go to budget</Button></div>}
     </div></ScrollArea>
