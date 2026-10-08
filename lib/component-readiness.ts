@@ -12,7 +12,7 @@ import type { Snapshot } from './plan-review';
 type ReadinessLine = { id: number; activity: number; description: string; custom_activity?: string; customActivity?: string; schools?: readonly unknown[]; documents?: readonly unknown[] };
 /** The plan setup fields readiness reads (a snapshot's setup or an ActionPlan). */
 type ReadinessSetup = { ictAllocation?: string | null } | null | undefined;
-/** Platform settings readiness depends on: whether ICT and Teacher Development documents are required (migration 052). */
+/** Platform settings readiness depends on: whether supporting documents (ICT, Teacher Development, Infrastructure except land documents) are required (migration 052). */
 export type ReadinessOptions = { documentsRequired: boolean };
 
 export const readinessWorkstreams = ['quality', 'ict', 'teachers', 'planning'] as const;

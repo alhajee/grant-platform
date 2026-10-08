@@ -15,6 +15,7 @@ import { isSplitMode, toKobo } from '@/lib/funding-policy';
 import { infrastructureSplitProblem } from '@/lib/budget-pairs';
 import { resolveLineQuarters } from '@/lib/line-quarters';
 import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
+import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 import { packageSchema, packageProblem, calculateInfrastructure, landDeclarationCount,schoolComponents,photoEvidenceRequired} from '@/lib/infrastructure-model';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude,enrolment_by_class AS "enrolmentByClass"';
@@ -34,7 +35,8 @@ export async function GET(req:NextRequest){
   // While schools come from DNEMIS only, nobody is offered the School register edit link.
   const manualSchools=await manualSchoolsAllowed(db);
   const tlmProposed=(await db.query<{total:string}>("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='tlm'",[plan.id])).rows[0].total;
-  return NextResponse.json({plan,schools,packages:packages.rows,tlmProposed,partnerProposed:tlmProposed,documents:documents.rows,canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews),canManageSchools:manualSchools&&canManageSchoolRegister(user.role,user.isBeapChair,user.canManageSchools),manualSchools},{headers:{'Cache-Control':'no-store'}});
+  // documentsRequired: the Super Admin's Supporting documents setting (migration 052); land documents are required either way.
+  return NextResponse.json({plan,schools,packages:packages.rows,tlmProposed,partnerProposed:tlmProposed,documents:documents.rows,documentsRequired:await readComponentDocumentsRequired(db),canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews),canManageSchools:manualSchools&&canManageSchoolRegister(user.role,user.isBeapChair,user.canManageSchools),manualSchools},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load infrastructure.',503);}
 }
 export async function POST(req:NextRequest){
@@ -68,9 +70,11 @@ export async function POST(req:NextRequest){
    if(new Set(input.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan.');
    if(docs.some(d=>d.school_id!==null&&d.school_id!==input.schoolId))return error('One or more attachments belong to a different school.');
    if(input.kind==='new'){const ticked=landDeclarationCount(input),attached=docs.filter(d=>d.kind==='land').length;if(attached<ticked)return error(`Attach one land document for each ticked land declaration (${ticked} ticked, ${attached} attached).`);}
-   if(photoEvidenceRequired(input)&&!docs.some(d=>d.kind==='photo'))return error('Attach photographic evidence for the Whole School audit.');
+   // Photographic evidence and the updated Whole School BOQ follow the Supporting documents setting; land documents above are always required.
+   const documentsRequired=await readComponentDocumentsRequired(db);
+   if(documentsRequired&&photoEvidenceRequired(input)&&!docs.some(d=>d.kind==='photo'))return error('Attach photographic evidence for the Whole School audit.');
    if(prior&&prior.kind!==input.kind)return error('An existing package’s intervention type cannot be changed.');
-   if(prior?.kind==='whole'&&!docs.some(d=>d.kind==='boq'&&d.school_id===input.schoolId&&!prior.input.documentIds.includes(d.id)&&new Date(d.created_at)>new Date(prior.updated_at)))return error('Attach an updated BOQ for this school before saving changes to a Whole School Renovation/Expansion package.');
+   if(documentsRequired&&prior?.kind==='whole'&&!docs.some(d=>d.kind==='boq'&&d.school_id===input.schoolId&&!prior.input.documentIds.includes(d.id)&&new Date(d.created_at)>new Date(prior.updated_at)))return error('Attach an updated BOQ for this school before saving changes to a Whole School Renovation/Expansion package.');
    const result={...calculateInfrastructure(input,school.male+school.female),school};
    // Infrastructure and TLM share one pool; the plan row is locked by mutatePlan, so TLM saves and split changes wait for this one.
    // Split mode: packages stay within Infrastructure's part (pool − action_plans.tlm_allocation), and wait until the split is set.

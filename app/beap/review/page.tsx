@@ -33,7 +33,7 @@ const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 
 const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
 // Compulsory activities, line schools and documents, and the Sports caps must be in place before any send step.
 // The same checks the server runs on every send step, so a holder sees the problem on the card before sending.
-const readiness = (data: PlanReview, pillar: ImplementedPillar) => (pillar === 'infrastructure' && data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot) : null)
+const readiness = (data: PlanReview, pillar: ImplementedPillar) => (pillar === 'infrastructure' && data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot, { documentsRequired: data.documentsRequired }) : null)
   ?? componentSendProblem(pillar, data.snapshot, { documentsRequired: data.documentsRequired });
 const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length);
 

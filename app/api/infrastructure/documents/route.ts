@@ -25,10 +25,13 @@ export async function POST(req:NextRequest){
  try{
   const user=await getWorkspaceState(req);if(!user)return error('Sign in to upload documents.',401);
   const plan=await resolveActionPlan(req,user.stateCode);if(!plan)return error('Plan not found.',404);
-  const form=await planFormData(req),kind=z.enum(['drawings','boq','survey','land','photo']).safeParse(form.get('kind'));
+  const form=await planFormData(req);
+  // Plan drawings are no longer collected: drawings uploaded earlier stay listed and downloadable, but no new ones are accepted.
+  if(form.get('kind')==='drawings')return error('Plan drawings are no longer collected for Infrastructure.');
+  const kind=z.enum(['boq','survey','land','photo']).safeParse(form.get('kind'));
   if(!kind.success)return error('Choose the document type.');
-  const schoolId=kind.data==='drawings'?null:Number(form.get('schoolId'));
-  if(kind.data!=='drawings'&&(!Number.isSafeInteger(schoolId)||!schoolId||schoolId<1))return error('Select the school for this document.');
+  const schoolId=Number(form.get('schoolId'));
+  if(!Number.isSafeInteger(schoolId)||!schoolId||schoolId<1)return error('Select the school for this document.');
   const file=form.get('file');if(!file||typeof file==='string'||!file.size||file.size>5*1024*1024)return error('Choose a nonempty file up to 5 MB.');
   const name=file.name.replace(/[\x00-\x1f\x7f/\\]/g,'_').slice(-180),ext=name.split('.').pop()?.toLowerCase();
   const bytes=Buffer.from(await file.arrayBuffer());
@@ -37,7 +40,7 @@ export async function POST(req:NextRequest){
   const valid=ext==='pdf'?bytes.subarray(0,5).toString()==='%PDF-':ext==='xls'?bytes.subarray(0,8).toString('hex')==='d0cf11e0a1b11ae1':ext==='png'?bytes.subarray(0,8).toString('hex')==='89504e470d0a1a0a':['jpg','jpeg'].includes(ext??'')?bytes.subarray(0,3).toString('hex')==='ffd8ff':['docx','xlsx'].includes(ext??'')&&bytes.subarray(0,4).toString('hex')==='504b0304';
   if(!ext||!allowed.includes(ext)||!types[ext]||!valid)return error(kind.data==='boq'?'Upload the BOQ as a valid Excel (.xls or .xlsx) or PDF file.':'Use a valid PDF, DOCX, XLSX, PNG or JPEG file.');
   return await mutatePlan(user,plan,'infrastructure',async db=>{
-   if(schoolId&&!(await db.query('SELECT id FROM schools WHERE id=$1 AND state_code=$2',[schoolId,user.stateCode])).rowCount)return error('School not found in your state.',404);
+   if(!(await db.query('SELECT id FROM schools WHERE id=$1 AND state_code=$2',[schoolId,user.stateCode])).rowCount)return error('School not found in your state.',404);
    const count=(await db.query('SELECT COUNT(*)::int AS count FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL',[plan.id])).rows[0].count;
    if(count>=100)return error('This plan has reached its 100-document limit.');
    const id=crypto.randomUUID();await db.query("INSERT INTO infrastructure_documents(id,plan_id,kind,name,media_type,content,size,school_id) VALUES($1,$2,$3,$4,$5,decode($6,'hex'),$7,$8)",[id,plan.id,kind.data,name,types[ext],bytes.toString('hex'),bytes.length,schoolId]);

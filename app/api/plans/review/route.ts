@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         if(snapshot.sbmc?.some(line=>!line.rationale?.trim()||!line.implementation_approach?.trim()))return error('Complete the rationale and implementation approach for every SBMC item before sending it.');
       }
       if (input.action !== 'request_changes' && !snapshot[input.pillar]?.length) return error('Add saved entries to this pillar before sending it.');
-      if (input.action !== 'request_changes' && input.pillar==='infrastructure') { const problem=infrastructureDocumentProblem(snapshot); if(problem)return error(problem); }
+      if (input.action !== 'request_changes' && input.pillar==='infrastructure') { const problem=infrastructureDocumentProblem(snapshot,readiness); if(problem)return error(problem); }
       // TLM, GSCCI and Curriculum: the distribution list needs at least one school at every send step.
       if (input.action !== 'request_changes' && hasDistribution(input.pillar) && !snapshot[distributionSnapshotKeys[input.pillar]]?.length) return error(emptyDistributionMessage(input.pillar));
       // Quality Assurance, ICT and Teacher Development: compulsory activities, line schools, line documents and the Teacher Development split block every send step.

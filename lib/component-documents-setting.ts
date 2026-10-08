@@ -1,8 +1,10 @@
 import type { QueryResult, QueryResultRow } from 'pg';
 
-// Whether non-infrastructure components must have their supporting documents before they are sent
-// (Super Admin, platform-wide; migration 052). Covers the ICT documents (activities 0, 3, 4) and the
-// Teacher Development supporting documents. Infrastructure documents and the RAT are always required.
+// Whether supporting documents must be uploaded before lines are saved or components sent (Super Admin,
+// platform-wide; migration 052). Covers every upload on the platform: the ICT documents (activities 0, 3, 4),
+// the Teacher Development supporting documents and the Infrastructure BOQs, geophysical survey reports,
+// photographic evidence and updated Whole School BOQ (plan drawings are no longer collected at all). Never covered (always required): the RAT at plan
+// creation and the Infrastructure New Construction land declaration & agreement documents.
 /** Also used when the GLOBAL settings row (or the column) is missing: uploads are optional. */
 export const defaultComponentDocumentsRequired = false;
 

@@ -63,7 +63,7 @@ export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Sna
     reviews.some(r => r.status === 'beap_review') && planIsComplete(snapshot, options);
 }
 function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
-  return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot)
+  return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot, options)
     && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup, options)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup)
     && splitReadinessPillars.every(p => !splitReadinessProblem(p, snapshot));
 }

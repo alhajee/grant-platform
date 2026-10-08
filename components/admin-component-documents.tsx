@@ -13,8 +13,8 @@ import { Spinner } from '@/components/ui/spinner';
 
 type Choice = 'optional' | 'required';
 const options: { value: Choice; id: string; title: string; description: string }[] = [
-  { value: 'optional', id: 'component-documents-optional', title: 'Optional', description: 'ICT and Teacher Development lines can still carry documents, but saving and every send step go ahead without them.' },
-  { value: 'required', id: 'component-documents-required', title: 'Required', description: 'The ICT specification, supporting document and Bill of Quantities, and the Teacher Development supporting documents, must be uploaded before a component is sent.' },
+  { value: 'optional', id: 'component-documents-optional', title: 'Optional', description: 'Uploads can still be attached, but none are required to save or send, except the RAT at plan creation and the Infrastructure land declaration & agreement.' },
+  { value: 'required', id: 'component-documents-required', title: 'Required', description: 'The ICT specification, supporting document and Bill of Quantities, the Teacher Development supporting documents, and the Infrastructure BOQs, geophysical survey reports, photographic evidence and updated Whole School BOQs must be uploaded before saving or sending, as the editors mark them.' },
 ];
 
 async function errorOf(response: Response, fallback: string) {
@@ -58,7 +58,7 @@ export function AdminComponentDocuments() {
   return <Card>
     <CardHeader className="border-b">
       <CardTitle>Supporting documents</CardTitle>
-      <CardDescription>Applies to every SUBEB. Infrastructure documents and the Rapid Assessment Tool (RAT) are always required.</CardDescription>
+      <CardDescription>Applies to every SUBEB. The Rapid Assessment Tool (RAT) at plan creation and the Infrastructure land declaration & agreement documents are always required.</CardDescription>
     </CardHeader>
     <CardContent>
       <RadioGroup className="max-w-4xl md:grid-cols-2" value={draft} onValueChange={value => setDraft(value as Choice)} aria-label="Supporting documents">

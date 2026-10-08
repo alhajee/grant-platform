@@ -6,10 +6,13 @@ const base=process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost','127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
 const db=new Client({connectionString:process.env.DATABASE_URL});await db.connect();
-const marker='INF'+Date.now(),password=crypto.randomUUID(),cookies={},users=[];let plan,school,secondSchool;
+const marker='INF'+Date.now(),password=crypto.randomUUID(),cookies={},users=[];let plan,school,secondSchool,documentsSetting;
 async function api(who,path,body){const r=await fetch(base+path,{method:body?'POST':'GET',headers:{Origin:base,Cookie:cookies[who]||'',...(body instanceof FormData?{}:{'Content-Type':'application/json'})},...(body?{body:body instanceof FormData?body:JSON.stringify(body)}:{})});const text=await r.text();let data;try{data=JSON.parse(text);}catch{data=text;}return {status:r.status,data,cookie:r.headers.get('set-cookie')?.split(';')[0]};}
 function ok(r,status=200){assert.equal(r.status,status,JSON.stringify(r.data));return r.data;}
 try{
+ // This test checks the required-documents rules: switch the Supporting documents setting on (migration 052) and restore it after.
+ documentsSetting=(await db.query("SELECT component_documents_required AS required FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
+ await db.query("UPDATE state_workflow_settings SET component_documents_required=TRUE WHERE state_code='GLOBAL'");
  for(const [who,role,department]of [['officer','Data Entry Staff','physical'],['director','Director','physical'],['social','Data Entry Staff','social'],['chair','Executive Chairman',null]]){
   const email=`${who}.${marker.toLowerCase()}@test.local`;const id=(await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',[who,email,role,department,marker,hashSync(password,4)])).rows[0].id;users.push(id);
   if(department)await db.query('INSERT INTO user_departments(user_id,department) VALUES($1,$2)',[id,department]);
@@ -33,8 +36,11 @@ try{
  let review=ok(await api('officer',reviewPath));assert.equal(review.snapshot.infrastructure[0].package.result.enrolment,200,'Stored package retains original enrolment');
  ok(await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version}),400);
  const docs=[];
- async function upload(kind){const f=new FormData();f.set('kind',kind);if(kind!=='drawings')f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],kind+'.pdf',{type:'application/pdf'}));const d=ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f));assert.equal(d.schoolId,kind==='drawings'?null:school);docs.push(d.id);return d;}
- for(const kind of ['drawings','boq','survey'])await upload(kind);
+ async function upload(kind){const f=new FormData();f.set('kind',kind);f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],kind+'.pdf',{type:'application/pdf'}));const d=ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f));assert.equal(d.schoolId,school);docs.push(d.id);return d;}
+ // Plan drawings are no longer collected: new uploads are refused (400).
+ const drawings=new FormData();drawings.set('kind','drawings');drawings.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],'drawings.pdf',{type:'application/pdf'}));
+ const refusedDrawings=await api('officer',`/api/infrastructure/documents?plan=${plan}`,drawings);ok(refusedDrawings,400);assert.match(refusedDrawings.data.error,/no longer collected/);
+ for(const kind of ['boq','boq','survey'])await upload(kind);
  secondSchool=(await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES($1,'Second school','QA','Primary','Rural') RETURNING id",[marker])).rows[0].id;
  await db.query('UPDATE schools SET enrolment_male=150,enrolment_female=100 WHERE id=$1',[secondSchool]);
  const furniture=packageSchema.parse({kind:'furniture',schoolId:secondSchool,components:['Primary'],furniture:[{description:'Desks',quantity:1,cost:100}]});
@@ -48,7 +54,7 @@ try{
  // A furniture-only school does not need a survey. Remove this disposable package
  // after asserting the shared readiness rule against its live snapshot.
  const {infrastructureDocumentProblem}=await import('../lib/infrastructure-documents.ts');
- review=ok(await api('officer',reviewPath));assert.equal(infrastructureDocumentProblem(review.snapshot),null);
+ review=ok(await api('officer',reviewPath));assert.equal(infrastructureDocumentProblem(review.snapshot,{documentsRequired:true}),null);
  const furnitureRecord=ok(await api('officer',path)).packages.find(p=>p.school_id===secondSchool);
  ok(await api('officer',path,{action:'delete',id:furnitureRecord.id,version:furnitureRecord.version}));
  ok(await api('social','/api/infrastructure/documents?id='+docs[0]),404);ok(await api('officer','/api/infrastructure/documents?id='+docs[0]));
@@ -115,6 +121,7 @@ try{
  assert.ok(preserved.snapshot.infrastructureDocuments.some(d=>d.id===docs[1]));
  console.log('PASS: packages, document removal permissions, review locking and preserved historical attachments.');
 }finally{
+ if(documentsSetting)await db.query("UPDATE state_workflow_settings SET component_documents_required=$1 WHERE state_code='GLOBAL'",[documentsSetting.required]);
  if(plan){for(const table of ['plan_notifications','plan_review_events','plan_submissions','plan_pillar_reviews','infrastructure_documents','infrastructure_packages'])await db.query(`DELETE FROM ${table} WHERE plan_id=$1`,[plan]);await db.query('DELETE FROM action_plans WHERE id=$1',[plan]);}
  if(school)await db.query('DELETE FROM schools WHERE id=$1',[school]);if(secondSchool)await db.query('DELETE FROM schools WHERE id=$1',[secondSchool]);await db.query('DELETE FROM users WHERE id=ANY($1::int[])',[users]);await db.end();
 }
