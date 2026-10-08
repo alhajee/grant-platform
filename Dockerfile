@@ -30,6 +30,7 @@ COPY --from=build --chown=node:node /app/dist/worker/ ./worker/
 COPY --chown=node:node scripts/seed-production-users.mjs ./scripts/seed-production-users.mjs
 COPY --chown=node:node scripts/purge-schools-and-plans.mjs ./scripts/purge-schools-and-plans.mjs
 COPY --chown=node:node scripts/seed-ubec-users.mjs ./scripts/seed-ubec-users.mjs
+COPY --chown=node:node scripts/seed-component-data-entry.mjs ./scripts/seed-component-data-entry.mjs
 COPY --chown=node:node lib/nigeria-map.json ./lib/nigeria-map.json
 USER node
 EXPOSE 3000
