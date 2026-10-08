@@ -68,11 +68,11 @@ export default function AdminSchoolsPage() {
     {error && <Alert variant="destructive"><AlertTitle>School register unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => void (meError ? reload() : setAttempt(value => value + 1))}>Try again</Button></AlertDescription></Alert>}
     {me?.impersonating ? <Alert><AlertTitle>You are using another account</AlertTitle><AlertDescription>Return to your administrator account to manage schools.</AlertDescription></Alert>
       : !options && !error ? <Skeleton className="h-80 w-full" />
-      : options && state && <>{!options.manualEntry && <DnemisOnlyNote admin />}<SchoolRegisterTable key={state} stateCode={state} refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} /></>}
+      : options && state && <>{!options.manualEntry && <DnemisOnlyNote admin />}<SchoolRegisterTable key={state} stateCode={state} refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} onView={options.manualEntry ? undefined : setEditing} /></>}
     <Dialog open={Boolean(editing)} onOpenChange={open => { if (!open) setEditing(null); }}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle>{editing === 'new' ? 'Add school' : 'Edit school'}</DialogTitle><DialogDescription>{editing === 'new' ? `Add one school to the ${options?.stateName ?? 'state'} register.` : 'Update the school details and its enrolment by class.'}</DialogDescription></DialogHeader>
-        {editing && options?.manualEntry && state && <SchoolEntryForm key={editing === 'new' ? 'new' : editing.id} stateCode={state} school={editing === 'new' ? null : editing} lgas={options.lgas} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
+        <DialogHeader><DialogTitle>{editing === 'new' ? 'Add school' : options?.manualEntry ? 'Edit school' : 'School details'}</DialogTitle><DialogDescription>{editing === 'new' ? `Add one school to the ${options?.stateName ?? 'state'} register.` : options?.manualEntry ? 'Update the school details and its enrolment by class.' : 'The school details and its enrolment by class, as synced from DNEMIS.'}</DialogDescription></DialogHeader>
+        {editing && options && state && (options.manualEntry || editing !== 'new') && <SchoolEntryForm key={editing === 'new' ? 'new' : editing.id} readOnly={!options.manualEntry} stateCode={state} school={editing === 'new' ? null : editing} lgas={options.lgas} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); }} />}
       </DialogContent>
     </Dialog>
     <Dialog open={bulk} onOpenChange={setBulk}>

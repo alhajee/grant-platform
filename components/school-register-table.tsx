@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createColumnHelper, type PaginationState, type SortingState } from '@tanstack/react-table';
-import { DownloadIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { DownloadIcon, EyeIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { DataTable } from '@/components/data-table';
 import { SchoolMapDialog } from '@/components/school-map-dialog';
 import { SchoolBulkBar, useSchoolActions } from '@/components/school-register-bulk-bar';
@@ -20,8 +20,8 @@ import { defaultRegisterPageSize, registerPageSizes, schoolApiPath, schoolGapLab
 import { EmptyRegisterArt, NoMatchingSchoolsArt } from '@/components/empty-art/school-register';
 
 /** `stateCode`: the state a Super Admin is viewing; state users omit it and get their own state. */
-/** Without `onEdit` the register is read-only (schools come from DNEMIS only): no edit, no delete, export only. */
-export type SchoolRegisterTableProps = { refreshKey: number; onEdit?: (school: RegisterSchool) => void; stateCode?: string };
+/** Without `onEdit` the register is read-only (schools come from DNEMIS only): no edit, no delete, export only; `onView` opens the read-only details. */
+export type SchoolRegisterTableProps = { refreshKey: number; onEdit?: (school: RegisterSchool) => void; onView?: (school: RegisterSchool) => void; stateCode?: string };
 type Loaded = { key: string; data: RegisterPage } | { key: string; error: string };
 const helper = createColumnHelper<DataTableFeatures, RegisterSchool>();
 const defaultSorting: SortingState = [{ id: 'name', desc: false }];
@@ -33,7 +33,7 @@ const enrolmentRecorded = (school: RegisterSchool) => school.male + school.femal
 const updated = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
 
 /** The state's schools, paged, searched, sorted and filtered on the server. */
-export function SchoolRegisterTable({ refreshKey, onEdit, stateCode }: SchoolRegisterTableProps) {
+export function SchoolRegisterTable({ refreshKey, onEdit, onView, stateCode }: SchoolRegisterTableProps) {
   // Filters are remembered per register, so one state's LGAs never filter another's.
   const persist = stateCode ? `school-register:${stateCode}` : 'school-register';
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: defaultRegisterPageSize });
@@ -126,13 +126,13 @@ export function SchoolRegisterTable({ refreshKey, onEdit, stateCode }: SchoolReg
     helper.display({ id: 'actions', enableHiding: false, header: () => <span className="sr-only">Actions</span>, cell: ({ row }) => <div className="flex justify-end"><DropdownMenu>
       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground data-[state=open]:bg-muted" aria-label={`Actions for ${row.original.name}`}><MoreHorizontalIcon /></Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        {onEdit && <DropdownMenuItem onSelect={() => onEdit(row.original)}><PencilIcon />Edit school</DropdownMenuItem>}
+        {onEdit ? <DropdownMenuItem onSelect={() => onEdit(row.original)}><PencilIcon />Edit school</DropdownMenuItem> : onView && <DropdownMenuItem onSelect={() => onView(row.original)}><EyeIcon />View details</DropdownMenuItem>}
         <DropdownMenuItem disabled={!!busy} onSelect={() => void exportSchools([row.original.id])}><DownloadIcon />Export</DropdownMenuItem>
         {onEdit && <><DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" disabled={!!busy} onSelect={() => confirmDelete([row.original.id], row.original.name)}><Trash2Icon />Delete</DropdownMenuItem></>}
       </DropdownMenuContent>
     </DropdownMenu></div> }),
-  ]), [onEdit, pageIds, pageTicked, selected, toggle, busy, exportSchools, confirmDelete]);
+  ]), [onEdit, onView, pageIds, pageTicked, selected, toggle, busy, exportSchools, confirmDelete]);
 
   const empty = error ? 'The school register could not be loaded.' : filtered
     ? <div className="register-empty"><NoMatchingSchoolsArt /><p>No schools match your filters</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
@@ -148,10 +148,10 @@ export function SchoolRegisterTable({ refreshKey, onEdit, stateCode }: SchoolReg
       persistKey={persist}
       columnLabels={{ lga: 'LGA', level: 'Level', type: 'Type', location: 'Location', learners: 'Learners', coordinates: 'Coordinates', updated: 'Last updated' }}
       empty={empty}
-      onRowClick={onEdit}
+      onRowClick={onEdit ?? onView}
       rowSelected={school => selected.has(school.id)}
       stickyHeader
-      rowLabel={onEdit ? school => `Edit ${school.name}` : undefined}
+      rowLabel={onEdit ? school => `Edit ${school.name}` : onView ? school => `View ${school.name}` : undefined}
       filters={<FilterDialog inlineChips
         sections={filters.map(item => ({ id: item.title.toLowerCase().replace(/\s+/g, '-'), title: item.title, options: item.options, selected: item.selected, onChange: setFilter(item.set) }))}
         onClearAll={() => { filters.forEach(item => item.set([])); setPagination(state => ({ ...state, pageIndex: 0 })); }}

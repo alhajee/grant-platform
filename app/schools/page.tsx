@@ -27,7 +27,7 @@ export default function SchoolsPage() {
       setOptions(body);
       // "Update in the School register" links from the plan editors open one school directly.
       const editId = Number(new URLSearchParams(window.location.search).get('edit'));
-      if (body.manualEntry && Number.isInteger(editId) && editId > 0) {
+      if (Number.isInteger(editId) && editId > 0) {
         const found = await fetch(`/api/schools?id=${editId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<RegisterPage> : null).catch(() => null);
         if (found?.items[0]) setEditing(found.items[0]);
       }
@@ -44,11 +44,11 @@ export default function SchoolsPage() {
     </div>
     {error && <Alert variant="destructive"><AlertTitle>School register unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={load}>Try again</Button></AlertDescription></Alert>}
     {!options && !error ? <Skeleton className="h-80 w-full" /> : options && !options.canManage ? <Alert><AlertTitle>School register access</AlertTitle><AlertDescription>Only the Executive Chairman, the BEAP Chair or staff they authorise can manage your state&apos;s schools.<Button asChild variant="outline"><a href="/dashboard">Back to plans</a></Button></AlertDescription></Alert>
-      : options && <>{!options.manualEntry && <DnemisOnlyNote />}<SchoolRegisterTable refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} /></>}
+      : options && <>{!options.manualEntry && <DnemisOnlyNote />}<SchoolRegisterTable refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} onView={options.manualEntry ? undefined : setEditing} /></>}
     <Dialog open={Boolean(editing)} onOpenChange={open => { if (!open) closeEdit(); }}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader><DialogTitle>{editing === 'new' ? 'Add school' : 'Edit school'}</DialogTitle><DialogDescription>{editing === 'new' ? 'Add one school to your state register.' : 'Update the school details and its enrolment by class.'}</DialogDescription></DialogHeader>
-        {editing && options?.manualEntry && <SchoolEntryForm key={editing === 'new' ? 'new' : editing.id} school={editing === 'new' ? null : editing} lgas={options.lgas} onCancel={closeEdit} onSaved={() => { closeEdit(); refresh(); }} />}
+        <DialogHeader><DialogTitle>{editing === 'new' ? 'Add school' : options?.manualEntry ? 'Edit school' : 'School details'}</DialogTitle><DialogDescription>{editing === 'new' ? 'Add one school to your state register.' : options?.manualEntry ? 'Update the school details and its enrolment by class.' : 'The school details and its enrolment by class, as synced from DNEMIS.'}</DialogDescription></DialogHeader>
+        {editing && options && (options.manualEntry || editing !== 'new') && <SchoolEntryForm key={editing === 'new' ? 'new' : editing.id} readOnly={!options.manualEntry} school={editing === 'new' ? null : editing} lgas={options.lgas} onCancel={closeEdit} onSaved={() => { closeEdit(); refresh(); }} />}
       </DialogContent>
     </Dialog>
     <Dialog open={bulk} onOpenChange={setBulk}>

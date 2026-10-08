@@ -22,6 +22,8 @@ export type SchoolEntryFormProps = {
   saveLabel?: string;
   /** The state a Super Admin is editing; state users omit it. */
   stateCode?: string;
+  /** Show the school's details without letting them change (School register source "DNEMIS only"). */
+  readOnly?: boolean;
 };
 
 const RequiredMark = () => <><span className="text-destructive" aria-hidden="true">*</span><span className="sr-only"> (required)</span></>;
@@ -33,7 +35,7 @@ const count = (value: string) => value.trim() === '' ? 0 : Number(value);
  * Single school entry for the School register and the plan-creation step. It renders no <form>
  * element, so it can sit inside another form (the plan dialog); Enter in a text field saves.
  */
-export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, stateCode }: SchoolEntryFormProps) {
+export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, stateCode, readOnly = false }: SchoolEntryFormProps) {
   const id = useId();
   const [form, setForm] = useState<Form>(() => formFor(school));
   const [grid, setGrid] = useState<Grid>(() => blankGrid(school?.enrolment));
@@ -68,20 +70,21 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, st
     } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'The school could not be saved.'); }
     finally { pending.current = false; setSaving(false); }
   }
-  const onEnter = (event: React.KeyboardEvent) => { if (event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') { event.preventDefault(); void save(); } };
+  const onEnter = (event: React.KeyboardEvent) => { if (!readOnly && event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') { event.preventDefault(); void save(); } };
   const text = (field: keyof Form, label: string, options: { required?: boolean; placeholder?: string; help?: string; inputMode?: 'decimal' } = {}) => <Field data-invalid={!!errors[field] || undefined}>
-    <FieldLabel htmlFor={`${id}-${field}`}>{label}{options.required && <RequiredMark />}</FieldLabel>
-    <Input id={`${id}-${field}`} value={form[field]} disabled={saving} required={options.required} aria-invalid={!!errors[field] || undefined} placeholder={options.placeholder} inputMode={options.inputMode} onChange={event => set({ [field]: event.target.value })} />
-    {options.help && <FieldDescription>{options.help}</FieldDescription>}{errors[field] && <FieldError>{errors[field]}</FieldError>}
+    <FieldLabel htmlFor={`${id}-${field}`}>{label}{options.required && !readOnly && <RequiredMark />}</FieldLabel>
+    <Input id={`${id}-${field}`} value={readOnly ? form[field] || '—' : form[field]} disabled={saving} readOnly={readOnly} className={readOnly ? 'bg-muted/40 focus-visible:ring-0' : undefined} required={options.required && !readOnly} aria-invalid={!!errors[field] || undefined} placeholder={readOnly ? undefined : options.placeholder} inputMode={options.inputMode} onChange={event => set({ [field]: event.target.value })} />
+    {options.help && !readOnly && <FieldDescription>{options.help}</FieldDescription>}{errors[field] && <FieldError>{errors[field]}</FieldError>}
   </Field>;
-  const select = (field: keyof Form, label: string, values: readonly string[], placeholder: string) => <Field data-invalid={!!errors[field] || undefined}>
+  const select = (field: keyof Form, label: string, values: readonly string[], placeholder: string) => readOnly ? text(field, label) : <Field data-invalid={!!errors[field] || undefined}>
     <FieldLabel htmlFor={`${id}-${field}`}>{label}<RequiredMark /></FieldLabel>
     <NativeSelect id={`${id}-${field}`} value={form[field]} disabled={saving} required aria-invalid={!!errors[field] || undefined} onChange={event => set({ [field]: event.target.value })}><NativeSelectOption value="" disabled>{placeholder}</NativeSelectOption>{values.map(value => <NativeSelectOption key={value} value={value}>{value}</NativeSelectOption>)}</NativeSelect>
     {errors[field] && <FieldError>{errors[field]}</FieldError>}
   </Field>;
 
   return <div className="flex flex-col gap-6" onKeyDown={onEnter}>
-    {school?.dnemis && <Alert><AlertDescription>Synced from DNEMIS. The next sync replaces the name, code, LGA, level, location and enrolment; town and coordinates are kept.</AlertDescription></Alert>}
+    {readOnly ? <Alert><AlertDescription>{school?.dnemis ? 'Synced from DNEMIS. Schools come from DNEMIS only, so these details cannot be changed here.' : 'Schools come from DNEMIS only, so these details cannot be changed here.'}</AlertDescription></Alert>
+      : school?.dnemis && <Alert><AlertDescription>Synced from DNEMIS. The next sync replaces the name, code, LGA, level, location and enrolment; town and coordinates are kept.</AlertDescription></Alert>}
     <FieldGroup className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">{text('name', 'School name', { required: true })}</div>
       {lgas.length ? select('lga', 'LGA', lgaOptions, 'Choose LGA') : text('lga', 'LGA', { required: true })}
@@ -95,13 +98,13 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, st
     </FieldGroup>
     <FieldSet>
       <FieldLegend>Enrolment by class</FieldLegend>
-      {school && !hasBreakdown && (school.male + school.female > 0) && <FieldDescription>The register holds {school.male.toLocaleString()} male and {school.female.toLocaleString()} female learners without a class breakdown. Leave the table empty to keep these totals, or enter every class to replace them.</FieldDescription>}
+      {school && !readOnly && !hasBreakdown && (school.male + school.female > 0) && <FieldDescription>The register holds {school.male.toLocaleString()} male and {school.female.toLocaleString()} female learners without a class breakdown. Leave the table empty to keep these totals, or enter every class to replace them.</FieldDescription>}
       <div className="overflow-hidden rounded-md border">
         <Table>
           <TableHeader><TableRow><TableHead>Class</TableHead><TableHead className="w-28">Male</TableHead><TableHead className="w-28">Female</TableHead><TableHead className="w-20 text-right">Total</TableHead></TableRow></TableHeader>
           <TableBody>{schoolClasses.map(({ key, label }) => <TableRow key={key}>
             <TableCell className="font-medium">{label}</TableCell>
-            {(['male', 'female'] as const).map(part => <TableCell key={part} className="py-1.5"><Input aria-label={`${label} ${part}`} className="h-8" type="number" min="0" step="1" inputMode="numeric" disabled={saving} value={grid[key][part]} onChange={event => setCell(key, part, event.target.value)} /></TableCell>)}
+            {(['male', 'female'] as const).map(part => <TableCell key={part} className="py-1.5"><Input aria-label={`${label} ${part}`} className={readOnly ? 'h-8 bg-muted/40 focus-visible:ring-0' : 'h-8'} type="number" min="0" step="1" inputMode="numeric" disabled={saving} readOnly={readOnly} value={grid[key][part]} onChange={event => setCell(key, part, event.target.value)} /></TableCell>)}
             <TableCell className="text-right tabular-nums">{grid[key].male.trim() || grid[key].female.trim() ? (count(grid[key].male) || 0) + (count(grid[key].female) || 0) : '—'}</TableCell>
           </TableRow>)}</TableBody>
           <TableFooter><TableRow><TableCell>Total enrolment</TableCell><TableCell className="tabular-nums">{gridEmpty && school ? school.male : totals.male}</TableCell><TableCell className="tabular-nums">{gridEmpty && school ? school.female : totals.female}</TableCell><TableCell className="text-right tabular-nums">{gridEmpty && school ? school.male + school.female : totals.male + totals.female}</TableCell></TableRow></TableFooter>
@@ -111,8 +114,10 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, st
     </FieldSet>
     {formError && <Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}
     <div className="flex flex-wrap justify-end gap-2">
-      {onCancel && <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>Cancel</Button>}
-      <Button type="button" disabled={saving} onClick={() => void save()}>{saving && <Spinner data-icon="inline-start" />}{saveLabel ?? (school ? 'Save school' : 'Add school')}</Button>
+      {readOnly ? onCancel && <Button type="button" onClick={onCancel}>Close</Button> : <>
+        {onCancel && <Button type="button" variant="outline" disabled={saving} onClick={onCancel}>Cancel</Button>}
+        <Button type="button" disabled={saving} onClick={() => void save()}>{saving && <Spinner data-icon="inline-start" />}{saveLabel ?? (school ? 'Save school' : 'Add school')}</Button>
+      </>}
     </div>
   </div>;
 }
