@@ -37,6 +37,10 @@ async function user(key, role, departments, { stateCode = state, chair = false }
 }
 
 await db.connect();
+// Default officers configured on Admin would auto-assign on release; this test assigns officers itself, so it runs
+// without them and puts them back afterwards (as scripts/test-ubec-flow.mjs does).
+const savedDefaults = (await db.query('SELECT * FROM ubec_default_officers')).rows;
+await db.query('DELETE FROM ubec_default_officers');
 try {
   settings = (await db.query("SELECT beap_chair_submission_mode, ubec_submission_mode FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
   await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode='individual_components', ubec_submission_mode='reviewed_components' WHERE state_code='GLOBAL'");
@@ -260,6 +264,7 @@ try {
   step('database: replies keep their thread scope; state and UBEC rows coexist on one plan');
   console.log(`\nPASS: ${passed} UBEC comment checks.`);
 } finally {
+  for (const r of savedDefaults) await db.query('INSERT INTO ubec_default_officers(pillar,officer_id,updated_by_name,updated_at) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING', [r.pillar, r.officer_id, r.updated_by_name, r.updated_at]).catch(() => undefined);
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);
   if (planId) {
     await db.query('DELETE FROM plan_comments WHERE plan_id=$1', [planId]);

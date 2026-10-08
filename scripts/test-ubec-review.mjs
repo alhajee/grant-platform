@@ -37,6 +37,10 @@ async function user(who, role, departments, state = marker, chair = false) {
 }
 
 await db.connect();
+// Default officers configured on Admin would auto-assign on release; this test assigns officers itself, so it runs
+// without them and puts them back afterwards (as scripts/test-ubec-flow.mjs does).
+const savedDefaults = (await db.query('SELECT * FROM ubec_default_officers')).rows;
+await db.query('DELETE FROM ubec_default_officers');
 try {
   const original = (await db.query('SELECT id,state_code FROM action_plans p ORDER BY id')).rows;
   settings = (await db.query("SELECT beap_chair_submission_mode, ubec_submission_mode FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
@@ -144,6 +148,7 @@ try {
   for (const row of (await db.query('SELECT id, state_code FROM action_plans WHERE id = ANY($1::int[])', [original.map(p => p.id)])).rows) assert.equal(row.state_code, original.find(p => p.id === row.id).state_code, 'Existing plans must be preserved');
   console.log('PASS: Executive Chairman-only submission; BEAP Chair release; department and officer isolation; return, state re-review and resubmission; frozen rounds; final approval; concurrent protection; dashboard figures; existing plans preserved.');
 } finally {
+  for (const r of savedDefaults) await db.query('INSERT INTO ubec_default_officers(pillar,officer_id,updated_by_name,updated_at) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING', [r.pillar, r.officer_id, r.updated_by_name, r.updated_at]).catch(() => undefined);
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);
   const plans = 'SELECT id FROM action_plans WHERE state_code = ANY($1::text[])';
   await db.query(`DELETE FROM plan_comments WHERE plan_id IN (${plans})`, [states]);
