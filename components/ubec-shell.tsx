@@ -34,7 +34,7 @@ export function UbecShell({ children, user, review = false, allocations = false,
           </a>
           <nav aria-label="UBEC navigation" className="national-header-nav">
             {/* The Super Admin opens UBEC plan pages only to manage officer assignments (migration 056). */}
-            {admin ? <a href="/admin#ubec-officers">Administration</a> : navigation.map(({ label, hash: targetHash }) => (
+            {admin ? <a href="/admin?section=officers">Administration</a> : navigation.map(({ label, hash: targetHash }) => (
               <a key={label} href={`/ubec${targetHash}`} aria-current={activeHash === targetHash ? (targetHash && !review ? 'location' : 'page') : undefined}>{label}</a>
             ))}
             {!admin && (user?.role === ubecRoles.director || user?.role === ubecRoles.chair) && <a href="/ubec/team" aria-current={team ? 'page' : undefined}>Officers</a>}

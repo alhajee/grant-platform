@@ -1,40 +1,32 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import {AdminActivity} from '@/components/admin-activity';
-import {AdminIntegrations} from '@/components/admin-integrations';
-import {AdminSchoolRegisterSource} from '@/components/admin-school-register-source';
-import {AdminInfrastructureTlmMode} from '@/components/admin-infrastructure-tlm-mode';
-import {AdminComponentDocuments} from '@/components/admin-component-documents';
-import {AdminUbecOfficers} from '@/components/admin-ubec-officers';
 import {AdminHeader,useAdminMe} from '@/components/admin-header';
-import {Card,CardHeader,CardTitle,CardContent,CardFooter} from '@/components/ui/card';
+import {AdminSettings} from '@/components/admin-settings/admin-settings';
+import {rememberSection,rememberedSection,sectionFromUrl,type SettingsSection} from '@/components/admin-settings/sections';
 import {Button} from '@/components/ui/button';
-import {Badge} from '@/components/ui/badge';
 import {Alert,AlertTitle,AlertDescription} from '@/components/ui/alert';
 import {Skeleton} from '@/components/ui/skeleton';
-import {Spinner} from '@/components/ui/spinner';
-import {Field,FieldContent,FieldDescription,FieldGroup,FieldLabel,FieldLegend,FieldSet,FieldTitle} from '@/components/ui/field';
-import {RadioGroup,RadioGroupItem} from '@/components/ui/radio-group';
 import {Tabs,TabsContent,TabsList,TabsTrigger} from '@/components/ui/tabs';
-import {toast} from 'sonner';
-import {defaultWorkflowSettings,type BeapChairSubmissionMode as SubmissionMode,type UbecSubmissionMode,type WorkflowSettings as WorkflowSetting} from '@/lib/workflow-settings';
-const sections=['workflow','integrations','activity'] as const;
-type Section=typeof sections[number];
-/** The tab named by `?tab=` or the hash (e.g. /admin#integrations); Users moved to its own page. */
-function sectionFromUrl():Section|'users'{const wanted=new URLSearchParams(window.location.search).get('tab')||window.location.hash.slice(1);return wanted==='users'?'users':(sections as readonly string[]).includes(wanted)?wanted as Section:'workflow';}
+type Tab='settings'|'activity';
+/** `/admin?section=officers` (or `#officers`) opens a settings section, `/admin?tab=activity` the Activity tab; Users has its own page. */
 export default function AdminPage(){
-  const {me,error:meError,reload:reloadMe}=useAdminMe();
-  const [error,setError]=useState(''),[loaded,setLoaded]=useState(false);
-  const [section,setSection]=useState<Section>('workflow');
-  const [workflowSetting,setWorkflowSetting]=useState<WorkflowSetting>(defaultWorkflowSettings),[savedWorkflowSetting,setSavedWorkflowSetting]=useState<WorkflowSetting>(defaultWorkflowSettings),[savingWorkflow,setSavingWorkflow]=useState(false);
-  const load=useCallback(async()=>{setError('');try{const settingsResponse=await fetch('/api/admin/workflow-settings',{cache:'no-store'});const workflow=await settingsResponse.json() as {setting?:WorkflowSetting;error?:string};if(!settingsResponse.ok)throw Error(workflow.error||'Unable to load workflow settings.');const setting=workflow.setting??defaultWorkflowSettings;setWorkflowSetting(setting);setSavedWorkflowSetting(setting);setLoaded(true);}catch(e){setError(e instanceof Error?e.message:'Unable to load the admin workspace.');}},[]);
-  useEffect(()=>{void Promise.resolve().then(()=>{const wanted=sectionFromUrl();if(wanted==='users'){window.location.replace('/admin/users');return;}setSection(wanted);});},[]);
-  useEffect(()=>{if(me)void Promise.resolve().then(load);},[me,load]);
-  const choose=useCallback((value:string)=>{const next=value as Section;setSection(next);window.history.replaceState(null,'',next==='workflow'?'/admin':`/admin?tab=${next}`);},[]);
-  const saveWorkflowSetting=useCallback(async()=>{setSavingWorkflow(true);try{const response=await fetch('/api/admin/workflow-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(workflowSetting)});const result=await response.json() as WorkflowSetting&{error?:string};if(!response.ok)throw Error(result.error||'Unable to save the workflow setting.');setSavedWorkflowSetting(result);setWorkflowSetting(result);toast.success('Platform workflow updated');}catch(cause){toast.error(cause instanceof Error?cause.message:'Unable to save the workflow setting.');}finally{setSavingWorkflow(false);}},[workflowSetting]);
-  const shownError=meError||error;
-  return <Tabs value={section} onValueChange={choose} className="beap-page min-h-screen w-full gap-0"><AdminHeader current="admin" user={me?.user??null}/><main id="main-content" className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 pb-12 pt-8"><div><h1 className="text-3xl font-semibold tracking-tight">Administrator workspace</h1></div>
-    {shownError&&<Alert variant="destructive"><AlertTitle>Unable to continue</AlertTitle><AlertDescription>{shownError}<Button variant="outline" size="sm" onClick={()=>void (meError?reloadMe():load())}>Try again</Button></AlertDescription></Alert>}
-    {!loaded&&!shownError?<Skeleton className="h-96 w-full"/>:loaded&&<><TabsList variant="line" className="admin-section-tabs"><TabsTrigger value="workflow">Workflow settings</TabsTrigger><TabsTrigger value="integrations">Integrations</TabsTrigger><TabsTrigger value="activity">Activity</TabsTrigger></TabsList><TabsContent value="workflow"><Card><CardHeader className="border-b"><CardTitle>SUBEB submission workflow</CardTitle></CardHeader><CardContent><FieldGroup><FieldSet className="max-w-4xl"><FieldLegend variant="label">Sending to the Executive Chairman</FieldLegend><FieldDescription>Choose how each BEAP Chair sends reviewed components to the Executive Chairman.</FieldDescription><RadioGroup className="md:grid-cols-2" value={workflowSetting.mode} onValueChange={mode=>setWorkflowSetting(current=>({...current,mode:mode as SubmissionMode}))} aria-label="Platform BEAP Chair submission mode"><FieldLabel htmlFor="complete-plan"><Field orientation="horizontal"><FieldContent><FieldTitle>Complete plan at once</FieldTitle><FieldDescription>Each BEAP Chair waits until every component is ready, then sends one collated BEAP submission.</FieldDescription></FieldContent><RadioGroupItem id="complete-plan" value="complete_plan"/></Field></FieldLabel><FieldLabel htmlFor="individual-components"><Field orientation="horizontal"><FieldContent><FieldTitle>Individual components</FieldTitle><FieldDescription>Each BEAP Chair may send reviewed components to the Executive Chairman separately.</FieldDescription></FieldContent><RadioGroupItem id="individual-components" value="individual_components"/></Field></FieldLabel></RadioGroup></FieldSet><FieldSet className="max-w-4xl"><FieldLegend variant="label">Sending to UBEC</FieldLegend><FieldDescription>Choose whether the Executive Chairman can send a plan to UBEC before every component is finished.</FieldDescription><RadioGroup className="md:grid-cols-2" value={workflowSetting.ubecMode} onValueChange={ubecMode=>setWorkflowSetting(current=>({...current,ubecMode:ubecMode as UbecSubmissionMode}))} aria-label="Platform UBEC submission mode"><FieldLabel htmlFor="ubec-complete-plan"><Field orientation="horizontal"><FieldContent><FieldTitle>Complete plan only</FieldTitle><FieldDescription>The Executive Chairman can send to UBEC only when every component is complete and has been reviewed.</FieldDescription></FieldContent><RadioGroupItem id="ubec-complete-plan" value="complete_plan"/></Field></FieldLabel><FieldLabel htmlFor="ubec-reviewed-components"><Field orientation="horizontal"><FieldContent><FieldTitle>Allow incomplete plans</FieldTitle><FieldDescription>The Executive Chairman can send the components that have reached them, even if others are unfinished. Unfinished components are left out and the plan is locked during UBEC review.</FieldDescription></FieldContent><RadioGroupItem id="ubec-reviewed-components" value="reviewed_components"/></Field></FieldLabel></RadioGroup></FieldSet></FieldGroup></CardContent><CardFooter className="justify-between border-t"><Badge variant={(savedWorkflowSetting.mode===workflowSetting.mode&&savedWorkflowSetting.ubecMode===workflowSetting.ubecMode)?'secondary':'outline'}>{(savedWorkflowSetting.mode===workflowSetting.mode&&savedWorkflowSetting.ubecMode===workflowSetting.ubecMode)?'Saved':'Unsaved changes'}</Badge><Button onClick={()=>void saveWorkflowSetting()} disabled={savingWorkflow||(savedWorkflowSetting.mode===workflowSetting.mode&&savedWorkflowSetting.ubecMode===workflowSetting.ubecMode)}>{savingWorkflow&&<Spinner data-icon="inline-start"/>}Save changes</Button></CardFooter></Card><div className="mt-6"><AdminComponentDocuments/></div><div className="mt-6"><AdminInfrastructureTlmMode/></div><div className="mt-6" id="ubec-officers"><AdminUbecOfficers/></div></TabsContent><TabsContent value="integrations"><div className="flex flex-col gap-6"><AdminIntegrations/><AdminSchoolRegisterSource/></div></TabsContent><TabsContent value="activity"><AdminActivity/></TabsContent></>}
+  const {me,error,reload}=useAdminMe();
+  const [tab,setTab]=useState<Tab>('settings'),[section,setSection]=useState<SettingsSection>('workflow');
+  useEffect(()=>{void Promise.resolve().then(()=>{
+    const search=new URLSearchParams(window.location.search),wanted=search.get('tab');
+    if(wanted==='users'){window.location.replace('/admin/users');return;}
+    if(wanted==='activity'){setTab('activity');return;}
+    const next=sectionFromUrl(search,window.location.hash)??rememberedSection()??'workflow';
+    setSection(next);rememberSection(next);
+    window.history.replaceState(null,'',`/admin?section=${next}`);
+  });},[]);
+  const chooseTab=useCallback((value:string)=>{const next=value as Tab;setTab(next);window.history.replaceState(null,'',next==='activity'?'/admin?tab=activity':`/admin?section=${section}`);},[section]);
+  const chooseSection=useCallback((next:SettingsSection)=>{setSection(next);rememberSection(next);window.history.replaceState(null,'',`/admin?section=${next}`);window.scrollTo({top:0});},[]);
+  return <Tabs value={tab} onValueChange={chooseTab} className="beap-page min-h-screen w-full gap-0"><AdminHeader current="admin" user={me?.user??null}/><main id="main-content" className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-12 pt-8 sm:px-6"><div><h1 className="text-3xl font-semibold tracking-tight">Administrator workspace</h1></div>
+    {error&&<Alert variant="destructive"><AlertTitle>Unable to continue</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={()=>void reload()}>Try again</Button></AlertDescription></Alert>}
+    {!me&&!error?<Skeleton className="h-96 w-full"/>:me&&<><TabsList variant="line" className="admin-section-tabs"><TabsTrigger value="settings">Settings</TabsTrigger><TabsTrigger value="activity">Activity</TabsTrigger></TabsList>
+      <TabsContent value="settings" forceMount hidden={tab!=='settings'} className="pt-2"><AdminSettings section={section} onSection={chooseSection}/></TabsContent>
+      <TabsContent value="activity"><AdminActivity/></TabsContent></>}
   </main></Tabs>;
 }

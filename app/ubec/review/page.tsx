@@ -81,7 +81,7 @@ export default function UbecReviewPage() {
 
   return <UbecShell review user={data?.user}>
     <div className="ubec-review-workspace plan-page ubec-plan-page">
-      <Button asChild variant="ghost" size="sm" className="review-back"><a href={admin ? '/admin#ubec-officers' : '/ubec'}><ArrowLeftIcon data-icon="inline-start" />{admin ? 'Administration' : 'Dashboard'}</a></Button>
+      <Button asChild variant="ghost" size="sm" className="review-back"><a href={admin ? '/admin?section=officers' : '/ubec'}><ArrowLeftIcon data-icon="inline-start" />{admin ? 'Administration' : 'Dashboard'}</a></Button>
       <div className="national-page-title"><div><span className="national-eyebrow">{data?.plan.stateName ?? 'BASIC EDUCATION ACTION PLAN'}</span><h1>{data ? `${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP` : 'Plan review'}</h1></div>
         <div className="review-actions">
           {round && <Badge variant={round.status === 'returned' ? 'warning' : round.status === 'approved' ? 'default' : 'secondary'}>{nationalStatusLabels[round.status]}</Badge>}

@@ -3,20 +3,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Field, FieldLabel } from '@/components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '@/components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { formatLagos, weekdayNames, type SyncSchedule } from '@/lib/dnemis-schedule';
 import type { SyncRun, SyncStatus } from '@/lib/dnemis-jobs';
 import { stateDisplayName } from '@/lib/state-names';
+import { PanelSkeleton, SettingRow, SettingsCard } from './settings-primitives';
 
 const endpoint = '/api/admin/integrations/sync';
 const pollMs = 5000;
 const number = (value: number) => value.toLocaleString('en-NG');
+const stateName = (code: string) => stateDisplayName(code).replace(/ State$/, '');
 
 async function call(init?: RequestInit) {
   const response = await fetch(endpoint, { cache: 'no-store', ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
@@ -24,8 +24,6 @@ async function call(init?: RequestInit) {
   if (!response.ok || !body.status) throw Object.assign(Error(body.error || 'Unable to reach the DNEMIS sync.'), { status: body.status });
   return body.status;
 }
-
-const stateName = (code: string) => stateDisplayName(code).replace(/ State$/, '');
 
 function LastSync({ status, onRetry, retrying }: { status: SyncStatus; onRetry: (states: string[]) => void; retrying: boolean }) {
   const latest = status.latest, done: SyncRun | null = status.lastFinished;
@@ -43,7 +41,7 @@ function LastSync({ status, onRetry, retrying }: { status: SyncStatus; onRetry: 
   </>;
 }
 
-/** "Sync now", the automatic refresh schedule and the last sync result. `ready`: the saved connection is on. */
+/** "Sync now", the automatic refresh schedule (saved as soon as it changes) and the last result. `ready`: the saved connection is on. */
 export function DnemisSync({ ready }: { ready: boolean }) {
   const [status, setStatus] = useState<SyncStatus | null>(null), [error, setError] = useState('');
   const [starting, setStarting] = useState(false), [saving, setSaving] = useState(false);
@@ -60,7 +58,7 @@ export function DnemisSync({ ready }: { ready: boolean }) {
   }, [status?.active, load]);
 
   if (error && !status) return <p className="text-sm text-destructive">{error}</p>;
-  if (!status) return <Skeleton className="h-16 w-full" />;
+  if (!status) return <PanelSkeleton rows={2} />;
   const schedule = status.schedule;
 
   const save = async (next: SyncSchedule) => {
@@ -86,34 +84,31 @@ export function DnemisSync({ ready }: { ready: boolean }) {
     else setTime(schedule.time);
   };
 
-  return <div className="flex flex-col gap-4">
-    <Separator />
-    <Field orientation="horizontal" className="w-auto">
-      <Switch id="dnemis-auto" checked={on} disabled={saving} onCheckedChange={checked => void save({ ...schedule, mode: checked ? 'daily' : 'off' })} />
-      <FieldLabel htmlFor="dnemis-auto">Automatic refresh</FieldLabel>
-    </Field>
-    {on && <div className="flex flex-wrap items-center gap-2">
-      <Select value={schedule.mode} disabled={saving} onValueChange={mode => void save({ ...schedule, mode: mode as SyncSchedule['mode'] })}>
-        <SelectTrigger aria-label="How often"><SelectValue /></SelectTrigger>
-        <SelectContent><SelectGroup><SelectItem value="daily">Daily</SelectItem><SelectItem value="weekly">Weekly</SelectItem></SelectGroup></SelectContent>
-      </Select>
-      {schedule.mode === 'weekly' && <Select value={String(schedule.weekday)} disabled={saving} onValueChange={weekday => void save({ ...schedule, weekday: Number(weekday) })}>
-        <SelectTrigger aria-label="Day of the week"><SelectValue /></SelectTrigger>
-        <SelectContent><SelectGroup>{weekdayNames.map((name, index) => <SelectItem key={name} value={String(index)}>{name}</SelectItem>)}</SelectGroup></SelectContent>
-      </Select>}
-      <InputGroup className="w-32">
-        <InputGroupInput type="time" step={300} aria-label="Time (West Africa Time)" className="appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-          value={time} disabled={saving} onChange={event => setTime(event.target.value)} onBlur={commitTime}
-          onKeyDown={event => { if (event.key === 'Enter') commitTime(); }} />
-        <InputGroupAddon align="inline-end"><InputGroupText>WAT</InputGroupText></InputGroupAddon>
-      </InputGroup>
-    </div>}
-    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-      <div className="flex flex-col gap-1">
-        <LastSync status={status} retrying={starting || !ready} onRetry={states => void start(states)} />
-        {on && status.nextSync && <span>Next sync {formatLagos(status.nextSync)}</span>}
+  return <SettingsCard>
+    <SettingRow label="Automatic refresh" htmlFor="dnemis-auto" description={on && status.nextSync ? `Next sync ${formatLagos(status.nextSync)}` : 'Saved as soon as you change it.'}>
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        {on && <>
+          <Select value={schedule.mode} disabled={saving} onValueChange={mode => void save({ ...schedule, mode: mode as SyncSchedule['mode'] })}>
+            <SelectTrigger size="sm" aria-label="How often"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectGroup><SelectItem value="daily">Daily</SelectItem><SelectItem value="weekly">Weekly</SelectItem></SelectGroup></SelectContent>
+          </Select>
+          {schedule.mode === 'weekly' && <Select value={String(schedule.weekday)} disabled={saving} onValueChange={weekday => void save({ ...schedule, weekday: Number(weekday) })}>
+            <SelectTrigger size="sm" aria-label="Day of the week"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectGroup>{weekdayNames.map((name, index) => <SelectItem key={name} value={String(index)}>{name}</SelectItem>)}</SelectGroup></SelectContent>
+          </Select>}
+          <InputGroup className="h-8 w-28">
+            <InputGroupInput type="time" step={300} aria-label="Time (West Africa Time)" className="appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+              value={time} disabled={saving} onChange={event => setTime(event.target.value)} onBlur={commitTime}
+              onKeyDown={event => { if (event.key === 'Enter') commitTime(); }} />
+            <InputGroupAddon align="inline-end"><InputGroupText>WAT</InputGroupText></InputGroupAddon>
+          </InputGroup>
+        </>}
+        <Switch id="dnemis-auto" checked={on} disabled={saving} onCheckedChange={checked => void save({ ...schedule, mode: checked ? 'daily' : 'off' })} />
       </div>
+    </SettingRow>
+    <Separator />
+    <SettingRow label="Sync schools now" description={<span className="flex flex-col gap-1"><LastSync status={status} retrying={starting || !ready} onRetry={states => void start(states)} /></span>}>
       <Button variant="outline" size="sm" onClick={() => void start()} disabled={!ready || starting || status.active}>{(starting || status.active) && <Spinner data-icon="inline-start" />}Sync now</Button>
-    </div>
-  </div>;
+    </SettingRow>
+  </SettingsCard>;
 }
