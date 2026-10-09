@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { ConfirmStep, useConfirmStep } from '@/components/confirm-step';
 import { CheckIcon, CircleDotIcon, MessageSquareTextIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { NoOfficersArt, UbecEmpty } from '@/components/empty-art/ubec-flow';
@@ -16,8 +17,9 @@ import { Textarea } from '@/components/ui/textarea';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
 import type { PlanCommentThread } from '@/lib/plan-comments';
 import { departmentName } from '@/lib/ubec';
-import { componentName, type FlowComponent, type UbecFlow } from '@/lib/ubec-flow';
+import { componentName, type FlowComponent, type PipelineComponent, type UbecFlow } from '@/lib/ubec-flow';
 import { DecisionBar } from './flow-bits';
+import { flowConfirmation } from './flow-confirmation';
 
 export type FlowRequest =
   | { kind: 'release' } | { kind: 'approve' } | { kind: 'return' }
@@ -34,25 +36,38 @@ const copy: Record<FlowRequest['kind'], { title: (name: string) => string; descr
   return: { title: () => 'Return to SUBEB', description: 'The whole plan goes back to the SUBEB with every component’s results. Its BEAP Chair, the Directors and Data Entry staff of these components are notified.', field: 'Consolidated changes required', required: true, confirm: 'Return to SUBEB' },
 };
 
-/** Every UBEC workflow step in one dialog: the step's summary, its fields, and the request to the right API. */
-export function FlowDialog({ request, planId, version, roundId, flow, threads, onClose, onDone, admin = false }: {
-  request: FlowRequest | null; planId: number; version: number; roundId: number; flow: UbecFlow; threads: readonly PlanCommentThread[]; admin?: boolean;
+/**
+ * Every UBEC workflow step in one dialog: the step's summary and fields, then a confirmation of what will
+ * happen (`flowConfirmation`), then the request to the right API. `plan` names the plan ("Yobe 2026 BEAP");
+ * `components` are the round's components with their amounts.
+ */
+export function FlowDialog({ request, planId, plan, version, roundId, flow, components, threads, onClose, onDone, admin = false }: {
+  request: FlowRequest | null; planId: number; plan: string; version: number; roundId: number; flow: UbecFlow; components: readonly PipelineComponent[]; threads: readonly PlanCommentThread[]; admin?: boolean;
   onClose: () => void; onDone: () => void;
 }) {
   const [comment, setComment] = useState(''), [officers, setOfficers] = useState<number[]>([]), [share, setShare] = useState<number[] | null>(null);
   const [saving, setSaving] = useState(false), [error, setError] = useState('');
   const busy = useRef(false);
+  const step = useConfirmStep('ubec-flow-comment');
   const kind = request?.kind, pillar = request && 'pillar' in request ? request.pillar : null;
   const component = pillar ? flow.components.find(c => c.pillar === pillar) : undefined;
   const text = kind ? copy[kind] : null;
   const openThreads = threads.filter(t => !t.resolvedAt);
   const shareIds = share ?? openThreads.map(t => t.id);
-  const reset = () => { setComment(''); setOfficers([]); setShare(null); setError(''); };
+  const reset = () => { setComment(''); setOfficers([]); setShare(null); setError(''); step.reset(); };
+  const summary = request && flowConfirmation({ request, plan, flow, components, threads: pillar ? openThreads.filter(t => t.pillar === pillar).length : openThreads.length, shared: shareIds.length,
+    officerNames: flow.officers.filter(o => officers.includes(o.id)).map(o => o.name) });
+
+  // The first step checks the fields, then asks for confirmation; the second step saves.
+  function toConfirm() {
+    if (!request) return;
+    if (text?.required && !comment.trim()) { setError(`${text.field} is required.`); return; }
+    if (request.kind === 'assign' && !officers.length) { setError('Choose at least one Assessment Officer.'); return; }
+    setError(''); step.review();
+  }
 
   async function submit() {
     if (!request || busy.current) return;
-    if (text?.required && !comment.trim()) { setError(`${text.field} is required.`); return; }
-    if (request.kind === 'assign' && !officers.length) { setError('Choose at least one Assessment Officer.'); return; }
     busy.current = true; setSaving(true); setError('');
     const plan = `?plan=${planId}`;
     const [url, body] = request.kind === 'release' || request.kind === 'approve' || request.kind === 'return'
@@ -70,10 +85,12 @@ export function FlowDialog({ request, planId, version, roundId, flow, threads, o
   }
 
   return <Dialog open={!!request} onOpenChange={open => { if (!open && !saving) { reset(); onClose(); } }}>
-    <DialogContent className="national-dialog ubec-flow-dialog sm:max-w-xl" showCloseButton={!saving} onEscapeKeyDown={e => { if (saving) e.preventDefault(); }} onInteractOutside={e => { if (saving) e.preventDefault(); }}>
-      {text && <>
-        <DialogHeader><DialogTitle>{text.title(pillar ? componentName(pillar) : '')}</DialogTitle><DialogDescription>{text.description}</DialogDescription></DialogHeader>
-        <form onSubmit={event => { event.preventDefault(); void submit(); }}><FieldGroup>
+    <DialogContent className="national-dialog ubec-flow-dialog sm:max-w-xl" showCloseButton={!saving} onEscapeKeyDown={e => step.escape(e, saving)} onInteractOutside={e => { if (saving) e.preventDefault(); }}>
+      {text && summary && step.confirming && <ConfirmStep title={summary.title} description={summary.description} facts={summary.facts} notes={summary.notes} tone={summary.tone} acknowledge={summary.acknowledge}
+        comment={comment} commentLabel={text.field.replace(/ \(optional\)$/, '')} confirmLabel={summary.confirm} saving={saving} error={error} onBack={() => { setError(''); step.back(); }} onConfirm={() => void submit()} />}
+      {text && !step.confirming && <>
+        <DialogHeader className={step.commentStepClass}><DialogTitle>{text.title(pillar ? componentName(pillar) : '')}</DialogTitle><DialogDescription>{text.description}</DialogDescription></DialogHeader>
+        <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}><FieldGroup>
           {kind === 'assign' && <OfficerPicker flow={flow} component={component} value={officers} onChange={setOfficers} disabled={saving} admin={admin} />}
           {(kind === 'complete' || kind === 'oversight' || kind === 'observe') && component && <ComponentSummary component={component} threads={openThreads.filter(t => t.pillar === pillar).length} showOfficers={kind !== 'complete'} />}
           {(kind === 'approve' || kind === 'return') && <PlanSummary flow={flow} />}
