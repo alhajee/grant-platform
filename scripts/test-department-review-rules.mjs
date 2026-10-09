@@ -30,7 +30,7 @@ const reviews = (infrastructure, sports, sbmc= sports, tlm= sports, rest = sport
   ...['monitoring', 'gscci', 'curriculum', 'quality', 'teachers', 'ict', 'planning'].map(pillar => ({ pillar, status: rest })),
 ];
 const completeSnapshot = {
-  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1}}}], sports:[{section:'equipment',unit_cost:'0',quantity:1}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}], monitoring:[{}], gscci:[{}], gscciDistribution:[{}], curriculum:[{}], curriculumDistribution:[{}],
+  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1,land:{available:true,documented:true,unencumbered:true},documentIds:['l']}}}], sports:[{section:'equipment',unit_cost:'0',quantity:1}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}], monitoring:[{}], gscci:[{}], gscciDistribution:[{}], curriculum:[{}], curriculumDistribution:[{}],
   // Quality Assurance and ICT: every compulsory activity, line schools and line documents (migration 038).
   quality:[2,3,6,7,8,9,10].map(activity=>({id:activity,activity,description:'QA'})),
   ict:[{id:12,activity:2,description:'Smart',schools:[{id:1}]},{id:13,activity:3,description:'Connect',documents:[{id:'d'}]},{id:16,activity:6,description:'Website'}],
@@ -38,7 +38,7 @@ const completeSnapshot = {
   teachers:[{id:30,activity:0,description:'',documents:[{id:'t'}]}], setup:{ictAllocation:'100.00'},
   // Planning, Research & Statistics (migration 041): every compulsory activity.
   planning:[0,2,3,5].map(activity=>({id:40+activity,activity,description:'Planning'})),
-  infrastructureDocuments:[{kind:'drawings'},{kind:'boq',schoolId:1},{kind:'survey',schoolId:1}],
+  infrastructureDocuments:[{kind:'drawings'},{kind:'boq',schoolId:1},{kind:'survey',schoolId:1},{id:'l',kind:'land',schoolId:1}],
 };
 assert.equal(beapPillars.length, 9);
 assert.equal(beapPillars.reduce((sum,p) => sum+p.share,0), 100);
@@ -107,5 +107,5 @@ assert.deepEqual([partialSnapshot.infrastructure,partialSnapshot.sbmc,partialSna
 assert.equal('infrastructureDocuments' in partialSnapshot,false);
 assert.deepEqual([partialSnapshot.monitoring,partialSnapshot.curriculumDistribution,partialSnapshot.gscciDistribution,partialSnapshot.componentDocuments],[[],[],[],[]]);
 assert.equal(ubecSubmissionSnapshot(completeSnapshot,reviews('chairman_ready','chairman_ready')).gscciDistribution.length,1);
-assert.equal(ubecSubmissionSnapshot(completeSnapshot,reviews('chairman_ready','chairman_ready')).infrastructureDocuments.length,3);
+assert.equal(ubecSubmissionSnapshot(completeSnapshot,reviews('chairman_ready','chairman_ready')).infrastructureDocuments.length,4);
 console.log('PASS: department isolation, Director, BEAP Chair and Executive Chairman stages, UBEC locks, implemented-component readiness, UBEC submission modes, nine components (eleven review pillars, all implemented) and 100% shares.');
