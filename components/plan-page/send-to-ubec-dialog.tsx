@@ -1,28 +1,57 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { ConfirmStep, confirmMoney, useConfirmStep, type ConfirmFact, type ConfirmNote } from '@/components/confirm-step';
+import { planPeriod } from '@/lib/action-plans';
+import { componentSections, type ImplementedPillar } from '@/lib/beap-pillars';
+import { summarizeSnapshot } from '@/lib/plan-summary';
+import type { PlanReview } from '@/lib/plan-review';
 import type { UbecDetail } from '@/lib/ubec';
 
 type Status = { version: number; roundId?: number; returned: boolean; canSubmit: boolean };
 const reviewUrl = (planId: number) => `/api/ubec/review?plan=${encodeURIComponent(String(planId))}`;
+
+const nameOf = (pillar: ImplementedPillar) => componentSections[pillar][0].name;
+
+/** The confirmation summary: the components that go (only ready ones), their total, and what UBEC review locks. */
+function ubecConfirmation(review: PlanReview, returned: boolean, openUbecComments: number): { facts: ConfirmFact[]; notes: ConfirmNote[] } {
+  const totals = summarizeSnapshot(review.snapshot);
+  const ready = review.pillarReviews.filter(r => r.status === 'chairman_ready').map(r => r.pillar);
+  // Components with saved lines that haven't reached the Executive Chairman stay behind (reviewed-components mode).
+  const leftOut = review.pillarReviews.filter(r => r.status !== 'chairman_ready' && totals[r.pillar].lineCount > 0).map(r => r.pillar);
+  const facts: ConfirmFact[] = [
+    { label: 'Plan', value: `${planPeriod(review.plan)} BEAP` },
+    { label: 'Components', value: <ul>{ready.map(p => <li key={p}>{nameOf(p)} <small>· {confirmMoney.format(totals[p].budget)}</small></li>)}</ul> },
+    { label: 'Total proposed', value: confirmMoney.format(ready.reduce((sum, p) => sum + totals[p].budget, 0)) },
+    { label: 'Goes to', value: 'UBEC BEAP Chair, for national review' },
+  ];
+  if (leftOut.length) facts.push({ label: 'Left out (not ready)', value: <ul>{leftOut.map(p => <li key={p}>{nameOf(p)}</li>)}</ul> });
+  if (openUbecComments > 0) facts.push({ label: 'UBEC comments', value: `${openUbecComments} still open; UBEC sees your team’s replies` });
+  return { facts, notes: [
+    { kind: 'lock', text: 'The whole plan is locked while UBEC reviews it. Nobody at the SUBEB can edit it until UBEC returns it.' },
+    { kind: 'warning', text: returned ? 'This starts a new UBEC review of the revised plan. It can’t be withdrawn once sent.' : 'A submission to UBEC can’t be withdrawn once sent.' },
+  ] };
+}
 
 /**
  * The Executive Chairman's Send to UBEC, on the plan page. It reads the plan's UBEC state when opened (so a
  * plan returned by UBEC asks for a response to the feedback) and submits the same action the UBEC review
  * page used to. Mount it with a fresh key each time it opens so it starts clean.
  */
-export function SendToUbecDialog({ planId, open, openUbecComments, onClose, onSent }: {
-  planId: number; open: boolean; openUbecComments: number; onClose: () => void; onSent: () => void;
+export function SendToUbecDialog({ planId, review, open, openUbecComments, onClose, onSent }: {
+  planId: number; review: PlanReview; open: boolean; openUbecComments: number; onClose: () => void; onSent: () => void;
 }) {
   const [status, setStatus] = useState<Status | null>(null), [loadError, setLoadError] = useState('');
   const [comment, setComment] = useState(''), [error, setError] = useState(''), [saving, setSaving] = useState(false);
   const busy = useRef(false);
+  const step = useConfirmStep('send-to-ubec-note');
+  const summary = useMemo(() => ubecConfirmation(review, !!status?.returned, openUbecComments), [review, status?.returned, openUbecComments]);
 
   useEffect(() => {
     if (!open) return;
@@ -36,9 +65,15 @@ export function SendToUbecDialog({ planId, open, openUbecComments, onClose, onSe
     return () => { active = false; };
   }, [open, planId]);
 
+  // The first step checks the note, then asks for confirmation; the second sends.
+  function toConfirm() {
+    if (!status?.canSubmit) return;
+    if (status.returned && !comment.trim()) { setError('Describe how the UBEC feedback was addressed.'); return; }
+    setError(''); step.review();
+  }
+
   async function send() {
     if (!status || busy.current) return;
-    if (status.returned && !comment.trim()) { setError('Describe how the UBEC feedback was addressed.'); return; }
     busy.current = true; setSaving(true); setError('');
     try {
       const response = await fetch(reviewUrl(planId), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'submit', version: status.version, roundId: status.roundId, comment: comment.trim() }) });
@@ -51,11 +86,15 @@ export function SendToUbecDialog({ planId, open, openUbecComments, onClose, onSe
   }
 
   return <Dialog open={open} onOpenChange={next => { if (!next && !saving) onClose(); }}>
-    <DialogContent variant="inset-footer" className="sm:max-w-lg">
-      <DialogHeader>
+    <DialogContent variant="inset-footer" className="sm:max-w-lg" showCloseButton={!saving} onEscapeKeyDown={event => step.escape(event, saving)} onInteractOutside={event => { if (saving) event.preventDefault(); }}>
+      {step.confirming ? <ConfirmStep title={`${status?.returned ? 'Resubmit' : 'Send'} the ${planPeriod(review.plan)} BEAP to UBEC?`} description="The UBEC BEAP Chair is notified and releases it to the UBEC departments for assessment."
+        facts={summary.facts} notes={summary.notes} comment={comment} commentLabel={status?.returned ? 'Response to UBEC feedback' : 'Your comment'} confirmLabel={status?.returned ? 'Yes, resubmit to UBEC' : 'Yes, send to UBEC'}
+        saving={saving} error={error} bodyClassName="px-4 pb-5" onBack={() => { setError(''); step.back(); }} onConfirm={() => void send()} /> : <>
+      <DialogHeader className={step.commentStepClass}>
         <DialogTitle>Send to UBEC</DialogTitle>
         <DialogDescription>{status?.returned ? 'Resubmit the revised plan to UBEC with a note on how its feedback was addressed.' : 'The reviewed plan goes to UBEC for national review. It is locked while UBEC reviews it.'}</DialogDescription>
       </DialogHeader>
+      <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}>
       <div className="px-4 pb-4">
         {!status && !loadError && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />Checking the plan…</p>}
         {loadError && <p className="text-sm text-destructive" role="alert">{loadError}</p>}
@@ -71,8 +110,10 @@ export function SendToUbecDialog({ planId, open, openUbecComments, onClose, onSe
       </div>
       <DialogFooter>
         <DialogClose asChild><Button type="button" variant="outline" disabled={saving}>Cancel</Button></DialogClose>
-        <Button type="button" disabled={!status?.canSubmit || saving} onClick={() => void send()}>{saving && <Spinner data-icon="inline-start" />}Send to UBEC</Button>
+        <Button type="submit" disabled={!status?.canSubmit || saving}>{saving && <Spinner data-icon="inline-start" />}Send to UBEC</Button>
       </DialogFooter>
+      </form>
+      </>}
     </DialogContent>
   </Dialog>;
 }

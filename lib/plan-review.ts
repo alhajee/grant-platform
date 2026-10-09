@@ -13,7 +13,7 @@ export type Snapshot = {
   gscciDistribution?: import('./activity-plans').DistributionSchool[];
   curriculum?: import('./activity-plans').ActivitySnapshotLine[];
   curriculumDistribution?: import('./activity-plans').DistributionSchool[];
-  /** Quality Assurance and ICT lines carry their chosen schools and documents (migration 038). */
+  /** Quality Assurance and ICT lines carry their chosen schools and documents (migration 038); SBMC, TLM, Monitoring, Curriculum and Planning lines carry their supporting documents (migration 057). */
   quality?: import('./activity-plans').ActivitySnapshotLine[];
   ict?: import('./activity-plans').ActivitySnapshotLine[];
   /** Teacher Development lines carry their training details and documents (migration 040). */

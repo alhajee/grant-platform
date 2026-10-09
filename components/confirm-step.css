@@ -1,0 +1,48 @@
+/* Confirmation step of a workflow dialog (components/confirm-step.tsx). */
+/* Left-aligned at every width, clear of the close button. */
+.confirm-step-head { text-align: left; }
+.confirm-step-head [data-slot="dialog-title"] { padding-right: 28px; }
+.confirm-step { display: flex; flex-direction: column; gap: 12px; }
+.confirm-step-form { display: flex; flex-direction: column; gap: 20px; }
+[data-variant="inset-footer"] > .confirm-step-form { gap: 0; }
+
+.confirm-facts { display: grid; gap: 0; margin: 0; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: color-mix(in srgb, var(--foreground) 2%, var(--background)); }
+.confirm-facts > div { display: grid; grid-template-columns: minmax(96px, 34%) minmax(0, 1fr); gap: 12px; padding: 9px 12px; font-size: 13px; line-height: 1.45; }
+.confirm-facts > div + div { border-top: 1px solid var(--border); }
+.confirm-facts dt { color: var(--muted-foreground); }
+.confirm-facts dd { margin: 0; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+.confirm-facts dd ul { display: flex; flex-direction: column; gap: 2px; }
+.confirm-facts dd small { color: var(--muted-foreground); font-weight: 400; }
+
+.confirm-quote { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.confirm-quote figcaption { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
+.confirm-quote figcaption svg { width: 14px; height: 14px; }
+.confirm-quote blockquote { margin: 0; padding: 6px 0 6px 12px; border-left: 3px solid color-mix(in srgb, var(--primary) 35%, var(--border)); font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow: auto; }
+.confirm-quote[data-empty] p { font-size: 13px; color: var(--muted-foreground); font-style: italic; }
+
+.confirm-notes { display: flex; flex-direction: column; gap: 6px; }
+.confirm-notes li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; color: var(--muted-foreground); }
+.confirm-notes svg { flex-shrink: 0; width: 15px; height: 15px; margin-top: 2px; }
+.confirm-notes li[data-kind="lock"] svg { color: var(--foreground); }
+.confirm-notes li[data-kind="warning"] { color: var(--foreground); }
+.confirm-notes li[data-kind="warning"] svg { color: #b45309; }
+[data-tone="destructive"] .confirm-notes li[data-kind="warning"] svg { color: var(--destructive); }
+
+.confirm-ack { padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; transition: border-color 160ms ease, background-color 160ms ease; }
+[data-tone="strong"] .confirm-ack { border-color: rgb(180 83 9 / 35%); background: rgb(251 191 36 / 8%); }
+[data-tone="destructive"] .confirm-ack { border-color: color-mix(in srgb, var(--destructive) 35%, var(--border)); background: color-mix(in srgb, var(--destructive) 4%, transparent); }
+.confirm-ack[data-checked] { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); background: color-mix(in srgb, var(--primary) 5%, transparent); }
+.confirm-ack label { line-height: 1.45; }
+
+/* The steps swap in place: a short slide and fade, none when reduced motion is requested. */
+@keyframes confirm-step-in { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@keyframes confirm-step-back { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+.confirm-step-enter { animation: confirm-step-in 200ms cubic-bezier(.2, .8, .2, 1); }
+.confirm-step-return { animation: confirm-step-back 200ms cubic-bezier(.2, .8, .2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .confirm-step-enter, .confirm-step-return { animation: none; }
+  .confirm-ack { transition: none; }
+}
+@media (max-width: 480px) {
+  .confirm-facts > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}

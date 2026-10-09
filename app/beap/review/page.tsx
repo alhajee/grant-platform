@@ -148,7 +148,7 @@ export default function PlanPage() {
       </>}
     </main>
     {data && <ReviewActionDialog request={request} data={data} comments={comments} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} />}
-    {data && <SendToUbecDialog key={sendingToUbec ? 'open' : 'closed'} planId={data.plan.id} open={sendingToUbec} openUbecComments={comments?.threads.filter(thread => thread.scope === 'ubec' && !thread.resolvedAt).length ?? 0} onClose={() => setSendingToUbec(false)} onSent={() => { setSendingToUbec(false); void load(); }} />}
+    {data && <SendToUbecDialog key={sendingToUbec ? 'open' : 'closed'} planId={data.plan.id} review={data} open={sendingToUbec} openUbecComments={comments?.threads.filter(thread => thread.scope === 'ubec' && !thread.resolvedAt).length ?? 0} onClose={() => setSendingToUbec(false)} onSent={() => { setSendingToUbec(false); void load(); }} />}
     {editing && data && <EditPlanDialog planId={data.plan.id} onClose={() => setEditing(false)} onSaved={() => void load(selected)} />}
   </div>;
 }
