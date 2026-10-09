@@ -46,13 +46,14 @@ step('Readiness skips line documents only while they are optional (unit)');
 
 const { infrastructureDocumentProblem } = load(resolve('lib/infrastructure-documents.ts'));
 const newLine = (documentIds, land) => ({ school: { id: 7, name: 'Unit school' }, package: { kind: 'new', input: { schoolId: 7, documentIds, land } } });
-const bare = { infrastructure: [newLine([], { available: false, documented: false, unencumbered: false })], infrastructureDocuments: [] };
-assert.match(infrastructureDocumentProblem(bare, { documentsRequired: true }) ?? '', /a BOQ for Unit school/);
-assert.equal(infrastructureDocumentProblem(bare, { documentsRequired: false }), null);
-const unlanded = { infrastructure: [newLine([], { available: true, documented: true, unencumbered: false })], infrastructureDocuments: [] };
-assert.match(infrastructureDocumentProblem(unlanded, { documentsRequired: false }) ?? '', /land document .*2 ticked, 0 attached/);
-const landed = { infrastructure: [newLine(['l1', 'l2'], { available: true, documented: true, unencumbered: false })], infrastructureDocuments: [{ id: 'l1', kind: 'land', schoolId: 7 }, { id: 'l2', kind: 'land', schoolId: 7 }] };
-assert.equal(infrastructureDocumentProblem(landed, { documentsRequired: false }), null);
+const all = { available: true, documented: true, unencumbered: true };
+// New Construction: all three land declarations and the C of O / R of O / Community Agreement document, in either mode (client feedback, October 2026).
+const bare = { infrastructure: [newLine([], { available: true, documented: false, unencumbered: false })], infrastructureDocuments: [] };
+assert.match(infrastructureDocumentProblem(bare, { documentsRequired: false }) ?? '', /Tick all three land declarations for Unit school/);
+const unlanded = { infrastructure: [newLine([], all)], infrastructureDocuments: [] };
+assert.match(infrastructureDocumentProblem(unlanded, { documentsRequired: false }) ?? '', /C of O, R of O or Community Agreement document for Unit school/);
+const landed = { infrastructure: [newLine(['l1'], all)], infrastructureDocuments: [{ id: 'l1', kind: 'land', schoolId: 7 }] };
+assert.equal(infrastructureDocumentProblem(landed, { documentsRequired: false }), null, 'one land document is enough');
 assert.match(infrastructureDocumentProblem(landed, { documentsRequired: true }) ?? '', /a BOQ for Unit school/);
 const complete = { ...landed, infrastructureDocuments: [...landed.infrastructureDocuments, { id: 'b', kind: 'boq', schoolId: 7 }, { id: 's', kind: 'survey', schoolId: 7 }] };
 assert.equal(infrastructureDocumentProblem(complete, { documentsRequired: true }), null, 'drawings are never required');
@@ -157,11 +158,11 @@ try {
   // Split mode (migration 051): Infrastructure takes the whole Infrastructure & TLM pool here (TLM has no lines).
   await db.query('UPDATE action_plans SET tlm_allocation=0 WHERE id=$1', [planId]);
   const furniture = { action: 'save', input: { kind: 'furniture', schoolId: school, components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost: 1000 }], documentIds: [] } };
-  const newSchool = packageSchema.parse({ kind: 'new', schoolId: school, components: ['Primary'], lumpSum: 1000, duration: '6 months', land: { available: true, documented: false, unencumbered: false }, documentIds: [] });
+  const newSchool = packageSchema.parse({ kind: 'new', schoolId: school, components: ['Primary'], lumpSum: 1000, duration: '6 months', model: 0, fenceLength: 100, land: { available: true, documented: true, unencumbered: true }, documentIds: [] });
   const whole = packageSchema.parse({ kind: 'whole', schoolId: school, components: ['Primary'], documentIds: [] });
-  whole.model = 0; whole.fenceRequired = 100;
+  whole.fenceRequired = 100;
   whole.audit = Object.fromEntries(minimumKeys.map(key => [key, { existing: 0, functional: 0, extra: 0 }]));
-  whole.audit.classroomPri = { existing: 3, functional: 1, extra: 0 }; // non-functional classrooms: photographic evidence rule
+  whole.audit.classroomPri = { existing: 3, functional: 1, extra: 0 }; // non-functional classrooms: per-row photographic evidence rule
   for (const item of calculateInfrastructure(whole, 100).items) whole.packageCosts[item.key] = { cost: 1, strategy: 'NCB', duration: '8 weeks' };
 
   // Required: the refusals are as before.
@@ -172,14 +173,14 @@ try {
   const drawings = new FormData(); drawings.set('kind', 'drawings'); drawings.set('file', new File(['%PDF-1.4\nDR\n%%EOF'], 'drawings.pdf', { type: 'application/pdf' }));
   fails(await api('physical', `/api/infrastructure/documents?plan=${planId}`, drawings), 400, /no longer collected/);
   fails(await api('physical', infra, { action: 'save', input: whole }), 400, /photographic evidence/);
-  fails(await api('physical', infra, { action: 'save', input: newSchool }), 400, /1 ticked, 0 attached/);
+  fails(await api('physical', infra, { action: 'save', input: newSchool }), 400, /C of O, R of O or Community Agreement/);
   step('Setting on: Infrastructure send refused without a BOQ (never for drawings, whose uploads are refused); Whole School save refused without photographic evidence');
 
   // Optional: packages save without photos or an updated BOQ, but New Construction still needs its land documents.
   await setRequired(false);
   assert.equal(ok(await api('physical', infra)).documentsRequired, false);
-  fails(await api('physical', infra, { action: 'save', input: newSchool }), 400, /1 ticked, 0 attached/);
-  ok(await api('physical', infra, { action: 'save', input: { ...newSchool, land: { available: false, documented: false, unencumbered: false }, documentIds: [] } }), 400);
+  fails(await api('physical', infra, { action: 'save', input: newSchool }), 400, /C of O, R of O or Community Agreement/);
+  fails(await api('physical', infra, { action: 'save', input: { ...newSchool, land: { available: true, documented: true, unencumbered: false }, documentIds: [await infraDoc('land', school)] } }), 400, /Tick all three land declarations/);
   ok(await api('physical', infra, { action: 'save', input: { ...newSchool, documentIds: [await infraDoc('land', school)] } }));
   ok(await api('physical', infra, { action: 'save', input: whole }));
   step('Setting off: Whole School saves without photographic evidence; New Construction land declaration & agreement still required');
@@ -188,7 +189,7 @@ try {
   await setRequired(true);
   const photo = await infraDoc('photo', school);
   let saved = await savedPackage('whole');
-  fails(await api('physical', infra, { action: 'save', id: saved.id, version: saved.version, input: { ...whole, documentIds: [photo] } }), 400, /updated BOQ/);
+  fails(await api('physical', infra, { action: 'save', id: saved.id, version: saved.version, input: { ...whole, documentIds: [photo], photoKeys: { [photo]: 'classroomPri' } } }), 400, /updated BOQ/);
   step('Setting on: re-saving a Whole School package needs an updated BOQ');
 
   // Optional: re-save without an updated BOQ, then send Infrastructure without BOQs, surveys or photos (and no drawings).

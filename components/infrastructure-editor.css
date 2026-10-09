@@ -80,3 +80,21 @@
 .infra-audit-table tr[data-status=invalid] .infra-audit-status{color:var(--destructive)}
 @media(max-width:700px){.infra-model-choice{flex-direction:column}.infra-model-choice .infra-model-option{flex:none;width:100%}.infra-audit-table .infra-audit-sticky{width:170px;min-width:150px;max-width:170px}}
 @media(max-width:700px){.infra-audit-filter{flex-direction:column;align-items:stretch;width:100%}.infra-audit-filter [data-slot=toggle-group-item]{justify-content:space-between;width:100%}}
+/* Read-only school details come from DNEMIS (client feedback, October 2026): coloured, italic note. */
+.infra-school-register .infra-dnemis-note{font-style:italic;color:var(--warning-foreground)}
+/* The C of O / R of O / Community Agreement upload sits under its declaration. */
+.land-agreement-upload{margin:-6px 0 0 28px;min-width:0}
+.land-agreement-upload [data-slot=field]{gap:8px}
+/* Whole School audit: per-row photographic evidence and the editable Additional figure (placeholder = calculated shortfall). */
+.infra-audit-photos{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:150px;max-width:220px}
+.infra-audit-photo{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:2px 4px 2px 8px;border:1px solid var(--border);border-radius:999px;font-size:12px;background:var(--muted)}
+.infra-audit-photo a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit}
+.infra-audit-photo a:hover{text-decoration:underline}
+.infra-audit-photo button{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;color:var(--muted-foreground)}
+.infra-audit-photo button:hover,.infra-audit-photo button:focus-visible{background:var(--card);color:var(--destructive);outline:none}
+.infra-audit-photo svg{width:12px;height:12px}
+.infra-audit-input[data-calculated]::placeholder{color:var(--foreground);opacity:.55}
+/* New Construction model step: requirements table (Requirement, Quantity, Description). */
+.infra-new-table td{vertical-align:middle}
+.infra-new-table tr[data-status=invalid]{background:color-mix(in srgb,var(--destructive) 6%,var(--card))}
+@media(max-width:700px){.infra-new-table{min-width:620px}.land-agreement-upload{margin-left:0}}

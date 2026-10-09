@@ -3,7 +3,8 @@ import type { ReadinessOptions } from './component-readiness';
 
 /**
  * Why Infrastructure cannot be sent yet because of its documents, or null.
- * The New Construction land documents (one per ticked land declaration) are always required.
+ * New Construction always needs all three land declarations ticked and its C of O / R of O / Community Agreement document
+ * (client feedback, October 2026; older packages saved with fewer ticks are asked for the rest here).
  * Each school's BOQ and geophysical survey report are required only while the Super Admin's Supporting
  * documents setting is on (migration 052, `documentsRequired`). Plan drawings are no longer collected or required.
  */
@@ -14,8 +15,9 @@ export function infrastructureDocumentProblem(snapshot: Snapshot, options: Readi
   const id=line.package?.input.schoolId??line.school.id;
   if(!id)return 'Associate supporting documents with each infrastructure school before sending.';
   if(line.package?.kind==='new'){
-   const ticked=Object.values(line.package.input.land??{}).filter(Boolean).length,attached=documents.filter(d=>d.kind==='land'&&line.package?.input.documentIds.includes(d.id)).length;
-   if(attached<ticked)return `Attach one land document for each ticked land declaration for ${line.school.name} (${ticked} ticked, ${attached} attached) before sending Infrastructure.`;
+   const land=line.package.input.land,attached=documents.filter(d=>d.kind==='land'&&line.package?.input.documentIds.includes(d.id)).length;
+   if(!land?.available||!land.documented||!land.unencumbered)return `Tick all three land declarations for ${line.school.name} before sending Infrastructure.`;
+   if(attached<1)return `Attach the C of O, R of O or Community Agreement document for ${line.school.name} before sending Infrastructure.`;
   }
   const survey=line.package?.kind!=='furniture';
   schools.set(id,{name:line.school.name,survey:survey||schools.get(id)?.survey===true});

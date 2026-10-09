@@ -16,7 +16,7 @@ export async function DELETE(req:NextRequest){
   return await mutatePlan(user,plan,'infrastructure',async db=>{
    const removed=await db.query('UPDATE infrastructure_documents SET removed_at=NOW() WHERE id=$1 AND plan_id=$2 AND removed_at IS NULL RETURNING id',[id.data,plan.id]);
    if(!removed.rowCount)return error('Document not found.',404);
-   const updated=await db.query(`UPDATE infrastructure_packages SET input=jsonb_set(input,'{documentIds}',(input->'documentIds') - $1::text),version=version+1 WHERE plan_id=$2 AND (input->'documentIds') ? $1 RETURNING id,version`,[id.data,plan.id]);
+   const updated=await db.query(`UPDATE infrastructure_packages SET input=jsonb_set(jsonb_set(input,'{documentIds}',(input->'documentIds') - $1::text),'{photoKeys}',COALESCE(input->'photoKeys','{}'::jsonb) - $1::text),version=version+1 WHERE plan_id=$2 AND (input->'documentIds') ? $1 RETURNING id,version`,[id.data,plan.id]);
    return NextResponse.json({ok:true,packages:updated.rows});
   });
  }catch(cause){console.error(cause);return error('Unable to remove the document.',503);}

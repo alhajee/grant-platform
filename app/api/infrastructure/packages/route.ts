@@ -16,9 +16,10 @@ import { infrastructureSplitProblem } from '@/lib/budget-pairs';
 import { resolveLineQuarters } from '@/lib/line-quarters';
 import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
 import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
-import { packageSchema, packageProblem, calculateInfrastructure, landDeclarationCount,schoolComponents,photoEvidenceRequired} from '@/lib/infrastructure-model';
+import { packageSchema, packageProblem, calculateInfrastructure, landDocumentProblem, schoolComponents, schoolFacts, auditGaps, photoEvidenceProblem } from '@/lib/infrastructure-model';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
-const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude,enrolment_by_class AS "enrolmentByClass"';
+// teachers (DNEMIS D.2) sizes the Whole School staff rooms; enrolment_by_class splits enrolment by level.
+const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude,enrolment_by_class AS "enrolmentByClass",teachers';
 export async function GET(req:NextRequest){
  try{
   const user=await getWorkspaceState(req);if(!user)return error('Sign in to continue.',401);
@@ -27,7 +28,7 @@ export async function GET(req:NextRequest){
   const db=getPostgres();
   if(!(await readStageVisibility(db,user,plan.id)).includes('infrastructure'))return error(notSentYetMessage,403);
   const [schools,packages,documents,reviews]=await Promise.all([
-   cachedSchoolList(user.stateCode,'infrastructure',async()=>(await db.query(`SELECT ${schoolFields} FROM schools WHERE state_code=$1 ORDER BY name`,[user.stateCode])).rows),
+   cachedSchoolList(user.stateCode,'infrastructure-v2',async()=>(await db.query(`SELECT ${schoolFields} FROM schools WHERE state_code=$1 ORDER BY name`,[user.stateCode])).rows),
    db.query(`SELECT p.*,p.result->'school' AS school FROM infrastructure_packages p WHERE p.plan_id=$1 ORDER BY p.id DESC`,[plan.id]),
    db.query('SELECT d.id,d.kind,d.name,d.size,d.school_id AS "schoolId",s.name AS "schoolName" FROM infrastructure_documents d LEFT JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.removed_at IS NULL ORDER BY d.created_at',[plan.id]),readPillarReviews(db,plan.id)]);
   // Infrastructure shares its pool with TLM (split or shared, by the platform mode): the editor shows what TLM's lines already propose
@@ -64,18 +65,23 @@ export async function POST(req:NextRequest){
    const school=(await db.query(`SELECT ${schoolFields} FROM schools WHERE id=$1 AND state_code=$2 FOR SHARE`,[base.schoolId,user.stateCode])).rows[0];
    if(!school)return error('Select a school from your state register.',404);
    // School components are read-only: always taken from the School register.
-   const input={...base,components:schoolComponents(school)};
-   const problem=packageProblem(input,school.male+school.female);if(problem)return error(problem);
-   const docs=(await db.query('SELECT id,kind,created_at,school_id FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL AND id=ANY($2::uuid[])',[plan.id,input.documentIds])).rows;
-   if(new Set(input.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan.');
-   if(docs.some(d=>d.school_id!==null&&d.school_id!==input.schoolId))return error('One or more attachments belong to a different school.');
-   if(input.kind==='new'){const ticked=landDeclarationCount(input),attached=docs.filter(d=>d.kind==='land').length;if(attached<ticked)return error(`Attach one land document for each ticked land declaration (${ticked} ticked, ${attached} attached).`);}
+   const draft={...base,components:schoolComponents(school)};
+   const facts=schoolFacts(school);
+   const problem=packageProblem(draft,facts);if(problem)return error(problem);
+   const docs=(await db.query('SELECT id,kind,created_at,school_id FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL AND id=ANY($2::uuid[])',[plan.id,draft.documentIds])).rows;
+   if(new Set(draft.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan.');
+   if(docs.some(d=>d.school_id!==null&&d.school_id!==draft.schoolId))return error('One or more attachments belong to a different school.');
+   // New Construction: all three land declarations (packageProblem) and the C of O / R of O / Community Agreement document, always required.
+   const landProblem=landDocumentProblem(draft,docs.filter(d=>d.kind==='land').length);if(landProblem)return error(landProblem);
+   // Per-row photographic evidence: keep only keys that name a photo attached to this package (a removed photo drops out).
+   const photoIds=docs.filter(d=>d.kind==='photo').map(d=>String(d.id));
+   const input={...draft,photoKeys:Object.fromEntries(Object.entries(draft.photoKeys).filter(([id])=>photoIds.includes(id)))};
    // Photographic evidence and the updated Whole School BOQ follow the Supporting documents setting; land documents above are always required.
    const documentsRequired=await readComponentDocumentsRequired(db);
-   if(documentsRequired&&photoEvidenceRequired(input)&&!docs.some(d=>d.kind==='photo'))return error('Attach photographic evidence for the Whole School audit.');
+   if(documentsRequired){const photoProblem=photoEvidenceProblem(input,auditGaps(input,facts),photoIds);if(photoProblem)return error(photoProblem);}
    if(prior&&prior.kind!==input.kind)return error('An existing package’s intervention type cannot be changed.');
    if(documentsRequired&&prior?.kind==='whole'&&!docs.some(d=>d.kind==='boq'&&d.school_id===input.schoolId&&!prior.input.documentIds.includes(d.id)&&new Date(d.created_at)>new Date(prior.updated_at)))return error('Attach an updated BOQ for this school before saving changes to a Whole School Renovation/Expansion package.');
-   const result={...calculateInfrastructure(input,school.male+school.female),school};
+   const result={...calculateInfrastructure(input,facts),school};
    // Infrastructure and TLM share one pool; the plan row is locked by mutatePlan, so TLM saves and split changes wait for this one.
    // Split mode: packages stay within Infrastructure's part (pool − action_plans.tlm_allocation), and wait until the split is set.
    // Shared-pool mode: TLM's lines count too. A change that does not raise the package's cost is always allowed (older plans may already be over).

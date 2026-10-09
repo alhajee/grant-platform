@@ -8,7 +8,8 @@ const ttlSeconds = 60 * 60;
 const prefix = 'beapms:schools';
 const versionKey = (stateCode: string) => `${prefix}:${stateCode}:version`;
 
-export type SchoolList = 'sports' | 'activities' | 'infrastructure' | 'register-facets' | 'lgas';
+// infrastructure-v2: the infrastructure list with teachers (October 2026), so lists cached before are not reused.
+export type SchoolList = 'sports' | 'activities' | 'infrastructure' | 'infrastructure-v2' | 'register-facets' | 'lgas';
 
 export async function cachedSchoolList<T>(stateCode: string, list: SchoolList, load: () => Promise<T>): Promise<T> {
   const redis = await getRedis();
