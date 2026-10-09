@@ -1,6 +1,6 @@
 'use client';
 import { Fragment, useState, type ReactNode } from 'react';
-import { CircleAlertIcon, EyeIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { CircleAlertIcon, EyeIcon, PaperclipIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -27,6 +27,8 @@ export type PanelLine = {
   details?: ReactNode;
   /** Badges after the details, e.g. "Proforma needed". */
   badges?: ReactNode;
+  /** How many documents are attached to the line (shown as a paperclip count when above zero). */
+  attachments?: number;
   code?: string;
   quarters?: readonly number[];
   quantity: number;
@@ -83,7 +85,10 @@ export function LineTable({ lines, itemLabel, quantityLabel = 'Qty', editable, d
             ? <InlineCell kind="text" value={line.description} format={value => value} label={`Description of ${line.label}`} editable={editable} lockedReason={locked} onSave={value => onSave(line.id, 'description', value)} onError={report(line.id)} className="line-description" />
             : <div className="line-description">{line.description}</div>}
           {line.details && <div className="line-details">{line.details}</div>}
-          {line.badges && <div className="line-badges">{line.badges}</div>}
+          {(line.badges || Boolean(line.attachments)) && <div className="line-badges">
+            {Boolean(line.attachments) && <span className="line-attachments" title={`${line.attachments} document${line.attachments === 1 ? '' : 's'} attached`}><PaperclipIcon aria-hidden="true" />{line.attachments}<span className="sr-only"> document{line.attachments === 1 ? '' : 's'} attached</span></span>}
+            {line.badges}
+          </div>}
           {line.code && <p className="line-code" title="Reference code">{line.code}</p>}
         </TableCell>
         <TableCell className="line-timeline" data-label="Timeline"><QuarterBadge quarters={line.quarters} /></TableCell>

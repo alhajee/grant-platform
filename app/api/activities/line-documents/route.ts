@@ -8,10 +8,11 @@ import { getPostgres } from '@/lib/postgres';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { readStageVisibility } from '@/lib/stage-visibility';
 import { planFormData, PlanInputError } from '@/lib/plan-upload';
-import { lineDocumentLabel, lineDocumentWorkstreams, maxLineDocumentBytes, maxLineDocuments, type LineDocumentWorkstream } from '@/lib/activity-extras';
-import { lineDocumentTypeError, lineDocumentTypes, safeFileName, validLineDocument } from '@/lib/line-document-upload';
+import { isSupportingDocumentLine, lineDocumentLabel, lineDocumentWorkstreams, maxLineDocumentBytes, maxLineDocuments, type LineDocumentWorkstream } from '@/lib/activity-extras';
+import { lineDocumentTypeError, lineDocumentTypes, safeFileName, supportingDocumentTypeError, supportingDocumentTypes, validLineDocument } from '@/lib/line-document-upload';
 
-// Documents attached to one Quality Assurance or ICT budget line (activity_line_documents, migration 038).
+// Documents attached to one budget line (activity_line_documents): the governed ICT and Teacher Development documents
+// (migrations 038, 040) and the optional supporting documents of the other activity components (migration 057).
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const component = z.enum(lineDocumentWorkstreams);
 const lineId = z.coerce.number().int().positive();
@@ -26,15 +27,18 @@ export async function POST(req: NextRequest) {
     if (!file || typeof file === 'string' || !file.size || file.size > maxLineDocumentBytes) return error('Choose a nonempty file up to 5 MB.');
     const name = safeFileName(file.name), ext = name.split('.').pop()?.toLowerCase() ?? '';
     const bytes = Buffer.from(await file.arrayBuffer());
-    if (!lineDocumentTypes[ext] || !(await validLineDocument(ext, bytes))) return error(lineDocumentTypeError);
+    const valid = Boolean(supportingDocumentTypes[ext]) && await validLineDocument(ext, bytes);
     return await mutatePlan(user, plan, workstream.data, async db => {
       const target = (await db.query<{ activity: number }>('SELECT activity FROM activity_plan_lines WHERE id=$1 AND plan_id=$2 AND workstream=$3', [line.data, plan.id, workstream.data])).rows[0];
       if (!target) return error('Budget line not found.', 404);
       if (!lineDocumentLabel(workstream.data, target.activity)) return error('This activity does not take documents.');
+      // Word and image files are accepted only as optional supporting documents; governed documents stay PDF/Excel.
+      if (isSupportingDocumentLine(workstream.data, target.activity)) { if (!valid) return error(supportingDocumentTypeError); }
+      else if (!valid || !lineDocumentTypes[ext]) return error(lineDocumentTypeError);
       const count = (await db.query('SELECT COUNT(*)::int AS count FROM activity_line_documents WHERE line_id=$1 AND removed_at IS NULL', [line.data])).rows[0].count;
       if (count >= maxLineDocuments) return error(`This budget line has reached its ${maxLineDocuments}-document limit.`);
       const id = crypto.randomUUID();
-      await db.query("INSERT INTO activity_line_documents(id,plan_id,line_id,component,name,media_type,content,size) VALUES($1,$2,$3,$4,$5,$6,decode($7,'hex'),$8)", [id, plan.id, line.data, workstream.data, name, lineDocumentTypes[ext], bytes.toString('hex'), bytes.length]);
+      await db.query("INSERT INTO activity_line_documents(id,plan_id,line_id,component,name,media_type,content,size) VALUES($1,$2,$3,$4,$5,$6,decode($7,'hex'),$8)", [id, plan.id, line.data, workstream.data, name, supportingDocumentTypes[ext], bytes.toString('hex'), bytes.length]);
       return NextResponse.json({ id, name, size: bytes.length });
     });
   } catch (cause) { if (cause instanceof PlanInputError) return error(cause.message, cause.status); console.error(cause); return error('Unable to upload the document.', 503); }
