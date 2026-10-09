@@ -1,4 +1,4 @@
-import { compulsoryActivities, hasLineSchools, lineDocumentLabel, qualityIctActivityNames } from './activity-extras';
+import { compulsoryActivities, hasLineSchools, qualityIctActivityNames, requiredLineDocumentLabel } from './activity-extras';
 import { activityBudgetProblem, lineKobo } from './activity-budget';
 import { infrastructureSplitProblem } from './budget-pairs';
 import { isSplitMode, type EnvelopePlan } from './funding-policy';
@@ -37,8 +37,9 @@ export function componentReadinessProblem(workstream: string, lines: readonly Re
   const noSchools = lines.find(line => hasLineSchools(workstream, line.activity) && !line.schools?.length);
   if (noSchools) return `Choose the schools for “${lineName(workstream, noSchools)}” before sending.`;
   if (!options.documentsRequired) return null;
-  const noDocument = lines.find(line => lineDocumentLabel(workstream, line.activity) && !line.documents?.length);
-  if (noDocument) return `Upload the ${lineDocumentLabel(workstream, noDocument.activity)!.toLowerCase()} for “${lineName(workstream, noDocument)}” before sending.`;
+  // Only the governed documents; optional supporting documents (migration 057) never block a send.
+  const noDocument = lines.find(line => requiredLineDocumentLabel(workstream, line.activity) && !line.documents?.length);
+  if (noDocument) return `Upload the ${requiredLineDocumentLabel(workstream, noDocument.activity)!.toLowerCase()} for “${lineName(workstream, noDocument)}” before sending.`;
   return null;
 }
 

@@ -51,11 +51,26 @@ export const lineDocumentLabels: Partial<Record<string, Record<number, string>>>
 };
 /** Components where every line needs documents, whatever the activity (Teacher Development). */
 const everyLineDocumentLabels: Partial<Record<string, string>> = { teachers: teacherDocumentLabel };
-export const lineDocumentLabel = (workstream: string, activity: number) => everyLineDocumentLabels[workstream] ?? lineDocumentLabels[workstream]?.[activity] ?? null;
+/** The documents the Supporting documents setting governs (ICT 0/3/4, Teacher Development), or null. */
+export const requiredLineDocumentLabel = (workstream: string, activity: number) => everyLineDocumentLabels[workstream] ?? lineDocumentLabels[workstream]?.[activity] ?? null;
+/**
+ * Components whose other lines take optional supporting documents (migration 057): never required, whatever the
+ * Supporting documents setting, and never checked at a send step. Sports and Greening (GSCCI) take none.
+ */
+export const supportingDocumentWorkstreams = ['sbmc', 'tlm', 'monitoring', 'curriculum', 'quality', 'ict', 'planning'] as const;
+export const supportingDocumentLabel = 'Supporting documents';
+const takesSupportingDocuments = (workstream: string) => (supportingDocumentWorkstreams as readonly string[]).includes(workstream);
+/** True when this line's documents are the optional supporting documents rather than ones the setting governs. */
+export const isSupportingDocumentLine = (workstream: string, activity: number) => !requiredLineDocumentLabel(workstream, activity) && takesSupportingDocuments(workstream);
+/** What a line's documents are called, or null when the line takes none. */
+export const lineDocumentLabel = (workstream: string, activity: number) => requiredLineDocumentLabel(workstream, activity) ?? (takesSupportingDocuments(workstream) ? supportingDocumentLabel : null);
 /** Components whose lines can carry documents (activity_line_documents.component). */
-export const lineDocumentWorkstreams = ['quality', 'ict', 'teachers'] as const;
+export const lineDocumentWorkstreams = ['sbmc', 'tlm', 'monitoring', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
 export type LineDocumentWorkstream = typeof lineDocumentWorkstreams[number];
+/** The governed documents are PDF or Excel; optional supporting documents also take Word and photos. */
 export const lineDocumentAccept = '.pdf,.xls,.xlsx';
+export const supportingDocumentAccept = '.pdf,.xls,.xlsx,.docx,.png,.jpg,.jpeg';
+export const lineDocumentAcceptFor = (workstream: string, activity: number) => isSupportingDocumentLine(workstream, activity) ? supportingDocumentAccept : lineDocumentAccept;
 export const maxLineDocumentBytes = 5 * 1024 * 1024;
 export const maxLineDocuments = 10;
 

@@ -81,8 +81,9 @@ function activityExtraValues(key: ActivitySheetKey, line: NonNullable<Snapshot['
   return key === 'curriculum' ? { share: share === undefined ? '' : `${share / 100}%` } : {};
 }
 function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc']>, editHref?: string): WorkbookSheet {
-  // Quality Assurance and ICT rows expand to their extra details, chosen schools and documents.
-  const detailed = key === 'quality' || key === 'ict', byId = new Map(lines.map(line => [String(line.id), line]));
+  // Quality Assurance and ICT rows expand to their extra details, chosen schools and documents; every other sheet but
+  // Greening expands rows that have supporting documents (migration 057).
+  const detailed = key !== 'gscci', byId = new Map(lines.map(line => [String(line.id), line]));
   const expandable = (line: NonNullable<Snapshot['sbmc']>[number]) => detailed && Boolean(line.equipment_type || line.subscription_types?.length || line.website_type || line.schools?.length || line.documents?.length || (key === 'ict' && [0, 3, 4].includes(line.activity)));
   return {
     key, label: activityTitles[key], hash: `review-${key}`, icon: activityIcons[key], itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: activityTitles[key],
@@ -92,7 +93,7 @@ function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc'
       ...activityExtraValues(key, line),
       strategy: line.strategy, target: line.target_group, timeline: quarters(line), quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
     }, expandable(line))),
-    ...(detailed ? { detail: (id: string) => { const line = byId.get(id); return line ? <LineExtrasDetail workstream={key} line={line} /> : null; } } : {}),
+    ...(key !== 'gscci' ? { detail: (id: string) => { const line = byId.get(id); return line ? <LineExtrasDetail workstream={key} line={line} /> : null; } } : {}),
   };
 }
 

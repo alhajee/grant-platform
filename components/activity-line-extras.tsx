@@ -12,7 +12,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { compulsoryActivities, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, lineDocumentAccept, lineDocumentLabel, maxTypeNameLength, qualityEquipmentActivity, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { compulsoryActivities, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isSupportingDocumentLine, lineDocumentAcceptFor, lineDocumentLabel, maxTypeNameLength, qualityEquipmentActivity, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
@@ -122,11 +122,15 @@ export async function uploadLineDocuments(workstream: ActivityWorkstream, lineId
  * Documents for one budget line. On a saved line files upload straight away; on a new line they wait in the
  * form (pending) and the editor uploads them right after the item is added. `required` follows the Super Admin
  * setting (migration 052): when off the field is marked optional and nothing is refused for a missing document.
+ * Supporting documents (migration 057: SBMC, TLM, Monitoring, Curriculum, QA, other ICT activities, Planning) are
+ * always optional and also take Word documents and photos.
  */
 export function LineDocumentsField({ workstream, activity, lineId, documents, pending, onPendingChange, required: isRequired, disabled, onChanged }: { workstream: ActivityWorkstream; activity: number; lineId?: number; documents: LineDocument[]; pending: File[]; onPendingChange: (files: File[]) => void; required: boolean; disabled: boolean; onChanged: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
-  const label = lineDocumentLabel(workstream, activity), hint = workstream === 'teachers' ? `${teacherDocumentHint}. ` : '';
+  const label = lineDocumentLabel(workstream, activity), supporting = isSupportingDocumentLine(workstream, activity);
+  const hint = workstream === 'teachers' ? `${teacherDocumentHint}. ` : supporting ? 'Quotations, specifications, photos or other evidence for this item. ' : '';
   if (!label) return null;
+  const mandatory = isRequired && !supporting, accept = lineDocumentAcceptFor(workstream, activity);
   const endpoint = currentPlanHref('/api/activities/line-documents');
   async function upload(files: File[]) {
     if (!lineId) { onPendingChange([...pending, ...files]); return; }
@@ -143,11 +147,11 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, pe
     catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to remove.'); }
     finally { setBusy(false); await onChanged().catch(() => undefined); }
   }
-  return <Field><FieldLabel htmlFor="line-document">{label} {isRequired ? required : <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
-    <FileUpload compact id="line-document" label={label} multiple accept={lineDocumentAccept} disabled={disabled} busy={busy} onFiles={upload} />
+  return <Field><FieldLabel htmlFor="line-document">{label} {mandatory ? required : <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
+    <FileUpload compact id="line-document" label={label} multiple accept={accept} disabled={disabled} busy={busy} onFiles={upload} />
     {lineId
       ? documents.length > 0 && <DocumentFiles compact documents={documents.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: label }))} disabled={disabled || busy} onRemove={disabled ? undefined : id => void remove(id)} />
       : pending.length > 0 && <DocumentFiles compact documents={pending.map((file, index) => ({ id: `pending-${index}`, name: file.name, size: file.size, file }))} disabled={disabled} onRemove={disabled ? undefined : id => onPendingChange(pending.filter((_, index) => `pending-${index}` !== id))} />}
-    <FieldDescription>{hint}PDF or Excel only, up to 5 MB each. {isRequired ? 'Required before sending.' : 'Optional.'}</FieldDescription>
+    <FieldDescription>{hint}{supporting ? 'PDF, Excel, Word or images' : 'PDF or Excel only'}, up to 5 MB each. {mandatory ? 'Required before sending.' : 'Optional.'}</FieldDescription>
   </Field>;
 }

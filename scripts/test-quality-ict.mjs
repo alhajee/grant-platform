@@ -97,7 +97,8 @@ try {
   let quality = ok(await api('qa', url('quality')));
   assert.equal(quality.lines.find(l => l.id === equipment.id).equipmentType, 'Vehicles');
   assert.deepEqual(quality.schools, []);
-  fails(await upload('qa', equipment.id, 'spec.pdf', pdf, 'quality'), 400, /does not take documents/);
+  // Every Quality Assurance line takes optional supporting documents (migration 057).
+  ok(await upload('qa', equipment.id, 'spec.pdf', pdf, 'quality'));
   step('Quality Assurance lines: department access, equipment type, edit and ₦ ceiling');
 
   // Compulsory activities block sending, with the missing list.
@@ -152,7 +153,8 @@ try {
   fails(await upload('ict', spec.id, 'fake.pdf', Buffer.from('not a pdf')), 400, /PDF or Excel/);
   fails(await upload('ict', spec.id, 'word.xlsx', docxAsXlsx), 400, /PDF or Excel/);
   fails(await upload('ict', spec.id, 'spec.docx', docxAsXlsx), 400, /PDF or Excel/);
-  fails(await upload('ict', ict.lines.find(l => l.activity === 5).id, 'spec.pdf', pdf), 400, /does not take documents/);
+  // Other ICT activities take optional supporting documents (migration 057), also as Word or images.
+  ok(await upload('ict', ict.lines.find(l => l.activity === 5).id, 'photo.png', png));
   fails(await upload('qa', spec.id, 'spec.pdf', pdf), 403);
   const specDoc = ok(await upload('ict', spec.id, 'specification.pdf', pdf));
   ok(await upload('ict', spec.id, 'specification.xlsx', xlsx));
