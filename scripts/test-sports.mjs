@@ -113,7 +113,7 @@ try {
   assert.equal(atCap.status, 201, `A section may use exactly its share: ${JSON.stringify(atCap.body)}`);
   const overSection = await api({ ...volleyball, description: "Net", unitCost: 0.01 });
   assert.equal(overSection.status, 409, "A line that takes a section past its share must be refused.");
-  assert.match(overSection.body.error, /may use up to \d+% of the sports allocation/);
+  assert.match(overSection.body.error, /can use up to ₦[\d,.]+ \(\d+% of the Sports allocation\)\. With this item it would come to/);
   const competitionsLeft = capKobo("competitions") - 20020;
   const finals = { ...budget, section: "competitions", activityType: "State Finals Competition", description: "Finals", quantity: 1 };
   assert.equal((await api({ ...finals, unitCost: naira(competitionsLeft + 1) })).status, 409);

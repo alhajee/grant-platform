@@ -26,6 +26,7 @@ import type { InlineField } from "@/components/line-panel/line-table";
 import { scrollLineIntoView, useLineFlash, usePanelMode } from "@/components/line-panel/use-line-panel";
 import type { SportsSection } from "@/lib/sports";
 import { lineQuartersProblem, planQuarters } from "@/lib/line-quarters";
+import { cellMatches, connectionDroppedMessage, isConnectionDropped, newClientKey, postJson } from "@/lib/save-request";
 
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
@@ -53,6 +54,9 @@ export default function SportsPage() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLElement>(null);
   const savingRef = useRef(false);
+  // Client keys of the new budget line and allocation being drafted (migration 058): made on the first save attempt and kept for
+  // every retry of that draft, so a save whose reply was lost is never stored twice. Resetting a form starts a new key.
+  const createKeys = useRef<{ budget?: string; allocation?: string }>({});
   const panel = usePanelMode(), { flashId, flash } = useLineFlash();
   const [query, setQuery] = useState("");
   const budgetDirty = JSON.stringify(budget) !== JSON.stringify(budgetBaseline);
@@ -95,6 +99,7 @@ export default function SportsPage() {
     setBudget(fill); setBudgetBaseline(fill);
     setPlan(data);
     setLoadError("");
+    return data;
   }, []);
 
   const initialize = useCallback(async () => {
@@ -126,8 +131,8 @@ export default function SportsPage() {
     return () => cancelAnimationFrame(frame);
   }, [editingId, view]);
 
-  function resetBudget(next: BudgetDraft = { ...emptyBudget, quarters: availableQuarters }) { setBudget(next); setBudgetBaseline(next); setErrors({}); }
-  function resetAllocation(next: AllocationDraft = emptyAllocation) { setAllocation(next); setAllocationBaseline(next); setErrors({}); }
+  function resetBudget(next: BudgetDraft = { ...emptyBudget, quarters: availableQuarters }) { createKeys.current = { ...createKeys.current, budget: undefined }; setBudget(next); setBudgetBaseline(next); setErrors({}); }
+  function resetAllocation(next: AllocationDraft = emptyAllocation) { createKeys.current = { ...createKeys.current, allocation: undefined }; setAllocation(next); setAllocationBaseline(next); setErrors({}); }
   function changeAllocation(next: AllocationDraft) {
     if (next.schoolId && next.schoolId !== allocation.schoolId) {
       const existingActivities = [...new Set(plan.allocations.filter((item) => item.schoolId === next.schoolId && item.id !== next.id).map((item) => plan.lines.find((line) => line.id === item.lineId)?.description).filter((description): description is string => Boolean(description)))];
@@ -170,8 +175,13 @@ export default function SportsPage() {
     const next = { ...before, [field]: value };
     const parsed = sportsLineSchema.safeParse({ ...next, quantity: Number(next.quantity), unitCost: Number(next.unitCost) });
     if (!parsed.success) return parsed.error.issues[0].message;
+    // Updates are idempotent (by id): after a dropped connection the plan is reloaded, and the cell counts as saved if it holds the value.
     try { await write({ ...parsed.data, entity: "budget", action: "update", id }); }
-    catch (cause) { return cause instanceof Error ? cause.message : "Unable to save this change."; }
+    catch (cause) {
+      if (!isConnectionDropped(cause)) return cause instanceof Error ? cause.message : "Unable to save this change.";
+      const now = (await loadPlan().catch(() => undefined))?.lines.find((item) => item.id === id);
+      if (!now || !cellMatches(now, field, value)) return connectionDroppedMessage;
+    }
     // The form keeps its draft; if it shows this line unchanged, it picks up the saved values.
     const saved = await loadPlan().then(() => true).catch(() => false);
     if (saved) {
@@ -185,11 +195,20 @@ export default function SportsPage() {
     const target = orderedTargets[editingIndex + offset];
     if (target) edit(target);
   }
+  /** Sends a change; throws the API's message, or ConnectionDroppedError when the reply was lost or timed out. */
   async function write(body: unknown) {
-    const response = await fetch(currentPlanHref("/api/sports"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const payload = await response.json().catch(() => ({})) as { error?: string; id?: number };
-    if (!response.ok) throw new Error(payload.error ?? "Could not save your change.");
-    return payload;
+    const reply = await postJson<{ error?: string; id?: number; replayed?: boolean }>(currentPlanHref("/api/sports"), body);
+    if (!reply.ok) throw new Error(reply.data.error ?? "Could not save your change.");
+    return reply.data;
+  }
+  /**
+   * A create whose reply was lost may still have been saved: reload and look for its client key.
+   * Returns the saved row's id, or null (the draft and its key stay, so trying again is safe).
+   */
+  async function findLanded(entity: PlanView, clientKey: string | undefined) {
+    const fresh = await loadPlan().catch(() => undefined);
+    if (!clientKey || !fresh) return null;
+    return (entity === "budget" ? fresh.lines : fresh.allocations).find((item) => item.clientKey === clientKey)?.id ?? null;
   }
   async function refreshAfterSave() {
     try { await loadPlan(); }
@@ -217,7 +236,15 @@ export default function SportsPage() {
     }
     setErrors({}); savingRef.current = true; setSaving(true);
     try {
-      const result = await write({ ...parsed.data, entity: view, action: editingId ? "update" : "create", ...(editingId ? { id: editingId } : {}) });
+      const clientKey = editingId ? undefined : (createKeys.current[view] ??= newClientKey());
+      let result: { id?: number };
+      try { result = await write({ ...parsed.data, entity: view, action: editingId ? "update" : "create", ...(editingId ? { id: editingId } : { clientKey }) }); }
+      catch (cause) {
+        if (!isConnectionDropped(cause)) throw cause;
+        const landed = await findLanded(view, clientKey);
+        if (landed === null) { toast.error(connectionDroppedMessage); return; }
+        result = { id: landed };
+      }
       const savedId = view === "budget" ? editingId ?? result.id : undefined;
       if (view === "budget") resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), quarters: availableQuarters });
       else resetAllocation({ ...emptyAllocation, schoolId: allocation.schoolId, longitude: allocation.longitude, latitude: allocation.latitude });
@@ -238,7 +265,7 @@ export default function SportsPage() {
       setRemoveTarget(null);
       toast.success("Line removed.");
       await refreshAfterSave();
-    } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to remove the line."); }
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to remove the line."); if (isConnectionDropped(cause)) await refreshAfterSave(); }
     finally { savingRef.current = false; setSaving(false); }
   }
 

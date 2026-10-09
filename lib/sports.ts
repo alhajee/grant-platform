@@ -60,8 +60,10 @@ export type SportsSection = typeof sportsSections[number]["id"];
 export type SportsSchool = { id: number; name: string; lga: string; level: string; location: "Rural" | "Urban" };
 export type SportsLine = { id: number; code: string; section: SportsSection; activityType: string; description: string; quantity: number; unitCost: number;
   /** Timeline: implementation quarters within the plan's quarters (migration 050). */
-  quarters: number[] };
-export type SportsAllocation = { id: number; schoolId: number; lineId: number; quantity: number; longitude: string; latitude: string; name: string; lga: string; level: string; location: "Rural" | "Urban" };
+  quarters: number[];
+  /** The client key the row was created with (migration 058), null for older rows. */
+  clientKey?: string | null };
+export type SportsAllocation = { id: number; schoolId: number; lineId: number; quantity: number; longitude: string; latitude: string; clientKey?: string | null; name: string; lga: string; level: string; location: "Rural" | "Urban" };
 export type SportsPlan = { lines: SportsLine[]; allocations: SportsAllocation[]; schools: SportsSchool[] };
 
 const id = z.number().int().positive();
@@ -139,7 +141,9 @@ export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: b
   if (total > envelope) return `You have exceeded the Sports allocation (${formatKobo(envelope)}) by ${formatKobo(total - envelope)}. Reduce the budget to continue.`;
   for (const { section, proposed, cap } of sportsSectionBudgets(lines, envelope)) {
     if (only && section.id !== only) continue;
-    if (cap != null && proposed > cap) return `${section.label} may use up to ${section.share}% of the sports allocation (${formatKobo(cap)}). Its lines come to ${formatKobo(proposed)}, ${formatKobo(proposed - cap)} over. Reduce them to continue.`;
+    // `only` is set when the lines include an item being added or changed (the editor and the save API).
+    const pending = Boolean(only);
+    if (cap != null && proposed > cap) return `‘${section.label}’ can use up to ${formatKobo(cap)} (${section.share}% of the Sports allocation). ${pending ? "With this item it would come to" : "Its items come to"} ${formatKobo(proposed)}, which is ${formatKobo(proposed - cap)} over.${pending ? "" : " Reduce them to continue."}`;
   }
   return null;
 }

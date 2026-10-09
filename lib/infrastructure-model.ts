@@ -137,7 +137,7 @@ const classroomLabel = (facts: SchoolFacts, stream: SchoolStream) => facts.prima
 export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'photo';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
 export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string};
 export type InfrastructureResult = ReturnType<typeof calculateInfrastructure>;
-export type InfrastructurePackage = {id:number;/** Reference code (migration 053), e.g. UBEC/SUBEB/INFRA/007/2026 · Q1–Q4. */code?:string;version:number;kind:InfrastructureInput['kind'];input:InfrastructureInput;result:InfrastructureResult;school:InfrastructureSchool;total_cost:string;
+export type InfrastructurePackage = {id:number;/** The client key the package was created with (migration 058), null for older packages. */client_key?:string|null;/** Reference code (migration 053), e.g. UBEC/SUBEB/INFRA/007/2026 · Q1–Q4. */code?:string;version:number;kind:InfrastructureInput['kind'];input:InfrastructureInput;result:InfrastructureResult;school:InfrastructureSchool;total_cost:string;
  /** Timeline (infrastructure_packages.quarters, migration 050): authoritative over input.quarters, which packages saved earlier lack. */
  quarters?:number[]};
 const cents = (n:number) => Math.round(n*100);

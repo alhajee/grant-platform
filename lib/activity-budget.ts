@@ -40,23 +40,37 @@ export const ictAllocationNeeded = 'Set how much of the shared Teacher Developme
 export const teachersSplitNeeded = 'Set how much of the shared Teacher Development & ICT budget Teacher Development will use before adding Teacher Development items.';
 export const tlmSplitNeeded = 'Set how much of the shared Infrastructure & TLM budget TLM will use before adding TLM items.';
 
+/** An activity's own cap in kobo and what it is ("10% of the Curriculum allocation"), or null when it has none or the envelope is not set. */
+export type ActivityCap = { kobo: bigint; basis: string };
+export function activityCap(workstream: ActivityWorkstream, envelope: bigint | null, activity: number): ActivityCap | null {
+  const fixed = activityFixedCaps[workstream]?.[activity];
+  if (fixed !== undefined) return { kobo: fixed, basis: 'for all its items together' };
+  const share = activityShareCaps[workstream]?.[activity];
+  if (share === undefined || envelope === null) return null;
+  return { kobo: activityCapKobo(workstream, envelope, activity), basis: `${share / 100}% of the ${activityTitles[workstream]} allocation` };
+}
+/** The lines include an item being added or changed (the editor and the save API), not only saved lines (send checks). */
+export type BudgetProblemOptions = { pending?: boolean };
+const overBy = (total: bigint, cap: bigint, pending: boolean) => pending
+  ? `With this item it would come to ${formatKobo(total)}, which is ${formatKobo(total - cap)} over.`
+  : `Its items come to ${formatKobo(total)}, which is ${formatKobo(total - cap)} over. Reduce them to continue.`;
+
 /** Why these lines cannot be saved or sent, or null. Lines above the envelope (capped components) or an activity above its share or fixed cap are blocked. */
-export function activityBudgetProblem(workstream: ActivityWorkstream, lines: readonly BudgetLine[], plan: EnvelopePlan): string | null {
+export function activityBudgetProblem(workstream: ActivityWorkstream, lines: readonly BudgetLine[], plan: EnvelopePlan, options: BudgetProblemOptions = {}): string | null {
   const shares = activityShareCaps[workstream];
   const capped = isCappedFor(workstream, plan);
   if (!capped && !shares) return null;
+  const pending = options.pending === true;
   const title = activityTitles[workstream], envelope = componentEnvelopeKobo(plan, workstream);
   if (envelope === null && workstream === 'ict' && plan.stateLodgment != null) return ictAllocationNeeded;
   if (envelope === null && workstream === 'teachers' && plan.stateLodgment != null) return teachersSplitNeeded;
   if (envelope === null && workstream === 'tlm' && plan.stateLodgment != null) return tlmSplitNeeded;
   if (envelope === null) return `Set the plan funding before allocating the ${title} budget.`;
-  for (const [key, cap] of Object.entries(activityFixedCaps[workstream] ?? {})) {
-    const activity = Number(key), total = lines.filter(l => l.activity === activity).reduce((sum, l) => sum + l.kobo, BigInt(0));
-    if (total > cap) return `“${activityNames[workstream][activity]}” may use up to ${formatKobo(cap)} in total. Its items exceed this by ${formatKobo(total - cap)}. Reduce them to continue.`;
-  }
-  for (const [key, share] of Object.entries(shares ?? {})) {
-    const activity = Number(key), cap = activityCapKobo(workstream, envelope, activity), total = lines.filter(l => l.activity === activity).reduce((sum, l) => sum + l.kobo, BigInt(0));
-    if (total > cap) return `“${activityNames[workstream][activity]}” may use up to ${share / 100}% of the ${title} allocation (${formatKobo(cap)}). Its items exceed this by ${formatKobo(total - cap)}. Reduce them to continue.`;
+  const activities = [...Object.keys(activityFixedCaps[workstream] ?? {}), ...Object.keys(shares ?? {})].map(Number);
+  for (const activity of activities) {
+    const cap = activityCap(workstream, envelope, activity);
+    const total = lines.filter(l => l.activity === activity).reduce((sum, l) => sum + l.kobo, BigInt(0));
+    if (cap && total > cap.kobo) return `‘${activityNames[workstream][activity]}’ can use up to ${formatKobo(cap.kobo)} (${cap.basis}). ${overBy(total, cap.kobo, pending)}`;
   }
   if (!capped) return null;
   const total = lines.reduce((sum, l) => sum + l.kobo, BigInt(0));

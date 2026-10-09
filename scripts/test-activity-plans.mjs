@@ -50,7 +50,8 @@ try{
  assert.deepEqual(review.snapshot.tlm[0].textbook_classes,tlm.textbookClasses);assert.equal(review.snapshot.tlm[0].textbook_subject,tlm.textbookSubject);
  ok(await api('academic',`/api/plans/review?plan=${plan}`,{action:'submit',pillar:'tlm',version:review.plan.version}),400);
  ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'create',schoolId:school}));
- ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'create',schoolId:school}),409);
+ // Adding a listed school again is a no-op, not an error (retries after a dropped connection, migration 058).
+ assert.equal(ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'create',schoolId:school})).added,0);
  // Bulk add skips schools already listed; renovated whole-school packages are reported for the distribution list.
  ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'create',schoolIds:[school,999999999]}),404);
  const bulk=ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'create',schoolIds:[school,school2,school2]}));assert.equal(bulk.added,1);assert.equal(bulk.skipped,1);

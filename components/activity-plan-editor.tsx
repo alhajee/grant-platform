@@ -19,7 +19,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, useComboboxAnchor } from '@/components/ui/combobox';
 import { activityHints, activityInfo, activityNames, activityLineSchema, activityTitles, allocateByEnrolment, activityShareCaps, hasDistribution, isOtherActivity, maxActivityNameLength, selectableActivityIndexes, textbookActivityIndex, textbookClasses, textbookSubjects, implementationStrategies, targetGroups, type ActivityLine, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { activityBudgetProblem, componentEnvelopeKobo, activityCapKobo, activityFixedCaps, isCapped, isCappedFor, type BudgetLine } from '@/lib/activity-budget';
+import { activityBudgetProblem, componentEnvelopeKobo, activityCap, activityCapKobo, activityFixedCaps, isCapped, isCappedFor, type BudgetLine } from '@/lib/activity-budget';
 import { sideSplits, storedAllocation } from '@/lib/budget-pairs';
 import { isSplitMode } from '@/lib/funding-policy';
 import { isCompulsory, lineDocumentLabel } from '@/lib/activity-extras';
@@ -39,6 +39,7 @@ import { QuarterTimeline } from '@/components/quarter-timeline';
 import { lineQuartersProblem, planQuarters } from '@/lib/line-quarters';
 import './activity-plan-editor.css';
 import { EnvelopeMeter } from './envelope-meter';
+import { cellMatches, connectionDroppedMessage, isConnectionDropped, newClientKey, postJson } from '@/lib/save-request';
 const money=new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN'});
 const count=new Intl.NumberFormat('en-NG');
 const pickerLimit=200;
@@ -57,6 +58,9 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const [pending,setPending]=useState<null|(()=>void)>(null),[removal,setRemoval]=useState<{entity:'line'|'school';id:number}|null>(null);
  const classesAnchor=useComboboxAnchor();
  const panel=usePanelMode(),{flashId,flash}=useLineFlash();
+ // A new item's client key (migration 058): made on its first save attempt and kept for every retry of the same draft,
+ // so a save whose reply was lost on a weak connection is never stored twice. A new or discarded draft gets a new key.
+ const createKey=useRef<string|null>(null);
  const lock=useRef(false),dirty=JSON.stringify(draft)!==JSON.stringify(baseline);
  const required=<span className="text-destructive" aria-label="required">*</span>;
  const title=activityTitles[workstream],name=shortTitle(workstream),capped=data?isCappedFor(workstream,data.plan):isCapped(workstream),withDistribution=hasDistribution(workstream);
@@ -69,7 +73,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const fresh=blankFor(workstream,data?planQuarters(data.plan):[]);
  // A new item keeps the activity just worked on, so the panel stays on it after a save or cancel.
  const freshFor=(activity:string)=>(selectableActivityIndexes[workstream] as readonly number[]).includes(Number(activity))?{...fresh,activity}:fresh;
- const reset=(activity:string=draft.activity)=>{const next=freshFor(activity);setDraft(next);setBaseline(next);setPendingDocs([]);};
+ const reset=(activity:string=draft.activity)=>{createKey.current=null;const next=freshFor(activity);setDraft(next);setBaseline(next);setPendingDocs([]);};
  const guard=(run:()=>void)=>{if(dirty)setPending(()=>run);else run();};
  const training=workstream==='teachers',splitSide=data&&sideSplits(data.plan,workstream)?workstream:null,sharesBudget=!!splitSide;
  // ICT and Teacher Development, and TLM in split mode (with Infrastructure), first split their shared budget (lib/budget-pairs.ts).
@@ -88,32 +92,54 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const projected=savedKobo-(previous?budgetKobo(previous.unitCost.toFixed(2))*BigInt(previous.quantity):BigInt(0))+draftKobo;
  const savedLines:BudgetLine[]=(data?.lines??[]).map(l=>({activity:l.activity,kobo:budgetKobo(l.unitCost.toFixed(2))*BigInt(l.quantity)}));
  const projectedLines=[...savedLines.filter((_,i)=>data?.lines[i].id!==draft.id),{activity:Number(draft.activity),kobo:draftKobo}];
- const budgetError=!data?null:workstream==='sbmc'?sbmcBudgetProblem(projected,data.plan)??(draftKobo>BigInt(0)?activityBudgetProblem(workstream,projectedLines,data.plan):null):pooled&&draftKobo>(previous?budgetKobo(previous.unitCost.toFixed(2))*BigInt(previous.quantity):BigInt(0))?infrastructurePoolProblem(data.plan,{infrastructure:budgetKobo(Number(data.partnerProposed??0).toFixed(2)),tlm:projected}):capped&&draftKobo>BigInt(0)?activityBudgetProblem(workstream,projectedLines,data.plan):null;
+ const budgetError=!data?null:workstream==='sbmc'?sbmcBudgetProblem(projected,data.plan)??(draftKobo>BigInt(0)?activityBudgetProblem(workstream,projectedLines,data.plan,{pending:true}):null):pooled&&draftKobo>(previous?budgetKobo(previous.unitCost.toFixed(2))*BigInt(previous.quantity):BigInt(0))?infrastructurePoolProblem(data.plan,{infrastructure:budgetKobo(Number(data.partnerProposed??0).toFixed(2)),tlm:projected}):capped&&draftKobo>BigInt(0)?activityBudgetProblem(workstream,projectedLines,data.plan,{pending:true}):null;
  const activityKobo=(activity:number)=>savedLines.filter(l=>l.activity===activity).reduce((sum,l)=>sum+l.kobo,BigInt(0));
  const shareNote=(activity:number)=>{const fixed=activityFixedCaps[workstream]?.[activity];if(fixed!==undefined)return `Up to ${money.format(Number(fixed)/100)} for all its items · ${money.format(Number(activityKobo(activity))/100)} used`;const share=activityShareCaps[workstream]?.[activity];return share===undefined?null:`${share/100}% of the ${activityTitles[workstream]} allocation${envelopeKobo===null?'':` · up to ${money.format(Number(activityCapKobo(workstream,envelopeKobo,activity))/100)} · ${money.format(Number(activityKobo(activity))/100)} used`}`;};
+ // The chosen activity's own cap (Curriculum shares, SBMC monitoring, ICT Model Smart Schools), live with the draft: what it may use, what its
+ // items use with this one, and what is left. The component meter shows the whole component; this line is the limit that applies here.
+ const draftActivity=Number(draft.activity),draftCap=activityCap(workstream,envelopeKobo,draftActivity),draftShare=activityShareCaps[workstream]?.[draftActivity];
+ const draftActivityUsed=savedLines.filter((l,i)=>l.activity===draftActivity&&data?.lines[i].id!==draft.id).reduce((sum,l)=>sum+l.kobo,BigInt(0))+draftKobo;
+ const capLeft=draftCap?draftCap.kobo-draftActivityUsed:null,naira=(kobo:bigint)=>money.format(Number(kobo)/100);
+ const capGuide=draftCap&&capLeft!==null?<FieldDescription className="activity-cap-guide" data-over={capLeft<BigInt(0)||undefined} aria-live="polite">This activity may use up to <strong>{naira(draftCap.kobo)}</strong> ({draftShare===undefined?'for all its items together':`${draftShare/100}% of ${title}`}) · {naira(draftActivityUsed)} used · <strong>{capLeft<BigInt(0)?`${naira(-capLeft)} over`:`${naira(capLeft)} left`}</strong></FieldDescription>
+  :draftShare!==undefined?<FieldDescription>This activity may use up to {draftShare/100}% of the {title} allocation once the plan funding is set.</FieldDescription>:null;
  function review(){if(data){const problem=workstream==='sbmc'?sbmcBudgetProblem(savedKobo,data.plan,true)??activityBudgetProblem(workstream,savedLines,data.plan):pooled?infrastructurePoolProblem(data.plan,{infrastructure:budgetKobo(Number(data.partnerProposed??0).toFixed(2)),tlm:savedKobo}):activityBudgetProblem(workstream,savedLines,data.plan);if(problem){toast.error(problem);return;}}guard(()=>window.location.assign(currentPlanHref('/beap/review')+'#review-'+workstream));}
  async function upload(files:File[]){if(lock.current)return;lock.current=true;setBusy(true);let added=0;try{for(const file of files){const form=new FormData();form.set('workstream',workstream);form.set('file',file);const r=await fetch(currentPlanHref('/api/activities/documents'),{method:'POST',body:form});const result=await r.json() as {error?:string};if(!r.ok)throw new Error(result.error||'Unable to upload.');added++;}toast.success(`Uploaded ${added} proforma invoice${added===1?'':'s'}.`);}catch(e){toast.error(e instanceof Error?e.message:'Unable to upload.');}finally{lock.current=false;setBusy(false);await load().catch(()=>undefined);}}
  async function removeDocument(id:string){if(lock.current)return;lock.current=true;setBusy(true);try{const r=await fetch(currentPlanHref('/api/activities/documents')+(currentPlanHref('/api/activities/documents').includes('?')?'&':'?')+`workstream=${workstream}&id=${encodeURIComponent(id)}`,{method:'DELETE'});const result=await r.json() as {error?:string};if(!r.ok)throw new Error(result.error);toast.success('Removed.');await load();}catch(e){toast.error(e instanceof Error?e.message:'Unable to remove.');}finally{lock.current=false;setBusy(false);}}
- async function mutate(body:object){if(lock.current)return;lock.current=true;setBusy(true);try{const r=await fetch(endpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,workstream})});const result=await r.json() as {error?:string;added?:number;skipped?:number;id?:number};if(!r.ok)throw new Error(result.error);
+ type MutateBody={entity:'line'|'school';action:'create'|'update'|'delete';id?:number}&Record<string,unknown>;
+ type MutateResult={error?:string;added?:number;skipped?:number;id?:number;replayed?:boolean};
+ /** Sends a change; on a dropped connection, reloads and finds a new line by its key. Null = the outcome is still unknown (the draft and key stay). */
+ async function send(body:MutateBody,clientKey:string|undefined):Promise<MutateResult|null>{
+  try{const reply=await postJson<MutateResult>(endpoint(),{...body,workstream,...(clientKey?{clientKey}:{})});if(!reply.ok)throw new Error(reply.data.error||'Unable to save.');return reply.data;}
+  catch(cause){
+   if(!isConnectionDropped(cause))throw cause;
+   const next=await load().catch(()=>null),landed=clientKey?next?.lines.find(l=>l.clientKey===clientKey):undefined;
+   if(landed)return {id:landed.id,replayed:true};
+   toast.error(connectionDroppedMessage);return null;
+  }
+ }
+ async function mutate(body:MutateBody){if(lock.current)return;lock.current=true;setBusy(true);try{
+  const isCreate=body.entity==='line'&&body.action==='create',clientKey=isCreate?(createKey.current??=newClientKey()):undefined;
+  const result=await send(body,clientKey);if(!result)return;
   // Files picked before the item existed upload now that it has an id.
-  const isCreate='action' in body&&body.action==='create',files=pendingDocs;let uploadFailed=false;
+  const files=pendingDocs;let uploadFailed=false;
   if(isCreate&&result.id&&files.length&&lineDocumentLabel(workstream,Number(draft.activity))){try{await uploadLineDocuments(workstream,result.id,files);}catch(err){uploadFailed=true;toast.error(err instanceof Error?err.message:'Unable to upload the documents.');}}
   reset();setRemoval(null);const next=await load();
   // The saved line flashes and scrolls into view in the panel.
-  const sent=body as {entity?:string;action?:string;id?:number},savedId=sent.entity==='line'&&sent.action!=='delete'?result.id??sent.id:undefined;if(savedId&&next.lines.some(l=>l.id===savedId))flash(savedId);
+  const savedId=body.entity==='line'&&body.action!=='delete'?result.id??body.id:undefined;if(savedId&&next.lines.some(l=>l.id===savedId))flash(savedId);
   // If an upload failed, keep the new item open so the documents can be attached again.
   const created=uploadFailed&&result.id?next.lines.find(l=>l.id===result.id):undefined;if(created){const d=toDraft(created);setDraft(d);setBaseline(d);}toast.success(result.added===undefined?'Saved.':`Added ${count.format(result.added)} school${result.added===1?'':'s'}${result.skipped?` · ${count.format(result.skipped)} already on the list`:''}.`);}catch(e){toast.error(e instanceof Error?e.message:'Unable to save.');}finally{lock.current=false;setBusy(false);}}
  function save(e:FormEvent){e.preventDefault();const parsed=activityLineSchema.safeParse(payload(draft,workstream));if(!parsed.success){setError('');toast.error(parsed.error.issues[0].message);return;}if(timelineProblem){toast.error(timelineProblem);return;}if(budgetError){toast.error(budgetError);return;}void mutate({...parsed.data,entity:'line',action:draft.id?'update':'create',id:draft.id});}
  function toDraft(l:ActivityLine):Draft{return {id:l.id,activity:String(l.activity),customActivity:l.customActivity??'',description:l.description,rationale:l.rationale??'',implementationApproach:l.implementationApproach??'',quantity:String(l.quantity),unitCost:String(l.unitCost),strategy:l.strategy,targetGroup:l.targetGroup,equipment:l.equipment,textbookClasses:l.textbookClasses??[],textbookSubject:l.textbookSubject??'',equipmentType:l.equipmentType??'',subscriptionTypes:l.subscriptionTypes??[],websiteType:l.websiteType??'',schoolIds:l.schoolIds??[],trainingProvider:l.trainingProvider??'',targetParticipants:l.targetParticipants??'',schoolLevels:l.schoolLevels??[],trainingDays:l.trainingDays==null?'':String(l.trainingDays),venueType:l.venueType??'',quarters:l.quarters??planQuarters(data?.plan)};}
- function edit(l:ActivityLine){guard(()=>{const d=toDraft(l);setDraft(d);setBaseline(d);setView('budget');panel.follow();});}
- function start(activity:number){guard(()=>{const next={...fresh,activity:String(activity)};setDraft(next);setBaseline(next);setPendingDocs([]);panel.follow();requestAnimationFrame(()=>document.getElementById('activity')?.focus());});}
+ function edit(l:ActivityLine){guard(()=>{createKey.current=null;const d=toDraft(l);setDraft(d);setBaseline(d);setView('budget');panel.follow();});}
+ function start(activity:number){guard(()=>{createKey.current=null;const next={...fresh,activity:String(activity)};setDraft(next);setBaseline(next);setPendingDocs([]);panel.follow();requestAnimationFrame(()=>document.getElementById('activity')?.focus());});}
  // Quantity, unit cost or description edited in the table: the whole line goes through the same schema and API as the form.
  async function saveCell(id:number,field:InlineField,value:string):Promise<string|null>{
   const line=data?.lines.find(l=>l.id===id);if(!line)return 'This item is no longer in the plan.';
   const before=toDraft(line),parsed=activityLineSchema.safeParse(payload({...before,[field]:value},workstream));
   if(!parsed.success)return parsed.error.issues[0].message;
-  try{const r=await fetch(endpoint(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...parsed.data,entity:'line',action:'update',id,workstream})});const result=await r.json().catch(()=>({})) as {error?:string};if(!r.ok)return result.error||'Unable to save this change.';}
-  catch{return 'Unable to reach the server. Check your connection and try again.';}
+  // Updates are idempotent (by id), so after a dropped connection the list is reloaded and the cell can simply be saved again.
+  try{const reply=await postJson<{error?:string}>(endpoint(),{...parsed.data,entity:'line',action:'update',id,workstream});if(!reply.ok)return reply.data.error||'Unable to save this change.';}
+  catch{const now=(await load().catch(()=>null))?.lines.find(l=>l.id===id);if(!now||!cellMatches(now,field,value))return connectionDroppedMessage;}
   // The form keeps its draft; if it shows this line unchanged, it picks up the saved values.
   const next=await load().catch(()=>null),saved=next?.lines.find(l=>l.id===id);
   if(saved){const d=toDraft(saved),was=JSON.stringify(before);setBaseline(b=>b.id===id?d:b);setDraft(current=>current.id===id&&JSON.stringify(current)===was?d:current);}
@@ -165,7 +191,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
        {!matches.length&&<p className="school-pick-empty">{data?.schools.length===0?'No schools are available in your state register.':'No schools match your search.'}</p>}
        {matches.length>pickerLimit&&<p className="school-pick-empty">Showing {pickerLimit} of {count.format(matches.length)} schools. Search to narrow the list; Select all still covers every match.</p>}
       </div></Field>:<>
-      <Field><FieldLabel htmlFor="activity">Allowable activity {required}</FieldLabel><NativeSelect id="activity" required value={draft.activity} onChange={e=>{setDraft({...draft,...extrasReset,activity:e.target.value,customActivity:'',equipment:'',textbookClasses:[],textbookSubject:''});panel.follow();}}>{legacyActivity&&<NativeSelectOption value={draft.activity} disabled>{activityNames[workstream][Number(draft.activity)]??'Earlier activity'} (no longer available)</NativeSelectOption>}{selectableActivityIndexes[workstream].map(i=><NativeSelectOption value={i} key={i}>{activityNames[workstream][i]}{isCompulsory(workstream,i)?' · Required':''}</NativeSelectOption>)}</NativeSelect>{legacyActivity?<FieldDescription className="text-destructive">This item uses an earlier activity. Choose one from the current list to save it.</FieldDescription>:activityHints[workstream]?.[Number(draft.activity)]&&<FieldDescription>Includes: {activityHints[workstream]?.[Number(draft.activity)]}</FieldDescription>}{shareNote(Number(draft.activity))&&<FieldDescription>{activityFixedCaps[workstream]?'':'Share: '}{shareNote(Number(draft.activity))}</FieldDescription>}{isCompulsory(workstream,Number(draft.activity))&&<span className="activity-picked-meta"><RequiredBadge workstream={workstream} activity={Number(draft.activity)}/><span>Every plan must include this activity.</span></span>}{activityInfo[workstream]?.[Number(draft.activity)]&&<FieldDescription>{activityInfo[workstream]?.[Number(draft.activity)]}</FieldDescription>}</Field>
+      <Field><FieldLabel htmlFor="activity">Allowable activity {required}</FieldLabel><NativeSelect id="activity" required value={draft.activity} onChange={e=>{setDraft({...draft,...extrasReset,activity:e.target.value,customActivity:'',equipment:'',textbookClasses:[],textbookSubject:''});panel.follow();}}>{legacyActivity&&<NativeSelectOption value={draft.activity} disabled>{activityNames[workstream][Number(draft.activity)]??'Earlier activity'} (no longer available)</NativeSelectOption>}{selectableActivityIndexes[workstream].map(i=><NativeSelectOption value={i} key={i}>{activityNames[workstream][i]}{isCompulsory(workstream,i)?' · Required':''}</NativeSelectOption>)}</NativeSelect>{legacyActivity?<FieldDescription className="text-destructive">This item uses an earlier activity. Choose one from the current list to save it.</FieldDescription>:activityHints[workstream]?.[Number(draft.activity)]&&<FieldDescription>Includes: {activityHints[workstream]?.[Number(draft.activity)]}</FieldDescription>}{capGuide}{isCompulsory(workstream,Number(draft.activity))&&<span className="activity-picked-meta"><RequiredBadge workstream={workstream} activity={Number(draft.activity)}/><span>Every plan must include this activity.</span></span>}{activityInfo[workstream]?.[Number(draft.activity)]&&<FieldDescription>{activityInfo[workstream]?.[Number(draft.activity)]}</FieldDescription>}</Field>
       {isOtherActivity(workstream,Number(draft.activity))&&<Field><FieldLabel htmlFor="customActivity">Activity name <span className="text-destructive" aria-label="required">*</span></FieldLabel><Input id="customActivity" required maxLength={maxActivityNameLength} value={draft.customActivity} onChange={e=>setDraft({...draft,customActivity:e.target.value})} placeholder="Name the activity" /><FieldDescription>Use this for an allowable activity that is not in the list.</FieldDescription></Field>}
       {training&&<TeacherTrainingFields draft={draft} onChange={next=>setDraft({...draft,...next})}/>}
       {!training&&<Field><FieldLabel htmlFor="description">Description {required}</FieldLabel><Textarea id="description" required maxLength={1000} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></Field>}

@@ -19,6 +19,7 @@ import { readPoolState } from '@/lib/infrastructure-pool-db';
 import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 import { resolveLineQuarters } from '@/lib/line-quarters';
 import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
+import { clientKeySchema } from '@/lib/save-request';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 class LineSchoolsError extends Error {}
 export async function GET(req:NextRequest){
@@ -29,7 +30,7 @@ export async function GET(req:NextRequest){
   const db=getPostgres(), workstream=parsed.data;
   if(!canViewComponent(user,workstream))return error('This component belongs to another department.',403);
   if(!(await readStageVisibility(db,user,plan.id)).includes(workstream))return error(notSentYetMessage,403);
-  const lines=(await db.query('SELECT id,code,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject",equipment_type AS "equipmentType",subscription_types AS "subscriptionTypes",website_type AS "websiteType",training_provider AS "trainingProvider",target_participants AS "targetParticipants",school_levels AS "schoolLevels",training_days AS "trainingDays",venue_type AS "venueType",quarters FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
+  const lines=(await db.query('SELECT id,code,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject",equipment_type AS "equipmentType",subscription_types AS "subscriptionTypes",website_type AS "websiteType",training_provider AS "trainingProvider",target_participants AS "targetParticipants",school_levels AS "schoolLevels",training_days AS "trainingDays",venue_type AS "venueType",quarters,client_key AS "clientKey" FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
   // Quality Assurance, ICT and Teacher Development lines carry their chosen schools and documents (migrations 038, 040).
   const extras=await readLineExtras(db,plan.id,workstream);
   const withExtras=lines.map(line=>{const schools=extras.schools.get(line.id)??[];return {...line,schools,schoolIds:schools.map(s=>s.id),documents:extras.documents.get(line.id)??[]};});
@@ -53,9 +54,9 @@ export async function POST(req:NextRequest){
   const user=await getWorkspaceState(req); if(!user)return error('Sign in to continue.',401);
   const plan=await resolveActionPlan(req,user.stateCode); if(!plan)return error('Plan not found.',404);
   const body=await req.json().catch(()=>null);
-  const parsed=z.object({workstream:z.enum(activityWorkstreams),entity:z.enum(['line','school']),action:z.enum(['create','update','delete']),id:z.number().int().positive().optional(),schoolId:z.number().int().positive().optional(),schoolIds:z.array(z.number().int().positive()).max(10000).optional()}).safeParse(body);
+  const parsed=z.object({workstream:z.enum(activityWorkstreams),entity:z.enum(['line','school']),action:z.enum(['create','update','delete']),id:z.number().int().positive().optional(),schoolId:z.number().int().positive().optional(),schoolIds:z.array(z.number().int().positive()).max(10000).optional(),clientKey:clientKeySchema}).safeParse(body);
   if(!parsed.success)return error('Invalid action.');
-  const {workstream,entity,action,id}=parsed.data;
+  const {workstream,entity,action,id,clientKey}=parsed.data;
   if(action!=='create'&&!id)return error('Select an entry.');
   return await mutatePlan(user,plan,workstream,async db=>{
    if(entity==='school'){
@@ -73,8 +74,15 @@ export async function POST(req:NextRequest){
     if(!schoolId||!Number.isSafeInteger(schoolId))return error('Select a school.');
     if(!(await db.query('SELECT id FROM schools WHERE id=$1 AND state_code=$2',[schoolId,user.stateCode])).rowCount)return error('School not found in your state.',404);
     if(action==='delete')await db.query('DELETE FROM tlm_distribution WHERE plan_id=$1 AND workstream=$3 AND school_id=$2',[plan.id,schoolId,workstream]);
-    else {if((await db.query('SELECT 1 FROM tlm_distribution WHERE plan_id=$1 AND workstream=$3 AND school_id=$2',[plan.id,schoolId,workstream])).rowCount)return error('This school is already on the distribution list.',409);await db.query('INSERT INTO tlm_distribution(plan_id,workstream,school_id) VALUES($1,$3,$2)',[plan.id,schoolId,workstream]);}
+    // Adding a school that is already listed is a no-op (a retried add after a dropped connection must not fail).
+    else {const added=(await db.query('INSERT INTO tlm_distribution(plan_id,workstream,school_id) VALUES($1,$3,$2) ON CONFLICT DO NOTHING',[plan.id,schoolId,workstream])).rowCount??0;return NextResponse.json({ok:true,added,skipped:1-added});}
    }else{
+    // A create repeated with the same client key (the first reply was lost) returns the line already saved, without
+    // inserting again or re-checking the caps against a total that already includes it (migration 058).
+    if(action==='create'&&clientKey){
+     const prior=(await db.query<{id:number;workstream:string}>('SELECT id,workstream FROM activity_plan_lines WHERE plan_id=$1 AND client_key=$2',[plan.id,clientKey])).rows[0];
+     if(prior)return prior.workstream===workstream?NextResponse.json({ok:true,id:prior.id,replayed:true}):error('This request key was already used for another component.',409);
+    }
     if(action!=='create'&&!(await db.query('SELECT id FROM activity_plan_lines WHERE id=$1 AND plan_id=$2 AND workstream=$3',[id,plan.id,workstream])).rowCount)return error('Entry not found.',404);
     if(action==='delete'){await db.query('UPDATE activity_line_documents SET removed_at=COALESCE(removed_at,NOW()) WHERE line_id=$1 AND plan_id=$2',[id,plan.id]);await db.query('DELETE FROM activity_plan_lines WHERE id=$1 AND plan_id=$2',[id,plan.id]);}
     else{
@@ -96,17 +104,17 @@ export async function POST(req:NextRequest){
       const before=action==='update'?budgetKobo((await db.query<{total:string}>('SELECT (quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE id=$1',[id])).rows[0].total):null;
       if(before===null||cost>before){
        const pool=await readPoolState(db,plan.id,action==='update'?{component:'tlm',id:id!}:undefined);
-       const problem=isSplitMode(pool.plan)?activityBudgetProblem('tlm',[{activity:v.activity,kobo:pool.proposed.tlm+cost}],pool.plan):infrastructurePoolProblem(pool.plan,{...pool.proposed,tlm:pool.proposed.tlm+cost});
+       const problem=isSplitMode(pool.plan)?activityBudgetProblem('tlm',[{activity:v.activity,kobo:pool.proposed.tlm+cost}],pool.plan,{pending:true}):infrastructurePoolProblem(pool.plan,{...pool.proposed,tlm:pool.proposed.tlm+cost});
        if(problem)return error(problem,409);
       }
      }
      if(isCapped(workstream)||activityShareCaps[workstream]) {
       const others=(await db.query<{activity:number;total:string}>('SELECT activity,SUM(quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 AND ($3::bigint IS NULL OR id<>$3) GROUP BY activity',[plan.id,workstream,action==='update'?id:null])).rows;
-      const problem=activityBudgetProblem(workstream,[...others.map(r=>({activity:r.activity,kobo:budgetKobo(r.total)})),{activity:v.activity,kobo:budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity)}],plan);
+      const problem=activityBudgetProblem(workstream,[...others.map(r=>({activity:r.activity,kobo:budgetKobo(r.total)})),{activity:v.activity,kobo:budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity)}],plan,{pending:true});
       if(problem)return error(problem);
      }
      const lineId=action==='create'
-      ?(await db.query<{id:number}>('INSERT INTO activity_plan_lines(activity,custom_activity,description,quantity,unit_cost,strategy,target_group,location,equipment,rationale,implementation_approach,textbook_classes,textbook_subject,equipment_type,subscription_types,website_type,training_provider,target_participants,school_levels,training_days,venue_type,quarters,plan_id,workstream) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING id',[...values,plan.id,workstream])).rows[0].id
+      ?(await db.query<{id:number}>('INSERT INTO activity_plan_lines(activity,custom_activity,description,quantity,unit_cost,strategy,target_group,location,equipment,rationale,implementation_approach,textbook_classes,textbook_subject,equipment_type,subscription_types,website_type,training_provider,target_participants,school_levels,training_days,venue_type,quarters,plan_id,workstream,client_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25) RETURNING id',[...values,plan.id,workstream,clientKey??null])).rows[0].id
       :(await db.query('UPDATE activity_plan_lines SET activity=$1,custom_activity=$2,description=$3,quantity=$4,unit_cost=$5,strategy=$6,target_group=$7,location=$8,equipment=$9,rationale=$10,implementation_approach=$11,textbook_classes=$12,textbook_subject=$13,equipment_type=$14,subscription_types=$15,website_type=$16,training_provider=$17,target_participants=$18,school_levels=$19,training_days=$20,venue_type=$21,quarters=$22,updated_at=NOW() WHERE id=$23 AND plan_id=$24',[...values,id,plan.id]),id!);
      // Line schools must be in the plan's state; a failure here rolls back the whole save.
      if(!(await saveLineSchools(db,lineId,v.schoolIds,user.stateCode)))throw new LineSchoolsError();

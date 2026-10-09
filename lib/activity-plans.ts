@@ -132,7 +132,7 @@ export const activityLineSchema = z.object({
   if(!isTextbook&&(v.textbookClasses.length||v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Class and subject only apply to textbooks.'});
   if(!Number.isSafeInteger(Math.round(v.unitCost*100)*v.quantity))ctx.addIssue({code:'custom',path:['unitCost'],message:'Line total is too large.'});
 });
-export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number;/** Reference code set by the database (migration 053), e.g. UBEC/SUBEB/SBMC/012/2026 · Q1–Q4. */code?:string;schools?:LineSchool[];documents?:LineDocument[]};
+export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number;/** Reference code set by the database (migration 053), e.g. UBEC/SUBEB/SBMC/012/2026 · Q1–Q4. */code?:string;/** The client key the line was created with (migration 058), null for older lines. */clientKey?:string|null;schools?:LineSchool[];documents?:LineDocument[]};
 export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'|'equipmentType'|'subscriptionTypes'|'websiteType'|'schoolIds'|'trainingProvider'|'targetParticipants'|'schoolLevels'|'trainingDays'|'venueType'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string;equipment_type?:string;subscription_types?:string[];website_type?:string;
   /** Teacher Development training details (migration 040). */
   training_provider?:string;target_participants?:string;school_levels?:string[];training_days?:number|null;venue_type?:string};

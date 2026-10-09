@@ -54,3 +54,7 @@
 .save-button-wrap:focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 45%,transparent)}
 .envelope-left{font-weight:600;color:var(--primary)}
 .envelope-left[data-empty]{color:var(--warning-foreground)}
+/* The chosen activity's own cap, under the activity select (Curriculum shares, SBMC monitoring, ICT Model Smart Schools). */
+.activity-cap-guide { font-variant-numeric:tabular-nums; }
+.activity-cap-guide strong { color:var(--foreground);font-weight:600; }
+.activity-cap-guide[data-over] strong:last-child { color:var(--destructive); }

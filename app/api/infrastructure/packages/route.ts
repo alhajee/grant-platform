@@ -15,6 +15,7 @@ import { isSplitMode, toKobo } from '@/lib/funding-policy';
 import { infrastructureSplitProblem } from '@/lib/budget-pairs';
 import { resolveLineQuarters } from '@/lib/line-quarters';
 import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
+import { clientKeySchema } from '@/lib/save-request';
 import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 import { packageSchema, packageProblem, calculateInfrastructure, landDocumentProblem, schoolComponents, schoolFacts, auditGaps, photoEvidenceProblem } from '@/lib/infrastructure-model';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
@@ -45,13 +46,19 @@ export async function POST(req:NextRequest){
   const user=await getWorkspaceState(req);if(!user)return error('Sign in to continue.',401);
   const plan=await resolveActionPlan(req,user.stateCode);if(!plan)return error('Plan not found.',404);
   const raw=await req.json().catch(()=>null);
-  const command=z.object({action:z.enum(['save','delete']),id:z.number().int().positive().optional(),version:z.number().int().positive().optional(),input:z.unknown().optional()}).safeParse(raw);
+  const command=z.object({action:z.enum(['save','delete']),id:z.number().int().positive().optional(),version:z.number().int().positive().optional(),input:z.unknown().optional(),clientKey:clientKeySchema}).safeParse(raw);
   if(!command.success)return error('Invalid package action.');
   const v=command.data;
   return await mutatePlan(user,plan,'infrastructure',async db=>{
    // School enrolment and coordinates are edited only in the School register (/api/schools, UBEC07).
    const prior=v.id?(await db.query('SELECT * FROM infrastructure_packages WHERE id=$1 AND plan_id=$2 FOR UPDATE',[v.id,plan.id])).rows[0]:null;
    if(v.id&&!prior)return error('Package not found.',404);
+   // A new package repeated with the same client key (the first reply was lost) returns the package already saved,
+   // without inserting again or re-checking the pool against a total that already includes it (migration 058).
+   if(v.action==='save'&&!v.id&&v.clientKey){
+    const replay=(await db.query<{id:number}>('SELECT id FROM infrastructure_packages WHERE plan_id=$1 AND client_key=$2',[plan.id,v.clientKey])).rows[0];
+    if(replay)return NextResponse.json({ok:true,id:replay.id,replayed:true});
+   }
    if(prior&&prior.version!==v.version)return error('This package has changed. Reopen it before saving.',409);
    if(v.action==='delete'){
     if(!prior)return error('Select a package.');
@@ -93,8 +100,8 @@ export async function POST(req:NextRequest){
    }
    const args=[JSON.stringify(input),JSON.stringify(result),result.total.toFixed(2),input.schoolId,input.kind,timeline.quarters];
    if(prior)await db.query('UPDATE infrastructure_packages SET input=$1::jsonb,result=$2::jsonb,total_cost=$3,school_id=$4,kind=$5,quarters=$6,version=version+1,updated_at=NOW() WHERE id=$7 AND plan_id=$8',[...args,v.id,plan.id]);
-   else await db.query('INSERT INTO infrastructure_packages(input,result,total_cost,school_id,kind,quarters,plan_id) VALUES($1::jsonb,$2::jsonb,$3,$4,$5,$6,$7)',[...args,plan.id]);
-   return NextResponse.json({ok:true});
+   else return NextResponse.json({ok:true,id:(await db.query<{id:number}>('INSERT INTO infrastructure_packages(input,result,total_cost,school_id,kind,quarters,plan_id,client_key) VALUES($1::jsonb,$2::jsonb,$3,$4,$5,$6,$7,$8) RETURNING id',[...args,plan.id,v.clientKey??null])).rows[0].id});
+   return NextResponse.json({ok:true,id:prior.id});
   });
  }catch(cause){console.error(cause);return error('Unable to save the infrastructure package.',503);}
 }

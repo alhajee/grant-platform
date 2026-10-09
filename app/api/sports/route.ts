@@ -13,9 +13,10 @@ import { sportsAllocationSchema, sportsBudgetProblem, sportsCatalogError, sports
 import { componentEnvelope } from "@/lib/funding-policy";
 import { resolveLineQuarters } from "@/lib/line-quarters";
 import { readPlanQuarterSetup } from "@/lib/line-quarters-db";
+import { clientKeySchema } from "@/lib/save-request";
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
-const commandSchema = z.object({ entity: z.enum(["budget", "allocation"]), action: z.enum(["create", "update", "delete"]), id: z.number().int().positive().optional() });
+const commandSchema = z.object({ entity: z.enum(["budget", "allocation"]), action: z.enum(["create", "update", "delete"]), id: z.number().int().positive().optional(), clientKey: clientKeySchema });
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,9 +29,9 @@ export async function GET(request: NextRequest) {
     const db = getPostgres();
     if (!(await readStageVisibility(db, workspace, plan.id)).includes('sports')) return error(notSentYetMessage, 403);
     const [lines, allocations, schools] = await Promise.all([
-      db.query(`SELECT id, code, section, activity_type AS "activityType", description, quantity, unit_cost::float8 AS "unitCost", quarters
+      db.query(`SELECT id, code, section, activity_type AS "activityType", description, quantity, unit_cost::float8 AS "unitCost", quarters, client_key AS "clientKey"
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),
-      db.query(`SELECT a.id, a.line_id AS "lineId", a.school_id AS "schoolId", a.quantity, a.longitude, a.latitude,
+      db.query(`SELECT a.id, a.line_id AS "lineId", a.school_id AS "schoolId", a.quantity, a.longitude, a.latitude, a.client_key AS "clientKey",
         s.name, s.lga, s.level, s.location FROM sports_allocations a
         JOIN sports_budget_lines b ON b.id = a.line_id JOIN schools s ON s.id = a.school_id
         WHERE b.state_code = ${state} AND b.plan_id = ${plan.id} AND s.state_code = ${state} ORDER BY s.name, a.id`),
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     const command = commandSchema.safeParse(body);
     if (!command.success) return error("Choose a valid sports plan action.");
-    const { entity, action, id } = command.data;
+    const { entity, action, id, clientKey } = command.data;
     if (action === "create" && id !== undefined) return error("A new line cannot specify an existing ID.");
     if (action !== "create" && !id) return error("Choose the line to update.");
     const state = sqlText(workspace.stateCode);
@@ -61,6 +62,14 @@ export async function POST(request: NextRequest) {
       // All quantity checks and writes share a state-level lock. Concurrent
       // allocation requests cannot exceed the equipment procurement quantity.
       await db.query(`SELECT pg_advisory_xact_lock(hashtext(${sqlText(`sports:${workspace.stateCode}`)}))`);
+      // A create repeated with the same client key (the first reply was lost) returns the row already saved, without
+      // inserting again or re-checking the caps against a total that already includes it (migration 058).
+      if (action === "create" && clientKey) {
+        const replay = entity === "budget"
+          ? (await db.query<{ id: number; code: string }>("SELECT id, code FROM sports_budget_lines WHERE plan_id = $1 AND client_key = $2", [plan.id, clientKey])).rows[0]
+          : (await db.query<{ id: number }>("SELECT a.id FROM sports_allocations a JOIN sports_budget_lines b ON b.id = a.line_id WHERE b.plan_id = $1 AND a.client_key = $2", [plan.id, clientKey])).rows[0];
+        if (replay) return NextResponse.json({ ...replay, replayed: true });
+      }
       if (entity === "budget") {
         const existing = id ? (await db.query(`SELECT section, activity_type, quantity, unit_cost::text AS unit_cost FROM sports_budget_lines WHERE id = ${id} AND state_code = ${state} AND plan_id = ${plan.id} FOR UPDATE`)).rows[0] : null;
         if (action !== "create" && !existing) return error("Budget line not found.", 404);
@@ -97,8 +106,8 @@ export async function POST(request: NextRequest) {
         const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${line.quantity}, ${line.unitCost.toFixed(2)}, ${quarters}`;
         const result = action === "create"
           ? await db.query(`WITH next_line AS (SELECT nextval(pg_get_serial_sequence('sports_budget_lines', 'id')) AS id)
-              INSERT INTO sports_budget_lines (id, plan_id, state_code, code, section, activity_type, description, quantity, unit_cost, quarters)
-              SELECT id, ${plan.id}, ${state}, 'UBEC/SUBEB/SPORT/' || LPAD(id::text, GREATEST(3, LENGTH(id::text)), '0') || ${sqlText('/' + planPeriod(plan))}, ${values} FROM next_line RETURNING id, code`)
+              INSERT INTO sports_budget_lines (id, plan_id, state_code, code, section, activity_type, description, quantity, unit_cost, quarters, client_key)
+              SELECT id, ${plan.id}, ${state}, 'UBEC/SUBEB/SPORT/' || LPAD(id::text, GREATEST(3, LENGTH(id::text)), '0') || ${sqlText('/' + planPeriod(plan))}, ${values}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid FROM next_line RETURNING id, code`)
           : await db.query(`UPDATE sports_budget_lines SET section = ${sqlText(line.section)}, activity_type = ${sqlText(line.activityType)},
               description = ${sqlText(line.description)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(2)}, quarters = ${quarters}, updated_at = NOW()
               WHERE id = ${id} AND state_code = ${state} RETURNING id, code`);
@@ -125,8 +134,8 @@ export async function POST(request: NextRequest) {
       const allocated = Number((await db.query(`SELECT COALESCE(SUM(quantity), 0)::int AS quantity FROM sports_allocations WHERE line_id = ${allocation.lineId}${action === "update" ? ` AND id <> ${id}` : ""}`)).rows[0].quantity);
       if (allocation.quantity + allocated > equipment.quantity) return error(`Only ${equipment.quantity - allocated} items remain available to allocate.`, 409);
       const result = action === "create"
-        ? await db.query(`INSERT INTO sports_allocations (line_id, school_id, quantity, longitude, latitude)
-            VALUES (${allocation.lineId}, ${allocation.schoolId}, ${allocation.quantity}, ${sqlText(allocation.longitude)}, ${sqlText(allocation.latitude)}) RETURNING id`)
+        ? await db.query(`INSERT INTO sports_allocations (line_id, school_id, quantity, longitude, latitude, client_key)
+            VALUES (${allocation.lineId}, ${allocation.schoolId}, ${allocation.quantity}, ${sqlText(allocation.longitude)}, ${sqlText(allocation.latitude)}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid) RETURNING id`)
         : await db.query(`UPDATE sports_allocations SET line_id = ${allocation.lineId}, school_id = ${allocation.schoolId}, quantity = ${allocation.quantity},
             longitude = ${sqlText(allocation.longitude)}, latitude = ${sqlText(allocation.latitude)}, updated_at = NOW() WHERE id = ${id} RETURNING id`);
       return NextResponse.json(result.rows[0], { status: action === "create" ? 201 : 200 });

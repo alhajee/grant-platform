@@ -119,7 +119,7 @@ try {
 
   // Curriculum: each activity limited to its share (60/20/10/10%) of the ₦4,000.00 envelope.
   ok(await api('academic', url('curriculum'), line('curriculum', 1, 800)));
-  fails(await api('academic', url('curriculum'), line('curriculum', 1, 0.01)), 400, /may use up to 20% of the Curriculum allocation \(₦800\.00\)\. Its items exceed this by ₦0\.01/);
+  fails(await api('academic', url('curriculum'), line('curriculum', 1, 0.01)), 400, /‘[^’]+’ can use up to ₦800\.00 \(20% of the Curriculum allocation\)\. With this item it would come to ₦800\.01, which is ₦0\.01 over\./);
   ok(await api('academic', url('curriculum'), line('curriculum', 0, 1200, { quantity: 2 })));
   fails(await api('academic', url('curriculum'), line('curriculum', 0, 0.01)), 400, /60%/);
   ok(await api('academic', url('curriculum'), line('curriculum', 3, 400)));
@@ -140,7 +140,8 @@ try {
   assert.equal(added.added, 2); assert.equal(added.skipped, 0);
   const again = ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'create', schoolIds }));
   assert.equal(again.added, 0); assert.equal(again.skipped, 2);
-  fails(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'create', schoolId: schoolIds[0] }), 409);
+  // Adding a listed school again is a no-op (a retried add after a dropped connection must not fail, migration 058).
+  assert.equal(ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'create', schoolId: schoolIds[0] })).added, 0);
   ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'delete', id: schoolIds[1] }));
   ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'create', schoolId: schoolIds[1] }));
   curriculum = ok(await api('academic', url('curriculum')));
@@ -167,7 +168,7 @@ try {
   // GSCCI distribution list: the schools that get the interventions, kept apart from Curriculum and TLM.
   const greened = ok(await api('academic', url('gscci'), { workstream: 'gscci', entity: 'school', action: 'create', schoolIds: [schoolIds[1], schoolIds[1]] }));
   assert.equal(greened.added, 1); assert.equal(greened.skipped, 0);
-  fails(await api('academic', url('gscci'), { workstream: 'gscci', entity: 'school', action: 'create', schoolId: schoolIds[1] }), 409);
+  assert.equal(ok(await api('academic', url('gscci'), { workstream: 'gscci', entity: 'school', action: 'create', schoolId: schoolIds[1] })).added, 0);
   fails(await api('physical', url('gscci'), { workstream: 'gscci', entity: 'school', action: 'create', schoolId: schoolIds[0] }), 403);
   assert.deepEqual(ok(await api('academic', url('gscci'))).distribution.map(s => [s.id, s.enrolment]), [[schoolIds[1], 300]]);
   assert.equal(ok(await api('academic', url('curriculum'))).distribution.length, 2);

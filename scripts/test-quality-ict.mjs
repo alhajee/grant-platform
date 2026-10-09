@@ -124,7 +124,7 @@ try {
   fails(await api('ict', url('ict'), line('ict', 2, 100, { schoolIds: [schoolA, foreign] })), 404, /not found in your state/);
   fails(await api('ict', url('ict'), line('ict', 1, 100, { schoolIds: [schoolA] })), 400, /Schools only apply/);
   const smart = ok(await api('ict', url('ict'), line('ict', 2, 20000000, { schoolIds: [schoolA, schoolB] })));
-  fails(await api('ict', url('ict'), line('ict', 2, 10000000.01, { schoolIds: [schoolA] })), 400, /may use up to ₦30,000,000\.00 in total\. Its items exceed this by ₦0\.01/);
+  fails(await api('ict', url('ict'), line('ict', 2, 10000000.01, { schoolIds: [schoolA] })), 400, /can use up to ₦30,000,000\.00 \(for all its items together\)\. With this item it would come to ₦30,000,000\.01, which is ₦0\.01 over\./);
   ok(await api('ict', url('ict'), line('ict', 2, 10000000, { schoolIds: [schoolB] })));
   fails(await api('ict', url('ict'), { ...line('ict', 2, 20000000.5, { schoolIds: [schoolA] }), action: 'update', id: smart.id }), 400, /₦30,000,000\.00/);
   ok(await api('ict', url('ict'), { ...line('ict', 2, 15000000, { schoolIds: [schoolA] }), action: 'update', id: smart.id }));
