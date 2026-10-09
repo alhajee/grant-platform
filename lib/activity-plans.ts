@@ -39,8 +39,8 @@ export const activityInfo: Partial<Record<ActivityWorkstream, Record<number, str
   planning: {
     0: 'Conduct annual school census and regular data updates to improve accuracy of planning and reporting, uploaded to DNEMIS.',
     1: 'Develop State Medium-Term Basic Education Strategic Plans (SMTBESP) to guide state-level interventions.',
-    3: 'Capacity building of EMIS, ICT and planning officers at SUBEB and LGEA through targeted trainings and continuous professional support.',
-    4: 'Procure working tools and ICT resources for PRS officers at SUBEBs and LGEAs to enhance efficiency.',
+    3: 'Capacity building of EMIS, ICT and PRS Officers at SUBEB and LGEA through targeted trainings and continuous professional support.',
+    4: 'Procure working tools and ICT resources for PRS Officers at SUBEBs and LGEAs to enhance efficiency.',
     5: 'Provide technical assistance and ongoing support on planning, research and data management activities across states.',
   },
 };
@@ -50,7 +50,7 @@ export const curriculumActivityShares = [6000, 2000, 1000, 1000] as const;
 export { distributionWorkstreams, hasDistribution, distributionSnapshotKeys, distributionNames, emptyDistributionMessage, type DistributionWorkstream } from './distribution-lists.ts';
 /** Workstreams that collect documents in component_documents (the Supervision & Monitoring proforma invoices). */
 export const documentWorkstreams = ['monitoring'] as const;
-export const activityTitles: Record<ActivityWorkstream, string> = { sbmc: 'SBMC', tlm: 'Teaching & Learning Materials', monitoring: 'Supervision & Monitoring', gscci: 'Greening Schools, Climate Change & Safeguards', curriculum: 'Curriculum', quality: 'Quality Assurance', ict: 'ICT', teachers: 'Teacher Development', planning: 'Planning, Research & Statistics' };
+export const activityTitles: Record<ActivityWorkstream, string> = { sbmc: 'SBMC', tlm: 'Teaching & Learning Materials', monitoring: 'Supervision & Monitoring', gscci: 'Greening Schools, Climate Change & Safeguards', curriculum: 'Curriculum', quality: 'Quality Assurance', ict: 'ICT', teachers: 'Teacher Development', planning: 'Planning, EMIS & Data Platform' };
 /** Example items shown under each TLM checklist activity. */
 export const activityHints: Partial<Record<ActivityWorkstream, Record<number, string>>> = {
  sbmc: {0: 'Mapping, profiling and other activities to identify and support out-of-school children', 1: 'State-level capacity building, and training for SBMCs and CBMCs', 2: 'School Improvement Programme and Centre Improvement Programme, consolidated', 3: 'Advocacy and sensitisation in marketplaces, communities and with other target groups', 4: 'Town hall meetings and other structured community engagement', 5: 'Engaging relevant stakeholders in support of social mobilisation and basic education', 6: 'Enrolment campaigns and drives, with post-enrolment follow-up', 7: 'Part of the HOPE-EDU initiative', 8: 'Radio programmes, jingles, media advocacy and media sensitisation', 9: 'Development and production of posters and IEC materials', 10: 'Retained as an allowable intervention', 11: 'Starter kits and other learner retention support', 12: 'Monitoring, tracking, accountability and related M&E (up to 5% of the SBMC allocation)', 13: 'Community-based data collection and reporting', 14: 'Scope and classification to be confirmed by UBEC', 15: 'Working tools and materials for social mobilisation' },

@@ -6,6 +6,6 @@ export const subebDepartments = [
   {id:'teachers',name:'Teacher Development'},
   {id:'ict',name:'ICT'},
   {id:'social',name:'Social Mobilisation'},
-  {id:'planning',name:'Planning, Research & Statistics'},
+  {id:'planning',name:'Planning, EMIS & Data Platform'},
 ] as const;
 export const subebDepartmentName=(id:string)=>subebDepartments.find(d=>d.id===id)?.name ?? id;

@@ -132,11 +132,11 @@ Teacher Development is pillar `teachers` (state department `teachers`, UBEC lead
 - Workbook sheet `teachers` (columns activity, provider, participants, school level, days, venue, qty, unit cost, amount; rows expand to the description and documents), comments, UBEC review/dashboard, `/api/plans` `teachersBudget`, palette, filters, notifications ("Teacher Development").
 - Test: `node --env-file=.env scripts/test-teacher-development.mjs [baseUrl]` (throwaway state, users and plan; cleans up).
 
-## Planning, Research & Statistics (migration 041)
+## Planning, EMIS & Data Platform (migration 041; formerly "Planning, Research & Statistics")
 
 Pillar and component `planning` (state department `planning`, UBEC lead department `planning`, 2% policy share), on the shared activity editor at `/beap/planning`; workstream `planning`. It follows Quality Assurance: the base line form (Description, Qty, Implementation strategy, Target group, Unit cost, Sub-total), several lines per activity, no uploads, no schools, capped at its envelope (`cappedWorkstreams`).
 
-- Six activities (0-5, `planningActivityNames` in `lib/activity-extras.ts`): annual school census; develop SMTBESP; review and track SMTBESP; capacity building of EMIS, ICT and planning officers; working tools and ICT resources for PRS officers; technical assistance for planning. Info hints on 0, 1, 3, 4, 5 (`activityInfo.planning`).
+- Six activities (0-5, `planningActivityNames` in `lib/activity-extras.ts`): annual school census; develop SMTBESP; review and track SMTBESP; capacity building of EMIS, ICT and PRS Officers; working tools and ICT resources for PRS Officers; technical assistance for planning. Info hints on 0, 1, 3, 4, 5 (`activityInfo.planning`).
 - Compulsory (`compulsoryActivities.planning`): 0, 2, 3, 5. Same rule as QA (`readinessWorkstreams` includes `planning`): every send step and the complete-plan checks are refused with 409 and the missing list until each has a line.
 - Plumbing: snapshot `planning`, visibility, UBEC submission snapshot and reviewer view, workbook sheet `planning` (activity columns, `ChartColumn` icon) and comments (`commentSheets`/`commentColumns`), UBEC dashboard, `/api/plans` `planningBudget`, dashboard palette/filter/gauge (`componentPalette.planning`, `InvestmentArea`, `mixOrder`), notifications/recent activity ("Planning"), plan page card (systems illustration).
 - Migration 041 widens the `activity_plan_lines` workstream/activity, `plan_pillar_reviews`, `plan_comments` pillar/sheet and `plan_funding_sources` component CHECKs (additive, idempotent).

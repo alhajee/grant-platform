@@ -23,7 +23,7 @@ export function allocatedAmount(envelope: string, componentShare: number, within
 // Components that can receive their own other funding (UBEC04/05). TLM has no policy share: it shares the infrastructure pool.
 export const fundingComponentIds = ['infrastructure','tlm','quality','teachers','sbmc','sports','monitoring','curriculum','planning','gscci'] as const satisfies readonly import('./beap-pillars').PillarId[];
 export type FundingComponent = typeof fundingComponentIds[number];
-export const fundingComponentLabels: Record<FundingComponent,string> = {infrastructure:'Infrastructure',tlm:'TLM',quality:'Quality Assurance',teachers:'Teacher Development & ICT',sbmc:'SBMC',sports:'Sports',monitoring:'Supervision & Monitoring',curriculum:'Curriculum',planning:'Planning, Research & Statistics',gscci:'Greening, Climate & Safeguarding'};
+export const fundingComponentLabels: Record<FundingComponent,string> = {infrastructure:'Infrastructure',tlm:'TLM',quality:'Quality Assurance',teachers:'Teacher Development & ICT',sbmc:'SBMC',sports:'Sports',monitoring:'Supervision & Monitoring',curriculum:'Curriculum',planning:'Planning, EMIS & Data Platform',gscci:'Greening, Climate & Safeguarding'};
 /** A funding source for every component (migration 041): shared across components by the policy shares, like the state contribution. */
 export const planWideFunding = 'all' as const;
 /** What a funding source can be for: one component, or 'all' (plan-wide, listed first). */

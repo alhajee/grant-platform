@@ -122,7 +122,7 @@ try {
   // Planning gets 2% of ₦25,000 (₦500) instead of 2% of ₦20,000; SBMC gets its share of ₦25,000 plus its own ₦1,000.
   const planningShare = kobo('25000') * policy.shares.planning / 10000, wideSbmc = kobo('25000') * policy.shares.sbmc / 10000 + kobo('1000');
   const prsUrl = `/api/activities?plan=${wide.id}&workstream=planning`, planningLine = { workstream: 'planning', entity: 'line', action: 'create', activity: 1, description: 'SMTBESP', quantity: 1, strategy: 'NCB', targetGroup: 'State level' };
-  assert.match(ok(await api('prs', prsUrl, { ...planningLine, unitCost: (planningShare + 1) / 100 }), 400).error, /exceeded the Planning, Research & Statistics allocation/);
+  assert.match(ok(await api('prs', prsUrl, { ...planningLine, unitCost: (planningShare + 1) / 100 }), 400).error, /exceeded the Planning, EMIS & Data Platform allocation/);
   ok(await api('prs', prsUrl, { ...planningLine, unitCost: planningShare / 100 }));
   ok(await api('social', `/api/activities?plan=${wide.id}&workstream=sbmc`, { ...line, unitCost: (wideSbmc + 1) / 100 }), 400);
   ok(await api('social', `/api/activities?plan=${wide.id}&workstream=sbmc`, { ...line, unitCost: (wideSbmc - 100) / 100 }));

@@ -77,14 +77,14 @@ try {
   const extra = ok(await api('prs', url(), line(4, 50000)));
   ok(await api('prs', url(), { workstream: 'planning', entity: 'line', action: 'delete', id: extra.id }));
   // ₦16,000,000 ceiling: ₦6,000,000 used, so ₦10,000,000.01 more is refused.
-  fails(await api('prs', url(), line(4, 10000000.01)), 400, /exceeded the Planning, Research & Statistics allocation \(₦16,000,000\.00\) by ₦0\.01/);
+  fails(await api('prs', url(), line(4, 10000000.01)), 400, /exceeded the Planning, EMIS & Data Platform allocation \(₦16,000,000\.00\) by ₦0\.01/);
   let lines = ok(await api('prs', url())).lines;
   assert.equal(lines.length, 1); assert.equal(lines[0].description, 'SMTBESP 2032-2035'); assert.equal(lines[0].unitCost, 3000000);
   step('Planning lines: create, update, delete, six activities, required fields and the ₦16M ceiling');
 
   // Compulsory activities (0, 2, 3, 5) block sending, with the missing list.
   const missing = fails(await review('prs', { action: 'submit', pillar: 'planning' }), 409, /compulsory activity/);
-  assert.match(missing.error, /Conduct annual school census; Review and track the implementation of SMTBESP; Capacity building of EMIS, ICT and planning officers at SUBEB & LGEA; Provide technical assistance for planning activities/);
+  assert.match(missing.error, /Conduct annual school census; Review and track the implementation of SMTBESP; Capacity building of EMIS, ICT and PRS Officers at SUBEB & LGEA; Provide technical assistance for planning activities/);
   assert.doesNotMatch(missing.error, /Develop State Medium-Term/);
   for (const activity of [0, 2, 3]) ok(await api('prs', url(), line(activity, 1000000)));
   fails(await review('prs', { action: 'submit', pillar: 'planning' }), 409, /Provide technical assistance for planning activities/);
