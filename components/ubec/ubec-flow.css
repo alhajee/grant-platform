@@ -187,3 +187,4 @@
 .ubec-flow-dialog .confirm-facts { border-radius: 14px; }
 .ubec-assessment-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 10px; }
 .ubec-assessment-summary .ubec-decision { flex: 1 1 240px; min-width: 0; }
+.plan-glance-main > .ubec-assessment { margin-top: 20px; margin-bottom: 0; }

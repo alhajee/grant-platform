@@ -101,6 +101,22 @@ export default function UbecReviewPage() {
   const envelope = round?.snapshot.setup ? { id: data!.plan.id, startYear: data!.plan.start_year, endYear: data!.plan.end_year, createdAt: round.submitted_at, status: 'submitted_ubec', version: data!.plan.version, submissionNumber: round.state_submission, ...round.snapshot.setup } as ActionPlan : null;
   const arrived = released.filter(c => c.stage === 'chair').length;
 
+  // With one or two components the cards leave the main column mostly empty: the team summary moves up beside the funding card.
+  const fewComponents = cards.length > 0 && cards.length <= 2;
+  const assessmentSection = data && round && flow ? <>
+  <section id="ubec-assessment" className="ubec-assessment" aria-labelledby="ubec-assessment-title">
+    <h2 id="ubec-assessment-title" className="plan-section-title">Assessment team</h2>
+    {!released.length ? <Card><CardContent><UbecEmpty art={<NotReleasedArt />} title="Not released yet" compact>{chair ? 'Items open for assessment once you release the plan' : 'The UBEC BEAP Chair releases the plan to the departments first'}</UbecEmpty></CardContent></Card>
+      : <Tabs value={activeTab} onValueChange={value => { setTab(value); history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#ubec-${value}`); }}>
+        <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs ubec-assessment-tabs">{released.map(c => <TabsTrigger key={c.pillar} value={c.pillar}>{componentName(c.pillar)}{c.counts.rejected > 0 && <Badge variant="destructive" className="ml-1">{c.counts.rejected}</Badge>}</TabsTrigger>)}</TabsList></div>
+        {released.map(c => <TabsContent key={c.pillar} value={c.pillar} className="ubec-assessment-panel">
+          <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} /><Button variant="outline" size="sm" className="rounded-full" onClick={() => { window.location.hash = `review-${c.pillar}`; }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : can?.observe.includes(c.pillar) ? 'Review in the workbook' : 'View in the workbook'}</Button></div>
+          <ComponentPeople component={c} planId={data.plan.id} roundId={round.id} canComplete={!!can?.complete.includes(c.pillar)} canRemove={!!can?.assign.includes(c.pillar)} onComplete={() => setRequest({ kind: 'complete', pillar: c.pillar })} onChanged={() => void load()} />
+        </TabsContent>)}
+      </Tabs>}
+  </section>
+  </> : null;
+
   return <UbecShell review user={data?.user}>
     <div className="ubec-review-workspace plan-page ubec-plan-page">
       <Button asChild variant="ghost" size="sm" className="review-back"><a href={admin ? '/admin?section=officers' : '/ubec'}><ArrowLeftIcon data-icon="inline-start" />{admin ? 'Administration' : 'Dashboard'}</a></Button>
@@ -129,6 +145,7 @@ export default function UbecReviewPage() {
                   <span className="ubec-chair-actions"><Button variant="outline" className="rounded-full" disabled={!can?.decide} onClick={() => setRequest({ kind: 'return' })}><CornerDownLeftIcon data-icon="inline-start" />Return to SUBEB</Button><Button className="rounded-full" disabled={!can?.decide || !flow.approvable} onClick={() => setRequest({ kind: 'approve' })}><CheckIcon data-icon="inline-start" />Approve action plan</Button></span></>
                 : <p><strong>{nationalStatusLabels[round.status]}.</strong>The SUBEB {round.status === 'returned' ? 'revises and resubmits the plan.' : 'has been notified.'}</p>}
             </div>}
+            {fewComponents && assessmentSection}
           </section>
           <aside className="plan-glance-side" aria-label="Plan funding">
             {envelope && totals ? <PlanSummary plan={envelope} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} /> : null}
@@ -139,17 +156,7 @@ export default function UbecReviewPage() {
           </aside>
         </div>
 
-        <section id="ubec-assessment" className="ubec-assessment" aria-labelledby="ubec-assessment-title">
-          <h2 id="ubec-assessment-title" className="plan-section-title">Assessment team</h2>
-          {!released.length ? <Card><CardContent><UbecEmpty art={<NotReleasedArt />} title="Not released yet" compact>{chair ? 'Items open for assessment once you release the plan' : 'The UBEC BEAP Chair releases the plan to the departments first'}</UbecEmpty></CardContent></Card>
-            : <Tabs value={activeTab} onValueChange={value => { setTab(value); history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#ubec-${value}`); }}>
-              <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs ubec-assessment-tabs">{released.map(c => <TabsTrigger key={c.pillar} value={c.pillar}>{componentName(c.pillar)}{c.counts.rejected > 0 && <Badge variant="destructive" className="ml-1">{c.counts.rejected}</Badge>}</TabsTrigger>)}</TabsList></div>
-              {released.map(c => <TabsContent key={c.pillar} value={c.pillar} className="ubec-assessment-panel">
-                <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} /><Button variant="outline" size="sm" className="rounded-full" onClick={() => { window.location.hash = `review-${c.pillar}`; }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : can?.observe.includes(c.pillar) ? 'Review in the workbook' : 'View in the workbook'}</Button></div>
-                <ComponentPeople component={c} planId={data.plan.id} roundId={round.id} canComplete={!!can?.complete.includes(c.pillar)} canRemove={!!can?.assign.includes(c.pillar)} onComplete={() => setRequest({ kind: 'complete', pillar: c.pillar })} onChanged={() => void load()} />
-              </TabsContent>)}
-            </Tabs>}
-        </section>
+        {!fewComponents && assessmentSection}
 
         <PlanReviewContent key={round.id} showPlanReference={false} comments={comments} assessment={assessment} snapshot={round.snapshot} visiblePillars={pillars.length ? pillars : undefined} />
         {data.assignments.length > 0 && <Card className="mt-6"><CardHeader><CardTitle>Earlier department reviews</CardTitle></CardHeader><CardContent><ul className="ubec-legacy-reviews">{data.assignments.map(a => <li key={a.id}><strong>{departmentName(a.department)} · {componentName(a.pillar)}</strong><span>{a.completed_at ? a.recommendation === 'changes' ? 'Changes recommended' : 'Endorsed' : 'Not completed'}</span>{a.feedback && <p className="review-comment">{a.feedback}</p>}</li>)}</ul></CardContent></Card>}
@@ -185,6 +192,6 @@ function ComponentPeople({ component, planId, roundId, canComplete, canRemove, o
   return <div className="ubec-people">
     {notes.length ? <ul>{notes.map(n => <li key={n.key} data-done={n.done || undefined}><strong>{n.who}</strong><small>{n.role}</small><p>{n.text}</p>
       {n.remove && <Button variant="ghost" size="sm" className="ubec-people-remove" disabled={removing !== null} onClick={n.remove} aria-label={`Remove ${n.who} from ${componentName(component.pillar)}`}>{n.busy ? <Spinner data-icon="inline-start" /> : <UserMinusIcon data-icon="inline-start" />}Remove</Button>}</li>)}</ul> : <p className="ubec-people-empty">No Assessment Officer assigned yet</p>}
-    {canComplete && <Button className="rounded-full" onClick={onComplete}><CheckIcon data-icon="inline-start" />Complete assessment</Button>}
+    {canComplete && <Button className="rounded-full" disabled={component.counts.undecided > 0} title={component.counts.undecided ? `Decide the remaining ${component.counts.undecided} items in the workbook first` : undefined} onClick={onComplete}><CheckIcon data-icon="inline-start" />Complete assessment</Button>}
   </div>;
 }
