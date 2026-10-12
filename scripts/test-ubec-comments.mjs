@@ -205,6 +205,8 @@ try {
   step('returned round: UBEC writes 409; state replies and resolutions are hidden from UBEC until resubmission');
 
   // The state resubmits; the Sports kits line is deleted first.
+  // The return landed with the SUBEB BEAP Chair, who sends both components back down to the Director and Data Entry.
+  for (const pillar of ['sports', 'sbmc']) { await review('chair', 'request_changes', pillar, 'UBEC feedback to address.'); await review('dir', 'request_changes', pillar, 'Address the UBEC comments.'); }
   await review('des', 'submit', 'sports', 'Quotations attached; finals split.'); await review('des', 'submit', 'sbmc', 'Needs assessment attached.');
   ok(await api('dir', stateComments, { sheet: 'sports', rowRef: balls, columnId: 'section', body: 'Director thread during the return' }), 201);
   const sameCell = (await db.query("SELECT COUNT(*)::int AS n FROM plan_comments WHERE plan_id=$1 AND sheet='sports' AND row_ref=$2 AND column_id='unitCost' AND parent_id IS NULL AND resolved_at IS NULL", [planId, balls])).rows[0].n;

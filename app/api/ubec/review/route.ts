@@ -7,7 +7,7 @@ import { isSameRequestOrigin } from '@/lib/request-origin';
 import { activePillars, isUbec, pillarDepartments, ubecRoles, type UbecRound, type UbecAssignment } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
-import { componentSendProblem, readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
+import { aggregateReviewStatus, componentSendProblem, readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
 import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 import { readUbecSubmissionMode } from '@/lib/workflow-settings';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
@@ -136,11 +136,17 @@ export async function POST(request: NextRequest) {
             await db.query('UPDATE plan_comments SET shared_at=NOW(), shared_by_name=$1 WHERE id=ANY($2::bigint[])', [user.full_name, share]);
           }
           await db.query('UPDATE ubec_rounds SET status=$1,decision=$2,decided_at=NOW() WHERE id=$3', [input.action === 'approve' ? 'approved' : 'returned', input.comment, round.id]);
-          status = input.action === 'approve' ? 'ubec_approved' : 'changes_requested';
-          if (input.action === 'return') await db.query("UPDATE plan_pillar_reviews SET status='changes_requested',updated_at=NOW() WHERE plan_id=$1", [id]);
+          status = 'ubec_approved';
+          // A return lands with the SUBEB BEAP Chair first: the round's components go back to "With BEAP Chair", who
+          // returns them to their Directors (and on to Data Entry) or sends them on again.
+          if (input.action === 'return') {
+            await db.query("UPDATE plan_pillar_reviews SET status='beap_review',updated_at=NOW() WHERE plan_id=$1 AND pillar=ANY($2::text[])", [id, components.map(c => c.pillar)]);
+            status = aggregateReviewStatus(await readPillarReviews(db, Number(id)));
+          }
           const event = (await db.query(`INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,'general') RETURNING id`, [id, plan.submission_number, input.action === 'return' ? 'request_changes' : 'approve', user.full_name, user.email, user.role, input.comment])).rows[0];
-          // The SUBEB hears about it: Executive Chairman, BEAP Chair, and the Directors and Data Entry staff of the round's components.
-          const stateDepartments = [...new Set(components.map(c => subebComponentDepartments[c.pillar]))];
+          // The SUBEB hears about it: a return goes to the BEAP Chair (the Executive Chairman, who sent it, is told too);
+          // an approval also reaches the Directors and Data Entry staff of the round's components.
+          const stateDepartments = input.action === 'approve' ? [...new Set(components.map(c => subebComponentDepartments[c.pillar]))] : [];
           await db.query(`INSERT INTO plan_notifications(plan_id,user_id,event_id) SELECT $1,u.id,$2 FROM users u WHERE u.state_code=$3 AND u.active AND (u.role='Executive Chairman' OR u.is_beap_chair
             OR (u.role IN ('Director','Data Entry Staff') AND (u.department=ANY($4::text[]) OR EXISTS(SELECT 1 FROM user_departments ud WHERE ud.user_id=u.id AND ud.department=ANY($4::text[])))))`, [id, event.id, plan.state_code, stateDepartments]);
         }

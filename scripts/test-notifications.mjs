@@ -130,13 +130,15 @@ try {
 
   ubec = ok(await api('ubecChair', ubecPath));
   ok(await api('ubecChair', ubecPath, { action: 'return', version: ubec.plan.version, roundId: ubec.round.id, comment: 'Please attach quotations.' }));
-  for (const who of ['des', 'dir', 'ec', 'chair']) assert.ok((await mine(who)).some(n => n.source === 'state' && n.action === 'request_changes' && n.actorRole === 'UBEC BEAP Chair'), who);
-  const returned = (await mine('dir')).find(n => n.action === 'request_changes');
+  // A return lands with the SUBEB BEAP Chair (and the Executive Chairman); Directors and Data Entry hear when it is sent down to them.
+  for (const who of ['ec', 'chair']) assert.ok((await mine(who)).some(n => n.source === 'state' && n.action === 'request_changes' && n.actorRole === 'UBEC BEAP Chair'), who);
+  for (const who of ['des', 'dir']) assert.ok(!(await mine(who)).some(n => n.action === 'request_changes' && n.actorRole === 'UBEC BEAP Chair'), who);
+  const returned = (await mine('chair')).find(n => n.action === 'request_changes');
   assert.ok(Number.isInteger(returned.eventId) && returned.comment === 'Please attach quotations.', 'the return note carries its review event id for the history link');
   assert.ok((await mine('es')).some(n => n.action === 'return'), 'the ES is told about the decision');
   ok(await markRead('es', { all: true }));
   assert.ok((await mine('es')).every(n => n.readAt));
-  step('the UBEC BEAP Chair\'s return notifies the state team (incl. its BEAP Chair) with the note and its review event id; the ES can mark all as read');
+  step('the UBEC BEAP Chair\'s return notifies the SUBEB BEAP Chair and Executive Chairman with the note and its review event id; the ES can mark all as read');
 
   console.log(`\nPASS: ${passed} notification checks.`);
 } finally {

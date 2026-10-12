@@ -117,9 +117,9 @@ try {
   assert.equal((await act('dacs', 'return', { comment: 'No authority' })).status, 403);
   assert.equal((await act('ubecChair', 'return', { comment: '' })).status, 400);
   ok(await act('ubecChair', 'return', { comment: 'Revise sports equipment and resubmit.' }));
-  const returned = ok(await api('desA', statePath));
-  assert.equal(returned.plan.status, 'changes_requested');
-  for (const pillar of ['sports', 'monitoring']) assert.equal(ok(await api('ec', statePath)).pillarReviews.find(r => r.pillar === pillar).status, 'changes_requested', `${pillar} is back with Data Entry`);
+  for (const pillar of ['sports', 'monitoring']) assert.equal(ok(await api('ec', statePath)).pillarReviews.find(r => r.pillar === pillar).status, 'beap_review', `${pillar} is back with the SUBEB BEAP Chair`);
+  await stateStep('chair', 'request_changes', 'sports', 'Revise the sports equipment.');
+  await stateStep('dirA', 'request_changes', 'sports', 'Revise the quantity.');
 
   ok(await api('desA', sports, { ...budget, action: 'update', id: lineId, quantity: 6, description: 'Revised equipment specification' }));
   assert.equal((await act('ec', 'submit', { comment: 'Cannot skip state review' })).status, 409);

@@ -161,17 +161,22 @@ try {
   fails(await act('chair', 'return'), 400);
   const openThreads = ok(await api('chair', `/api/ubec/comments${q}`)).threads.filter(t => !t.resolvedAt).map(t => t.id);
   ok(await act('chair', 'return', { comment: 'Revise the sports equipment quantity.', shareCommentIds: openThreads }));
-  const returned = ok(await api('desA', statePath));
-  assert.equal(returned.plan.status, 'changes_requested');
-  for (const who of ['ec', 'subebChair', 'dirA', 'desA', 'dirP', 'desP']) assert.ok(await notified(who, 'request_changes'), `${who} is notified of the return`);
-  assert.equal(await notified('desS', 'request_changes'), false, 'departments outside the round are not notified');
+  // The return lands with the SUBEB BEAP Chair first (Executive Chairman told too); Directors and Data Entry hear when she returns it to them.
+  const afterReturn = ok(await api('ec', statePath));
+  for (const pillar of ['sports', 'monitoring']) assert.equal(afterReturn.pillarReviews.find(r => r.pillar === pillar).status, 'beap_review', `${pillar} is back with the SUBEB BEAP Chair`);
+  for (const who of ['ec', 'subebChair']) assert.ok(await notified(who, 'request_changes'), `${who} is notified of the return`);
+  for (const who of ['dirA', 'desA', 'desS']) assert.equal(await notified(who, 'request_changes'), false, `${who} is not notified until the BEAP Chair returns it`);
+  fails(await api('desA', sports, { ...budget, action: 'update', id: sportsLine, quantity: 6 }), 409);
+  await stateStep('subebChair', 'request_changes', 'sports', 'UBEC asked to revise the equipment quantity.');
+  await stateStep('dirA', 'request_changes', 'sports', 'Please revise the quantity.');
+  assert.ok(await notified('desA', 'request_changes'), 'Data Entry hears once the Director returns it');
   assert.ok((ok(await api('desP', `/api/plans/comments${q}`)).threads).some(t => t.id === auditComment && t.scope === 'ubec'), 'shared UBEC threads reach the state');
   const results = ok(await api('desA', `/api/ubec/results${q}`));
   assert.equal(results.round.status, 'returned'); assert.deepEqual(results.components.map(c => c.pillar), ['sports']);
   assert.equal(results.components[0].items[0].decision, 'reject'); assert.equal(results.components[0].items[0].note, 'Quantity is too high.');
   assert.equal(ok(await api('ec', `/api/ubec/results${q}`)).components.length, 2);
   fails(await api('chair', `/api/ubec/results${q}`), 403);
-  step('approval is blocked while an item is rejected; the BEAP Chair returns the whole plan; SUBEB Executive Chairman, BEAP Chair and the round departments\' Directors and Data Entry are notified; shared threads and item results reach the state by department');
+  step('approval is blocked while an item is rejected; the BEAP Chair returns the whole plan; the return lands with the SUBEB BEAP Chair, who sends it down to the Director and Data Entry; shared threads and item results reach the state by department');
 
   ok(await api('desA', sports, { ...budget, action: 'update', id: sportsLine, quantity: 6, description: 'Revised equipment' }));
   await throughState('sports', 'desA', 'dirA', 'Quantity reduced.');
