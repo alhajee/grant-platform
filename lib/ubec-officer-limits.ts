@@ -1,11 +1,11 @@
 // UBEC Assessment Officers per component department (migration 056): how many active officers a department may have,
-// and the default officers the BEAP Chair's release assigns to each component. The default limit is one officer per
+// and the default officers pre-ticked for each component in the Director's Assign staff step (nothing is assigned on
+// release: the plan reaches the Directors first). The default limit is one officer per
 // component of the department; the Super Admin changes both on Admin > Workflow settings. Adding or reactivating an
 // officer beyond the limit is refused by every path that does so (UBEC Officers page, Admin > Users).
 import type { ImplementedPillar } from './beap-pillars';
 import { componentDepartments, departmentName, departmentPillars, pillarDepartments, ubecRoles, type ComponentDepartment } from './ubec';
-import { defaultAssignerName, defaultAssignmentComment } from './ubec-flow';
-import { addUbecEvent, notifyUbec, type Actor, type Db } from './ubec-flow-db';
+import type { Db } from './ubec-flow-db';
 
 export const maxOfficerLimit = 50;
 /** Most default officers one component may have (the Director's assign step takes up to 20 at once). */
@@ -59,25 +59,5 @@ export async function pruneDefaultOfficers(db: Db, userId: number) {
   const user = (await db.query<{ role: string; department: string | null; active: boolean }>('SELECT role, department, active FROM users WHERE id=$1', [userId])).rows[0];
   const keep = user && user.active && user.role === ubecRoles.officer && user.department ? departmentPillars(user.department) : [];
   await db.query('DELETE FROM ubec_default_officers WHERE officer_id=$1 AND NOT (pillar=ANY($2::text[]))', [userId, keep]);
-}
-
-/**
- * Release (inside the BEAP Chair's transaction): assign each released component's default officers, record one
- * `default_officers` event per component and notify those officers and the department's Director.
- */
-export async function assignDefaultOfficers(db: Db, planId: number | string, roundId: number, released: readonly { id: number; pillar: ImplementedPillar; department: string }[], actor: Actor) {
-  const defaults = await readDefaultOfficers(db);
-  const assigned: { pillar: ImplementedPillar; officerIds: number[] }[] = [];
-  for (const component of released) {
-    const officers = defaults.get(component.pillar) ?? [];
-    if (!officers.length) continue;
-    for (const officer of officers) {
-      await db.query('INSERT INTO ubec_officer_assignments(round_component_id,officer_id,officer_name,assigned_by_id,assigned_by_name,comment) VALUES($1,$2,$3,$4,$5,$6)', [component.id, officer.id, officer.name, actor.id, defaultAssignerName, defaultAssignmentComment]);
-    }
-    const eventId = await addUbecEvent(db, { roundId, planId, action: 'default_officers', actor, comment: `${officers.map(o => o.name).join(', ')}: ${defaultAssignmentComment}`, pillar: component.pillar });
-    await notifyUbec(db, planId, eventId, actor.id, { userIds: officers.map(o => o.id) }, { role: ubecRoles.director, departments: [component.department] });
-    assigned.push({ pillar: component.pillar, officerIds: officers.map(o => o.id) });
-  }
-  return assigned;
 }
 

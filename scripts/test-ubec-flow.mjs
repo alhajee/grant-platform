@@ -41,7 +41,7 @@ await db.connect();
 try {
   settings = (await db.query("SELECT beap_chair_submission_mode, ubec_submission_mode FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
   await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode='individual_components', ubec_submission_mode='reviewed_components' WHERE state_code='GLOBAL'");
-  // Admin default officers (migration 056) would join the release; this flow assigns its own officers (restored below).
+  // Admin default officers (migration 056) are only pre-ticked for the Director; cleared for a predictable run (restored below).
   savedDefaults = (await db.query('SELECT * FROM ubec_default_officers')).rows;
   await db.query('DELETE FROM ubec_default_officers');
   await user('desA', 'Data Entry Staff', ['academic']); await user('desP', 'Data Entry Staff', ['physical']); await user('desS', 'Data Entry Staff', ['social']);

@@ -152,8 +152,8 @@ serialise and stale ones fail with 409. Plan-level steps also check `action_plan
 ## Officer limits and default officers (migration 056)
 
 The Super Admin sets, on Admin > Workflow settings, how many active Assessment Officers each department may have (default one per
-component) and the default officer(s) of each component. The release assigns the defaults automatically ("Assigned by default
-(Admin)", event `default_officers`, officers and Director notified); without defaults the Director assigns. The Director can still
-add or remove officers, and the Super Admin can assign or remove officers on any component at stage `director` with the same rules.
+component) and the default officer(s) of each component. Release assigns nobody: each component goes to its Director, whose
+Assign staff dialog starts with the defaults ticked; the Director confirms them with a comment or changes them. The Director can
+later add or remove officers, and the Super Admin can assign or remove officers on any component at stage `director` with the same rules.
 - SUBEB plan page: "UBEC assessment" card after a return or approval.
 - Admin Users: the new roles with department choices.

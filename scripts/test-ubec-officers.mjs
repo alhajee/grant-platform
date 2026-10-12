@@ -1,6 +1,6 @@
 // UBEC Assessment Officer limits and default officers (migration 056): default limits per department; the limit is
 // enforced on the UBEC Officers page and on Admin > Users (create, reactivate, move department); raising and lowering
-// (with the over-limit warning); default officers assigned automatically on release and notified; the Director can
+// (with the over-limit warning); default officers pre-ticked for the Director (release assigns nobody); the Director can
 // still change them; the Super Admin opens the UBEC plan page and assigns/removes officers with the Director's rules;
 // permissions (non-admin 403, cross-origin 403, Super Admin cannot take other workflow steps).
 // Usage: node --env-file=.env scripts/test-ubec-officers.mjs [baseUrl]   (local only; throwaway users and plan; restores settings)
@@ -132,24 +132,26 @@ try {
   fails(await api('offP1', path), 404);
   ok(await api('chair', path, { action: 'release', version: before.plan.version, roundId: before.round.id, comment: 'Please assess.' }));
   const released = (await view('chair')).flow.components.find(c => c.pillar === 'monitoring');
-  assert.deepEqual(released.officers.map(o => o.officerId), [users.offP1]);
-  assert.equal(released.officers[0].assignedByName, 'Default (Admin)'); assert.equal(released.officers[0].comment, 'Assigned by default (Admin)');
-  assert.ok(await notified('offP1', 'default_officers') && await notified('dpp', 'default_officers'), 'the default officer and the Director are notified');
-  assert.equal(await notified('offP2', 'default_officers'), false);
-  assert.deepEqual((await view('offP1')).flow.abilities.assess, ['monitoring'], 'the default officer can assess straight away');
-  const events = (await db.query("SELECT action, comment FROM ubec_events WHERE plan_id=$1 AND action='default_officers'", [planId])).rows;
-  assert.equal(events.length, 1); assert.match(events[0].comment, /Assigned by default \(Admin\)/);
-  step('release assigns the Admin default officers inside the release, records a default_officers event and notifies the officer and the Director');
+  assert.deepEqual(released.officers, [], 'release goes to the Director first: nobody is assigned');
+  assert.equal(await notified('offP1', 'default_officers'), false, 'the default officer hears nothing on release');
+  assert.equal((await db.query("SELECT 1 FROM ubec_events WHERE plan_id=$1 AND action='default_officers'", [planId])).rowCount, 0);
+  fails(await api('offP1', path), 404, /No assigned submission/);
+  assert.deepEqual((await view('dpp')).flow.defaultOfficers, { monitoring: [users.offP1] }, 'the Director gets the default to pre-tick');
+  assert.deepEqual((await view('chair')).flow.defaultOfficers, {}, 'only viewers who assign get the defaults');
+  step('release assigns nobody: the component waits with its Director, who gets the Admin default officers to pre-tick');
 
-  // The Director can still change them.
+  // The Director confirms or changes them.
   const roundId = before.round.id;
   const assign = (who, officerIds, comment = 'Please check unit costs.', origin = true) => api(who, components, { action: 'assign_officers', roundId, pillar: 'monitoring', officerIds, comment }, 'POST', origin);
   const remove = (who, assignmentId) => api(who, components, { action: 'unassign_officer', roundId, pillar: 'monitoring', assignmentId });
+  ok(await assign('dpp', [users.offP1]));
+  assert.ok(await notified('offP1', 'assign_officer'), 'the officer hears once the Director assigns');
+  assert.deepEqual((await view('offP1')).flow.abilities.assess, ['monitoring']);
   ok(await assign('dpp', [users.offP2]));
-  ok(await remove('dpp', released.officers[0].id));
+  ok(await remove('dpp', (await view('dpp')).flow.components[0].officers.find(o => o.officerId === users.offP1).id));
   assert.deepEqual((await view('dpp')).flow.components[0].officers.map(o => o.officerId), [users.offP2]);
   fails(await api('offP1', path), 404, /No assigned submission/);
-  step('the Director still adds and removes officers after the default assignment');
+  step('the Director assigns the default officer, adds and removes officers');
 
   // Super Admin reassign.
   const adminView = await view('admin');

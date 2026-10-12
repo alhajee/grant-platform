@@ -15,7 +15,7 @@ import { errorOf } from './use-setting';
 
 const endpoint = '/api/admin/ubec-officers';
 
-/** Admin settings: Assessment Officer limits per UBEC department and default officers per component (migration 056). */
+/** Admin settings: Assessment Officer limits per UBEC department and default officers per component, pre-ticked in the Director's assign step (migration 056). */
 export function OfficersPanel({ onDirty }: { onDirty?: (dirty: boolean) => void }) {
   const [saved, setSaved] = useState<OfficerSettings | null>(null), [draft, setDraft] = useState<OfficerDraft | null>(null);
   const [error, setError] = useState(''), [saving, setSaving] = useState(false);
@@ -49,7 +49,7 @@ export function OfficersPanel({ onDirty }: { onDirty?: (dirty: boolean) => void 
   const setLimit = (department: string, value: string) => setDraft(current => current && ({ ...current, limits: { ...current.limits, [department]: value } }));
   const setDefaults = (pillar: ImplementedPillar, ids: number[]) => setDraft(current => current && ({ ...current, defaults: { ...current.defaults, [pillar]: ids } }));
 
-  return <SettingsPanel title="UBEC Assessment Officers" description="Officer limits per UBEC department, and who a release assigns to each component. Open a row to set its defaults.">
+  return <SettingsPanel title="UBEC Assessment Officers" description="Officer limits per UBEC department, and the officers pre-ticked for each component when its Director assigns staff. Open a row to set its defaults.">
     {error ? <PanelError title="UBEC Assessment Officer settings unavailable" message={error} onRetry={() => void load()} />
       : !saved || !draft ? <PanelSkeleton rows={4} /> : <>
         <SettingsCard className="overflow-hidden">

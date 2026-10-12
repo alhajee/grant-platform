@@ -3,6 +3,7 @@ import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
 import { activePillars, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound } from './ubec';
 import { componentAmount, componentItems, decisionCounts, superAdminRole, type FlowAbilities, type FlowComponent, type ItemDecision, type OfficerAssignment, type OversightReview, type UbecFlow } from './ubec-flow';
+import { readDefaultOfficers } from './ubec-officer-limits';
 
 // Server-side reads and helpers for the UBEC review flow (docs/ubec-flow.md, migration 055).
 
@@ -116,11 +117,14 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
           WHERE oa.officer_id=u.id AND oa.removed_at IS NULL AND oa.completed_at IS NULL AND r.status='reviewing') AS open
         FROM users u WHERE u.role=$1 AND u.department=ANY($2::text[]) AND u.active ORDER BY u.full_name`, [ubecRoles.officer, officerDepartments])).rows
     : [];
+  const available = new Set(departmentOfficers.map(o => o.id));
+  const defaults = available.size ? await readDefaultOfficers(db) : new Map<ImplementedPillar, { id: number }[]>();
+  const defaultOfficers = Object.fromEntries(components.map(c => [c.pillar, (defaults.get(c.pillar) ?? []).map(o => o.id).filter(officerId => available.has(officerId))]).filter(([, ids]) => ids.length));
   return {
     releasedAt: iso(round.released_at ?? null), releasedByName: round.released_by_name ?? null, releaseComment: round.release_comment ?? '',
     components, decisions: allDecisions.filter(d => visible.includes(d.pillar)), previousDecisions,
     abilities: viewer.role === ubecRoles.es ? flowAbilities({ ...viewer, role: '' }, round, latest, components) : flowAbilities(viewer, round, latest, all.filter(c => visible.includes(c.pillar))),
-    officers: departmentOfficers,
+    officers: departmentOfficers, defaultOfficers,
     allArrived: all.length > 0 && all.every(c => c.stage === 'chair'), approvable: approvableComponents(all),
   };
 }

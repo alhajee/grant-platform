@@ -11,6 +11,7 @@ import { FlowDialog, type FlowRequest } from '@/components/ubec/flow-dialog';
 import { StagePill } from '@/components/ubec/flow-bits';
 import { NotReleasedArt, PipelineIdleArt, UbecEmpty } from '@/components/empty-art/ubec-flow';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -68,7 +69,7 @@ export default function UbecReviewPage() {
   }), [pillars, flow, totals]);
   const can = current && flow ? flow.abilities : null;
   const stepsFor = (pillar: ImplementedPillar): CardStep[] => !can ? [] : [
-    ...(can.assign.includes(pillar) ? [{ label: 'Assign staff', kind: 'assign' as const, run: () => setRequest({ kind: 'assign', pillar }) }] : []),
+    ...(can.assign.includes(pillar) ? [{ label: flow?.components.find(c => c.pillar === pillar)?.officers.length ? 'Add officers' : 'Assign staff', kind: 'assign' as const, run: () => setRequest({ kind: 'assign', pillar }) }] : []),
     ...(can.assess.includes(pillar) ? [{ label: 'Assess items', kind: 'assess' as const, run: () => { window.location.hash = `ubec-${pillar}`; } }] : []),
     ...(can.sendOversight.includes(pillar) ? [{ label: 'Send for oversight', kind: 'oversight' as const, run: () => setRequest({ kind: 'oversight', pillar }) }] : []),
     ...(can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observe', pillar }) }] : []),
@@ -84,6 +85,8 @@ export default function UbecReviewPage() {
       <Button asChild variant="ghost" size="sm" className="review-back"><a href={admin ? '/admin?section=officers' : '/ubec'}><ArrowLeftIcon data-icon="inline-start" />{admin ? 'Administration' : 'Dashboard'}</a></Button>
       <div className="national-page-title"><div><span className="national-eyebrow">{data?.plan.stateName ?? 'BASIC EDUCATION ACTION PLAN'}</span><h1>{data ? `${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP` : 'Plan review'}</h1></div>
         <div className="review-actions">
+          {flow?.releasedAt && <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="rounded-full"><MegaphoneIcon data-icon="inline-start" />Chair’s note</Button></PopoverTrigger>
+            <PopoverContent align="end" className="ubec-release-note"><strong>{flow.releasedByName === 'UBEC BEAP Chair' ? flow.releasedByName : `${flow.releasedByName}, UBEC BEAP Chair`}</strong>{flow.releaseComment && <p>{flow.releaseComment}</p>}<small>Released {date.format(new Date(flow.releasedAt))}</small></PopoverContent></Popover>}
           {round && <Badge variant={round.status === 'returned' ? 'warning' : round.status === 'approved' ? 'default' : 'secondary'}>{nationalStatusLabels[round.status]}</Badge>}
           {data && data.rounds.length > 0 && <Select value={selected} onValueChange={value => void load(value)}><SelectTrigger aria-label="UBEC submission" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">Current submission</SelectItem>{data.rounds.map(r => <SelectItem key={r.id} value={String(r.id)}>Submission {r.number} · {date.format(new Date(r.submitted_at))}</SelectItem>)}</SelectGroup></SelectContent></Select>}
         </div>
@@ -94,7 +97,6 @@ export default function UbecReviewPage() {
         {admin && <Alert className="ubec-role-note"><AlertTitle>Super Admin view</AlertTitle><AlertDescription>You can assign, remove or reassign Assessment Officers on components still with their Director, with the same rules as the Director. Every other step belongs to the UBEC review roles.</AlertDescription></Alert>}
         {role === ubecRoles.es && <Alert className="ubec-role-note"><AlertTitle>Supervisory view</AlertTitle><AlertDescription>You can see every component, stage and comment. Workflow steps are taken by the UBEC BEAP Chair, Directors, Oversight Directors and Assessment Officers.</AlertDescription></Alert>}
         {round.decision && <Alert className="ubec-decision-note" data-status={round.status}><AlertTitle>{round.status === 'returned' ? 'Returned to the SUBEB' : 'UBEC decision'}</AlertTitle><AlertDescription className="review-comment">{round.decision}</AlertDescription></Alert>}
-        {flow.releasedAt && <div className="ubec-release-note"><MegaphoneIcon aria-hidden="true" /><p><strong>{flow.releasedByName}, UBEC BEAP Chair</strong><span>{flow.releaseComment}</span><small>Released {date.format(new Date(flow.releasedAt))}</small></p></div>}
         <div className="plan-glance">
           <h2 id="ubec-components-title" className="plan-section-title plan-glance-head">Components</h2>
           <section className="plan-components plan-glance-main" aria-labelledby="ubec-components-title">
@@ -128,7 +130,7 @@ export default function UbecReviewPage() {
             </Tabs>}
         </section>
 
-        <PlanReviewContent key={round.id} comments={comments} snapshot={round.snapshot} visiblePillars={pillars.length ? pillars : undefined} />
+        <PlanReviewContent key={round.id} showPlanReference={false} comments={comments} snapshot={round.snapshot} visiblePillars={pillars.length ? pillars : undefined} />
         {data.assignments.length > 0 && <Card className="mt-6"><CardHeader><CardTitle>Earlier department reviews</CardTitle></CardHeader><CardContent><ul className="ubec-legacy-reviews">{data.assignments.map(a => <li key={a.id}><strong>{departmentName(a.department)} · {componentName(a.pillar)}</strong><span>{a.completed_at ? a.recommendation === 'changes' ? 'Changes recommended' : 'Endorsed' : 'Not completed'}</span>{a.feedback && <p className="review-comment">{a.feedback}</p>}</li>)}</ul></CardContent></Card>}
         <Card className="mt-6"><CardHeader><CardTitle>Review trail</CardTitle></CardHeader><CardContent><ol className="national-activity">{data.events.map(e => <li key={e.id}><span className="national-activity-dot" /><div><strong>{trail[e.action] ?? e.action}{e.pillar ? ` · ${componentName(e.pillar)}` : ''}</strong><span>{e.actor} · {date.format(new Date(e.created_at))}</span>{e.comment && <p className="review-comment">{e.comment}</p>}</div></li>)}</ol></CardContent></Card>
         <FlowDialog admin={admin} request={request} planId={data.plan.id} plan={`${data.plan.stateName ? `${data.plan.stateName} ` : ''}${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP`} version={data.plan.version} roundId={round.id} flow={flow} components={cards} threads={comments?.threads ?? []} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} />

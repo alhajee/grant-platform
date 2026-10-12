@@ -48,16 +48,21 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   request: FlowRequest | null; planId: number; plan: string; version: number; roundId: number; flow: UbecFlow; components: readonly PipelineComponent[]; threads: readonly PlanCommentThread[]; admin?: boolean;
   onClose: () => void; onDone: () => void;
 }) {
-  const [comment, setComment] = useState(''), [officers, setOfficers] = useState<number[]>([]), [share, setShare] = useState<number[] | null>(null);
+  const [comment, setComment] = useState(''), [picked, setOfficers] = useState<number[] | null>(null), [share, setShare] = useState<number[] | null>(null);
   const [saving, setSaving] = useState(false), [error, setError] = useState('');
   const busy = useRef(false);
   const step = useConfirmStep('ubec-flow-comment');
   const kind = request?.kind, pillar = request && 'pillar' in request ? request.pillar : null;
   const component = pillar ? flow.components.find(c => c.pillar === pillar) : undefined;
-  const text = kind ? copy[kind] : null;
+  // Officers already on the component: the step only adds more.
+  const adding = kind === 'assign' && !!component?.officers.length;
+  const text = kind ? adding ? { ...copy.assign, title: (name: string) => `Add officers · ${name}`, description: 'Officers already assigned keep their work. Tick another Assessment Officer of the component’s department to share it.', confirm: 'Add officers' } : copy[kind] : null;
   const openThreads = threads.filter(t => !t.resolvedAt);
+  const defaults = pillar ? flow.defaultOfficers?.[pillar] ?? [] : [];
+  // The Admin's default officers start ticked on a component nobody is assessing yet; the Director confirms or changes them.
+  const officers = picked ?? (adding ? [] : [...defaults]);
   const shareIds = share ?? openThreads.map(t => t.id);
-  const reset = () => { setComment(''); setOfficers([]); setShare(null); setError(''); step.reset(); };
+  const reset = () => { setComment(''); setOfficers(null); setShare(null); setError(''); step.reset(); };
   const summary = request && flowConfirmation({ request, plan, flow, components, threads: pillar ? openThreads.filter(t => t.pillar === pillar).length : openThreads.length, shared: shareIds.length,
     officerNames: flow.officers.filter(o => officers.includes(o.id)).map(o => o.name) });
 
@@ -65,7 +70,7 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   function toConfirm() {
     if (!request) return;
     if (text?.required && !comment.trim()) { setError(`${text.field} is required.`); return; }
-    if (request.kind === 'assign' && !officers.length) { setError('Choose at least one Assessment Officer'); return; }
+    if (request.kind === 'assign' && !officers.length) { setError(adding ? `${componentName(request.pillar)} is already assigned; tick another officer to add one` : 'Choose at least one Assessment Officer'); return; }
     setError(''); step.review();
   }
 
@@ -94,7 +99,7 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
       {text && !step.confirming && <>
         <DialogHeader className={step.commentStepClass}><p className="release-breadcrumb">{plan}</p><DialogTitle>{text.title(pillar ? componentName(pillar) : '')}</DialogTitle><DialogDescription>{text.description}</DialogDescription></DialogHeader>
         <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}><FieldGroup>
-          {kind === 'assign' && <OfficerPicker flow={flow} component={component} value={officers} onChange={setOfficers} disabled={saving} admin={admin} />}
+          {kind === 'assign' && <OfficerPicker flow={flow} component={component} defaults={adding ? [] : defaults} value={officers} onChange={setOfficers} disabled={saving} admin={admin} />}
           {(kind === 'complete' || kind === 'oversight' || kind === 'observe') && component && <ComponentSummary component={component} threads={openThreads.filter(t => t.pillar === pillar).length} showOfficers={kind !== 'complete'} />}
           {kind === 'release' && <ReleaseAssignments components={components} />}
           {(kind === 'approve' || kind === 'return') && <PlanSummary flow={flow} />}
@@ -109,7 +114,7 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   </Dialog>;
 }
 
-function OfficerPicker({ flow, component, value, onChange, disabled, admin }: { flow: UbecFlow; component?: FlowComponent; value: number[]; onChange: (ids: number[]) => void; disabled: boolean; admin: boolean }) {
+function OfficerPicker({ flow, component, defaults, value, onChange, disabled, admin }: { flow: UbecFlow; component?: FlowComponent; defaults: readonly number[]; value: number[]; onChange: (ids: number[]) => void; disabled: boolean; admin: boolean }) {
   const assigned = new Set(component?.officers.map(o => o.officerId));
   // The Super Admin's list holds every department's officers; only the component's department can take it.
   const officers = flow.officers.filter(o => !component || o.department === component.department);
@@ -121,7 +126,7 @@ function OfficerPicker({ flow, component, value, onChange, disabled, admin }: { 
       const id = `officer-${officer.id}`, already = assigned.has(officer.id);
       return <li key={officer.id} data-checked={value.includes(officer.id) || already || undefined}>
         <Checkbox id={id} disabled={disabled || already} checked={already || value.includes(officer.id)} onCheckedChange={checked => onChange(checked ? [...value, officer.id] : value.filter(v => v !== officer.id))} />
-        <FieldLabel htmlFor={id} className="ubec-officer-option"><strong>{officer.name}</strong><span>{already ? 'Already assigned' : officer.open ? `${officer.open} open ${officer.open === 1 ? 'assessment' : 'assessments'}` : 'Available'}</span></FieldLabel>
+        <FieldLabel htmlFor={id} className="ubec-officer-option"><strong>{officer.name}</strong><span>{already ? 'Already assigned' : defaults.includes(officer.id) ? `Default for this component${officer.open ? ` · ${officer.open} open ${officer.open === 1 ? 'assessment' : 'assessments'}` : ''}` : officer.open ? `${officer.open} open ${officer.open === 1 ? 'assessment' : 'assessments'}` : 'Available'}</span></FieldLabel>
       </li>;
     })}</ul>
   </FieldSet>;

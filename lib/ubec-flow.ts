@@ -30,6 +30,8 @@ export type UbecFlow = {
   releasedAt: string | null; releasedByName: string | null; releaseComment: string;
   components: FlowComponent[]; decisions: ItemDecision[]; previousDecisions: ItemDecision[];
   abilities: FlowAbilities; officers: DepartmentOfficer[];
+  /** Admin default officers per component, pre-ticked in the assign step (only for viewers who assign, among `officers`). */
+  defaultOfficers: Partial<Record<ImplementedPillar, number[]>>;
   /** Every released component has reached the BEAP Chair; approval also needs nothing rejected or undecided. */
   allArrived: boolean; approvable: boolean;
 };

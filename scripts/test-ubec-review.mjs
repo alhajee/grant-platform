@@ -37,7 +37,7 @@ async function user(who, role, departments, state = marker, chair = false) {
 }
 
 await db.connect();
-// Default officers configured on Admin would auto-assign on release; this test assigns officers itself, so it runs
+// Release no longer assigns the Admin default officers (they are only pre-ticked for the Director); this test still runs
 // without them and puts them back afterwards (as scripts/test-ubec-flow.mjs does).
 const savedDefaults = (await db.query('SELECT * FROM ubec_default_officers')).rows;
 await db.query('DELETE FROM ubec_default_officers');

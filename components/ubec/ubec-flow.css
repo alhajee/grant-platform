@@ -36,9 +36,8 @@
 .ubec-component-card .card-pill-step > svg { width: 15px !important; opacity: 1 !important; }
 .ubec-component-card .card-pill-step .card-pill-label { opacity: 1; transform: none; }
 
-.ubec-release-note { display: flex; gap: 12px; align-items: flex-start; margin: 4px 0 18px; padding: 14px 16px; border-radius: 18px; background: color-mix(in srgb, var(--national-lavender, #d4c5fc) 45%, var(--card)); }
-.ubec-release-note > svg { flex: none; width: 18px; height: 18px; margin-top: 2px; color: #5b45b0; }
-.ubec-release-note p { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.ubec-release-note { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.ubec-release-note p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .ubec-release-note small { color: var(--muted-foreground); }
 .ubec-decision-note[data-status=returned] { border-color: color-mix(in srgb, var(--warning, #e3a008) 40%, var(--border)); }
 .ubec-role-note, .ubec-decision-note { margin-bottom: 14px; }
