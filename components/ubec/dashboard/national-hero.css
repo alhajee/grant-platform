@@ -22,7 +22,7 @@
 /* A soft shadow under the country, drawn per shape so no box appears around the map */
 .nh-map .nm-svg { overflow: hidden; }
 /* Zoomed in, the map stays inside its area and fades out at the edges instead of spilling over the page */
-.nh-map .nm[data-selected] .nm-svg { -webkit-mask-image: radial-gradient(58% 62% at 36% 50%, #000 42%, transparent 88%); mask-image: radial-gradient(58% 62% at 36% 50%, #000 42%, transparent 88%); }
+.nh-map .nm[data-selected] .nm-svg { -webkit-mask-image: radial-gradient(60% 64% at 50% 50%, #000 45%, transparent 90%); mask-image: radial-gradient(60% 64% at 50% 50%, #000 45%, transparent 90%); }
 .nh-map .nm-state { filter: drop-shadow(0 10px 14px rgb(25 63 61 / 7%)); }
 .nh-map .nm-state { stroke: #ffffff; stroke-width: 1.1; }
 .nh-map .nm-legend { left: 50%; bottom: 0; transform: translateX(-50%); flex-wrap: nowrap; white-space: nowrap; }
@@ -190,3 +190,49 @@
 .nh-dept-tip-list span { line-height: 1.35; padding: 2px 8px; }
 /* Zoom buttons at the left of the strip under the map */
 .nh-map .nm-controls, .nh-map .nm[data-selected] .nm-controls { left: 0; right: auto; }
+
+/* The hover card sits top-left of the map, clear of the controls */
+.nh-map .nm-chip { top: 0; bottom: auto; left: 0; }
+
+/* Chosen state: the figure cards turn into the state's figures, each flipping in with a short stagger */
+@keyframes nh-flip-in { from { opacity: 0; transform: perspective(700px) rotateX(-14deg) translateY(10px); } to { opacity: 1; transform: none; } }
+.nh-in { animation: nh-flip-in 460ms cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 55ms + 120ms); transform-origin: top center; }
+.nh-side[data-mode="national"] .nh-stats > .nh-stat { animation: nh-flip-in 420ms cubic-bezier(.2, .8, .2, 1) both; }
+.nh-side[data-mode="national"] .nh-stats > .nh-stat:nth-child(2) { animation-delay: 50ms; }
+.nh-side[data-mode="national"] .nh-stats > .nh-stat:nth-child(3) { animation-delay: 100ms; }
+.nh-side[data-mode="national"] .nh-stats > .nh-stat:nth-child(4) { animation-delay: 150ms; }
+.nh-side[data-mode="national"] .nh-stats > .nh-stat:nth-child(5) { animation-delay: 200ms; }
+.nh-state-head { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+.nh-back { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border: 1px solid #ffffffcc; border-radius: 999px; background: #ffffffb8; box-shadow: 0 2px 4px rgb(25 63 61 / 4%), 0 8px 24px -8px rgb(25 63 61 / 16%); color: var(--foreground); cursor: pointer; }
+.nh-back svg { width: 16px; height: 16px; }
+.nh-back:hover { background: #fff; }
+.nh-state-name { display: grid; justify-items: start; gap: 2px; min-width: 0; }
+.nh-state-name strong { font-size: 18px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+.nh-state-name small { font-size: 12px; color: var(--muted-foreground); }
+.nh-state-name .nh-plan-stage { margin: 0; }
+.nh-stat[data-alert] strong { color: #c2334a; }
+.nh-state-more { gap: 10px; }
+.nh-mix-bar { display: flex; height: 8px; overflow: hidden; border-radius: 999px; background: #ffffff8c; }
+.nh-mix-bar span { flex-basis: 0; }
+.nh-mix { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: #3f3858; }
+.nh-mix li { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.nh-mix li i { width: 9px; height: 9px; border-radius: 3px; }
+.nh-mix li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nh-mix li b { font-variant-numeric: tabular-nums; }
+.nh-mix .nh-mix-more { display: block; color: var(--muted-foreground); font-size: 12px; }
+.nh-state-plans { display: grid; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; }
+.nh-state-plans a { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 12px; background: #ffffffa8; color: inherit; text-decoration: none; }
+.nh-state-plans a:hover { background: #fff; }
+.nh-state-plans span { display: grid; }
+.nh-state-plans strong { font-size: 13px; }
+.nh-state-plans small { font-size: 11.5px; color: var(--muted-foreground); }
+.nh-state-plans svg { width: 15px; height: 15px; color: #004540; }
+@media (prefers-reduced-motion: reduce) { .nh-in, .nh-side[data-mode="national"] .nh-stats > .nh-stat { animation: none; } }
+
+/* State mode is more compact so everything fits beside the map without scrolling */
+.nh-side[data-mode="state"] .nh-stat { padding: 12px 14px; gap: 2px; }
+.nh-side[data-mode="state"] .nh-stat-art { width: 34px; height: 34px; margin: -2px 0 4px -2px; }
+.nh-side[data-mode="state"] .nh-stat-art svg { width: 34px; height: 34px; }
+.nh-side[data-mode="state"] .nh-stat strong { font-size: 24px; }
+.nh-state-plans strong { font-size: 13px !important; font-weight: 600; letter-spacing: 0; line-height: 1.3; }
+.nh-state-plans a { padding: 8px 12px; }

@@ -50,17 +50,19 @@ function frameAround(b: Box, pad = 1.6): Box {
   return { x: b.x + b.w / 2 - w / 2, y: b.y + b.h / 2 - h / 2, w, h };
 }
 
-const stageOf = (items: NationalItem[]): Status | null => {
+export const stageOf = (items: NationalItem[]): Status | null => {
   if (!items.length) return null;
   const s = summarizePlans(items);
   return statusOrder.reduce<Status>((best, k) => s[k] > s[best] ? k : best, statusOrder.find(k => s[k] > 0) ?? 'received');
 };
 
-export function NationalMap({ data }: { data: UbecDashboard }) {
+/** `selected`/`onSelect` let the page show the chosen state's details elsewhere (the Overview's figure column). */
+export function NationalMap({ data, selected: controlled, onSelect }: { data: UbecDashboard; selected?: string | null; onSelect?: (code: string | null) => void }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const { box, fly } = useViewBox();
   const [geo, setGeo] = useState<Record<string, { c: { x: number; y: number }; b: Box }>>({});
-  const [hover, setHover] = useState<string | null>(null), [selected, setSelected] = useState<string | null>(null);
+  const [hover, setHover] = useState<string | null>(null), [own, setOwn] = useState<string | null>(null);
+  const external = onSelect !== undefined, selected = external ? controlled ?? null : own;
   const byState = useMemo(() => new Map(states.map(s => [s.code, data.items.filter(i => normalizeStateCode(i.stateCode) === s.code)])), [data.items]);
   // Pin positions and state bounds, measured once the map is drawn.
   useLayoutEffect(() => {
@@ -75,11 +77,16 @@ export function NationalMap({ data }: { data: UbecDashboard }) {
     setGeo(next);
   }, []);
   const choose = (code: string | null) => {
-    setSelected(code); setHover(null);
-    // The details open on the right, so the chosen state is framed in the left part of the map.
-    const target = code && geo[code] ? frameAround(geo[code].b, 2.1) : full;
-    fly(code ? { ...target, x: target.x + target.w * .24 } : full);
+    if (external) onSelect(code); else setOwn(code);
+    setHover(null);
   };
+  // Fly whenever the chosen state changes (from the map or from the page). With the details on the map, the state
+  // is framed in its left part.
+  useEffect(() => {
+    if (!Object.keys(geo).length) return;
+    const target = selected && geo[selected] ? frameAround(geo[selected].b, external ? 1.7 : 2.1) : full;
+    fly(selected && !external ? { ...target, x: target.x + target.w * .24 } : target);
+  }, [selected, geo, external, fly]);
   const zoom = (factor: number) => {
     const w = Math.min(full.w, Math.max(120, box.w * factor)), h = w * full.h / full.w;
     fly({ x: box.x + box.w / 2 - w / 2, y: box.y + box.h / 2 - h / 2, w, h }, 320);
@@ -128,7 +135,7 @@ export function NationalMap({ data }: { data: UbecDashboard }) {
       </div>
       <ul className="nm-legend">{statusOrder.map(s => <li key={s} data-status={s}><i />{nationalStatusLabels[s]}</li>)}</ul>
       {!selected && hover && <HoverChip name={states.find(s => s.code === hover)!.name} code={hover} items={byState.get(hover)!} />}
-      {selected && <StateDetail key={selected} name={states.find(s => s.code === selected)!.name} items={byState.get(selected)!} onBack={() => choose(null)} />}
+      {selected && !external && <StateDetail key={selected} name={states.find(s => s.code === selected)!.name} items={byState.get(selected)!} onBack={() => choose(null)} />}
     </div>
   </section>;
 }

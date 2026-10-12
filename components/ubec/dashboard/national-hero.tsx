@@ -1,11 +1,14 @@
 'use client';
-import type { CSSProperties, ReactNode } from 'react';
-import { ArrowUpRight, Landmark, SendIcon } from 'lucide-react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { ArrowLeft, ArrowUpRight, Landmark, SendIcon } from 'lucide-react';
+import { componentPalette } from '@/components/dashboard/component-budgets';
+import states from '@/lib/nigeria-map.json';
+import { implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork, StatesArtwork } from '@/components/metric-artwork';
 import { DepartmentArt } from '@/components/ubec/department-art';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { componentName } from '@/lib/ubec-flow';
-import { NationalMap } from '@/components/ubec/dashboard/national-map';
+import { NationalMap, stageOf } from '@/components/ubec/dashboard/national-map';
 import { planPeriod } from '@/lib/action-plans';
 import { normalizeStateCode, summarizePlans } from '@/lib/national-analytics';
 import { componentDepartments, departmentName, departmentPillars, nationalStatusLabels, type UbecDashboard } from '@/lib/ubec';
@@ -19,10 +22,13 @@ const stages = ['received', 'reviewing', 'returned', 'approved'] as const;
 
 export function NationalHero({ data, controls }: { data: UbecDashboard; /** The funding-year filter and Refresh, placed above the figures */ controls?: ReactNode }) {
   const s = summarizePlans(data.items), represented = new Set(data.items.map(i => normalizeStateCode(i.stateCode))).size;
+  const [selected, setSelected] = useState<string | null>(null);
+  useEffect(() => { const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelected(null); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, []);
   return <div className="nh nh-hero-wrap">
     <section className="nh-hero" aria-label="National overview">
-      <div className="nh-map"><NationalMap data={data} /></div>
-      <div className="nh-side">
+      <div className="nh-map"><NationalMap data={data} selected={selected} onSelect={setSelected} /></div>
+      <div className="nh-side" data-mode={selected ? 'state' : 'national'}>
+        {selected ? <StateFigures key={selected} data={data} code={selected} onBack={() => setSelected(null)} /> : <>
         {controls && <div className="nh-controls">{controls}</div>}
       <div className="nh-stats">
         <article className="nh-stat" data-tone="ivory"><span className="nh-stat-art"><PlansArtwork /></span><span>Action plans</span><strong>{count.format(s.plans)}</strong></article>
@@ -47,6 +53,7 @@ export function NationalHero({ data, controls }: { data: UbecDashboard; /** The 
           </div>
         </article>
       </div>
+      </>}
       </div>
     </section>
 
@@ -82,4 +89,33 @@ export function NationalGlance({ data }: { data: UbecDashboard }) {
       </article>
     </section>
   </div>;
+}
+
+/** The chosen state in the figure column: the same cards, now with the state's figures, then its component mix and plans. */
+function StateFigures({ data, code, onBack }: { data: UbecDashboard; code: string; onBack: () => void }) {
+  const items = data.items.filter(i => normalizeStateCode(i.stateCode) === code), s = summarizePlans(items), status = stageOf(items);
+  const name = states.find(st => st.code === code)?.name ?? code;
+  const mix = implementedPillars.map(p => ({ p, v: items.reduce((sum, i) => sum + (i.amounts?.[p] ?? 0), 0) })).filter(a => a.v > 0).sort((a, b) => b.v - a.v);
+  const total = mix.reduce((sum, a) => sum + a.v, 0) || 1;
+  return <>
+    <header className="nh-state-head nh-in" style={{ '--i': 0 } as CSSProperties}>
+      <button type="button" className="nh-back" onClick={onBack} aria-label="Back to all of Nigeria"><ArrowLeft /></button>
+      <span className="nh-state-name"><strong>{name}</strong>{status ? <span className="nh-plan-stage" data-status={status}>{nationalStatusLabels[status]}</span> : <small>No submissions yet</small>}</span>
+    </header>
+    <div className="nh-stats">
+      <article className="nh-stat nh-in" data-tone="ivory" style={{ '--i': 1 } as CSSProperties}><span className="nh-stat-art"><PlansArtwork /></span><span>Plans</span><strong>{count.format(s.plans)}</strong></article>
+      <article className="nh-stat nh-in" data-tone="teal" style={{ '--i': 2 } as CSSProperties}><span className="nh-stat-art"><BudgetArtwork /></span><span>Proposed</span><strong>{money.format(s.budget)}</strong></article>
+      <article className="nh-stat nh-in" data-tone="sage" style={{ '--i': 3 } as CSSProperties}><span className="nh-stat-art"><SchoolsArtwork /></span><span>Schools</span><strong>{count.format(s.schools)}</strong></article>
+      <article className="nh-stat nh-in" data-tone="sky" data-alert={s.returned > 0 || undefined} style={{ '--i': 4 } as CSSProperties}><span className="nh-stat-art"><StatesArtwork /></span><span>Returned</span><strong>{count.format(s.returned)}</strong></article>
+      <article className="nh-stat nh-stat-wide nh-in nh-state-more" data-tone="lilac" style={{ '--i': 5 } as CSSProperties}>
+        {items.length ? <>
+          {mix.length > 0 && <>
+            <div className="nh-mix-bar" aria-hidden="true">{mix.map(a => <span key={a.p} style={{ flexGrow: a.v / total, background: componentPalette[a.p as ImplementedPillar].fill } as CSSProperties} />)}</div>
+            <ul className="nh-mix">{mix.slice(0, 3).map(a => <li key={a.p}><i style={{ background: componentPalette[a.p as ImplementedPillar].fill }} /><span>{componentName(a.p)}</span><b>{money.format(a.v)}</b></li>)}{mix.length > 3 && <li className="nh-mix-more">+{mix.length - 3} more components</li>}</ul>
+          </>}
+          <ul className="nh-state-plans">{items.slice(0, 1).map(i => <li key={i.id}><a href={`/ubec/review?plan=${i.planId}`}><span><strong>{planPeriod(i)}</strong><small>Submission {i.round}</small></span><ArrowUpRight aria-hidden="true" /></a></li>)}</ul>
+        </> : <p className="nh-empty">This state has not sent a plan to UBEC yet</p>}
+      </article>
+    </div>
+  </>;
 }
