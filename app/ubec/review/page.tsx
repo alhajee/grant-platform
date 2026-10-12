@@ -85,7 +85,9 @@ export default function UbecReviewPage() {
       return !problem;
     };
     return { pillars: flow.components.map(c => c.pillar), decisions: byPillar(flow.decisions), previous: byPillar(flow.previousDecisions),
-      canDecide: pillar => !!can?.assess.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }) };
+      canDecide: pillar => !!can?.assess.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }),
+      canObserve: pillar => !!can?.observe.includes(pillar), observe: pillar => setRequest({ kind: 'observe', pillar }),
+      oversightDone: pillar => flow.components.find(c => c.pillar === pillar)?.oversight.map(o => o.department) ?? [] };
   }, [round, flow, can, data, load]);
   const stepsFor = (pillar: ImplementedPillar): CardStep[] => !can ? [] : [
     ...(can.assign.includes(pillar) ? [{ label: flow?.components.find(c => c.pillar === pillar)?.officers.length ? 'Add officers' : 'Assign staff', kind: 'assign' as const, run: () => setRequest({ kind: 'assign', pillar }) }] : []),
@@ -143,7 +145,7 @@ export default function UbecReviewPage() {
             : <Tabs value={activeTab} onValueChange={value => { setTab(value); history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#ubec-${value}`); }}>
               <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs ubec-assessment-tabs">{released.map(c => <TabsTrigger key={c.pillar} value={c.pillar}>{componentName(c.pillar)}{c.counts.rejected > 0 && <Badge variant="destructive" className="ml-1">{c.counts.rejected}</Badge>}</TabsTrigger>)}</TabsList></div>
               {released.map(c => <TabsContent key={c.pillar} value={c.pillar} className="ubec-assessment-panel">
-                <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} /><Button variant="outline" size="sm" className="rounded-full" onClick={() => { window.location.hash = `review-${c.pillar}`; }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : 'View in the workbook'}</Button></div>
+                <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} /><Button variant="outline" size="sm" className="rounded-full" onClick={() => { window.location.hash = `review-${c.pillar}`; }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : can?.observe.includes(c.pillar) ? 'Review in the workbook' : 'View in the workbook'}</Button></div>
                 <ComponentPeople component={c} planId={data.plan.id} roundId={round.id} canComplete={!!can?.complete.includes(c.pillar)} canRemove={!!can?.assign.includes(c.pillar)} onComplete={() => setRequest({ kind: 'complete', pillar: c.pillar })} onChanged={() => void load()} />
               </TabsContent>)}
             </Tabs>}

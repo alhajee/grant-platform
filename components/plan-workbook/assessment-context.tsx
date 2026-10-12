@@ -19,6 +19,11 @@ export type WorkbookAssessment = {
   decide: (pillar: ImplementedPillar, rowRefs: readonly string[], decision: ItemDecisionValue | null, note?: string) => Promise<boolean>;
   canComplete: (pillar: ImplementedPillar) => boolean;
   complete: (pillar: ImplementedPillar) => void;
+  /** Oversight Directors: they record observations as row comments, then finish with Observations done. */
+  canObserve: (pillar: ImplementedPillar) => boolean;
+  observe: (pillar: ImplementedPillar) => void;
+  /** Oversight departments that have finished on the component. */
+  oversightDone: (pillar: ImplementedPillar) => readonly string[];
 };
 export type SheetAssessment = Omit<WorkbookAssessment, 'pillars'> & { pillar: ImplementedPillar };
 

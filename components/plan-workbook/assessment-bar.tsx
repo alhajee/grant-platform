@@ -1,12 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { CheckIcon, ClipboardCheckIcon, Undo2Icon, XIcon } from 'lucide-react';
+import { CheckIcon, ClipboardCheckIcon, MessageSquarePlusIcon, ShieldCheckIcon, Undo2Icon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { DecisionBar } from '@/components/ubec/flow-bits';
+import { DecisionBar, OversightProgress } from '@/components/ubec/flow-bits';
 import { decisionCounts, type ItemDecisionValue } from '@/lib/ubec-flow';
 import type { SheetAssessment } from './assessment-context';
 import type { WorkbookRow } from './types';
@@ -38,8 +38,14 @@ export function useAssessActions(assessment: SheetAssessment | null) {
   return { actions, dialog };
 }
 
-/** Above an assessed sheet: decision progress, and for the assigned officer the actions on the selected rows. */
-export function AssessmentBar({ assessment, rows, selected, actions }: { assessment: SheetAssessment; rows: readonly WorkbookRow[]; selected: string[]; actions: AssessActions }) {
+/** Opens an observation (a UBEC row comment) on a row; `count` is the open observations on the sheet. */
+export type Observations = { open: (rowId: string) => void; count: number };
+
+/**
+ * Above an assessed sheet: decision progress; for the assigned officer the actions on the selected rows; for an
+ * Oversight Director the oversight progress, Add observation on the selected row and Observations done.
+ */
+export function AssessmentBar({ assessment, rows, selected, actions, observations }: { assessment: SheetAssessment; rows: readonly WorkbookRow[]; selected: string[]; actions: AssessActions; observations: Observations | null }) {
   const counts = decisionCounts(rows.map(row => ({ rowRef: row.id })), [...assessment.decisions(assessment.pillar)].map(([rowRef, d]) => ({ rowRef, decision: d.decision })));
   const can = assessment.canDecide(assessment.pillar), decided = selected.some(id => assessment.decisions(assessment.pillar).has(id));
   return <div className="wb-assessment" data-editable={can || undefined}>
@@ -49,6 +55,12 @@ export function AssessmentBar({ assessment, rows, selected, actions }: { assessm
       <Button size="sm" variant="outline" className="rounded-full" data-kind="accept" disabled={!selected.length || actions.busy} onClick={() => actions.decide(selected, 'accept')}>{actions.busy ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}Accept</Button>
       <Button size="sm" variant="outline" className="rounded-full" data-kind="reject" disabled={!selected.length || actions.busy} onClick={() => actions.decide(selected, 'reject')}><XIcon data-icon="inline-start" />Reject</Button>
       {decided && <Button size="sm" variant="ghost" className="rounded-full" disabled={actions.busy} onClick={() => actions.decide(selected, null)}><Undo2Icon data-icon="inline-start" />Clear</Button>}
+    </div>}
+    {assessment.canObserve(assessment.pillar) && <div className="wb-assessment-actions">
+      <OversightProgress done={assessment.oversightDone(assessment.pillar)} />
+      <span className="wb-assessment-hint">{observations?.count ? `${observations.count} open ${observations.count === 1 ? 'observation' : 'observations'} · ` : ''}{selected.length ? `Row ${rows.findIndex(row => row.id === selected[0]) + 1} selected` : 'Select a row, or right-click a cell'}</span>
+      {observations && <Button size="sm" variant="outline" className="rounded-full" disabled={!selected.length} onClick={() => observations.open(selected[0])}><MessageSquarePlusIcon data-icon="inline-start" />Add observation</Button>}
+      <Button size="sm" className="rounded-full" onClick={() => assessment.observe(assessment.pillar)}><ShieldCheckIcon data-icon="inline-start" />Observations done</Button>
     </div>}
     {assessment.canComplete(assessment.pillar) && <Button size="sm" className="rounded-full" disabled={counts.undecided > 0} title={counts.undecided ? `Decide the remaining ${items(counts.undecided)} first` : undefined} onClick={() => assessment.complete(assessment.pillar)}><ClipboardCheckIcon data-icon="inline-start" />Complete assessment</Button>}
   </div>;

@@ -87,7 +87,7 @@ export function SheetView({ sheet, visited, onDownload, onRequestChanges }: { sh
         {sheet.editHref && sheet.editLabel && <EditComponentButton href={sheet.editHref} label={sheet.editLabel} />}
       </div>
     </div>
-    {assessment && <AssessmentBar assessment={assessment} rows={sheet.rows} selected={selectedRows} actions={assess.actions} />}
+    {assessment && <AssessmentBar assessment={assessment} rows={sheet.rows} selected={selectedRows} actions={assess.actions} observations={comments?.can.start ? { count: comments.threads.filter(t => !t.resolvedAt && t.scope === 'ubec').length, open: rowId => comments.controller.setActive({ sheet: sheet.key, rowRef: rowId, columnId: null, threadId: null }) } : null} />}
     {assessment && assess.dialog}
     {visited && <SheetGrid assess={assessment?.canDecide(assessment.pillar) ? { ...assess.actions, selected: selectedRows, decided: (rowId: string) => assessment.decisions(assessment.pillar).has(rowId) } : undefined} table={table} sheet={sheet} expanded={expanded} onToggle={toggle} filterOptions={filterOptions} onCopy={copy} onDownloadSheet={() => void download('sheet')} />}
     {visited && <div className="wb-status" role="status" aria-live="polite">
