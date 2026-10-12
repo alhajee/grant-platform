@@ -28,12 +28,6 @@
 .nm-state { fill: #e3e8e4; stroke: #ffffff; stroke-width: .9; vector-effect: non-scaling-stroke; cursor: pointer; transition: fill 200ms ease, opacity 300ms ease; }
 .nm-state[data-dim] { opacity: .28; }
 .nm[data-selected] .nm-state[data-focus] { filter: drop-shadow(0 6px 14px rgb(0 69 64 / 22%)); }
-.nm-pin { cursor: pointer; outline: none; transition: opacity 300ms ease; }
-.nm-pin[data-dim] { opacity: 0; pointer-events: none; }
-.nm-pin-shadow { fill: rgb(25 63 61 / 28%); }
-.nm-pin-body { fill: var(--nm-status, #004540); stroke: #ffffff; stroke-width: 2; filter: drop-shadow(0 3px 5px rgb(25 63 61 / 25%)); transition: transform 160ms ease; transform-origin: 0 0; }
-.nm-pin[data-focus] .nm-pin-body, .nm-pin:focus-visible .nm-pin-body { transform: scale(1.15); }
-.nm-pin text { font-size: 9.5px; font-weight: 700; fill: #ffffff; letter-spacing: .02em; pointer-events: none; }
 .nm-controls { position: absolute; top: 14px; right: 14px; display: grid; gap: 8px; }
 .nm-controls [data-slot=button] { width: 38px; height: 38px; border-radius: 999px; background: #ffffffe6; border-color: #ffffff; box-shadow: var(--nm-lift); }
 .nm-legend { position: absolute; left: 14px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 6px 12px; border-radius: 999px; background: #ffffffd9; list-style: none; font-size: 11.5px; color: var(--muted-foreground); box-shadow: var(--nm-lift); }
@@ -77,24 +71,21 @@
 
 @media (max-width: 1000px) { .nm { grid-template-columns: 1fr; } .nm-list { height: auto; max-height: 460px; } }
 @media (max-width: 560px) { .nm-cards { grid-template-columns: 1fr; } .nm-map { height: 440px; } .nm-detail { top: auto; left: 12px; width: auto; max-height: 72%; } .nm[data-selected] .nm-controls { right: 14px; } .nm-legend { display: none; } }
-@media (prefers-reduced-motion: reduce) { .nm-detail, .nm-chip { animation: none; } .nm-card, .nm-state, .nm-pin, .nm-pin-body { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .nm-detail, .nm-chip { animation: none; } .nm-card, .nm-state { transition: none; } }
 
-/* Choropleth: the country reads as one strong teal shape; states with plans darken with their proposed budget */
-.nm-state { fill: #bcd5cb; }
-.nm-state[data-tone="1"] { fill: #8fc3b0; }
-.nm-state[data-tone="2"] { fill: #5aa58c; }
-.nm-state[data-tone="3"] { fill: #2c8068; }
-.nm-state[data-tone="4"] { fill: #0b5c50; }
-.nm-state:hover, .nm-state[data-focus] { filter: brightness(.92) saturate(1.1); }
+/* Choropleth: each state with plans is filled in its stage colour; the rest stay a quiet neutral */
+.nm-state { fill: #dfe6e2; }
+.nm-state[data-status] { fill: color-mix(in srgb, var(--nm-status) 78%, white); }
+.nm-state:hover, .nm-state[data-focus] { filter: brightness(.94) saturate(1.1); }
+.nm-state:focus-visible { outline: none; stroke: #004540; stroke-width: 2.4; }
 .nm-chip { display: flex; align-items: center; gap: 10px; }
 .nm-chip > span:last-child { display: grid; gap: 1px; }
 .nm-chip-code { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--nm-status, #cfe0d9); color: #fff; font-size: 11.5px; font-weight: 700; letter-spacing: .03em; }
 .nm-chip:not([data-status]) .nm-chip-code { color: #3d5a52; }
 
 /* Hover: the state rises out of the map with a soft shadow; the rest of the country quietly steps back */
-.nm-lift { fill: #bcd5cb; stroke: #ffffff; stroke-width: 1.4; vector-effect: non-scaling-stroke; cursor: pointer; transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 10px 12px rgb(0 69 64 / 28%)) drop-shadow(0 2px 3px rgb(0 69 64 / 18%)); animation: nm-lift 220ms cubic-bezier(.2, .8, .2, 1) forwards; }
-.nm-lift[data-tone="1"] { fill: #8fc3b0; } .nm-lift[data-tone="2"] { fill: #5aa58c; } .nm-lift[data-tone="3"] { fill: #2c8068; } .nm-lift[data-tone="4"] { fill: #0b5c50; }
-.nm-lift:not([data-tone]) { fill: #a9cabe; }
+.nm-lift { fill: #d3dcd7; stroke: #ffffff; stroke-width: 1.4; vector-effect: non-scaling-stroke; cursor: pointer; transform-box: fill-box; transform-origin: center; filter: drop-shadow(0 10px 12px rgb(0 69 64 / 28%)) drop-shadow(0 2px 3px rgb(0 69 64 / 18%)); animation: nm-lift 220ms cubic-bezier(.2, .8, .2, 1) forwards; }
+.nm-lift[data-status] { fill: color-mix(in srgb, var(--nm-status) 86%, white); }
 @keyframes nm-lift { from { transform: translateY(0) scale(1); } to { transform: translateY(-5px) scale(1.06); } }
 .nm-state { transition: fill 200ms ease, opacity 250ms ease; }
 .nm:has(.nm-lift) .nm-state:not([data-focus]) { opacity: .72; }

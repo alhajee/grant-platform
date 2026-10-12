@@ -11,8 +11,8 @@ import { nationalStatusLabels, type NationalItem, type UbecDashboard } from '@/l
 import { componentName } from '@/lib/ubec-flow';
 import './national-map.css';
 
-// The Nigeria map of the UBEC Overview hero (ES and BEAP Chair): a pin per state with plans, coloured by stage.
-// Choosing a state (pin or shape) flies the map into that state and opens everything about its plans.
+// The Nigeria map of the UBEC Overview hero (ES and BEAP Chair): each state with plans is filled in its stage colour.
+// Choosing a state flies the map into that state and opens everything about its plans.
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
 const count = new Intl.NumberFormat('en-NG');
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
@@ -60,19 +60,17 @@ export const stageOf = (items: NationalItem[]): Status | null => {
 export function NationalMap({ data, selected: controlled, onSelect }: { data: UbecDashboard; selected?: string | null; onSelect?: (code: string | null) => void }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const { box, fly } = useViewBox();
-  const [geo, setGeo] = useState<Record<string, { c: { x: number; y: number }; b: Box }>>({});
+  const [geo, setGeo] = useState<Record<string, Box>>({});
   const [hover, setHover] = useState<string | null>(null), [own, setOwn] = useState<string | null>(null);
   const external = onSelect !== undefined, selected = external ? controlled ?? null : own;
   const byState = useMemo(() => new Map(states.map(s => [s.code, data.items.filter(i => normalizeStateCode(i.stateCode) === s.code)])), [data.items]);
-  // Pin positions and state bounds, measured once the map is drawn.
+  // State bounds, measured once the map is drawn.
   useLayoutEffect(() => {
     const svg = svgRef.current; if (!svg) return;
     const next: typeof geo = {};
     svg.querySelectorAll<SVGPathElement>('path[data-code]').forEach(path => {
-      const length = path.getTotalLength(), steps = 80; let x = 0, y = 0;
-      for (let i = 0; i < steps; i++) { const p = path.getPointAtLength(length * i / steps); x += p.x; y += p.y; }
       const b = path.getBBox();
-      next[path.dataset.code!] = { c: { x: x / steps, y: y / steps }, b: { x: b.x, y: b.y, w: b.width, h: b.height } };
+      next[path.dataset.code!] = { x: b.x, y: b.y, w: b.width, h: b.height };
     });
     setGeo(next);
   }, []);
@@ -84,7 +82,7 @@ export function NationalMap({ data, selected: controlled, onSelect }: { data: Ub
   // is framed in its left part.
   useEffect(() => {
     if (!Object.keys(geo).length) return;
-    const target = selected && geo[selected] ? frameAround(geo[selected].b, external ? 1.7 : 2.1) : full;
+    const target = selected && geo[selected] ? frameAround(geo[selected], external ? 1.7 : 2.1) : full;
     fly(selected && !external ? { ...target, x: target.x + target.w * .24 } : target);
   }, [selected, geo, external, fly]);
   const zoom = (factor: number) => {
@@ -92,40 +90,24 @@ export function NationalMap({ data, selected: controlled, onSelect }: { data: Ub
     fly({ x: box.x + box.w / 2 - w / 2, y: box.y + box.h / 2 - h / 2, w, h }, 320);
   };
   useEffect(() => { const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && selected) choose(null); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); });
-  const scale = box.w / full.w; // pins keep their size as the map zooms
-  const withPlans = states.filter(s => byState.get(s.code)!.length);
-  // Choropleth: states with plans get one of four teal shades by proposed budget.
-  const budgets = new Map(withPlans.map(st => [st.code, byState.get(st.code)!.reduce((sum, i) => sum + i.budget, 0)]));
-  const maxBudget = Math.max(0, ...budgets.values());
-  const tone = (code: string) => { const b = budgets.get(code); return b === undefined ? undefined : String(maxBudget ? Math.max(1, Math.ceil(b / maxBudget * 4)) : 1); };
+  const status = useMemo(() => new Map(states.map(s => [s.code, stageOf(byState.get(s.code)!)])), [byState]);
   const focus = selected ?? hover;
 
   return <section className="nm" aria-label="Plans across Nigeria" data-selected={selected || undefined}>
     <div className="nm-map">
       <svg ref={svgRef} viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} className="nm-svg" role="group" aria-label="Nigeria states. Choose a state to see its plans." onMouseLeave={() => setHover(null)}>
         {states.map(state => {
-          const has = byState.get(state.code)!.length > 0;
-          return <path key={state.code} data-code={state.code} d={state.d} className="nm-state" data-has={has || undefined} data-tone={tone(state.code)}
+          const n = byState.get(state.code)!.length, stage = status.get(state.code) ?? undefined;
+          return <path key={state.code} data-code={state.code} d={state.d} className="nm-state" data-status={stage}
             data-focus={focus === state.code || undefined} data-dim={(selected && selected !== state.code) || undefined}
-            onMouseEnter={() => !selected && setHover(state.code)} onClick={() => choose(selected === state.code ? null : state.code)}>
+            tabIndex={n ? 0 : undefined} role={n ? 'button' : undefined} aria-label={n ? `${state.name}: ${n} ${n === 1 ? 'plan' : 'plans'}, ${nationalStatusLabels[stage!]}. Show details` : undefined}
+            onMouseEnter={() => !selected && setHover(state.code)} onFocus={() => !selected && setHover(state.code)} onClick={() => choose(selected === state.code ? null : state.code)}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(selected === state.code ? null : state.code); } }}>
             <title>{state.name}</title>
           </path>;
         })}
         {/* Hover: the state lifts out of the map on a copy drawn above its neighbours */}
-        {!selected && hover && (() => { const st = states.find(x => x.code === hover)!; return <path key={`lift-${hover}`} d={st.d} className="nm-lift" data-tone={tone(hover)} onClick={() => choose(hover)} onMouseLeave={() => setHover(null)} aria-hidden="true" />; })()}
-        {withPlans.map(state => {
-          const g = geo[state.code]; if (!g) return null;
-          const status = stageOf(byState.get(state.code)!), n = byState.get(state.code)!.length;
-          return <g key={state.code} className="nm-pin" data-status={status} data-focus={focus === state.code || undefined} data-dim={(selected && selected !== state.code) || undefined}
-            transform={`translate(${g.c.x} ${g.c.y}) scale(${scale})`} role="button" tabIndex={0}
-            aria-label={`${state.name}: ${n} ${n === 1 ? 'plan' : 'plans'}. Show details`}
-            onMouseEnter={() => !selected && setHover(state.code)} onFocus={() => !selected && setHover(state.code)} onClick={() => choose(state.code)}
-            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(state.code); } }}>
-            <ellipse className="nm-pin-shadow" cx="0" cy="1" rx="7" ry="2.4" />
-            <path className="nm-pin-body" d="M0 0c-2-6-13-12-13-22a13 13 0 0 1 26 0c0 10-11 16-13 22Z" />
-            <text y="-18" textAnchor="middle">{n > 1 ? n : state.code}</text>
-          </g>;
-        })}
+        {!selected && hover && (() => { const st = states.find(x => x.code === hover)!; return <path key={`lift-${hover}`} d={st.d} className="nm-lift" data-status={status.get(hover) ?? undefined} onClick={() => choose(hover)} onMouseLeave={() => setHover(null)} aria-hidden="true" />; })()}
       </svg>
 
       <div className="nm-controls" aria-label="Map controls">
