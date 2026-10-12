@@ -1,6 +1,7 @@
 .national-theme, .national-dialog {
   --map-none: #e8e8ed; --map-zero: #f0eafa; --map-low: #d9cafa; --map-mid: #b79aeb; --map-high: #9170cf; --map-max: #6844a1; --map-selected: #31203f;
-  --primary: #292735; --primary-foreground: #fff; --ring: #8c78db;
+  /* Primary follows the SUBEB brand (globals.css :root): deep teal */
+  --primary: #004540; --primary-foreground: #fff; --ring: #237f76;
   --national-purple: #9980ed; --national-lavender: #d4c5fc; --national-lime: #e5fa9c; --national-cream: #fbeacb;
   --background: #fff; --foreground: #252531; --muted: #f4f3f7; --muted-foreground: #72717c; --border: #e9e7ee;
   color: var(--foreground);
@@ -39,7 +40,7 @@
 .national-header-actions .notification-bell { background: var(--workspace-surface, color-mix(in srgb,var(--background) 72%,transparent)); border-color: var(--workspace-edge, var(--background)); box-shadow: var(--workspace-shadow, none); }
 .national-header-account { flex-shrink: 0; border: 1px solid var(--background); border-radius: 999px; background: color-mix(in srgb,var(--background) 72%,transparent); }
 .national-header-account .account-trigger { min-height: 54px; border-radius: 999px; padding: 5px 14px 5px 6px; gap: 10px; }
-.national-header-account .account-avatar { order: -1; }
+.national-header-account .account-avatar-wrap { order: -1; }
 .national-header-account .account-trigger-copy { text-align: left; gap: 2px; }
 .national-horizontal-shell > .national-main { max-width: none; padding: 0 0 32px; }
 .national-horizontal-shell .national-page-title { margin-bottom: 20px; }
@@ -249,7 +250,12 @@
   --map-high: #5e86c1;
   --map-max: #365f9f;
   --map-selected: #193c6b;
-  background: radial-gradient(ellipse at 8% 0%, #e3e9ec 0%, transparent 55%), linear-gradient(135deg, #cdd9df, #dbe3e9 65%, #d2dde3);
+  /* A cool, light neutral so the teal map and white cards stand out */
+  --ubec-canvas: #e8eaec;
+  background: var(--ubec-canvas);
+  --workspace-surface: #ffffffc4;
+  --workspace-edge: #ffffffde;
+  --workspace-shadow: 0 4px 20px #3a4a3008, inset 0 1px 0 #ffffffb3;
 }
 .national-dashboard-filters [data-slot=select-trigger], .map-heading [data-slot=select-trigger] { border-radius: 999px; background: var(--background); box-shadow: none; }
 .national-geographic-grid { display: grid; grid-template-columns: minmax(0,2.35fr) minmax(280px,1fr); gap: 18px; margin-block: 18px; }
@@ -435,3 +441,18 @@
 /* Officers page: active officers against each department's limit (migration 056). */
 .ubec-team-limits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ubec-team-limit { margin-bottom: 16px; }
+
+/* Header exactly like the SUBEB one: white capsules lifted by a soft shadow; the active tab a white chip */
+/* Same as the SUBEB header (globals.css .subeb-navigation-capsule / .subeb-header-account) */
+.national-theme .national-navigation-capsule, .national-theme .national-header-account, .national-theme .national-header-actions .notification-bell { background: #ffffffb8; border-color: #ffffffcc; box-shadow: 0 2px 4px rgb(25 63 61 / 4%), 0 8px 24px -8px rgb(25 63 61 / 16%), inset 0 1px 0 #ffffffa6; }
+.national-theme .national-header-nav a[aria-current] { background: var(--background); border-color: #ffffffcc; box-shadow: 0 3px 10px #334e6012; }
+/* Page-title controls (funding year, Refresh) and filters: the same lifted pills as the header */
+.national-theme .national-dashboard-filters [data-slot=select-trigger], .national-theme .national-dashboard-filters [data-slot=button],
+.national-theme .national-table-tools [data-slot=select-trigger], .national-theme .national-table-tools [data-slot=input-group] { background: #ffffffb8; border: 1px solid #ffffffcc; border-radius: 999px; box-shadow: 0 2px 4px rgb(25 63 61 / 4%), 0 8px 24px -8px rgb(25 63 61 / 16%), inset 0 1px 0 #ffffffa6; }
+.national-theme .national-page-title[data-compact] { justify-content: flex-end; margin-bottom: 0; }
+/* Tighter title on the UBEC Overview so the map and figures start higher */
+.national-theme .national-page-title + .nh, .national-theme .national-page-title ~ .nh { margin-top: -8px; }
+/* The Overview sheet reaches the window edges; clip the sideways overflow without breaking the sticky map */
+.national-theme { overflow-x: clip; }
+/* Overview: breathing room between the header and the map / filters */
+.national-theme .national-page-title[data-compact] { margin-top: 14px; margin-bottom: 10px; }

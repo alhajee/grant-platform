@@ -395,7 +395,7 @@
 .review-entry { display: flex; justify-content: flex-end; margin: -4px 0 24px; }
 .review-page-summary { padding: 0 0 12px; }
 .review-page-summary-separator { margin-bottom: 14px; }
-.review-back { margin: 0 0 2px -8px; }
+.review-back { margin: 0 0 2px -8px; justify-self: start; align-self: flex-start; width: fit-content; }
 .review-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 0; }
 .review-heading [data-slot=badge] { font-size: 14px; padding: 4px 10px; }
 .review-approval-note { margin-top: 16px; padding: 10px 14px; width: fit-content; max-width: 100%; border: 0; border-radius: 6px; background: var(--muted); }
@@ -788,3 +788,9 @@
 /* A light tooltip for quiet controls and explanations (the default one is near-black). */
 .soft-tip[data-slot=tooltip-content] { box-shadow: 0 8px 24px -12px rgb(0 40 30 / 45%); }
 [data-slot=tooltip-content] .text-muted-foreground { color: rgb(255 255 255 / 75%); }
+
+/* UBEC department pictures (components/ubec/department-art.tsx) beside department names */
+.department-with-art { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.department-art-xs { width: 16px; height: 16px; flex: none; }
+.department-art-sm { width: 22px; height: 22px; flex: none; }
+.department-art-md { width: 30px; height: 30px; flex: none; }

@@ -158,3 +158,53 @@
   .ubec-items-table td.ubec-item-cell { display: flex; min-width: 0; }
   .ubec-item-actions { flex-wrap: wrap; justify-content: flex-start; padding-top: 6px; }
 }
+
+/* Release dialog: departments as assignees, components as tasks */
+.release-breadcrumb { margin: 0 0 2px; font-size: 12px; color: var(--muted-foreground); }
+.release-assignments { display: grid; gap: 10px; max-height: min(46vh, 440px); overflow-y: auto; margin-inline: -2px; padding: 2px; }
+.release-group { border: 1px solid var(--border); border-radius: 14px; padding: 10px; background: var(--card); }
+.release-group header { display: flex; align-items: center; gap: 10px; padding: 2px 4px 8px; }
+.release-avatar { width: 38px; height: 38px; flex: none; }
+.release-assignee { display: grid; min-width: 0; flex: 1; line-height: 1.3; }
+.release-assignee strong { font-size: 14px; font-weight: 600; }
+.release-assignee small { font-size: 12px; color: var(--muted-foreground); }
+.release-count { font-size: 12px; color: var(--muted-foreground); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.release-group ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.release-group li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: color-mix(in srgb, var(--muted) 70%, var(--card)); font-size: 14px; }
+.release-task-dot { width: 10px; height: 10px; flex: none; border-radius: 3px; background: var(--task-fill); }
+.release-task-name { flex: 1; min-width: 0; }
+.release-task-amount { font-variant-numeric: tabular-nums; color: var(--muted-foreground); font-size: 13px; }
+.release-summary { margin: 0 auto 0 0; align-self: center; font-size: 13px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .release-count { display: none; } .release-summary { width: 100%; margin-bottom: 4px; } }
+
+/* BEAP Chair's next step */
+.ubec-chair-cta { display: flex; align-items: center; gap: 14px; }
+.ubec-chair-cta-icon { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 12px; background: color-mix(in srgb, var(--primary) 12%, var(--card)); color: var(--primary); }
+.ubec-chair-cta-icon svg { width: 18px; height: 18px; }
+.ubec-chair-cta p { display: grid; gap: 2px; margin: 0; }
+.ubec-chair-cta p span { font-size: 13px; color: var(--muted-foreground); }
+
+/* UBEC workflow dialogs: a warm cream glow (peach at the edges, lighter in the middle) with a zigzag line motif */
+.ubec-flow-dialog { overflow: hidden; border-radius: 24px; border-color: #f3e3c8; box-shadow: 0 24px 60px -20px rgb(90 50 10 / 30%);
+  background: radial-gradient(120% 90% at 50% 0%, #fff8ec 0%, #fdeed6 55%, #fbe4c3 100%); --zig: #4f46e5; }
+.ubec-flow-dialog[data-kind="return"] { background: radial-gradient(120% 90% at 50% 0%, #fff6f2 0%, #fde6df 55%, #f9d6cc 100%); --zig: #e11d48; }
+.ubec-flow-dialog[data-kind="approve"] { background: radial-gradient(120% 90% at 50% 0%, #fbfdf0 0%, #eef6d8 55%, #e0efc0 100%); --zig: #15803d; }
+.ubec-flow-dialog::before { content: ""; position: absolute; top: 96px; right: 7px; width: 10px; height: 150px; pointer-events: none; z-index: 0; opacity: .5;
+  background: var(--zig); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='12'%3E%3Cpath d='M1 0 9 6 1 12' fill='none' stroke='black' stroke-width='1.4'/%3E%3C/svg%3E") 0 0 / 10px 12px repeat-y;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='12'%3E%3Cpath d='M1 0 9 6 1 12' fill='none' stroke='black' stroke-width='1.4'/%3E%3C/svg%3E") 0 0 / 10px 12px repeat-y; }
+.ubec-flow-dialog::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 40%; pointer-events: none; z-index: 0;
+  background: radial-gradient(60% 100% at 50% 100%, rgb(255 255 255 / 55%), transparent 70%); }
+.ubec-flow-dialog > :not([data-slot=dialog-close]) { position: relative; z-index: 1; }
+.ubec-flow-dialog > [data-slot=dialog-close] { z-index: 2; }
+.ubec-flow-dialog .release-breadcrumb { font-weight: 500; letter-spacing: .01em; }
+/* Glass panels over the warm background */
+.ubec-flow-dialog .release-group, .ubec-flow-dialog .confirm-facts, .ubec-flow-dialog [data-slot=textarea] { background: rgb(255 255 255 / 72%); border-color: rgb(120 80 30 / 12%); backdrop-filter: blur(6px); }
+.ubec-flow-dialog .release-group li { background: rgb(255 248 236 / 90%); }
+.ubec-flow-dialog .confirm-stats > div[data-tint] { background: rgb(255 255 255 / 70%); border-color: rgb(120 80 30 / 10%); box-shadow: 0 1px 2px rgb(90 50 10 / 5%), 0 10px 24px -14px rgb(90 50 10 / 30%); backdrop-filter: blur(6px); }
+/* The comment quoted back as a message bubble */
+.ubec-flow-dialog .confirm-quote blockquote { padding: 10px 14px; border: 0; border-radius: 4px 16px 16px 16px; background: rgb(255 255 255 / 75%); }
+/* Consequences as soft callouts */
+.ubec-flow-dialog .confirm-notes li { padding: 9px 12px; border-radius: 12px; background: rgb(255 255 255 / 60%); }
+.ubec-flow-dialog .confirm-notes li[data-kind="warning"] { background: rgb(255 255 255 / 60%); color: #6b3a10; }
+.ubec-flow-dialog[data-kind="return"] .confirm-notes li[data-kind="warning"] { background: color-mix(in srgb, var(--destructive) 8%, var(--card)); color: var(--foreground); }
+.ubec-flow-dialog .confirm-facts { border-radius: 14px; }

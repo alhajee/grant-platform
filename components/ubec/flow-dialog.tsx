@@ -20,6 +20,9 @@ import { departmentName } from '@/lib/ubec';
 import { componentName, type FlowComponent, type PipelineComponent, type UbecFlow } from '@/lib/ubec-flow';
 import { DecisionBar } from './flow-bits';
 import { flowConfirmation } from './flow-confirmation';
+import { ReleaseAssignments } from './release-assignments';
+
+const confirmMoneyCompact = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
 
 export type FlowRequest =
   | { kind: 'release' } | { kind: 'approve' } | { kind: 'return' }
@@ -27,13 +30,13 @@ export type FlowRequest =
   | { kind: 'oversight'; pillar: ImplementedPillar } | { kind: 'observe'; pillar: ImplementedPillar };
 
 const copy: Record<FlowRequest['kind'], { title: (name: string) => string; description: string; field: string; required: boolean; confirm: string }> = {
-  release: { title: () => 'Release to UBEC departments', description: 'Each component goes to its department Director, who assigns Assessment Officers. Your comment is shared with them.', field: 'Your comment', required: true, confirm: 'Release to UBEC departments' },
+  release: { title: () => 'Release to UBEC departments', description: 'Each Director gets their components and assigns Assessment Officers', field: 'Message to the Directors', required: true, confirm: 'Release to UBEC departments' },
   assign: { title: name => `Assign staff · ${name}`, description: 'Choose one or more Assessment Officers of the component’s department. They accept or reject each item and report back to the Director.', field: 'Comment for the officers', required: true, confirm: 'Assign staff' },
   complete: { title: name => `Complete assessment · ${name}`, description: 'Your decisions are locked and sent to your Director', field: 'Note for your Director (optional)', required: false, confirm: 'Submit assessment' },
   oversight: { title: name => `Complete & send for oversight · ${name}`, description: 'Audit, Procurement and Finance review it next. When all three have finished their observations it goes to the UBEC BEAP Chair.', field: 'Your comment', required: true, confirm: 'Send for oversight' },
   observe: { title: name => `Observations done · ${name}`, description: 'Add any comments on items in the workbook first. Once Audit, Procurement and Finance are all done, the component goes to the UBEC BEAP Chair.', field: 'Your observations (optional)', required: false, confirm: 'Observations done' },
   approve: { title: () => 'Approve action plan', description: 'Every item has been accepted. Approval locks the plan; it does not disburse funds.', field: 'Decision note', required: true, confirm: 'Approve action plan' },
-  return: { title: () => 'Return to SUBEB', description: 'The whole plan goes back to the SUBEB with every component’s results. Its BEAP Chair, the Directors and Data Entry staff of these components are notified.', field: 'Consolidated changes required', required: true, confirm: 'Return to SUBEB' },
+  return: { title: () => 'Return to SUBEB', description: 'The whole plan goes back to the SUBEB BEAP Chair with every component’s results', field: 'Consolidated changes required', required: true, confirm: 'Return to SUBEB' },
 };
 
 /**
@@ -85,20 +88,21 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   }
 
   return <Dialog open={!!request} onOpenChange={open => { if (!open && !saving) { reset(); onClose(); } }}>
-    <DialogContent className="national-dialog ubec-flow-dialog sm:max-w-xl" showCloseButton={!saving} onEscapeKeyDown={e => step.escape(e, saving)} onInteractOutside={e => { if (saving) e.preventDefault(); }}>
-      {text && summary && step.confirming && <ConfirmStep title={summary.title} description={summary.description} facts={summary.facts} notes={summary.notes} tone={summary.tone} acknowledge={summary.acknowledge}
+    <DialogContent data-kind={kind} className={`national-dialog ubec-flow-dialog ${kind === 'release' ? 'sm:max-w-2xl' : 'sm:max-w-xl'}`} showCloseButton={!saving} onEscapeKeyDown={e => step.escape(e, saving)} onInteractOutside={e => { if (saving) e.preventDefault(); }}>
+      {text && summary && step.confirming && <ConfirmStep stats={summary.stats} title={summary.title} description={summary.description} facts={summary.facts} notes={summary.notes} tone={summary.tone} acknowledge={summary.acknowledge}
         comment={comment} commentLabel={text.field.replace(/ \(optional\)$/, '')} confirmLabel={summary.confirm} saving={saving} error={error} onBack={() => { setError(''); step.back(); }} onConfirm={() => void submit()} />}
       {text && !step.confirming && <>
-        <DialogHeader className={step.commentStepClass}><DialogTitle>{text.title(pillar ? componentName(pillar) : '')}</DialogTitle><DialogDescription>{text.description}</DialogDescription></DialogHeader>
+        <DialogHeader className={step.commentStepClass}><p className="release-breadcrumb">{plan}</p><DialogTitle>{text.title(pillar ? componentName(pillar) : '')}</DialogTitle><DialogDescription>{text.description}</DialogDescription></DialogHeader>
         <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}><FieldGroup>
           {kind === 'assign' && <OfficerPicker flow={flow} component={component} value={officers} onChange={setOfficers} disabled={saving} admin={admin} />}
           {(kind === 'complete' || kind === 'oversight' || kind === 'observe') && component && <ComponentSummary component={component} threads={openThreads.filter(t => t.pillar === pillar).length} showOfficers={kind !== 'complete'} />}
+          {kind === 'release' && <ReleaseAssignments components={components} />}
           {(kind === 'approve' || kind === 'return') && <PlanSummary flow={flow} />}
           {kind === 'return' && <ShareCommentsField threads={openThreads} value={shareIds} onChange={setShare} disabled={saving} />}
-          <Field><FieldLabel htmlFor="ubec-flow-comment">{text.field}</FieldLabel><Textarea id="ubec-flow-comment" rows={4} maxLength={5000} required={text.required} value={comment} onChange={event => setComment(event.target.value)} disabled={saving} /></Field>
+          <Field><FieldLabel htmlFor="ubec-flow-comment">{text.field}</FieldLabel><Textarea id="ubec-flow-comment" rows={kind === 'release' ? 3 : 4} placeholder={kind === 'release' ? 'Write a note for the Directors…' : undefined} maxLength={5000} required={text.required} value={comment} onChange={event => setComment(event.target.value)} disabled={saving} /></Field>
           {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
         </FieldGroup>
-        <DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={() => { reset(); onClose(); }}>Cancel</Button><Button type="submit" variant={kind === 'return' ? 'destructive' : 'default'} disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{text.confirm}</Button></DialogFooter>
+        <DialogFooter className="mt-6">{kind === 'release' && <p className="release-summary">{components.length} components · {new Set(components.map(c => c.department)).size} departments · {confirmMoneyCompact.format(components.reduce((sum, c) => sum + c.amount, 0))}</p>}<Button type="button" variant="outline" disabled={saving} onClick={() => { reset(); onClose(); }}>Cancel</Button><Button type="submit" variant={kind === 'return' ? 'destructive' : 'default'} disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{text.confirm}</Button></DialogFooter>
         </form>
       </>}
     </DialogContent>

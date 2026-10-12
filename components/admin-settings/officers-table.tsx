@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { LimitStepper } from './limit-stepper';
 import { OfficerPicker } from './officer-picker';
 import { validLimit, type Department, type OfficerDraft } from './officers-model';
+import { DepartmentArt } from '@/components/ubec/department-art';
 
 type Props = {
   departments: Department[]; draft: OfficerDraft; disabled: boolean;
@@ -48,7 +49,7 @@ export function OfficersTable({ departments, draft, disabled, onLimit, onDefault
             </TableCell>
             <TableCell>
               <button type="button" className="admin-officers-dept" onClick={() => toggle(department.department)}>
-                <span className="truncate font-medium">{department.name}</span>
+                <DepartmentArt department={department.department} className="department-art-md" /><span className="truncate font-medium">{department.name}</span>
                 <Badge variant="outline" className="font-mono text-[11px]">{department.short}</Badge>
               </button>
             </TableCell>

@@ -15,6 +15,7 @@ import { groupByStrategicPillar, type ImplementedPillar } from '@/lib/beap-pilla
 import { departmentLabel, pillarDepartments } from '@/lib/ubec';
 import { componentName, type PipelineComponent } from '@/lib/ubec-flow';
 import { DecisionBar, OfficerStack, OversightProgress, StagePill, percentOf } from './flow-bits';
+import { DepartmentArt } from './department-art';
 
 export type CardStep = { label: string; run: () => void; kind: 'assign' | 'assess' | 'oversight' | 'observe' };
 const stepIcons = { assign: UserRoundPlusIcon, assess: ClipboardCheckIcon, oversight: SendHorizontalIcon, observe: ShieldCheckIcon };
@@ -45,7 +46,7 @@ function Card({ component: c, planTotal, comments, steps, onView }: { component:
         <h4><button type="button" className="component-card-link ubec-card-link" onClick={onView}>{componentName(c.pillar)}<span className="sr-only">, view items</span></button></h4>
         <StagePill stage={c.stage} />
       </div>
-      <div className="component-card-department"><span>{departmentLabel(c.department || pillarDepartments[c.pillar])}</span><Badge variant="outline" className="component-card-share">{percentOf(c.amount, planTotal)}% of plan</Badge></div>
+      <div className="component-card-department"><span className="department-with-art"><DepartmentArt department={c.department || pillarDepartments[c.pillar]} className="department-art-sm" />{departmentLabel(c.department || pillarDepartments[c.pillar])}</span><Badge variant="outline" className="component-card-share">{percentOf(c.amount, planTotal)}% of plan</Badge></div>
       <p className="component-card-amount"><b>{compactNaira.format(c.amount)}</b> · {c.counts.total} {c.counts.total === 1 ? 'item' : 'items'}</p>
       {released && <DecisionBar counts={c.counts} compact />}
       {released && <p className="ubec-card-meta">{c.counts.accepted} accepted · {c.counts.rejected} rejected{c.counts.undecided ? ` · ${c.counts.undecided} to decide` : ''}</p>}

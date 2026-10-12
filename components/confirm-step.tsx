@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 export type ConfirmFact = { label: string; value: ReactNode };
 /** A consequence of the step: lock (you lose edit access), warning (cannot be undone) or info. */
 export type ConfirmNote = { kind?: 'lock' | 'warning' | 'info'; text: ReactNode };
+/** A headline figure shown as a tile above the facts ("11 · Components"). */
+export type ConfirmStat = { label: string; value: ReactNode; art?: ReactNode; tint?: 'mint' | 'lilac' | 'sand' };
 /** default: an ordinary hand-off; strong: final but not destructive (approval); destructive: sends work back. */
 export type ConfirmTone = 'default' | 'strong' | 'destructive';
 
@@ -51,7 +53,9 @@ export function useConfirmStep(focusId?: string) {
  * `useConfirmStep().confirming` is true, so no second modal opens. Enter confirms (once any acknowledgement
  * is ticked), Back keeps the comment.
  */
-export function ConfirmStep({ title, description, facts, notes = [], comment, commentLabel = 'Your comment', tone = 'default', acknowledge, confirmLabel, saving, error, bodyClassName, onBack, onConfirm }: {
+export function ConfirmStep({ icon, stats = [], title, description, facts, notes = [], comment, commentLabel = 'Your comment', tone = 'default', acknowledge, confirmLabel, saving, error, bodyClassName, onBack, onConfirm }: {
+  /** A small icon badge beside the title. */
+  icon?: ReactNode; stats?: readonly ConfirmStat[];
   title: string; description?: ReactNode; facts: readonly ConfirmFact[]; notes?: readonly ConfirmNote[];
   /** The comment from the first step, quoted back. Undefined hides the quote (steps without a comment field). */
   comment?: string; commentLabel?: string; tone?: ConfirmTone;
@@ -78,11 +82,13 @@ export function ConfirmStep({ title, description, facts, notes = [], comment, co
   const trimmed = comment?.trim();
   return <>
     <DialogHeader className="confirm-step-enter confirm-step-head" data-tone={tone}>
+      {icon && <span className="confirm-step-icon" aria-hidden="true">{icon}</span>}
       <DialogTitle>{title}</DialogTitle>
       <DialogDescription>{description ?? 'Check the details below before you continue'}</DialogDescription>
     </DialogHeader>
     <form className="confirm-step-enter confirm-step-form" data-tone={tone} onSubmit={event => { event.preventDefault(); run(); }} onKeyDown={onKeyDown}>
       <div className={cn('confirm-step', bodyClassName)}>
+        {stats.length > 0 && <dl className="confirm-stats">{stats.map(stat => <div key={stat.label} data-tint={stat.tint}>{stat.art}<dd>{stat.value}</dd><dt>{stat.label}</dt></div>)}</dl>}
         {facts.length > 0 && <dl className="confirm-facts">{facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>}
         {comment !== undefined && <figure className="confirm-quote" data-empty={!trimmed || undefined}>
           <figcaption><MessageSquareQuoteIcon aria-hidden="true" />{commentLabel}</figcaption>

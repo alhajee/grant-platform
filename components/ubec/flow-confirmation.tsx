@@ -1,10 +1,12 @@
-import { confirmMoney, type ConfirmFact, type ConfirmNote, type ConfirmTone } from '@/components/confirm-step';
+import { confirmMoney, type ConfirmFact, type ConfirmStat, type ConfirmNote, type ConfirmTone } from '@/components/confirm-step';
 import { departmentName, oversightDepartments } from '@/lib/ubec';
 import { componentName, oversightPending, type DecisionCounts, type PipelineComponent, type UbecFlow } from '@/lib/ubec-flow';
 import type { FlowRequest } from './flow-dialog';
+import { ComponentsArt, DirectorsArt, FundsArt } from './stat-art';
 
-export type FlowConfirmation = { title: string; description: string; facts: ConfirmFact[]; notes: ConfirmNote[]; confirm: string; tone: ConfirmTone; acknowledge?: string };
+export type FlowConfirmation = { title: string; description: string; stats?: ConfirmStat[]; facts: ConfirmFact[]; notes: ConfirmNote[]; confirm: string; tone: ConfirmTone; acknowledge?: string };
 
+const compactMoney = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
 const decisions = (c: DecisionCounts) => `${c.accepted} accepted · ${c.rejected} rejected${c.undecided ? ` · ${c.undecided} undecided` : ''}`;
 const oversightNames = (ids: readonly string[]) => ids.map(id => oversightDepartments.find(d => d.id === id)?.name ?? id).join(', ');
 
@@ -23,8 +25,9 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
     const departments = new Set(components.map(c => c.department)).size;
     return { title: `Release the ${plan} to the UBEC departments?`, confirm: 'Yes, release to departments', tone: 'default',
       description: 'Each department Director is notified and assigns Assessment Officers',
-      facts: [planFact, { label: 'Components', value: list(c => departmentName(c.department)) }, { label: 'Total proposed', value: confirmMoney.format(total) }, { label: 'Goes to', value: `${departments} UBEC department ${departments === 1 ? 'Director' : 'Directors'}` }],
-      notes: [{ kind: 'info', text: 'Your comment is shared with the Directors and shown on the plan' }, { kind: 'warning', text: 'A release can’t be undone. You decide on the plan once every component has finished oversight.' }] };
+      stats: [{ label: 'Components', value: components.length, art: <ComponentsArt />, tint: 'mint' }, { label: departments === 1 ? 'Director' : 'Directors', value: departments, art: <DirectorsArt />, tint: 'lilac' }, { label: 'Total proposed', value: <span title={confirmMoney.format(total)}>{compactMoney.format(total)}</span>, art: <FundsArt />, tint: 'sand' }],
+      facts: [],
+      notes: [{ kind: 'warning', text: 'A release can’t be undone. You decide on the plan once every component has finished oversight.' }] };
   }
   if (request.kind === 'approve' || request.kind === 'return') {
     const facts: ConfirmFact[] = [planFact, { label: 'Components', value: list(c => decisions(c.counts)) }, { label: 'Total proposed', value: confirmMoney.format(total) }];
@@ -34,9 +37,9 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
       notes: [{ kind: 'warning', text: 'Approval is final. The plan is locked as approved and this UBEC review closes.' }, { kind: 'info', text: 'Approval does not disburse funds' }],
       acknowledge: 'I have reviewed every component’s results and my decision note' };
     return { title: `Return the ${plan} to the SUBEB?`, confirm: 'Yes, return to SUBEB', tone: 'destructive',
-      description: 'Its BEAP Chair, the Directors and Data Entry Staff of these components are notified',
-      facts: [...facts, { label: 'Returns to', value: 'SUBEB, for changes' }, { label: 'Comments shared', value: shared ? `${shared} UBEC ${shared === 1 ? 'comment' : 'comments'} sent with your feedback` : 'None; all UBEC comments stay internal' }],
-      notes: [{ kind: 'warning', text: 'This UBEC review closes and can’t be reopened. Every component goes back to the SUBEB as Changes requested, and UBEC reviews it again only when the SUBEB resubmits.' }],
+      description: 'It goes to the SUBEB BEAP Chair, who sends it back to the Directors and Data Entry',
+      facts: [...facts, { label: 'Returns to', value: 'SUBEB BEAP Chair' }, { label: 'Comments shared', value: shared ? `${shared} UBEC ${shared === 1 ? 'comment' : 'comments'} sent with your feedback` : 'None; all UBEC comments stay internal' }],
+      notes: [{ kind: 'warning', text: 'This UBEC review closes and can’t be reopened. UBEC reviews the plan again only when the SUBEB resubmits.' }],
       acknowledge: 'I have reviewed every component’s results and the changes required' };
   }
   const component = flow.components.find(c => c.pillar === request.pillar), name = componentName(request.pillar);
