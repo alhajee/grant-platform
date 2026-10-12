@@ -37,43 +37,43 @@ function validProfile(input: z.infer<typeof profile>) {
   const roleMatchesWorkspace = ubec
     ? (ubecRoleList as readonly string[]).includes(input.role)
     : input.role === 'Data Entry Staff' || input.role === 'Director' || input.role === 'Executive Chairman';
-  if (!roleMatchesWorkspace) return 'Choose a role that belongs to this workspace.';
+  if (!roleMatchesWorkspace) return 'Choose a role that belongs to this workspace';
   const needsDepartment = ['Data Entry Staff', 'Director'].includes(input.role) || ubecRoleDepartments(input.role).length > 0;
   const allowedDepartments = ubec ? ubecRoleDepartments(input.role) : subebDepartments;
   const selected = normalizeDepartments(input.departments?.length ? input.departments : input.department);
-  if (needsDepartment && (!selected.length || selected.some(department => !allowedDepartments.some(item => item.id === department)))) return 'Choose at least one valid department.';
-  if (ubec && needsDepartment && selected.length !== 1) return `A ${input.role} must have exactly one department.`;
-  if (!needsDepartment && selected.length) return 'This role is not assigned to a department.';
-  if (input.isBeapChair && (ubec || input.role !== 'Director')) return 'The BEAP Chair must be a SUBEB Director.';
-  if (input.canManageSchools && ubec) return 'School register access applies to SUBEB accounts only.';
+  if (needsDepartment && (!selected.length || selected.some(department => !allowedDepartments.some(item => item.id === department)))) return 'Choose at least one valid department';
+  if (ubec && needsDepartment && selected.length !== 1) return `A ${input.role} must have exactly one department`;
+  if (!needsDepartment && selected.length) return 'This role is not assigned to a department';
+  if (input.isBeapChair && (ubec || input.role !== 'Director')) return 'The BEAP Chair must be a SUBEB Director';
+  if (input.canManageSchools && ubec) return 'School register access applies to SUBEB accounts only';
   return null;
 }
 
 async function mutate(request: NextRequest, creating: boolean) {
   try {
-    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
     const actor = await requireAdmin(request);
-    if (!actor) return json({ error: 'Super-admin access required.' }, 403);
+    if (!actor) return json({ error: 'Super-admin access required' }, 403);
     const parsed = (creating ? create : z.union([edit, reset])).safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Enter valid account details.' }, 400);
+    if (!parsed.success) return json({ error: 'Enter valid account details' }, 400);
     const input = parsed.data;
     return await getPostgres().transaction(async db => {
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['admin:user-management']);
       const validActor = (await db.query("SELECT id FROM users WHERE id=$1 AND active AND role='Super Admin' AND session_version=$2 FOR SHARE", [actor.userId, actor.sessionVersion])).rows[0];
       if (!validActor) return json({ error: 'Your administrator access has changed. Sign in again.' }, 403);
       const target = 'id' in input ? (await db.query(`SELECT ${fields} FROM users WHERE id=$1 AND role<>'Super Admin' FOR UPDATE`, [input.id])).rows[0] : null;
-      if ('id' in input && !target) return json({ error: 'User not found.' }, 404);
+      if ('id' in input && !target) return json({ error: 'User not found' }, 404);
       const resetting = 'action' in input;
       if (!resetting) {
         const validationError = validProfile(input);
         if (validationError) return json({ error: validationError }, 400);
         const selectedDepartments = normalizeDepartments(input.departments?.length ? input.departments : input.department);
         if (target && input.stateCode !== target.stateCode) return json({ error: 'A user cannot be moved to another workspace. Create a new account instead.' }, 409);
-        if (!target && !(await db.query("SELECT 1 FROM users WHERE state_code=$1 AND role<>'Super Admin' LIMIT 1", [input.stateCode])).rowCount) return json({ error: 'Choose an existing workspace.' }, 400);
+        if (!target && !(await db.query("SELECT 1 FROM users WHERE state_code=$1 AND role<>'Super Admin' LIMIT 1", [input.stateCode])).rowCount) return json({ error: 'Choose an existing workspace' }, 400);
         const chair = input.isBeapChair ?? target?.isBeapChair ?? false;
-        if (chair && (await db.query('SELECT id FROM users WHERE state_code=$1 AND is_beap_chair AND id<>$2', [input.stateCode, target?.id ?? 0])).rowCount) return json({ error: 'This SUBEB already has a BEAP Chair.' }, 409);
+        if (chair && (await db.query('SELECT id FROM users WHERE state_code=$1 AND is_beap_chair AND id<>$2', [input.stateCode, target?.id ?? 0])).rowCount) return json({ error: 'This SUBEB already has a BEAP Chair' }, 409);
         // UBEC keeps one active BEAP Chair, one Director per component department and one Oversight Director per oversight department.
-        if (input.active && [ubecRoles.chair, ubecRoles.director, ubecRoles.oversight].includes(input.role as typeof ubecRoles.chair) && (await db.query('SELECT 1 FROM users WHERE role=$1 AND active AND department IS NOT DISTINCT FROM $2 AND id<>$3 LIMIT 1', [input.role, input.role === ubecRoles.chair ? null : selectedDepartments[0], target?.id ?? 0])).rowCount) return json({ error: input.role === ubecRoles.chair ? 'UBEC already has an active BEAP Chair.' : 'This department already has an active account in this role.' }, 409);
+        if (input.active && [ubecRoles.chair, ubecRoles.director, ubecRoles.oversight].includes(input.role as typeof ubecRoles.chair) && (await db.query('SELECT 1 FROM users WHERE role=$1 AND active AND department IS NOT DISTINCT FROM $2 AND id<>$3 LIMIT 1', [input.role, input.role === ubecRoles.chair ? null : selectedDepartments[0], target?.id ?? 0])).rowCount) return json({ error: input.role === ubecRoles.chair ? 'UBEC already has an active BEAP Chair' : 'This department already has an active account in this role' }, 409);
         // Assessment Officers per department are capped (migration 056): creating, reactivating, changing the role to
         // officer or moving an officer to another department needs a free place there.
         const officerDepartment = selectedDepartments[0];
@@ -82,12 +82,12 @@ async function mutate(request: NextRequest, creating: boolean) {
           const full = await officerLimitProblem(db, officerDepartment, target?.id ?? 0);
           if (full) return json({ error: full }, 409);
         }
-        if (input.role === 'Director' && !input.isBeapChair && input.active && (await db.query("SELECT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND ud.department=ANY($2::text[]) AND u.role='Director' AND NOT u.is_beap_chair AND u.active AND u.id<>$3 LIMIT 1", [input.stateCode, selectedDepartments, target?.id ?? 0])).rowCount) return json({ error: 'One or more selected departments already has an active Director.' }, 409);
+        if (input.role === 'Director' && !input.isBeapChair && input.active && (await db.query("SELECT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND ud.department=ANY($2::text[]) AND u.role='Director' AND NOT u.is_beap_chair AND u.active AND u.id<>$3 LIMIT 1", [input.stateCode, selectedDepartments, target?.id ?? 0])).rowCount) return json({ error: 'One or more selected departments already has an active Director' }, 409);
       }
       const password = creating || resetting ? `Ubec-${crypto.randomUUID()}!` : undefined;
       let id = target?.id;
       if ('email' in input) {
-        if ((await db.query('SELECT id FROM users WHERE email=$1', [input.email])).rowCount) return json({ error: 'An account already uses this email address.' }, 409);
+        if ((await db.query('SELECT id FROM users WHERE email=$1', [input.email])).rowCount) return json({ error: 'An account already uses this email address' }, 409);
         const selectedDepartments = normalizeDepartments(input.departments?.length ? input.departments : input.department);
         id = (await db.query('INSERT INTO users(full_name,email,password_hash,role,department,state_code,active,can_create_plan,is_beap_chair,can_manage_schools) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id', [input.name, input.email, hashSync(password!, 10), input.role, selectedDepartments[0] || null, input.stateCode, input.active, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? false])).rows[0].id;
         await replaceUserDepartments(db, id, selectedDepartments);
@@ -105,7 +105,7 @@ async function mutate(request: NextRequest, creating: boolean) {
       return json({ id, password }, creating ? 201 : 200);
     });
   } catch (cause) {
-    if ((cause as { code?: string }).code === '23505') return json({ error: 'A conflicting active account already exists.' }, 409);
+    if ((cause as { code?: string }).code === '23505') return json({ error: 'A conflicting active account already exists' }, 409);
     console.error('Administrator user management failed', cause);
     return json({ error: 'Changes could not be saved. Please try again.' }, 503);
   }

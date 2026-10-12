@@ -79,7 +79,7 @@ export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null,
     <Card ref={cardRef} className="plan-workbook" data-expanded={expanded || undefined} onKeyDown={onKeyDown} {...(expanded ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Plan workbook — full screen' } : { 'aria-labelledby': 'plan-workbook-title' })}>
     {sheets.map(s => <span key={s.key} id={s.hash} className="plan-workbook-anchor" aria-hidden="true" />)}
     <div className="plan-workbook-heading"><h2 id="plan-workbook-title"><Sheet aria-hidden="true" />{expanded ? <>{title}<span className="plan-workbook-title-sep" aria-hidden="true">·</span>Plan workbook</> : 'Plan workbook'}</h2>
-      <div className="plan-workbook-heading-end">{sheets.some(s => s.editHref) && !expanded && <p>Use the edit buttons to change entries.</p>}
+      <div className="plan-workbook-heading-end">{sheets.some(s => s.editHref) && !expanded && <p>Use the edit buttons to change entries</p>}
         <Tooltip><TooltipTrigger asChild><Button ref={expandRef} variant="ghost" size="icon-sm" className="plan-workbook-expand" aria-label={label} aria-keyshortcuts="F" onClick={() => setExpanded(!expanded)}>{expanded ? <Minimize2 /> : <Maximize2 />}</Button></TooltipTrigger>
           <TooltipContent side="bottom" onEscapeKeyDown={event => { if (expanded) { event.preventDefault(); setExpanded(false); } }}>{label} <kbd className="plan-workbook-kbd">F</kbd></TooltipContent></Tooltip></div></div>
     <Tabs value={current} onValueChange={select} className="plan-workbook-tabs-root gap-0">

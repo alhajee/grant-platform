@@ -24,7 +24,7 @@ const currentPermission = (): AlertPermission => typeof window !== 'undefined' &
 function showBrowserAlerts(items: NotificationItem[], onOpen: (item: NotificationItem) => void) {
   if (currentPermission() !== 'granted') return;
   const alerts = items.length > MAX_ALERTS
-    ? [{ tag: `beapms-summary-${items[0].id}`, title: 'BEAPMS Portal', body: `You have ${items.length} new notifications.`, item: items[0] }]
+    ? [{ tag: `beapms-summary-${items[0].id}`, title: 'BEAPMS Portal', body: `You have ${items.length} new notifications`, item: items[0] }]
     : items.map(item => ({ tag: `beapms-${item.id}`, title: describeNotification(item).context, body: notificationText(item), item }));
   for (const alert of alerts) {
     try {

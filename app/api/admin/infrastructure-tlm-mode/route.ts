@@ -16,21 +16,21 @@ async function requireAdmin(request: NextRequest) {
 /** Super Admin: whether Infrastructure and TLM split their shared pool or draw from it first come, first served, for every state. */
 export async function GET(request: NextRequest) {
   try {
-    if (!await requireAdmin(request)) return json({ error: 'Super-admin access required.' }, 403);
+    if (!await requireAdmin(request)) return json({ error: 'Super-admin access required' }, 403);
     return json({ mode: await readInfrastructureTlmMode(getPostgres()) });
   } catch (cause) {
     console.error('Infrastructure and TLM budget setting could not be loaded', cause);
-    return json({ error: 'Unable to load the Infrastructure and TLM budget setting.' }, 503);
+    return json({ error: 'Unable to load the Infrastructure and TLM budget setting' }, 503);
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
     const actor = await requireAdmin(request);
-    if (!actor) return json({ error: 'Super-admin access required.' }, 403);
+    if (!actor) return json({ error: 'Super-admin access required' }, 403);
     const parsed = inputSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Choose a valid Infrastructure and TLM budget setting.' }, 400);
+    if (!parsed.success) return json({ error: 'Choose a valid Infrastructure and TLM budget setting' }, 400);
     const { mode } = parsed.data;
     await getPostgres().query(`
       INSERT INTO state_workflow_settings(state_code,beap_chair_submission_mode,infrastructure_tlm_mode,updated_by)
@@ -40,6 +40,6 @@ export async function PUT(request: NextRequest) {
     return json({ mode });
   } catch (cause) {
     console.error('Infrastructure and TLM budget setting could not be saved', cause);
-    return json({ error: 'Unable to save the Infrastructure and TLM budget setting.' }, 503);
+    return json({ error: 'Unable to save the Infrastructure and TLM budget setting' }, 503);
   }
 }

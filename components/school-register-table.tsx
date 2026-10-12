@@ -61,10 +61,10 @@ export function SchoolRegisterTable({ refreshKey, onEdit, onView, stateCode }: S
     fetch(schoolApiPath(`/api/schools?${query}`, stateCode), { cache: 'no-store', signal: controller.signal }).then(async response => {
       if (response.status === 401) { window.location.replace('/'); return; }
       const body = await response.json().catch(() => ({})) as RegisterPage & { error?: string };
-      if (!response.ok) throw Error(body.error || 'Unable to load the school register.');
+      if (!response.ok) throw Error(body.error || 'Unable to load the school register');
       if (body.page !== pagination.pageIndex + 1) setPagination(current => ({ ...current, pageIndex: body.page - 1 }));
       else setLoaded({ key, data: body });
-    }).catch((cause: unknown) => { if (!controller.signal.aborted) setLoaded({ key, error: cause instanceof Error ? cause.message : 'Unable to load the school register.' }); });
+    }).catch((cause: unknown) => { if (!controller.signal.aborted) setLoaded({ key, error: cause instanceof Error ? cause.message : 'Unable to load the school register' }); });
     return () => controller.abort();
   }, [key, query, pagination.pageIndex, stateCode]);
 
@@ -104,9 +104,9 @@ export function SchoolRegisterTable({ refreshKey, onEdit, onView, stateCode }: S
       const response = await fetch(schoolApiPath(`/api/schools?${params}`, stateCode), { cache: 'no-store' });
       if (response.status === 401) { window.location.replace('/'); return; }
       const body = await response.json().catch(() => ({})) as { ids?: number[]; error?: string };
-      if (!response.ok || !body.ids) throw Error(body.error || 'The matching schools could not be selected.');
+      if (!response.ok || !body.ids) throw Error(body.error || 'The matching schools could not be selected');
       toggle(body.ids, true);
-    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The matching schools could not be selected.'); }
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The matching schools could not be selected'); }
     finally { setSelectingAll(false); }
   };
   // Offer every matching school once the whole page is ticked and more match than are shown.
@@ -134,7 +134,7 @@ export function SchoolRegisterTable({ refreshKey, onEdit, onView, stateCode }: S
     </DropdownMenu></div> }),
   ]), [onEdit, onView, pageIds, pageTicked, selected, toggle, busy, exportSchools, confirmDelete]);
 
-  const empty = error ? 'The school register could not be loaded.' : filtered
+  const empty = error ? 'The school register could not be loaded' : filtered
     ? <div className="register-empty"><NoMatchingSchoolsArt /><p>No schools match your filters</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
     : <div className="register-empty"><EmptyRegisterArt /><p>No schools in the register yet</p></div>;
 

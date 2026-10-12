@@ -14,7 +14,7 @@ import type { EnvelopePlan } from '@/lib/funding-policy';
 // Also served at /api/activities/ict-allocation (side defaults to 'ict' there, as before).
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } });
 const body = z.object({
-  amount: z.string().regex(/^\d{1,12}(\.\d{1,2})?$/, 'Enter an amount with up to two decimal places.'),
+  amount: z.string().regex(/^\d{1,12}(\.\d{1,2})?$/, 'Enter an amount with up to two decimal places'),
   side: z.enum(splitSides).default('ict'),
 }).strict();
 
@@ -28,16 +28,16 @@ const proposedSql: Record<SplitSide, string> = {
 
 export async function PATCH(req: NextRequest) {
   try {
-    if (!isSameRequestOrigin(req)) return error('This request must come from the BEAPMS portal.', 403);
-    const user = await getWorkspaceState(req); if (!user) return error('Sign in to continue.', 401);
-    const plan = await resolveActionPlan(req, user.stateCode); if (!plan) return error('Plan not found.', 404);
+    if (!isSameRequestOrigin(req)) return error('This request must come from the BEAPMS portal', 403);
+    const user = await getWorkspaceState(req); if (!user) return error('Sign in to continue', 401);
+    const plan = await resolveActionPlan(req, user.stateCode); if (!plan) return error('Plan not found', 404);
     const parsed = body.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return error(parsed.error.issues[0].message);
     const { amount, side } = parsed.data;
     return await mutatePlan(user, plan, side, async db => {
       // Re-read the funding and the platform mode under mutatePlan's plan-row lock.
       const current = (await db.query<EnvelopePlan>(`SELECT ${planSetupFields()} FROM action_plans WHERE id=$1`, [plan.id])).rows[0];
-      if (!sideSplits(current, side)) return error('Infrastructure and TLM share one budget on this platform, so there is no split to set.', 409);
+      if (!sideSplits(current, side)) return error('Infrastructure and TLM share one budget on this platform, so there is no split to set', 409);
       const total = async (s: SplitSide) => (await db.query<{ total: string }>(proposedSql[s], [plan.id])).rows[0].total;
       const result = sharedSplit(current, side, amount, { own: await total(side), partner: await total(partnerOf(side)) });
       if (result.problem !== undefined) return error(result.problem, 409);

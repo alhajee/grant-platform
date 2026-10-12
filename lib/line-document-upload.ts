@@ -8,14 +8,14 @@ export const lineDocumentTypes: Record<string, string> = {
   xls: 'application/vnd.ms-excel',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 };
-export const lineDocumentTypeError = 'Upload a valid PDF or Excel (.xls or .xlsx) file.';
+export const lineDocumentTypeError = 'Upload a valid PDF or Excel (.xls or .xlsx) file';
 /** Optional supporting documents (migration 057) also take Word documents and photos. */
 export const supportingDocumentTypes: Record<string, string> = {
   ...lineDocumentTypes,
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
 };
-export const supportingDocumentTypeError = 'Upload a valid PDF, Excel (.xls or .xlsx), Word (.docx) or image (.png or .jpg) file.';
+export const supportingDocumentTypeError = 'Upload a valid PDF, Excel (.xls or .xlsx), Word (.docx) or image (.png or .jpg) file';
 
 export async function validLineDocument(ext: string, bytes: Buffer) {
   const hex = (n: number) => bytes.subarray(0, n).toString('hex');

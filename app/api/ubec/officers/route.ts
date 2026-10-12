@@ -20,9 +20,9 @@ const managedDepartments = (user: { role: string; department: string | null }) =
 export async function GET(request: NextRequest) {
   try {
     const user = await getWorkspaceState(request);
-    if (!user) return json({ error: 'Sign in to continue.' }, 401);
+    if (!user) return json({ error: 'Sign in to continue' }, 401);
     const departments = managedDepartments(user);
-    if (!departments.length) return json({ error: 'Only UBEC Directors and the UBEC BEAP Chair manage Assessment Officers.' }, 403);
+    if (!departments.length) return json({ error: 'Only UBEC Directors and the UBEC BEAP Chair manage Assessment Officers' }, 403);
     const db = getPostgres();
     const limits = (await readOfficerLimits(db)).filter(limit => departments.includes(limit.department));
     const officers = (await db.query(`SELECT u.id, u.full_name AS name, u.email, u.department, u.active,
@@ -30,25 +30,25 @@ export async function GET(request: NextRequest) {
       (SELECT COUNT(*)::int FROM ubec_officer_assignments oa WHERE oa.officer_id=u.id AND oa.completed_at IS NOT NULL) AS completed
       FROM users u WHERE u.role=$1 AND u.department=ANY($2::text[]) ORDER BY u.department, u.full_name`, [ubecRoles.officer, departments])).rows;
     return json({ officers, departments, limits, user: { name: user.name, role: user.role, department: user.department } });
-  } catch (cause) { console.error(cause); return json({ error: 'Unable to load Assessment Officers.' }, 503); }
+  } catch (cause) { console.error(cause); return json({ error: 'Unable to load Assessment Officers' }, 503); }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getWorkspaceState(request);
-    if (!session) return json({ error: 'Sign in to continue.' }, 401);
-    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
+    if (!session) return json({ error: 'Sign in to continue' }, 401);
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
     const parsed = create.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Enter a full name and a valid email address.' }, 400);
+    if (!parsed.success) return json({ error: 'Enter a full name and a valid email address' }, 400);
     return await getPostgres().transaction(async db => {
       const actor = await readActor(db, session);
-      if (!actor) return json({ error: 'Session expired.' }, 401);
+      if (!actor) return json({ error: 'Session expired' }, 401);
       const allowed = managedDepartments(actor);
       const department = parsed.data.department ?? (actor.role === ubecRoles.director ? actor.department : undefined);
-      if (!allowed.length) return json({ error: 'Only UBEC Directors and the UBEC BEAP Chair add Assessment Officers.' }, 403);
-      if (!department || !allowed.includes(department)) return json({ error: 'You can add officers to your own department only.' }, 403);
+      if (!allowed.length) return json({ error: 'Only UBEC Directors and the UBEC BEAP Chair add Assessment Officers' }, 403);
+      if (!department || !allowed.includes(department)) return json({ error: 'You can add officers to your own department only' }, 403);
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['admin:user-management']);
-      if ((await db.query('SELECT 1 FROM users WHERE email=$1', [parsed.data.email])).rowCount) return json({ error: 'An account already uses this email address.' }, 409);
+      if ((await db.query('SELECT 1 FROM users WHERE email=$1', [parsed.data.email])).rowCount) return json({ error: 'An account already uses this email address' }, 409);
       const full = await officerLimitProblem(db, department as ComponentDepartment);
       if (full) return json({ error: full }, 409);
       const password = `Ubec-${crypto.randomUUID()}!`;
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       return json({ id, email: parsed.data.email, password }, 201);
     });
   } catch (cause) {
-    if ((cause as { code?: string }).code === '23505') return json({ error: 'An account already uses this email address.' }, 409);
+    if ((cause as { code?: string }).code === '23505') return json({ error: 'An account already uses this email address' }, 409);
     console.error(cause); return json({ error: 'The officer could not be added. Please try again.' }, 503);
   }
 }

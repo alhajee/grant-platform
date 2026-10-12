@@ -36,10 +36,10 @@ export function useAdminMe() {
       const response = await fetch('/api/admin/me', { cache: 'no-store' });
       if (response.status === 401) { window.location.replace('/'); return null; }
       const body = await response.json().catch(() => ({})) as AdminMe & { error?: string };
-      if (!response.ok) throw Error(body.error || 'Unable to load the admin workspace.');
+      if (!response.ok) throw Error(body.error || 'Unable to load the admin workspace');
       setMe(body);
       return body;
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load the admin workspace.'); return null; }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load the admin workspace'); return null; }
   }, []);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   return { me, error, reload: load };

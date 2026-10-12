@@ -44,7 +44,7 @@ export function OfficerPicker({ component, officers, value, disabled, onChange }
         <Command>
           <CommandInput placeholder="Search officers…" />
           <CommandList>
-            <CommandEmpty>No officer matches your search.</CommandEmpty>
+            <CommandEmpty>No officer matches your search</CommandEmpty>
             <CommandGroup heading={`Default for ${component}`}>
               {officers.map(officer => {
                 const selected = value.includes(officer.id), label = officerLabel(officer.name);

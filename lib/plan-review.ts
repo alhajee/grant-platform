@@ -25,7 +25,7 @@ export type Snapshot = {
   setup?: import('./plan-setup').PlanSetup;
   infrastructure: { id: number; code: string; quantity: number; unit_cost: string; duration: number; rationale: string; strategy: string; longitude: string; latitude: string; school: School; construction: { name: string }; package?: import('./infrastructure-model').InfrastructurePackage;
     /** Timeline (migration 050); submissions saved before it have none. */
-    quarters?: number[] }[];
-  sports: { id: number; code: string; section: string; activity_type: string; description: string; quantity: number; unit_cost: string; quarters?: number[]; allocations: { id: number; quantity: number; longitude: string; latitude: string; school: School }[] }[];
+    quarters?: number[]; start_date?: string | null; due_date?: string | null }[];
+  sports: { id: number; code: string; section: string; activity_type: string; description: string; quantity: number; unit_cost: string; quarters?: number[]; start_date?: string | null; due_date?: string | null; allocations: { id: number; quantity: number; longitude: string; latitude: string; school: School }[] }[];
 };
 export type PlanReview = { visiblePillars: import('./beap-pillars').ImplementedPillar[]; plan: ActionPlan; role: string; department: string | null; departments: string[]; isBeapChair: boolean; beapChairSubmissionMode: import('./workflow-settings').BeapChairSubmissionMode; ubecSubmissionMode: import('./workflow-settings').UbecSubmissionMode; /** Whether supporting documents (ICT, Teacher Development, Infrastructure except land documents) are required before sending (migration 052). */ documentsRequired: boolean; snapshot: Snapshot; pillarReviews: import('./pillar-review').PillarReview[]; readyForExecutiveChairman: boolean; readyForUbec: boolean; selectedSubmission: number | null; submissions: { number: number; createdAt: string }[]; events: ReviewEvent[] };

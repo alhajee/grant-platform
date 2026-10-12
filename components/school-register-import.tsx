@@ -23,7 +23,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
 async function send(file: File, mode: 'preview' | 'commit', stateCode?: string) {
   const body = new FormData(); body.set('file', file);
   const response = await fetch(schoolApiPath(`/api/schools/import?mode=${mode}`, stateCode), { method: 'POST', body });
-  if (response.status === 401) { window.location.replace('/'); throw Error('Sign in to continue.'); }
+  if (response.status === 401) { window.location.replace('/'); throw Error('Sign in to continue'); }
   const result = await response.json().catch(() => ({})) as ImportResult & { error?: string };
   return { ok: response.ok, result };
 }
@@ -41,13 +41,13 @@ export function SchoolBulkUpload({ onImported, dialog = false, stateCode }: Scho
     if (mode === 'preview') { setChecked({ file, result: null }); setDone(null); }
     try {
       const { ok, result } = await send(file, mode, stateCode);
-      if (!ok && !result.rows) throw Error(result.error || 'The file could not be checked.');
-      if (mode === 'preview' || !ok) { setChecked({ file, result }); if (!ok) setError(result.error || 'No schools were added.'); return; }
+      if (!ok && !result.rows) throw Error(result.error || 'The file could not be checked');
+      if (mode === 'preview' || !ok) { setChecked({ file, result }); if (!ok) setError(result.error || 'No schools were added'); return; }
       setChecked(null); setDone(result);
       toast.success(result.created ? `${plural(result.created, 'school')} added to the register` : 'No new schools to add');
       onImported(result);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The file could not be checked.');
+      setError(cause instanceof Error ? cause.message : 'The file could not be checked');
       if (mode === 'preview') setChecked(null);
     } finally { pending.current = false; setBusy(null); }
   }
@@ -70,7 +70,7 @@ export function SchoolBulkUpload({ onImported, dialog = false, stateCode }: Scho
       <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 rounded-full" disabled={!!busy} onClick={reset} aria-label="Remove file"><XIcon /></Button>
     </div>}
     {error && <Alert variant="destructive"><AlertTitle>{checked ? 'Schools not added' : 'File not accepted'}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
-    {done && <Alert><CheckCircle2Icon /><AlertTitle>{done.created ? `${plural(done.created, 'school')} added` : 'No new schools added'}</AlertTitle><AlertDescription>{done.duplicates.length ? `${done.duplicates.length} already in the register ${done.duplicates.length === 1 ? 'was' : 'were'} skipped.` : 'Every school in the file was new.'}</AlertDescription></Alert>}
+    {done && <Alert><CheckCircle2Icon /><AlertTitle>{done.created ? `${plural(done.created, 'school')} added` : 'No new schools added'}</AlertTitle><AlertDescription>{done.duplicates.length ? `${done.duplicates.length} already in the register ${done.duplicates.length === 1 ? 'was' : 'were'} skipped.` : 'Every school in the file was new'}</AlertDescription></Alert>}
     {result && result.errorCount > 0 && <>
       <IssueTable title={`Rows with errors${result.errorCount > result.errors.length ? ` (first ${result.errors.length} of ${result.errorCount})` : ''}`} rows={result.errors.map(item => ({ row: item.row, name: item.name, detail: item.messages.join(' ') }))} />
       <p className="text-sm text-muted-foreground">Fix these rows in the file and upload it again. Nothing is added while any row has errors.</p>
@@ -92,7 +92,7 @@ function Dropzone({ onFile, onReject }: { onFile: (file: File) => void; onReject
   const input = useRef<HTMLInputElement>(null), [dragging, setDragging] = useState(false);
   function pick(files: File[]) {
     setDragging(false);
-    if (files.length !== 1) { onReject('Choose one file at a time.'); return; }
+    if (files.length !== 1) { onReject('Choose one file at a time'); return; }
     const [file] = files;
     if (!file.name.toLowerCase().endsWith('.xlsx') || !file.size || file.size > MAX_BYTES) { onReject('Choose a filled school list in .xlsx format, up to 5 MB.'); return; }
     onReject(''); onFile(file);

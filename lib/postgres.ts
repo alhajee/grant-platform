@@ -1,4 +1,8 @@
-import { Client, type QueryResultRow } from "pg";
+import { Client, types, type QueryResultRow } from "pg";
+
+// DATE columns (line start/due dates, migration 059) come back as "YYYY-MM-DD", not a local-midnight Date that
+// would shift a day when serialised in UTC.
+types.setTypeParser(types.builtins.DATE, (value: string) => value);
 
 export function getPostgres() {
   const connectionString = process.env.DATABASE_URL;

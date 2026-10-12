@@ -2,11 +2,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 // The state review chain as a small diagram, for plans that have no review steps yet.
 const STEPS = [
-  { label: ['Data', 'Entry'], tip: 'Data Entry Staff fill in each component and send it to their department Director.' },
-  { label: ['Director'], tip: 'The department Director reviews the component, then sends it to the BEAP Chair or asks for changes.' },
-  { label: ['BEAP', 'Chair'], tip: 'Every component comes together at the BEAP Chair, who sends it on to the Executive Chairman.' },
+  { label: ['Data', 'Entry'], tip: 'Data Entry Staff fill in each component and send it to their department Director' },
+  { label: ['Director'], tip: 'The department Director reviews the component, then sends it to the BEAP Chair or asks for changes' },
+  { label: ['BEAP', 'Chair'], tip: 'Every component comes together at the BEAP Chair, who sends it on to the Executive Chairman' },
   { label: ['Executive', 'Chairman'], tip: 'The SUBEB Executive Chairman checks the plan and sends it to UBEC.' },
-  { label: ['UBEC'], tip: 'UBEC departments review the plan; the Executive Secretary approves it or returns it with comments.' },
+  { label: ['UBEC'], tip: 'UBEC departments review the plan; the Executive Secretary approves it or returns it with comments' },
 ] as const;
 const WIDTH = 300, HEIGHT = 92, NODE_Y = 26, RADIUS = 13, MARGIN = 26;
 const GAP = (WIDTH - MARGIN * 2) / (STEPS.length - 1);

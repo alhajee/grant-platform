@@ -24,17 +24,17 @@ export async function GET(request: NextRequest) {
     return json({ status: await readSyncStatus(getPostgres()) });
   } catch (cause) {
     console.error('DNEMIS sync status could not be loaded', cause instanceof Error ? cause.message : 'unknown error');
-    return json({ error: 'Unable to load the DNEMIS sync status.' }, 503);
+    return json({ error: 'Unable to load the DNEMIS sync status' }, 503);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
     const auth = await requireSuperAdmin(request);
     if (auth.error) return auth.error;
     const parsed = startSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Unknown action.' }, 400);
+    if (!parsed.success) return json({ error: 'Unknown action' }, 400);
     const db = getPostgres();
     let config;
     try { config = await getDnemisConfig(db); }
@@ -42,35 +42,35 @@ export async function POST(request: NextRequest) {
       if (cause instanceof SecretBoxDecryptError || cause instanceof SecretBoxConfigError) return json({ error: 'The saved access token can no longer be read. Enter the token again.' }, 409);
       throw cause;
     }
-    if (!config?.token || !config.enabled) return json({ error: 'Turn on the DNEMIS connection and save an access token first.' }, 409);
+    if (!config?.token || !config.enabled) return json({ error: 'Turn on the DNEMIS connection and save an access token first' }, 409);
     let runId: number;
     try { runId = await queueSync(db, auth.actor.name, parsed.data.states ? [...new Set(parsed.data.states)].sort().join(',') : 'all'); }
     catch (cause) {
-      if (cause instanceof DnemisSyncBusyError) return json({ error: 'A DNEMIS sync is already running.', status: await readSyncStatus(db) }, 409);
+      if (cause instanceof DnemisSyncBusyError) return json({ error: 'A DNEMIS sync is already running', status: await readSyncStatus(db) }, 409);
       throw cause;
     }
     if (!await dispatchToWorker(runId)) after(runQueuedSync(db, runId));
     return json({ status: await readSyncStatus(db) }, 202);
   } catch (cause) {
     console.error('DNEMIS sync could not start', cause instanceof Error ? cause.message : 'unknown error');
-    return json({ error: 'Unable to start the DNEMIS sync.' }, 503);
+    return json({ error: 'Unable to start the DNEMIS sync' }, 503);
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
     const auth = await requireSuperAdmin(request);
     if (auth.error) return auth.error;
     const parsed = syncScheduleSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Choose how often and when to refresh.' }, 400);
+    if (!parsed.success) return json({ error: 'Choose how often and when to refresh' }, 400);
     const { mode, weekday, time } = parsed.data;
     const saved = (await getPostgres().query(`UPDATE integration_settings SET sync_schedule = $1, sync_weekday = $2, sync_time = $3, sync_schedule_updated_at = NOW()
       WHERE provider = 'dnemis' RETURNING 1`, [mode, weekday, time])).rowCount;
-    if (!saved) return json({ error: 'Save the DNEMIS connection first.' }, 409);
+    if (!saved) return json({ error: 'Save the DNEMIS connection first' }, 409);
     return json({ status: await readSyncStatus(getPostgres()) });
   } catch (cause) {
     console.error('DNEMIS schedule could not be saved', cause instanceof Error ? cause.message : 'unknown error');
-    return json({ error: 'Unable to save the refresh schedule.' }, 503);
+    return json({ error: 'Unable to save the refresh schedule' }, 503);
   }
 }

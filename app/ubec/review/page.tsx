@@ -43,7 +43,7 @@ export default function UbecReviewPage() {
       const result = await response.json() as UbecDetail & { error?: string };
       if (!response.ok) throw new Error(result.error);
       if (ticket === requestId.current) { setData(result); setSelected(value); }
-    } catch (cause) { if (ticket === requestId.current) setError(cause instanceof Error ? cause.message : 'Unable to load review.'); }
+    } catch (cause) { if (ticket === requestId.current) setError(cause instanceof Error ? cause.message : 'Unable to load review'); }
     finally { if (ticket === requestId.current) setLoading(false); }
   }, []);
   useEffect(() => { void Promise.resolve().then(() => load()); }, [load]);
@@ -90,7 +90,7 @@ export default function UbecReviewPage() {
       </div>
       {error && <Alert variant="destructive"><AlertTitle>Review unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Retry</Button></AlertDescription></Alert>}
       {loading && !data ? <div className="plan-page-loading"><Skeleton className="h-36 w-full rounded-3xl" /><Skeleton className="h-64 w-full rounded-3xl" /></div> : data && round && flow && !error && <>
-        {!current && <Alert><AlertTitle>Earlier submission</AlertTitle><AlertDescription>This submission is read-only.</AlertDescription></Alert>}
+        {!current && <Alert><AlertTitle>Earlier submission</AlertTitle><AlertDescription>This submission is read-only</AlertDescription></Alert>}
         {admin && <Alert className="ubec-role-note"><AlertTitle>Super Admin view</AlertTitle><AlertDescription>You can assign, remove or reassign Assessment Officers on components still with their Director, with the same rules as the Director. Every other step belongs to the UBEC review roles.</AlertDescription></Alert>}
         {role === ubecRoles.es && <Alert className="ubec-role-note"><AlertTitle>Supervisory view</AlertTitle><AlertDescription>You can see every component, stage and comment. Workflow steps are taken by the UBEC BEAP Chair, Directors, Oversight Directors and Assessment Officers.</AlertDescription></Alert>}
         {round.decision && <Alert className="ubec-decision-note" data-status={round.status}><AlertTitle>{round.status === 'returned' ? 'Returned to the SUBEB' : 'UBEC decision'}</AlertTitle><AlertDescription className="review-comment">{round.decision}</AlertDescription></Alert>}
@@ -99,10 +99,10 @@ export default function UbecReviewPage() {
           <h2 id="ubec-components-title" className="plan-section-title plan-glance-head">Components</h2>
           <section className="plan-components plan-glance-main" aria-labelledby="ubec-components-title">
             {cards.length ? <UbecComponentCards components={cards} planTotal={totals?.total.budget ?? 0} comments={comments} stepsFor={stepsFor} onView={pillar => { window.location.hash = `ubec-${pillar}`; setTab(pillar); }} />
-              : <UbecEmpty art={<PipelineIdleArt />} title="No components to show">Nothing in this submission has reached you.</UbecEmpty>}
+              : <UbecEmpty art={<PipelineIdleArt />} title="No components to show">Nothing in this submission has reached you</UbecEmpty>}
             {chair && current && <div className="workflow-bar ubec-chair-bar">
-              {round.status === 'received' ? <><p><strong>Review the submission, then release it to the UBEC departments.</strong>{pillars.length} components go to {new Set(pillars.map(p => pillarDepartments[p])).size} departments.</p><Button className="rounded-full" disabled={!can?.release} onClick={() => setRequest({ kind: 'release' })}><SendIcon data-icon="inline-start" />Release to UBEC departments</Button></>
-                : round.status === 'reviewing' ? <><p><strong>{arrived} of {released.length} components have reached you.</strong>{flow.allArrived ? flow.approvable ? 'Every item is accepted.' : 'Some items are rejected or undecided, so the plan can only be returned.' : 'Approve or return once every component has finished oversight.'}</p>
+              {round.status === 'received' ? <><p><strong>Review the submission, then release it to the UBEC departments</strong>{pillars.length} components go to {new Set(pillars.map(p => pillarDepartments[p])).size} departments.</p><Button className="rounded-full" disabled={!can?.release} onClick={() => setRequest({ kind: 'release' })}><SendIcon data-icon="inline-start" />Release to UBEC departments</Button></>
+                : round.status === 'reviewing' ? <><p><strong>{arrived} of {released.length} components have reached you.</strong>{flow.allArrived ? flow.approvable ? 'Every item is accepted' : 'Some items are rejected or undecided, so the plan can only be returned' : 'Approve or return once every component has finished oversight'}</p>
                   <span className="ubec-chair-actions"><Button variant="outline" className="rounded-full" disabled={!can?.decide} onClick={() => setRequest({ kind: 'return' })}><CornerDownLeftIcon data-icon="inline-start" />Return to SUBEB</Button><Button className="rounded-full" disabled={!can?.decide || !flow.approvable} onClick={() => setRequest({ kind: 'approve' })}><CheckIcon data-icon="inline-start" />Approve action plan</Button></span></>
                 : <p><strong>{nationalStatusLabels[round.status]}.</strong>The SUBEB {round.status === 'returned' ? 'revises and resubmits the plan.' : 'has been notified.'}</p>}
             </div>}
@@ -118,7 +118,7 @@ export default function UbecReviewPage() {
 
         <section id="ubec-assessment" className="ubec-assessment" aria-labelledby="ubec-assessment-title">
           <h2 id="ubec-assessment-title" className="plan-section-title">Item assessment</h2>
-          {!released.length ? <Card><CardContent><UbecEmpty art={<NotReleasedArt />} title="Not released yet">{chair ? 'Add your comment and release the plan to the UBEC departments to start the assessment.' : 'The UBEC BEAP Chair releases the plan to the departments first.'}</UbecEmpty></CardContent></Card>
+          {!released.length ? <Card><CardContent><UbecEmpty art={<NotReleasedArt />} title="Not released yet">{chair ? 'Add your comment and release the plan to the UBEC departments to start the assessment' : 'The UBEC BEAP Chair releases the plan to the departments first'}</UbecEmpty></CardContent></Card>
             : <Tabs value={activeTab} onValueChange={value => { setTab(value); history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#ubec-${value}`); }}>
               <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs ubec-assessment-tabs">{released.map(c => <TabsTrigger key={c.pillar} value={c.pillar}>{componentName(c.pillar)}{c.counts.rejected > 0 && <Badge variant="destructive" className="ml-1">{c.counts.rejected}</Badge>}</TabsTrigger>)}</TabsList></div>
               {released.map(c => <TabsContent key={c.pillar} value={c.pillar} className="ubec-assessment-panel">
@@ -149,19 +149,19 @@ function ComponentPeople({ component, planId, roundId, canComplete, canRemove, o
     try {
       const response = await fetch(`/api/ubec/components?plan=${planId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unassign_officer', roundId, pillar: component.pillar, assignmentId }) });
       const result = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(result.error || 'The officer could not be removed.');
+      if (!response.ok) throw new Error(result.error || 'The officer could not be removed');
       toast.success(`${name} removed from ${componentName(component.pillar)}`); onChanged();
-    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The officer could not be removed.'); }
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The officer could not be removed'); }
     finally { setRemoving(null); }
   }
   const notes = [
-    ...component.officers.map(o => ({ key: `o${o.id}`, who: o.officerName, role: 'Assessment Officer', text: o.completedAt ? o.completionNote || 'Assessment complete.' : o.assignedByName === defaultAssignerName ? o.comment : `Assigned by ${o.assignedByName}: ${o.comment}`, done: !!o.completedAt, remove: canRemove && !o.completedAt ? () => void remove(o.id, o.officerName) : null, busy: removing === o.id })),
+    ...component.officers.map(o => ({ key: `o${o.id}`, who: o.officerName, role: 'Assessment Officer', text: o.completedAt ? o.completionNote || 'Assessment complete' : o.assignedByName === defaultAssignerName ? o.comment : `Assigned by ${o.assignedByName}: ${o.comment}`, done: !!o.completedAt, remove: canRemove && !o.completedAt ? () => void remove(o.id, o.officerName) : null, busy: removing === o.id })),
     ...(component.directorComment ? [{ key: 'd', who: component.directorName ?? 'Director', role: `Director, ${departmentName(component.department)}`, text: component.directorComment, done: true, remove: null, busy: false }] : []),
-    ...component.oversight.map(o => ({ key: o.department, who: o.reviewerName, role: `Director ${departmentName(o.department)}`, text: o.note || 'Observations done.', done: true, remove: null, busy: false })),
+    ...component.oversight.map(o => ({ key: o.department, who: o.reviewerName, role: `Director ${departmentName(o.department)}`, text: o.note || 'Observations done', done: true, remove: null, busy: false })),
   ];
   return <div className="ubec-people">
     {notes.length ? <ul>{notes.map(n => <li key={n.key} data-done={n.done || undefined}><strong>{n.who}</strong><small>{n.role}</small><p>{n.text}</p>
-      {n.remove && <Button variant="ghost" size="sm" className="ubec-people-remove" disabled={removing !== null} onClick={n.remove} aria-label={`Remove ${n.who} from ${componentName(component.pillar)}`}>{n.busy ? <Spinner data-icon="inline-start" /> : <UserMinusIcon data-icon="inline-start" />}Remove</Button>}</li>)}</ul> : <p className="ubec-people-empty">No Assessment Officer assigned yet.</p>}
+      {n.remove && <Button variant="ghost" size="sm" className="ubec-people-remove" disabled={removing !== null} onClick={n.remove} aria-label={`Remove ${n.who} from ${componentName(component.pillar)}`}>{n.busy ? <Spinner data-icon="inline-start" /> : <UserMinusIcon data-icon="inline-start" />}Remove</Button>}</li>)}</ul> : <p className="ubec-people-empty">No Assessment Officer assigned yet</p>}
     {canComplete && <Button className="rounded-full" onClick={onComplete}><CheckIcon data-icon="inline-start" />Complete assessment</Button>}
   </div>;
 }

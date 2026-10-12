@@ -1,0 +1,25 @@
+.activity-selection-form { display: grid; gap: 16px; min-width: 0; }
+.activity-selection-scroll { max-height: min(56vh, 560px); margin-inline: -4px; }
+.activity-selection-sets { display: grid; gap: 20px; padding: 2px 4px; }
+.activity-selection-sets fieldset { gap: 8px; }
+.activity-choice [data-slot=field] { align-items: flex-start; gap: 12px; padding: 12px 14px; }
+.activity-choice [data-slot=field][data-disabled] [data-slot=checkbox] { opacity: .7; }
+.activity-choice-info { font-size: 12px; }
+.activity-choice-note, .activity-choice-over { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.activity-choice-note svg, .activity-choice-over svg { width: 14px; height: 14px; flex: none; }
+.activity-choice-over { color: var(--destructive); }
+.activity-choice-share { display: grid; justify-items: end; align-content: start; gap: 2px; flex: none; width: 132px; text-align: right; }
+.activity-choice-share small { color: var(--muted-foreground); font-size: 11px; line-height: 1.3; }
+.activity-choice-percent { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.activity-choice-percent[data-off] { color: var(--muted-foreground); font-weight: 400; }
+.activity-selection-coverage { display: grid; gap: 8px; font-size: 13px; }
+.activity-selection-coverage > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; color: var(--muted-foreground); }
+.activity-selection-coverage strong { color: var(--foreground); }
+.activity-selection-summary { margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.activity-selection-summary > div { display: grid; gap: 2px; min-width: 0; font-size: 13px; }
+.activity-selection-summary span { color: var(--muted-foreground); font-size: 12px; }
+@media (max-width: 560px) {
+  .activity-choice [data-slot=field] { flex-wrap: wrap; }
+  .activity-choice-share { justify-items: start; text-align: left; min-width: 0; width: 100%; padding-left: 28px; }
+}
+.activity-choice [data-slot=field][data-disabled] [data-slot=field-label] { opacity: 1; }

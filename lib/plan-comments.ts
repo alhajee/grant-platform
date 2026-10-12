@@ -27,7 +27,7 @@ const activityColumns = { activity: 'Allowable activity', code: 'Code', descript
 const activityTail = { strategy: 'Strategy', target: 'Target group', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' };
 export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   infrastructure: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', type: 'Project type', code: 'Code', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', scope: 'Components', learners: 'Learners', strategy: 'Strategy', duration: 'Duration' },
-  sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Sport / sub-activity', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty.' },
+  sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Sport / sub-activity', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty' },
   sbmc: { ...activityColumns, rationale: 'Rationale', approach: 'Implementation approach', ...activityTail },
   tlm: { ...activityColumns, material: 'Material type', subject: 'Subject', classes: 'Classes', ...activityTail },
   distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
@@ -36,7 +36,7 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   gscciDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
   curriculum: { ...activityColumns, share: 'Activity share', ...activityTail },
   curriculumDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
-  quality: { ...activityColumns, equipment: 'Equipment type', ...activityTail },
+  quality: { ...activityColumns, equipment: 'Equipment', ...activityTail },
   ict: { ...activityColumns, details: 'Details', schools: 'Schools', documents: 'Documents', ...activityTail },
   teachers: { activity: 'Allowable activity', code: 'Code', provider: 'Training provider', participants: 'Target participants', levels: 'School level', days: 'Training days', venue: 'Venue', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' },
   planning: { ...activityColumns, ...activityTail },
@@ -99,14 +99,14 @@ export function ubecAbilities(visible: boolean, open: boolean, role = ''): Comme
 }
 export const displayRole = (role: string, isBeapChair?: boolean) => role === 'Director' && isBeapChair ? 'BEAP Chair' : role;
 
-const body = z.string().trim().min(1, 'Write a comment first.').max(commentBodyLimit, `Keep comments to ${commentBodyLimit.toLocaleString()} characters or fewer.`);
+const body = z.string().trim().min(1, 'Write a comment first').max(commentBodyLimit, `Keep comments to ${commentBodyLimit.toLocaleString()} characters or fewer`);
 export const createCommentSchema = z.union([
-  z.object({ sheet: z.enum(commentSheets), rowRef: z.string().regex(/^-?[1-9]\d{0,17}$/, 'Choose a row in the workbook.'), columnId: z.string().regex(/^[a-zA-Z]{1,40}$/).nullable(), body }).strict(),
+  z.object({ sheet: z.enum(commentSheets), rowRef: z.string().regex(/^-?[1-9]\d{0,17}$/, 'Choose a row in the workbook'), columnId: z.string().regex(/^[a-zA-Z]{1,40}$/).nullable(), body }).strict(),
   z.object({ parentId: z.number().int().positive(), body }).strict(),
 ]);
 export const updateCommentSchema = z.object({ id: z.number().int().positive(), action: z.enum(['resolve', 'reopen']) }).strict();
 /** UBEC threads the UBEC BEAP Chair ticks in the return dialog (app/api/ubec/review/route.ts). */
-export const shareCommentIdsSchema = z.array(z.number().int().positive()).max(500).refine(ids => new Set(ids).size === ids.length, 'Choose each comment once.');
+export const shareCommentIdsSchema = z.array(z.number().int().positive()).max(500).refine(ids => new Set(ids).size === ids.length, 'Choose each comment once');
 
 export type PlanCommentReply = { id: number; body: string; authorName: string; authorRole: string; createdAt: string; mine: boolean };
 export type PlanCommentThread = PlanCommentReply & {

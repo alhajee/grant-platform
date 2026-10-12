@@ -26,7 +26,7 @@ export function PlanSetupSummary({ setup, compact = false }: { setup: Partial<Pl
       <section className="plan-funding-snapshot" aria-label="Funding summary">
         <dl>{[
           { label: 'Total funding', value: amount(setup.fundingTotal), Icon: BanknoteIcon, primary: true },
-          { label: 'State contribution', value: amount(setup.stateLodgment), Icon: LandmarkIcon },
+          { label: 'State counterpart fund', value: amount(setup.stateLodgment), Icon: LandmarkIcon },
           { label: 'UBEC match', value: amount(setup.stateLodgment), Icon: RefreshCwIcon },
           { label: 'Other funding', value: amount(otherFundingTotal(setup)), Icon: WalletCardsIcon, info: true },
         ].map(({ label, value, Icon, primary, info }) => <div key={label} data-primary={primary || undefined}><span className="plan-source-icon"><Icon aria-hidden="true" /></span><div><dt>{label}{info && <OtherFundingInfo setup={setup} />}</dt><dd>{value}</dd></div></div>)}</dl>
@@ -41,7 +41,7 @@ export function PlanSetupSummary({ setup, compact = false }: { setup: Partial<Pl
   return <Card><CardHeader><CardTitle>Plan details</CardTitle><CardDescription>{setup.beapName}</CardDescription></CardHeader><CardContent className="flex flex-col gap-4">
     <dl className="grid grid-cols-2 gap-4 text-sm lg:grid-cols-5">{[
       ['Implementation year', setup.implementationYear],
-      ['State contribution', money.format(Number(setup.stateLodgment))],
+      ['State counterpart fund', money.format(Number(setup.stateLodgment))],
       ['UBEC match', money.format(Number(setup.stateLodgment))],
       ['Other funding', <>{money.format(Number(otherFundingTotal(setup)))}<OtherFundingInfo setup={setup} /></>],
       ['Total funding', money.format(Number(setup.fundingTotal))],

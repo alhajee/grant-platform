@@ -14,7 +14,7 @@ export type SchoolBulkBarProps = { ids: number[]; actions: SchoolActions; onClea
 const plural = (count: number, one: string, many = `${one}s`) => `${count.toLocaleString()} ${count === 1 ? one : many}`;
 
 async function failure(response: Response, fallback: string) {
-  if (response.status === 401) { window.location.replace('/'); return 'Sign in to continue.'; }
+  if (response.status === 401) { window.location.replace('/'); return 'Sign in to continue'; }
   const body = await response.json().catch(() => ({})) as { error?: string };
   return body.error || fallback;
 }
@@ -38,9 +38,9 @@ export function useSchoolActions({ onDeleted, stateCode }: { onDeleted: (result:
     setBusy('export');
     try {
       const response = await request('/api/schools/export', 'POST', ids);
-      if (!response.ok) throw Error(await failure(response, 'The schools could not be exported.'));
+      if (!response.ok) throw Error(await failure(response, 'The schools could not be exported'));
       download(await response.blob(), response);
-    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The schools could not be exported.'); }
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The schools could not be exported'); }
     finally { setBusy(null); }
   }
 
@@ -48,13 +48,13 @@ export function useSchoolActions({ onDeleted, stateCode }: { onDeleted: (result:
     setBusy('delete');
     try {
       const response = await request('/api/schools', 'DELETE', ids);
-      if (!response.ok) throw Error(await failure(response, 'The schools could not be deleted.'));
+      if (!response.ok) throw Error(await failure(response, 'The schools could not be deleted'));
       const result = await response.json() as SchoolDeleteResult;
       const kept = result.kept.length ? `${plural(result.kept.length, 'school')} used in a plan ${result.kept.length === 1 ? 'was' : 'were'} kept: ${result.kept.slice(0, 3).map(item => item.name).join(', ')}${result.kept.length > 3 ? '…' : ''}` : undefined;
       if (result.deleted) toast.success(`${plural(result.deleted, 'school')} deleted`, { description: kept });
       else toast.warning('No schools deleted', { description: kept });
       setPending(null); onDeleted(result);
-    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The schools could not be deleted.'); }
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The schools could not be deleted'); }
     finally { setBusy(null); }
   }
 

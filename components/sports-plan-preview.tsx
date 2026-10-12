@@ -42,7 +42,7 @@ type BudgetPreviewProps = {
 };
 
 const sameType = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-const panelLine = (line: SportsLine): PanelLine => ({ id: line.id, label: line.description, description: line.description, code: line.section === "equipment" ? line.code : undefined, quarters: line.quarters, quantity: line.quantity, unitCost: line.unitCost });
+const panelLine = (line: SportsLine): PanelLine => ({ id: line.id, label: line.description, description: line.description, code: line.section === "equipment" ? line.code : undefined, quarters: line.quarters, startDate: line.startDate, dueDate: line.dueDate, quantity: line.quantity, unitCost: line.unitCost });
 
 /** The sports budget beside the form: one section per UBEC budget section, grouped by sport or sub-activity. */
 export function SportsBudgetPreview({ plan, disabled, selectedSection, selectedType, editingId, dirtyId, flashId, mode, onShowAll, query, onEdit, onRemove, onSaveCell, onStart }: BudgetPreviewProps) {
@@ -52,7 +52,7 @@ export function SportsBudgetPreview({ plan, disabled, selectedSection, selectedT
   const matching = needle ? plan.lines.filter((line) => `${line.description} ${line.activityType} ${line.code}`.toLowerCase().includes(needle)) : plan.lines;
   const target = (id: number): SportsTarget | null => { const item = plan.lines.find((line) => line.id === id); return item ? { entity: "budget", item } : null; };
   const table = (lines: SportsLine[], itemLabel: string) => <LineTable lines={lines.map(panelLine)} itemLabel={itemLabel} editable={!disabled} describe
-    lockReason={(id) => id === dirtyId ? "Save or cancel the changes in the form first." : null} actionsDisabled={disabled} selectedId={editingId} flashId={flashId}
+    lockReason={(id) => id === dirtyId ? "Save or cancel the changes in the form first" : null} actionsDisabled={disabled} selectedId={editingId} flashId={flashId}
     onSave={onSaveCell} onEdit={(id) => { const t = target(id); if (t) onEdit(t); }} onRemove={(id) => { const t = target(id); if (t) onRemove(t); }} />;
   const section = (item: typeof sportsSections[number]) => {
     const lines = matching.filter((line) => line.section === item.id), selected = item.id === selectedSection;
@@ -82,7 +82,7 @@ export function SportsBudgetPreview({ plan, disabled, selectedSection, selectedT
     {has(selectedSection) ? section(chosen) : !needle && <div className="line-empty-group">{emptyRow(chosen)}</div>}
     {sportsSections.filter((item) => item.id !== selectedSection && has(item.id)).map(section)}
     {!needle && empty.some((item) => item.id !== selectedSection) && <div className="line-empty-group" role="group" aria-label="Sections without lines"><h3>No lines yet</h3>{empty.filter((item) => item.id !== selectedSection).map(emptyRow)}</div>}
-    {needle && !matching.length && <p className="line-focus-empty">No sports lines match your search.</p>}
+    {needle && !matching.length && <p className="line-focus-empty">No sports lines match your search</p>}
   </>;
 }
 

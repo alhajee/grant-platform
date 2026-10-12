@@ -42,9 +42,9 @@ export function ItemAssessment({ planId, roundId, pillar, stage, snapshot, decis
     try {
       const response = await fetch(`/api/ubec/decisions?plan=${planId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roundId, pillar, rowRef, decision, note: reason }) });
       const result = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(result.error || 'The decision could not be saved.');
+      if (!response.ok) throw new Error(result.error || 'The decision could not be saved');
       setRejecting(null); await onChanged();
-    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The decision could not be saved.'); }
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The decision could not be saved'); }
     finally { setBusy(null); }
   }
   // View: open the component's sheet in the workbook. Comment: also open a new thread on the row there.
@@ -56,7 +56,7 @@ export function ItemAssessment({ planId, roundId, pillar, stage, snapshot, decis
 
   return <Card className="ubec-items" id={`ubec-${pillar}`}>
     <CardHeader className="ubec-items-head">
-      <div><CardTitle><h3>{componentName(pillar)}</h3></CardTitle><CardDescription>{canDecide ? 'Accept or reject each item, comment where needed, then complete your assessment.' : 'Item decisions by the Assessment Officers.'}</CardDescription></div>
+      <div><CardTitle><h3>{componentName(pillar)}</h3></CardTitle><CardDescription>{canDecide ? 'Accept or reject each item, comment where needed, then complete your assessment' : 'Item decisions by the Assessment Officers'}</CardDescription></div>
       <StagePill stage={stage} />
     </CardHeader>
     <CardContent>

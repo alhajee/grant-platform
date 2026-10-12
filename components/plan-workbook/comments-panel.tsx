@@ -68,6 +68,6 @@ function EmptyComments({ resolved, source, canStart }: { resolved: boolean; sour
   return <div className="wb-comments-empty">
     <CommentCellArt label={caption} resolved={resolved} />
     <p>{caption}</p>
-    {canStart && <p>Right-click a cell and choose Comment.</p>}
+    {canStart && <p>Right-click a cell and choose Comment</p>}
   </div>;
 }

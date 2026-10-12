@@ -84,7 +84,7 @@ try {
   assert.equal(ok(await api('chair', `/api/schools/options?state=${adminState}`)).stateName, marker);
   ok(await api('chair', `/api/schools?state=${adminState}`, { ...adminSchool, lga: adminLga, id: adminCreated.id }, 'PATCH'), 404);
   assert.deepEqual(ok(await api('chair', `/api/schools?state=${adminState}`, { ids: [adminCreated.id] }, 'DELETE')), { deleted: 0, kept: [] });
-  assert.equal(ok(await api('chair', `/api/schools/export?state=${adminState}`, { ids: [adminCreated.id] }), 404).error, 'None of the selected schools are in your state register.');
+  assert.equal(ok(await api('chair', `/api/schools/export?state=${adminState}`, { ids: [adminCreated.id] }), 404).error, 'None of the selected schools are in your state register');
   ok(await api('officer', `/api/schools?state=${adminState}`), 403);
 
   ok(await api('admin', `/api/schools?state=${adminState}`, { ids: [adminCreated.id] }, 'DELETE', { origin: false }), 403);
@@ -180,7 +180,7 @@ try {
   ok(await api('chair', '/api/schools/export', { ids: [seeded[0]] }, 'POST', { origin: false }), 403);
   ok(await api('director', '/api/schools/export', { ids: [seeded[0]] }), 403);
   ok(await api('chair', '/api/schools/export', { ids: [] }), 400);
-  assert.equal(ok(await api('chair', '/api/schools/export', { ids: [foreignSchool] }), 404).error, 'None of the selected schools are in your state register.');
+  assert.equal(ok(await api('chair', '/api/schools/export', { ids: [foreignSchool] }), 404).error, 'None of the selected schools are in your state register');
   const exported = await api('chair', '/api/schools/export', { ids: [seeded[0], foreignSchool, committed.schools[0].id] });
   ok(exported); assert.match(exported.type, /spreadsheetml/);
   const exportBook = new ExcelJS.Workbook(); await exportBook.xlsx.load(exported.data);

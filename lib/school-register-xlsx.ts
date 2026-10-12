@@ -88,14 +88,14 @@ export async function buildSchoolTemplate(stateName: string, lgas: string[], sch
   const rows: [string, string][] = [
     ['School register template', stateName],
     ['How to use', `Enter one school per row on the Schools sheet, starting on row ${firstDataRow}. Keep the header rows unchanged. Lists in the same layout (for example "TLMs list 2025") can be uploaded as they are.`],
-    ['Required', 'School name, LGA, Type of school (Public or Private) and Location (Urban or Rural).'],
-    ['Optional', 'Longitude, Latitude, Town, enrolment by class, Level and School code (EMIS/DNEMIS).'],
+    ['Required', 'School name, LGA, Type of school (Public or Private) and Location (Urban or Rural)'],
+    ['Optional', 'Longitude, Latitude, Town, enrolment by class, Level and School code (EMIS/DNEMIS)'],
     ['Level', 'ECCDE, Primary or JSS. If left blank it is worked out from the classes with learners (Primary when Primary classes are filled).'],
     ['Coordinates', 'Decimal degrees, for example Longitude 11.9608 and Latitude 11.7469. Longitude comes first.'],
     ['Enrolment', 'Enter male and female learners for each class. The Total columns add up automatically.'],
     ['Errors', 'Every row is checked first. If any row has an error, nothing is added until the file is corrected.'],
-    ['Duplicates', 'A school already in the register (same school code, or same name, LGA and level) is skipped.'],
-    ['S/N', 'Optional row number for your own reference; it is not saved.'],
+    ['Duplicates', 'A school already in the register (same school code, or same name, LGA and level) is skipped'],
+    ['S/N', 'Optional row number for your own reference; it is not saved'],
   ];
   rows.forEach(([label, value], index) => { const row = guide.getRow(index + 1); row.getCell(1).value = label; row.getCell(2).value = value; row.getCell(1).font = { bold: true }; row.getCell(2).alignment = { wrapText: true }; });
   // Allowed values sit in hidden columns of the Guide sheet so the dropdowns can reference them.
@@ -120,7 +120,7 @@ export async function buildSchoolTemplate(stateName: string, lgas: string[], sch
     const row = sheet.getRow(rowNumber);
     for (const [key, index, length] of validations) {
       if (key === 'lga' && !lgas.length) continue;
-      row.getCell(column[key]).dataValidation = { type: 'list', allowBlank: true, formulae: [listRange(index, length)], showErrorMessage: true, errorTitle: 'Choose from the list', error: 'Choose one of the listed values.' };
+      row.getCell(column[key]).dataValidation = { type: 'list', allowBlank: true, formulae: [listRange(index, length)], showErrorMessage: true, errorTitle: 'Choose from the list', error: 'Choose one of the listed values' };
     }
     const totals: string[] = [];
     schoolClasses.forEach((_, index) => {
@@ -137,7 +137,7 @@ export async function buildSchoolTemplate(stateName: string, lgas: string[], sch
 // ExcelJS expects unprefixed spreadsheet elements; some tools write valid x: prefixes (same fix as spreadsheet-preview).
 async function normalisedWorkbook(bytes: ArrayBuffer) {
   const archive = await JSZip.loadAsync(bytes);
-  if (!archive.file('xl/workbook.xml')) throw new SchoolImportError('Upload the school template as an Excel (.xlsx) workbook.');
+  if (!archive.file('xl/workbook.xml')) throw new SchoolImportError('Upload the school template as an Excel (.xlsx) workbook');
   archive.remove('docProps/app.xml'); archive.remove('docProps/core.xml');
   for (const [name, entry] of Object.entries(archive.files)) {
     if (!name.startsWith('xl/') || !name.endsWith('.xml')) continue;
@@ -176,7 +176,7 @@ export async function readSchoolRows(bytes: ArrayBuffer): Promise<ParsedSchoolRo
   let workbook: ExcelJS.Workbook;
   try { workbook = await normalisedWorkbook(bytes); } catch (cause) { if (cause instanceof SchoolImportError) throw cause; throw new SchoolImportError('The file could not be read. Save it as an Excel (.xlsx) workbook and try again.'); }
   const sheet = workbook.worksheets.find(item => /school/i.test(item.name) && item.rowCount > 0) ?? workbook.worksheets[0];
-  if (!sheet) throw new SchoolImportError('The workbook has no sheets.');
+  if (!sheet) throw new SchoolImportError('The workbook has no sheets');
   let headerRow = 0;
   for (let rowNumber = 1; rowNumber <= Math.min(15, sheet.rowCount); rowNumber++) {
     const row = sheet.getRow(rowNumber);
@@ -216,7 +216,7 @@ export async function readSchoolRows(bytes: ArrayBuffer): Promise<ParsedSchoolRo
     if (totalColumn) parsed.total = cellValue(row.getCell(totalColumn));
     if (!filled) continue;
     rows.push(parsed);
-    if (rows.length > maxImportRows) throw new SchoolImportError(`Upload at most ${maxImportRows.toLocaleString()} schools at a time.`);
+    if (rows.length > maxImportRows) throw new SchoolImportError(`Upload at most ${maxImportRows.toLocaleString()} schools at a time`);
   }
   return rows;
 }

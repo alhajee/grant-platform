@@ -55,13 +55,13 @@ export function AdminActivity() {
     fetch(`/api/admin/activity?${query}`, { cache: 'no-store', signal: controller.signal }).then(async response => {
       if (response.status === 401) { window.location.replace('/'); return; }
       const body = await response.json().catch(() => ({})) as Paged<ActivitySession> & { facets?: ActivityFacets; error?: string };
-      if (!response.ok) throw Error(body.error || 'Unable to load impersonation activity.');
+      if (!response.ok) throw Error(body.error || 'Unable to load impersonation activity');
       setNow(Date.now());
       // The server clamps a page past the end; follow it so the footer stays truthful.
       if (body.page !== pagination.pageIndex + 1) setPagination(current => ({ ...current, pageIndex: body.page - 1 }));
       else setLoaded({ key, data: body });
     }).catch((cause: unknown) => {
-      if (!controller.signal.aborted) setLoaded({ key, error: cause instanceof Error ? cause.message : 'Unable to load impersonation activity.' });
+      if (!controller.signal.aborted) setLoaded({ key, error: cause instanceof Error ? cause.message : 'Unable to load impersonation activity' });
     });
     return () => controller.abort();
   }, [key, query, pagination.pageIndex]);
@@ -90,8 +90,8 @@ export function AdminActivity() {
     helper.display({ id: 'actions', enableHiding: false, header: '', cell: ({ row }) => <div className="flex justify-end"><DropdownMenu modal={false}><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Manage session acting as ${row.original.targetName}`}><MoreHorizontalIcon /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onSelect={() => view(row.original)}><HistoryIcon />View write attempts</DropdownMenuItem><DropdownMenuItem onSelect={() => copyId(row.original.id)}><CopyIcon />Copy session ID</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div> }),
   ]), [now, view, copyId]);
 
-  const empty = error ? 'Impersonation sessions could not be loaded.' : filtered
-    ? <div className="flex flex-col items-center gap-2"><p className="font-medium">No sessions match your filters</p><p className="text-muted-foreground">Try another name, email, role or state.</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
+  const empty = error ? 'Impersonation sessions could not be loaded' : filtered
+    ? <div className="flex flex-col items-center gap-2"><p className="font-medium">No sessions match your filters</p><p className="text-muted-foreground">Try another name, email, role or state</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
     : <div className="flex flex-col items-center gap-1 py-4"><ImpersonationArt label="No impersonation sessions yet" /><p className="text-muted-foreground">No impersonation sessions yet</p></div>;
 
   return <div className="admin-activity flex flex-col gap-4">

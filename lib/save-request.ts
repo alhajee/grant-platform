@@ -5,7 +5,7 @@ import { z } from 'zod';
  * kept for every retry of that draft, so a save that reached the server but whose response was lost is never stored
  * twice: the API answers a repeated key with the row it already saved ({ id, replayed: true }).
  */
-export const clientKeySchema = z.string().uuid('Invalid request key.').optional();
+export const clientKeySchema = z.string().uuid('Invalid request key').optional();
 
 /** A new client key (crypto.randomUUID needs a secure context; the fallback builds the same RFC 4122 v4 form). */
 export function newClientKey(): string {
@@ -36,7 +36,7 @@ export async function postJson<T extends object>(url: string, body: unknown, tim
   try {
     const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal });
     const data = await response.json() as T;
-    if (!data || typeof data !== 'object') throw new Error('Not the API reply.');
+    if (!data || typeof data !== 'object') throw new Error('Not the API reply');
     return { ok: response.ok, status: response.status, data };
   } catch {
     throw new ConnectionDroppedError();

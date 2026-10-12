@@ -70,7 +70,7 @@ try {
   fails(await api('prs', url(), line(1, 100, { description: '' })), 400, /description/);
   fails(await api('prs', url(), line(1, 100, { strategy: '' })), 400, /implementation strategy/);
   fails(await api('prs', url(), line(1, 100, { targetGroup: '' })), 400, /target group/);
-  fails(await api('prs', url(), line(1, 100, { equipmentType: 'Vehicles' })), 400, /only applies/);
+  fails(await api('prs', url(), line(1, 100, { equipmentType: 'Vehicles' })), 400, /only apply/);
   const plan = ok(await api('prs', url(), line(1, 2500000, { quantity: 2 })));
   assert.ok(Number.isInteger(plan.id));
   ok(await api('prs', url(), { ...line(1, 3000000, { quantity: 2, description: 'SMTBESP 2032-2035' }), action: 'update', id: plan.id }));

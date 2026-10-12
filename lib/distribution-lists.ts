@@ -8,4 +8,4 @@ export const distributionSnapshotKeys = { tlm: 'tlmDistribution', curriculum: 'c
 /** Short names used in distribution messages and sheet labels. */
 export const distributionNames: Record<DistributionWorkstream, string> = { tlm: 'TLM', curriculum: 'Curriculum', gscci: 'Greening' };
 /** The send-step error when a component's distribution list is empty. */
-export const emptyDistributionMessage = (workstream: DistributionWorkstream) => `Add at least one school to the ${distributionNames[workstream]} distribution list before sending it.`;
+export const emptyDistributionMessage = (workstream: DistributionWorkstream) => `Add at least one school to the ${distributionNames[workstream]} distribution list before sending it`;

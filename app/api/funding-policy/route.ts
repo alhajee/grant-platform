@@ -9,16 +9,16 @@ const fail=(error:string,status:number)=>NextResponse.json({error},{status});
 export async function GET(request: NextRequest) {
   try {
     const user=await getWorkspaceState(request);
-    if(!user)return fail('Sign in to view allocations.',401);
+    if(!user)return fail('Sign in to view allocations',401);
     const policies=(await getPostgres().query(`SELECT ${fields} FROM funding_policies ORDER BY id DESC LIMIT 20`)).rows;
     return NextResponse.json({policy:policies[0],history:user.role==='UBEC Executive Secretary'?policies:[],canEdit:user.role==='UBEC Executive Secretary',user:{name:user.name,role:user.role}},{headers:{'Cache-Control':'no-store'}});
-  } catch {return fail('Allocations could not be loaded.',503);}
+  } catch {return fail('Allocations could not be loaded',503);}
 }
 export async function PUT(request:NextRequest) {
   try {
     const user=await getWorkspaceState(request);
-    if(!user)return fail('Sign in to manage allocations.',401);
-    if(user.role!=='UBEC Executive Secretary')return fail('Only the UBEC Executive Secretary can change allocations.',403);
+    if(!user)return fail('Sign in to manage allocations',401);
+    if(user.role!=='UBEC Executive Secretary')return fail('Only the UBEC Executive Secretary can change allocations',403);
     const parsed=z.object({version:z.number().int().positive(),allocation:allocationSchema}).strict().safeParse(await request.json().catch(()=>null));
     if(!parsed.success)return fail(parsed.error.issues[0].message,400);
     return await getPostgres().transaction(async db=>{

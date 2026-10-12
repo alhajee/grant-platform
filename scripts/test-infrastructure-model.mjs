@@ -32,11 +32,11 @@ assert.equal(r.total,450);assert.equal(r.vat,0);assert.equal(r.items.find(i=>i.k
 assert.equal(r.items.find(i=>i.key==='package').strategy,'Request for quotation');
 assert.ok(!calculateInfrastructure({...built,components:['JSS']},300).items.some(i=>i.key==='eccdeBlock'),'A JSS school gets the JSS list');
 assert.equal(packageProblem(built,300),null);
-assert.equal(packageProblem({...built,land:{available:true,documented:false,unencumbered:true}},300),'Tick all three land declarations.');
-assert.equal(packageProblem({...built,land:{available:false,documented:true,unencumbered:false}},300),'Tick all three land declarations.','One declaration is no longer enough');
-assert.equal(packageProblem({...built,model:undefined},300),'Choose the school model.');
-assert.equal(packageProblem({...built,fenceLength:0},300),'Enter the perimeter fence length (metres).');
-assert.equal(landDocumentProblem(built,0),'Attach the C of O, R of O or Community Agreement document.');assert.equal(landDocumentProblem(built,1),null);
+assert.equal(packageProblem({...built,land:{available:true,documented:false,unencumbered:true}},300),'Tick all three land declarations');
+assert.equal(packageProblem({...built,land:{available:false,documented:true,unencumbered:false}},300),'Tick all three land declarations','One declaration is no longer enough');
+assert.equal(packageProblem({...built,model:undefined},300),'Choose the school model');
+assert.equal(packageProblem({...built,fenceLength:0},300),'Enter the perimeter fence length (metres)');
+assert.equal(landDocumentProblem(built,0),'Attach the C of O, R of O or Community Agreement document');assert.equal(landDocumentProblem(built,1),null);
 // HOPE costing (retired on save, kept for older packages) still prices rows and VAT.
 const hope={...built,targeting:'hope',classroomStrategy:'NCB',prices:{classBlock6:100,eccdeBlock:50,toilet:70,dualDesk:2,fence:3},fenceLength:10,contingency:5,preliminaries:10};
 r=calculateInfrastructure(hope,300);

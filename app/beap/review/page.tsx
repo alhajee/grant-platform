@@ -62,7 +62,7 @@ export default function PlanPage() {
       if (id !== requestId.current) return;
       setData(result); setSelected(version);
       void fetch('/api/plans/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ planId: result.plan.id }) });
-    } catch (cause) { if (id === requestId.current) setError(cause instanceof Error ? cause.message : 'Unable to load this plan.'); }
+    } catch (cause) { if (id === requestId.current) setError(cause instanceof Error ? cause.message : 'Unable to load this plan'); }
     finally { if (id === requestId.current) setLoading(false); }
   }, []);
   useEffect(() => { void Promise.resolve().then(() => load()); }, [load]);

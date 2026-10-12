@@ -32,3 +32,4 @@
 .quarter-timeline[data-size="compact"] .quarter-number { font-size: 15px; }
 .quarter-timeline[data-size="compact"] .quarter-indicator { width: 16px; height: 16px; }
 .quarter-badge { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.line-dates-note { display: block; margin-top: 4px; font-size: 11px; line-height: 1.3; color: var(--muted-foreground); white-space: nowrap; }

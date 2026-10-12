@@ -40,7 +40,6 @@ const components = [
   { workstream: 'monitoring', who: 'physical', others: 4, plain: 0 },
   { workstream: 'gscci', who: 'academic', others: 9, plain: 0 },
   { workstream: 'curriculum', who: 'academic', others: 4, plain: 1 },
-  { workstream: 'quality', who: 'me', others: 11, plain: 4 },
   { workstream: 'ict', who: 'ict', others: 9, plain: 1 },
   { workstream: 'planning', who: 'prs', others: 6, plain: 1 },
 ];
@@ -94,7 +93,7 @@ try {
   await assert.rejects(insert('gscci', 9, ''), /activity_plan_lines_custom_activity_check/);
   await assert.rejects(insert('gscci', 0, 'Named'), /activity_plan_lines_custom_activity_check/);
   await assert.rejects(insert('planning', 6, ' padded '), /activity_plan_lines_custom_activity_check/);
-  await assert.rejects(insert('quality', 11, 'y'.repeat(161)), /activity_plan_lines_custom_activity_check/);
+  await assert.rejects(insert('quality', 12, 'y'.repeat(161)), /activity_plan_lines_custom_activity_check/);
   await assert.rejects(insert('teachers', 18, ''), /activity_plan_lines_custom_activity_check/);
   await assert.rejects(insert('sbmc', 17, 'Too far'), /activity_plan_lines_activity_check/);
   step('Database CHECKs: Others lines need a trimmed name, other lines none, and indexes stop after Others');
@@ -105,8 +104,6 @@ try {
   step('Curriculum Others counts toward the component ceiling without an activity cap');
 
   // Others never counts toward compulsory activities.
-  const missing = fails(await review('me', { action: 'submit', pillar: 'quality' }), 409, /compulsory activity/);
-  assert.match(missing.error, /Capacity strengthening for Principals and Headteachers/);
   fails(await review('prs', { action: 'submit', pillar: 'planning' }), 409, /Conduct annual school census/);
   step('Others lines do not satisfy compulsory activities');
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 // Explicit .ts so the Node test scripts can load this file directly.
 import { componentEnvelope, toKobo, type EnvelopePlan } from "./funding-policy.ts";
 import { lineQuartersSchema } from "./line-quarters.ts";
+import { lineDatesShape } from "./line-dates.ts";
 
 // The four UBEC sports budget sections (QA UBEC18) with their share of the sports
 // allocation. Each share is a cap: a section's lines may not exceed share × the sports envelope.
@@ -51,7 +52,7 @@ export function sportsCatalogError(line: { section: SportsSection; activityType:
     return null;
   }
   if (line.section === "competitions" || line.section === "publicity") {
-    if (!sportsSubActivities[line.section].some((item) => item.name === line.activityType.trim())) return { field: "activityType", message: "Choose a sub-activity from the list." };
+    if (!sportsSubActivities[line.section].some((item) => item.name === line.activityType.trim())) return { field: "activityType", message: "Choose a sub-activity from the list" };
   }
   return null;
 }
@@ -61,23 +62,27 @@ export type SportsSchool = { id: number; name: string; lga: string; level: strin
 export type SportsLine = { id: number; code: string; section: SportsSection; activityType: string; description: string; quantity: number; unitCost: number;
   /** Timeline: implementation quarters within the plan's quarters (migration 050). */
   quarters: number[];
+  /** Expected start and due dates (migration 059, YYYY-MM-DD); null on lines saved before. */
+  startDate?: string | null; dueDate?: string | null;
   /** The client key the row was created with (migration 058), null for older rows. */
   clientKey?: string | null };
 export type SportsAllocation = { id: number; schoolId: number; lineId: number; quantity: number; longitude: string; latitude: string; clientKey?: string | null; name: string; lga: string; level: string; location: "Rural" | "Urban" };
 export type SportsPlan = { lines: SportsLine[]; allocations: SportsAllocation[]; schools: SportsSchool[] };
 
 const id = z.number().int().positive();
-const quantity = z.number().int("Use a whole number.").min(1, "Enter a quantity of at least 1.").max(1000000, "Use a quantity of 1,000,000 or less.");
+const quantity = z.number().int("Use a whole number").min(1, "Enter a quantity of at least 1").max(1000000, "Use a quantity of 1,000,000 or less");
 export const sportsLineSchema = z.object({
   section: z.enum(["equipment", "competitions", "publicity", "supervision"]),
-  activityType: z.string().trim().min(1, "Choose a sport or sub-activity.").max(160),
-  description: z.string().trim().min(1, "Enter an item or activity description.").max(1000),
+  activityType: z.string().trim().min(1, "Choose a sport or sub-activity").max(160),
+  description: z.string().trim().min(1, "Enter an item or activity description").max(1000),
   quantity,
-  unitCost: z.number().positive("Enter a unit cost greater than zero.").max(999999999999.99)
-    .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.01, "Use no more than two decimal places."),
+  unitCost: z.number().positive("Enter a unit cost greater than zero").max(999999999999.99)
+    .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.01, "Use no more than two decimal places"),
   /** Timeline (migration 050); omitted = the plan's quarters. */
   quarters: lineQuartersSchema.optional(),
-}).refine((line) => Number.isSafeInteger(Math.round(line.unitCost * 100) * line.quantity), { path: ["unitCost"], message: "This line total is too large." })
+  /** Expected start and due dates inside the timeline (migration 059); omitted = kept or the whole timeline. */
+  ...lineDatesShape,
+}).refine((line) => Number.isSafeInteger(Math.round(line.unitCost * 100) * line.quantity), { path: ["unitCost"], message: "This line total is too large" })
   .transform((line) => line.section === "supervision" ? { ...line, activityType: supervisionActivity } : line);
 
 const coordinate = (limit: number) => z.string().trim().max(30).default("").refine((value) => value === "" || (/^-?\d+(\.\d+)?$/.test(value) && Math.abs(Number(value)) <= limit), `Enter a coordinate between -${limit} and ${limit}.`);

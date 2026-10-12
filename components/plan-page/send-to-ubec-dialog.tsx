@@ -35,7 +35,7 @@ function ubecConfirmation(review: PlanReview, returned: boolean, openUbecComment
   if (openUbecComments > 0) facts.push({ label: 'UBEC comments', value: `${openUbecComments} still open; UBEC sees your team’s replies` });
   return { facts, notes: [
     { kind: 'lock', text: 'The whole plan is locked while UBEC reviews it. Nobody at the SUBEB can edit it until UBEC returns it.' },
-    { kind: 'warning', text: returned ? 'This starts a new UBEC review of the revised plan. It can’t be withdrawn once sent.' : 'A submission to UBEC can’t be withdrawn once sent.' },
+    { kind: 'warning', text: returned ? 'This starts a new UBEC review of the revised plan. It can’t be withdrawn once sent.' : 'A submission to UBEC can’t be withdrawn once sent' },
   ] };
 }
 
@@ -59,16 +59,16 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
     void fetch(reviewUrl(planId), { cache: 'no-store' }).then(async response => {
       if (response.status === 401) { window.location.replace('/'); return; }
       const detail = await response.json().catch(() => ({})) as UbecDetail & { error?: string };
-      if (!response.ok) throw Error(detail.error || 'The plan could not be checked.');
+      if (!response.ok) throw Error(detail.error || 'The plan could not be checked');
       if (active) setStatus({ version: detail.plan.version, roundId: detail.round?.id, returned: detail.round?.status === 'returned', canSubmit: detail.canSubmit });
-    }).catch(cause => { if (active) setLoadError(cause instanceof Error ? cause.message : 'The plan could not be checked.'); });
+    }).catch(cause => { if (active) setLoadError(cause instanceof Error ? cause.message : 'The plan could not be checked'); });
     return () => { active = false; };
   }, [open, planId]);
 
   // The first step checks the note, then asks for confirmation; the second sends.
   function toConfirm() {
     if (!status?.canSubmit) return;
-    if (status.returned && !comment.trim()) { setError('Describe how the UBEC feedback was addressed.'); return; }
+    if (status.returned && !comment.trim()) { setError('Describe how the UBEC feedback was addressed'); return; }
     setError(''); step.review();
   }
 
@@ -87,12 +87,12 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
 
   return <Dialog open={open} onOpenChange={next => { if (!next && !saving) onClose(); }}>
     <DialogContent variant="inset-footer" className="sm:max-w-lg" showCloseButton={!saving} onEscapeKeyDown={event => step.escape(event, saving)} onInteractOutside={event => { if (saving) event.preventDefault(); }}>
-      {step.confirming ? <ConfirmStep title={`${status?.returned ? 'Resubmit' : 'Send'} the ${planPeriod(review.plan)} BEAP to UBEC?`} description="The UBEC BEAP Chair is notified and releases it to the UBEC departments for assessment."
+      {step.confirming ? <ConfirmStep title={`${status?.returned ? 'Resubmit' : 'Send'} the ${planPeriod(review.plan)} BEAP to UBEC?`} description="The UBEC BEAP Chair is notified and releases it to the UBEC departments for assessment"
         facts={summary.facts} notes={summary.notes} comment={comment} commentLabel={status?.returned ? 'Response to UBEC feedback' : 'Your comment'} confirmLabel={status?.returned ? 'Yes, resubmit to UBEC' : 'Yes, send to UBEC'}
         saving={saving} error={error} bodyClassName="px-4 pb-5" onBack={() => { setError(''); step.back(); }} onConfirm={() => void send()} /> : <>
       <DialogHeader className={step.commentStepClass}>
         <DialogTitle>Send to UBEC</DialogTitle>
-        <DialogDescription>{status?.returned ? 'Resubmit the revised plan to UBEC with a note on how its feedback was addressed.' : 'The reviewed plan goes to UBEC for national review. It is locked while UBEC reviews it.'}</DialogDescription>
+        <DialogDescription>{status?.returned ? 'Resubmit the revised plan to UBEC with a note on how its feedback was addressed' : 'The reviewed plan goes to UBEC for national review. It is locked while UBEC reviews it.'}</DialogDescription>
       </DialogHeader>
       <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}>
       <div className="px-4 pb-4">

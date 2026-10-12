@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
-import { formatQuarters, lineQuartersProblem, lineQuartersSchema, planQuarters, quarterRemovalProblem, resolveLineQuarters } from '../lib/line-quarters.ts';
+import { formatQuarters, isContiguous, lineQuartersProblem, lineQuartersSchema, planQuarters, quarterRemovalProblem, resolveLineQuarters, toggleQuarter } from '../lib/line-quarters.ts';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname), 'Run this test against a local server only.');
@@ -44,7 +44,20 @@ assert.ok(!lineQuartersSchema.safeParse([]).success);
 assert.ok(!lineQuartersSchema.safeParse([0]).success);
 assert.ok(!lineQuartersSchema.safeParse([5]).success);
 assert.ok(!lineQuartersSchema.safeParse([2, 2]).success);
-assert.deepEqual(lineQuartersSchema.parse([3, 1]), [1, 3]);
+assert.deepEqual(lineQuartersSchema.parse([3, 2]), [2, 3]);
+assert.ok(!lineQuartersSchema.safeParse([1, 3]).success, 'a gap is refused');
+assert.ok(!lineQuartersSchema.safeParse([1, 4]).success);
+assert.ok(isContiguous([2, 3, 4]) && isContiguous([4]) && !isContiguous([1, 2, 4]));
+assert.match(lineQuartersProblem([1, 3], { fundingQuarters: [1, 2, 3] }), /next to each other/);
+// The picker keeps one run: adding fills the gap, an end is removed, a middle click trims back to it.
+assert.deepEqual(toggleQuarter([1], 4), [1, 2, 3, 4]);
+assert.deepEqual(toggleQuarter([3], 1), [1, 2, 3]);
+assert.deepEqual(toggleQuarter([1, 2, 3, 4], 4), [1, 2, 3]);
+assert.deepEqual(toggleQuarter([1, 2, 3, 4], 1), [2, 3, 4]);
+assert.deepEqual(toggleQuarter([1, 2, 3, 4], 2), [1, 2]);
+assert.deepEqual(toggleQuarter([], 3), [3]);
+assert.deepEqual(toggleQuarter([1], 4, [1, 3, 4]), [4], 'a locked quarter in between starts a new run');
+assert.deepEqual(toggleQuarter([1, 2], 4, [1, 2, 3]), [1, 2], 'a quarter outside the choosable ones is ignored');
 assert.equal(lineQuartersProblem([1, 2], { fundingQuarters: [1, 2, 3] }), null);
 assert.match(lineQuartersProblem([4], { fundingQuarters: [1, 2, 3] }), /Q4 is not in this plan \(Q1–Q3\)/);
 assert.deepEqual(resolveLineQuarters(undefined, { fundingQuarters: [2, 3] }), { quarters: [2, 3], problem: null });
@@ -71,22 +84,24 @@ try {
   fails(await api('prs', url, line(1, { quarters: [4] })), 400, /Q4 is not in this plan \(Q1–Q3\)/);
   fails(await api('prs', url, line(1, { quarters: [2, 2] })), 400, /each quarter once/);
   fails(await api('prs', url, line(1, { quarters: [0] })), 400);
-  const narrowed = ok(await api('prs', url, line(1, { quarters: [3, 1] })));
+  fails(await api('prs', url, line(1, { quarters: [1, 3] })), 400, /next to each other/);
+  const narrowed = ok(await api('prs', url, line(1, { quarters: [3, 2] })));
   ok(await api('prs', url, { ...line(2, { quarters: [2] }), action: 'update', id: legacy.id }));
-  fails(await api('prs', url, { ...line(2, { quarters: [1, 4] }), action: 'update', id: legacy.id }), 400, /Q4 is not in this plan/);
+  fails(await api('prs', url, { ...line(2, { quarters: [3, 4] }), action: 'update', id: legacy.id }), 400, /Q4 is not in this plan/);
   let lines = ok(await api('prs', url)).lines;
   assert.deepEqual(lines.find(l => l.id === legacy.id).quarters, [2]);
-  assert.deepEqual(lines.find(l => l.id === narrowed.id).quarters, [1, 3]);
+  assert.deepEqual(lines.find(l => l.id === narrowed.id).quarters, [2, 3]);
   const defaulted = ok(await api('prs', url, line(3)));
   lines = ok(await api('prs', url)).lines;
   assert.deepEqual(lines.find(l => l.id === defaulted.id).quarters, [1, 2, 3], 'a line saved without quarters gets the plan quarters');
-  step('activity lines: timeline required, within the plan quarters, sorted; none sent = the plan quarters');
+  step('activity lines: timeline required, within the plan quarters, no gaps, sorted; none sent = the plan quarters');
 
   // Sports budget lines.
   const sportsUrl = `/api/sports?plan=${planId}`;
   const sports = extra => ({ entity: 'budget', action: 'create', section: 'publicity', activityType: 'Electronic Media', description: 'Radio jingles', quantity: 1, unitCost: 5000, ...extra });
   fails(await api('academic', sportsUrl, sports({ quarters: [] })), 400, /at least one quarter/);
   fails(await api('academic', sportsUrl, sports({ quarters: [3, 4] })), 400, /Q4 is not in this plan/);
+  fails(await api('academic', sportsUrl, sports({ quarters: [1, 3] })), 400, /next to each other/);
   const sportsDefault = ok(await api('academic', sportsUrl, sports()), 201);
   const sportsLine = ok(await api('academic', sportsUrl, sports({ quarters: [2, 3] })), 201);
   ok(await api('academic', sportsUrl, { ...sports({ quarters: [1] }), action: 'update', id: sportsDefault.id }));
@@ -102,6 +117,7 @@ try {
   const furniture = extra => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 2, cost: 100 }], documentIds: [], ...extra } });
   fails(await api('physical', infraUrl, furniture({ quarters: [] })), 400, /at least one quarter/);
   fails(await api('physical', infraUrl, furniture({ quarters: [4] })), 400, /Q4 is not in this plan/);
+  fails(await api('physical', infraUrl, furniture({ quarters: [1, 3] })), 400, /next to each other/);
   ok(await api('physical', infraUrl, furniture()));
   let [pkg] = ok(await api('physical', infraUrl)).packages;
   assert.deepEqual(pkg.quarters, [1, 2, 3]); assert.deepEqual(pkg.input.quarters, [1, 2, 3]);
@@ -111,16 +127,17 @@ try {
   step('infrastructure packages: timeline required, within the plan quarters, stored on the package');
 
   // The database refuses malformed timelines whatever the client does.
-  for (const bad of ['{}', '{5}', '{1,1}', '{0}', '{1,NULL}']) await assert.rejects(db.query('UPDATE activity_plan_lines SET quarters=$1::smallint[] WHERE id=$2', [bad, narrowed.id]), /quarters_check/, bad);
+  for (const bad of ['{}', '{5}', '{1,1}', '{0}', '{1,NULL}', '{1,3}', '{1,2,4}']) await assert.rejects(db.query('UPDATE activity_plan_lines SET quarters=$1::smallint[] WHERE id=$2', [bad, narrowed.id]), /quarters_check/, bad);
   await assert.rejects(db.query("UPDATE sports_budget_lines SET quarters='{}' WHERE id=$1", [sportsLine.id]), /quarters_check/);
   await assert.rejects(db.query("UPDATE infrastructure_packages SET quarters='{6}' WHERE id=$1", [pkg.id]), /quarters_check/);
-  step('database CHECK refuses empty, out-of-range, repeated and NULL quarters');
+  step('database CHECK refuses empty, out-of-range, repeated, NULL and gapped quarters');
 
   // Plan edits may not remove a quarter that lines still use.
   const setup = ok(await api('ec', `/api/plans/setup?plan=${planId}`));
   assert.ok(Array.isArray(setup.quarterUsage) && setup.quarterUsage.length > 0);
   const edit = { plan: planId, version: setup.plan.version, planningYear: 2038, implementationYear: 2038, quarters: [1, 2], stateLodgment: '400000000', fundingSources: [] };
-  // Q3 is used by: planning lines [1,3] and [1,2,3], sports [2,3], the package [3] = 4 lines.
+  // Q3 is used by: planning lines [2,3] and [1,2,3], sports [2,3], the package [3] = 4 lines.
+  fails(await api('ec', '/api/plans/setup', { ...edit, quarters: [1, 3] }, { method: 'PATCH' }), 400, /next to each other/);
   fails(await api('ec', '/api/plans/setup', edit, { method: 'PATCH' }), 409, /^4 lines use Q3 in their timelines/);
   fails(await api('ec', '/api/plans/setup', { ...edit, quarters: [2, 3] }, { method: 'PATCH' }), 409, /lines use Q1/);
   const widened = ok(await api('ec', '/api/plans/setup', { ...edit, quarters: [1, 2, 3, 4] }, { method: 'PATCH' }));
@@ -132,7 +149,7 @@ try {
   // Drafts are read through each component's Data Entry Staff (stage-gated visibility: nothing has reached the Executive Chairman yet).
   const snapshotOf = async who => ok(await api(who, `/api/plans/review?plan=${planId}`)).snapshot;
   const planning = await snapshotOf('prs'), academic = await snapshotOf('academic'), physical = await snapshotOf('physical');
-  assert.deepEqual(planning.planning.find(l => l.id === narrowed.id).quarters, [1, 3]);
+  assert.deepEqual(planning.planning.find(l => l.id === narrowed.id).quarters, [2, 3]);
   assert.deepEqual(planning.planning.find(l => l.id === q4.id).quarters, [4]);
   assert.deepEqual(academic.sports.find(l => l.id === sportsLine.id).quarters, [2, 3]);
   assert.deepEqual(physical.infrastructure.find(l => l.id === -pkg.id).quarters, [3]);

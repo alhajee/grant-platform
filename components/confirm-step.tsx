@@ -79,14 +79,14 @@ export function ConfirmStep({ title, description, facts, notes = [], comment, co
   return <>
     <DialogHeader className="confirm-step-enter confirm-step-head" data-tone={tone}>
       <DialogTitle>{title}</DialogTitle>
-      <DialogDescription>{description ?? 'Check the details below before you continue.'}</DialogDescription>
+      <DialogDescription>{description ?? 'Check the details below before you continue'}</DialogDescription>
     </DialogHeader>
     <form className="confirm-step-enter confirm-step-form" data-tone={tone} onSubmit={event => { event.preventDefault(); run(); }} onKeyDown={onKeyDown}>
       <div className={cn('confirm-step', bodyClassName)}>
         {facts.length > 0 && <dl className="confirm-facts">{facts.map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}</dl>}
         {comment !== undefined && <figure className="confirm-quote" data-empty={!trimmed || undefined}>
           <figcaption><MessageSquareQuoteIcon aria-hidden="true" />{commentLabel}</figcaption>
-          {trimmed ? <blockquote>{trimmed}</blockquote> : <p>No comment added.</p>}
+          {trimmed ? <blockquote>{trimmed}</blockquote> : <p>No comment added</p>}
         </figure>}
         {notes.length > 0 && <ul className="confirm-notes">{notes.map((note, index) => {
           const Icon = noteIcons[note.kind ?? 'info'];

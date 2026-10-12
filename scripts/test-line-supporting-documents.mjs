@@ -80,7 +80,9 @@ try {
   const sbmc = await create('social', 'sbmc', 0, 50000, { rationale: 'Community ownership', implementationApproach: 'Direct labour' });
   const tlm = await create('academic', 'tlm', 6, 80000);
   const qaLines = {};
-  for (const activity of [1, 2, 3, 6, 7, 8, 9, 10]) qaLines[activity] = await create('me', 'quality', activity, 100000);
+  // Quality Assurance chooses its optional activities first (migration 061); Literacy and Numeracy (4) is the optional one here.
+  ok(await api('me', `/api/activities/selection?plan=${planId}`, { workstream: 'quality', activities: [4] }, { method: 'PATCH' }));
+  for (const activity of [4, 2, 3, 6, 7, 8, 9, 10]) qaLines[activity] = await create('me', 'quality', activity, 100000);
   for (const activity of [0, 2, 3, 5]) await create('planning', 'planning', activity, 100000);
   const gscci = await create('academic', 'gscci', 0, 1000);
   ok(await api('academic', `/api/sports?plan=${planId}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 2, unitCost: 15000 }), 201);
@@ -89,13 +91,13 @@ try {
   // Uploads: every listed component's lines, PDF/Excel plus Word and images.
   const sbmcDoc = ok(await upload('social', 'sbmc', sbmc, 'sbmc-quote.pdf', pdf));
   const tlmDoc = ok(await upload('academic', 'tlm', tlm, 'tlm-quote.xlsx', xlsx));
-  const qaDoc = ok(await upload('me', 'quality', qaLines[1], 'workshop-plan.docx', docx));
-  const qaPhoto = ok(await upload('me', 'quality', qaLines[1], 'site.png', png));
+  const qaDoc = ok(await upload('me', 'quality', qaLines[4], 'workshop-plan.docx', docx));
+  const qaPhoto = ok(await upload('me', 'quality', qaLines[4], 'site.png', png));
   const planningLine = ok(await api('planning', url('planning'))).lines.find(l => l.activity === 0).id;
   const planningDoc = ok(await upload('planning', 'planning', planningLine, 'census.jpg', jpg));
   assert.deepEqual(ok(await api('social', url('sbmc'))).lines.find(l => l.id === sbmc).documents.map(d => d.name), ['sbmc-quote.pdf']);
   assert.deepEqual(ok(await api('academic', url('tlm'))).lines.find(l => l.id === tlm).documents.map(d => d.name), ['tlm-quote.xlsx']);
-  assert.deepEqual(ok(await api('me', url('quality'))).lines.find(l => l.id === qaLines[1]).documents.map(d => d.name), ['workshop-plan.docx', 'site.png']);
+  assert.deepEqual(ok(await api('me', url('quality'))).lines.find(l => l.id === qaLines[4]).documents.map(d => d.name), ['workshop-plan.docx', 'site.png']);
   assert.deepEqual(ok(await api('planning', url('planning'))).lines.find(l => l.id === planningLine).documents.map(d => d.name), ['census.jpg']);
   const photo = await download('me', qaPhoto.id);
   assert.equal(photo.status, 200); assert.equal(photo.headers.get('content-type'), 'image/png'); assert.deepEqual(photo.bytes, png);
@@ -124,7 +126,7 @@ try {
 
   ok(await review('meDirector', { action: 'endorse', pillar: 'quality' }));
   const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
-  assert.deepEqual(chairView.snapshot.quality.find(l => l.id === qaLines[1]).documents.map(d => d.name), ['workshop-plan.docx', 'site.png']);
+  assert.deepEqual(chairView.snapshot.quality.find(l => l.id === qaLines[4]).documents.map(d => d.name), ['workshop-plan.docx', 'site.png']);
   assert.deepEqual(chairView.snapshot.quality.find(l => l.id === qaLines[2]).documents, []);
   const socialView = ok(await api('social', `/api/plans/review?plan=${planId}`));
   assert.deepEqual(socialView.snapshot.sbmc.find(l => l.id === sbmc).documents.map(d => d.id), [sbmcDoc.id]);
@@ -132,7 +134,7 @@ try {
   const ubecPath = `/api/ubec/review?plan=${planId}`;
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));
   const esView = ok(await api('es', ubecPath));
-  assert.deepEqual(esView.round.snapshot.quality.find(l => l.id === qaLines[1]).documents.map(d => d.id), [qaDoc.id, qaPhoto.id]);
+  assert.deepEqual(esView.round.snapshot.quality.find(l => l.id === qaLines[4]).documents.map(d => d.id), [qaDoc.id, qaPhoto.id]);
   assert.deepEqual(esView.round.snapshot.sbmc, []);
   ok(await download('es', qaDoc.id));
   fails(await download('es', sbmcDoc.id), 404);

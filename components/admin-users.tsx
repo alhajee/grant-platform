@@ -69,12 +69,12 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
       const body = passwordReset ? {id:reset!.id,action:'reset_password'} : {...form,department:form.departments[0] || null,...(editing === 'new' ? {} : {id:(editing as AdminManagedUser).id})};
       const response = await fetch('/api/admin/users',{method:editing === 'new' && !passwordReset ? 'POST' : 'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const result = await response.json() as {error?:string;password?:string};
-      if (!response.ok) throw Error(result.error || 'Unable to save this user.');
+      if (!response.ok) throw Error(result.error || 'Unable to save this user');
       setEditing(null); setReset(null);
       if (result.password) setCredentials({email,password:result.password});
       toast.success(passwordReset ? 'Password reset' : editing === 'new' ? 'User added' : 'User updated');
       await onChanged();
-    } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'Unable to save changes.'); }
+    } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'Unable to save changes'); }
     finally { pending.current=false; setSaving(false); }
   }
 

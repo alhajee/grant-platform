@@ -7,7 +7,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "BEAPMS Portal",
-  description: "Annual grant planning and submission for State Universal Basic Education Boards.",
+  description: "Annual grant planning and submission for State Universal Basic Education Boards",
   icons: {
     icon: { url: "/ubec-logo.png", type: "image/png" },
     shortcut: "/ubec-logo.png",

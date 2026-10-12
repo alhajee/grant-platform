@@ -26,12 +26,13 @@ import type { InlineField } from "@/components/line-panel/line-table";
 import { scrollLineIntoView, useLineFlash, usePanelMode } from "@/components/line-panel/use-line-panel";
 import type { SportsSection } from "@/lib/sports";
 import { lineQuartersProblem, planQuarters } from "@/lib/line-quarters";
+import { lineDatesProblem } from "@/lib/line-dates";
 import { cellMatches, connectionDroppedMessage, isConnectionDropped, newClientKey, postJson } from "@/lib/save-request";
 
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
 /** A saved line as the form edits it. */
-const budgetDraft = (line: SportsLine): BudgetDraft => ({ id: line.id, section: line.section, activityType: line.activityType, description: line.description, quantity: String(line.quantity), unitCost: String(line.unitCost), quarters: line.quarters });
+const budgetDraft = (line: SportsLine): BudgetDraft => ({ id: line.id, section: line.section, activityType: line.activityType, description: line.description, quantity: String(line.quantity), unitCost: String(line.unitCost), quarters: line.quarters, startDate: line.startDate ?? null, dueDate: line.dueDate ?? null });
 
 export default function SportsPage() {
   const [plan, setPlan] = useState<SportsPlan>(blankPlan);
@@ -89,7 +90,7 @@ export default function SportsPage() {
 
   const loadPlan = useCallback(async () => {
     const response = await fetch(currentPlanHref("/api/sports"), { cache: "no-store" });
-    if (response.status === 401) { window.location.replace("/"); throw new Error("Sign in to continue."); }
+    if (response.status === 401) { window.location.replace("/"); throw new Error("Sign in to continue"); }
     if (!response.ok) throw new Error("Your sports plan could not be loaded. Please try again.");
     const data = await response.json() as SportsPlan & { plan: ActionPlan; envelope: string | null; canEdit: boolean };
     if (!data.canEdit) { window.location.replace(currentPlanHref('/beap/review')); return; }
@@ -104,7 +105,7 @@ export default function SportsPage() {
 
   const initialize = useCallback(async () => {
     try { await loadPlan(); }
-    catch (cause) { setLoadError(cause instanceof Error ? cause.message : "Unable to load your plan."); }
+    catch (cause) { setLoadError(cause instanceof Error ? cause.message : "Unable to load your plan"); }
     finally { setLoading(false); }
   }, [loadPlan]);
 
@@ -170,7 +171,7 @@ export default function SportsPage() {
   // Quantity, unit cost or description edited in the table: the whole line goes through the same schema and API as the form.
   async function saveCell(id: number, field: InlineField, value: string): Promise<string | null> {
     const line = plan.lines.find((item) => item.id === id);
-    if (!line) return "This line is no longer in the plan.";
+    if (!line) return "This line is no longer in the plan";
     const before = budgetDraft(line);
     const next = { ...before, [field]: value };
     const parsed = sportsLineSchema.safeParse({ ...next, quantity: Number(next.quantity), unitCost: Number(next.unitCost) });
@@ -178,7 +179,7 @@ export default function SportsPage() {
     // Updates are idempotent (by id): after a dropped connection the plan is reloaded, and the cell counts as saved if it holds the value.
     try { await write({ ...parsed.data, entity: "budget", action: "update", id }); }
     catch (cause) {
-      if (!isConnectionDropped(cause)) return cause instanceof Error ? cause.message : "Unable to save this change.";
+      if (!isConnectionDropped(cause)) return cause instanceof Error ? cause.message : "Unable to save this change";
       const now = (await loadPlan().catch(() => undefined))?.lines.find((item) => item.id === id);
       if (!now || !cellMatches(now, field, value)) return connectionDroppedMessage;
     }
@@ -198,7 +199,7 @@ export default function SportsPage() {
   /** Sends a change; throws the API's message, or ConnectionDroppedError when the reply was lost or timed out. */
   async function write(body: unknown) {
     const reply = await postJson<{ error?: string; id?: number; replayed?: boolean }>(currentPlanHref("/api/sports"), body);
-    if (!reply.ok) throw new Error(reply.data.error ?? "Could not save your change.");
+    if (!reply.ok) throw new Error(reply.data.error ?? "Could not save your change");
     return reply.data;
   }
   /**
@@ -223,13 +224,14 @@ export default function SportsPage() {
     // Same catalogue rules as the API; a saved line keeps its legacy sport/sub-activity if unchanged.
     const saved = view === "budget" && editingId ? plan.lines.find((line) => line.id === editingId) : undefined;
     const rule = parsed.success && view === "budget" ? sportsCatalogError({ ...budget, activityType: budget.activityType.trim(), description: budget.description.trim() }, plan.lines, editingId) : null;
-    const timelineProblem = parsed.success && view === "budget" && actionPlan ? lineQuartersProblem(budget.quarters, actionPlan) : null;
-    const ruleError = rule && !(rule.field === "activityType" && saved?.section === budget.section && saved.activityType === budget.activityType.trim()) ? { [rule.field]: rule.message } as FormErrors : timelineProblem ? { quarters: timelineProblem } as FormErrors : null;
+    const quartersProblem = parsed.success && view === "budget" && actionPlan ? lineQuartersProblem(budget.quarters, actionPlan) : null;
+    const datesProblem = parsed.success && view === "budget" && actionPlan ? lineDatesProblem(budget, budget.quarters, actionPlan.implementationYear) : null;
+    const ruleError = rule && !(rule.field === "activityType" && saved?.section === budget.section && saved.activityType === budget.activityType.trim()) ? { [rule.field]: rule.message } as FormErrors : quartersProblem ? { quarters: quartersProblem } as FormErrors : datesProblem ? { startDate: datesProblem } as FormErrors : null;
     const capError: Record<string, string> | null = parsed.success && !ruleError && budgetProblem ? { unitCost: budgetProblem } : null;
     if (!parsed.success || ruleError || capError) {
       const nextErrors = ruleError ?? capError ?? (parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((issue) => [issue.path[0], issue.message])));
-      if (nextErrors.schoolId) nextErrors.schoolId = "Choose a school from the directory.";
-      if (nextErrors.lineId) nextErrors.lineId = "Choose an equipment item from your budget.";
+      if (nextErrors.schoolId) nextErrors.schoolId = "Choose a school from the directory";
+      if (nextErrors.lineId) nextErrors.lineId = "Choose an equipment item from your budget";
       setErrors(nextErrors);
       requestAnimationFrame(() => editorRef.current?.querySelector<HTMLElement>("[aria-invalid='true']")?.focus());
       return;
@@ -248,7 +250,7 @@ export default function SportsPage() {
       const savedId = view === "budget" ? editingId ?? result.id : undefined;
       if (view === "budget") resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), quarters: availableQuarters });
       else resetAllocation({ ...emptyAllocation, schoolId: allocation.schoolId, longitude: allocation.longitude, latitude: allocation.latitude });
-      toast.success(editingId ? "Line updated." : view === "budget" ? "Budget line added." : "Equipment allocated to school.");
+      toast.success(editingId ? "Line updated" : view === "budget" ? "Budget line added" : "Equipment allocated to school");
       await refreshAfterSave();
       if (savedId) flash(savedId);
       focusEditor(view === "budget" ? "sports-description" : "sports-equipment");
@@ -263,9 +265,9 @@ export default function SportsPage() {
       if (removeTarget.entity === "budget" && budget.id === removeTarget.item.id) resetBudget();
       if (removeTarget.entity === "allocation" && allocation.id === removeTarget.item.id) resetAllocation();
       setRemoveTarget(null);
-      toast.success("Line removed.");
+      toast.success("Line removed");
       await refreshAfterSave();
-    } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to remove the line."); if (isConnectionDropped(cause)) await refreshAfterSave(); }
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to remove the line"); if (isConnectionDropped(cause)) await refreshAfterSave(); }
     finally { savingRef.current = false; setSaving(false); }
   }
 
@@ -274,7 +276,7 @@ export default function SportsPage() {
       <header className="editor-heading"><h1>{view === "budget" ? editingId ? "Edit budget item" : "Add a budget item" : editingId ? "Edit school allocation" : "Add a beneficiary school"}</h1></header>
       {loadError && <Alert variant="destructive"><AlertTitle>Unable to refresh the plan</AlertTitle><AlertDescription>{loadError}<Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); void initialize(); }}>Try again</Button></AlertDescription></Alert>}
       <form id="sports-form" onSubmit={save} noValidate><fieldset className="project-fields" disabled={disabled}>
-        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { if (next.section !== budget.section || next.activityType !== budget.activityType) panel.follow(); setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
+        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { if (next.section !== budget.section || next.activityType !== budget.activityType) panel.follow(); setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} implementationYear={actionPlan?.implementationYear} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
       </fieldset></form>
       {view === "allocation" && !hasEquipment && !loading && !loadError && <div className="sports-empty-action"><Button variant="outline" onClick={() => changeView("budget")}>Go to budget</Button></div>}
     </div></ScrollArea>
@@ -318,7 +320,7 @@ export default function SportsPage() {
     </Tabs>
   </div>
     <AlertDialog open={Boolean(removeTarget)} onOpenChange={(open) => { if (!open && !saving) setRemoveTarget(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Remove this {removeTarget?.entity === "budget" ? "budget line" : "school allocation"}?</AlertDialogTitle><AlertDialogDescription>{removeTarget?.entity === "budget" ? `“${removeTarget.item.description}” will be removed from the sports budget. Equipment with school allocations must be unallocated first.` : "This equipment allocation will be removed from the school. Your procurement budget will stay the same."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Keep line</AlertDialogCancel><Button variant="destructive" disabled={saving} onClick={remove}>{saving && <Spinner data-icon="inline-start" />}{saving ? "Removing…" : "Remove line"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
-    <DiscardChangesDialog open={Boolean(pendingAction)} saved="Your saved budget items and school allocations stay as they are." onKeep={() => setPendingAction(null)}
+    <DiscardChangesDialog open={Boolean(pendingAction)} saved="Your saved budget items and school allocations stay as they are" onKeep={() => setPendingAction(null)}
       onDiscard={() => { const action = pendingAction; setPendingAction(null); if (action?.leaving) { resetBudget(); resetAllocation(); } requestAnimationFrame(() => action?.run()); }} />
   </div>;
 }

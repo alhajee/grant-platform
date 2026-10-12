@@ -6,7 +6,7 @@ const naira = (kobo: bigint) => `₦${(kobo / BigInt(100)).toLocaleString('en-NG
 export function componentBudgetProblem(total: bigint, plan: EnvelopePlan, component: FundingComponent, exact = false) {
   const label = fundingComponentLabels[component];
   const ceiling = componentEnvelope(plan, component);
-  if (ceiling == null) return `Set the plan funding before allocating the ${label} budget.`;
+  if (ceiling == null) return `Set the plan funding before allocating the ${label} budget`;
   const difference = total - budgetKobo(ceiling);
   const amount = naira(difference < 0 ? -difference : difference);
   if (difference > 0) return `You have exceeded your allocated amount by ${amount}. Reduce the budget to continue.`;

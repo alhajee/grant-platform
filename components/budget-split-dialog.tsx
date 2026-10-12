@@ -55,7 +55,7 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
     if (!Number.isFinite(keeperK) || keeperK < 0 || keeperK > sharedK) return `Each amount must be between ₦0 and ${money.format(naira(sharedK))}.`;
     const own = viewerKeeps ? keeperK : storedK, ownFloor = viewerKeeps ? keeperFloor : storedFloor, otherK = viewerKeeps ? storedK : keeperK, otherFloor = viewerKeeps ? storedFloor : keeperFloor;
     const ownName = sideNames[side], otherSide = viewerKeeps ? stored : keeper;
-    if (own <= 0) return `Give ${ownName} an amount greater than zero.`;
+    if (own <= 0) return `Give ${ownName} an amount greater than zero`;
     if (own < ownFloor) return `${ownName} ${sideItems[side]} already propose ${money.format(naira(ownFloor))}.`;
     if (otherK < otherFloor) return `${sideNames[otherSide]} ${sideItems[otherSide]} already propose ${money.format(naira(otherFloor))}, so ${ownName} can use up to ${money.format(naira(sharedK - otherFloor))}.`;
     return '';
@@ -91,7 +91,7 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
       const amount = fromKobo(BigInt(viewerKeeps ? keeperK : storedK));
       const r = await fetch(currentPlanHref('/api/activities/budget-split'), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, side }) });
       const result = await r.json().catch(() => ({})) as { error?: string };
-      if (!r.ok) { setServerError(result.error || 'The budget split could not be saved.'); return; }
+      if (!r.ok) { setServerError(result.error || 'The budget split could not be saved'); return; }
       toast.success(`${label} split saved.`);
       onOpenChange(false); await onSaved();
     } catch { setServerError('The budget split could not be saved. Check your connection and try again.'); }

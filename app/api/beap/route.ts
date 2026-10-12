@@ -13,9 +13,9 @@ import { summarizeSnapshot } from '@/lib/plan-summary';
 export async function GET(request: NextRequest) {
   try {
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return NextResponse.json({ error: "Sign in to view your annual plan." }, { status: 401 });
+    if (!workspace) return NextResponse.json({ error: "Sign in to view your annual plan" }, { status: 401 });
     const plan = await resolveActionPlan(request, workspace.stateCode);
-    if (!plan) return NextResponse.json({ error: "Action plan not found." }, { status: 404 });
+    if (!plan) return NextResponse.json({ error: "Action plan not found" }, { status: 404 });
     const db = getPostgres();
     // Figures only for components that have reached the viewer (lib/stage-visibility.ts).
     const visiblePillars = await readStageVisibility(db, workspace, plan.id);

@@ -30,7 +30,7 @@ function decode(value: string) {
 }
 
 async function signingKey() {
-  if (!sessionSecret || sessionSecret.length < 32) throw new Error('A private AUTH_SECRET of at least 32 characters is required.');
+  if (!sessionSecret || sessionSecret.length < 32) throw new Error('A private AUTH_SECRET of at least 32 characters is required');
   return crypto.subtle.importKey("raw", encoder.encode(sessionSecret), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
 }
 

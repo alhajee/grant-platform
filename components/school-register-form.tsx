@@ -54,7 +54,7 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, st
     const enrolment = gridEmpty && school ? null : Object.fromEntries(schoolClasses.filter(({ key }) => grid[key].male.trim() || grid[key].female.trim()).map(({ key }) => [key, { male: count(grid[key].male), female: count(grid[key].female) }]));
     const payload = { ...form, schoolCode: form.schoolCode || null, enrolment };
     const parsed = schoolInputSchema.safeParse(payload);
-    if (!parsed.success) { setErrors(fieldIssues(parsed.error)); setFormError('Check the highlighted fields.'); return; }
+    if (!parsed.success) { setErrors(fieldIssues(parsed.error)); setFormError('Check the highlighted fields'); return; }
     pending.current = true; setSaving(true); setFormError(''); setErrors({});
     try {
       const response = await fetch(schoolApiPath('/api/schools', stateCode), { method: school ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(school ? { ...payload, id: school.id } : payload) });
@@ -62,12 +62,12 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, st
       const body = await response.json().catch(() => ({})) as { school?: RegisterSchool; error?: string; issues?: { field: string; message: string }[] };
       if (!response.ok || !body.school) {
         if (body.issues?.length) setErrors(Object.fromEntries(body.issues.map(issue => [issue.field, issue.message])));
-        throw Error(body.error || 'The school could not be saved.');
+        throw Error(body.error || 'The school could not be saved');
       }
       toast.success(school ? 'School updated' : `${body.school.name} added to the register`);
       if (!school) { setForm(formFor(null)); setGrid(blankGrid()); }
       onSaved(body.school);
-    } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'The school could not be saved.'); }
+    } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'The school could not be saved'); }
     finally { pending.current = false; setSaving(false); }
   }
   const onEnter = (event: React.KeyboardEvent) => { if (!readOnly && event.key === 'Enter' && (event.target as HTMLElement).tagName === 'INPUT') { event.preventDefault(); void save(); } };
@@ -83,7 +83,7 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, st
   </Field>;
 
   return <div className="flex flex-col gap-6" onKeyDown={onEnter}>
-    {readOnly ? <Alert><AlertDescription>{school?.dnemis ? 'Synced from DNEMIS. Schools come from DNEMIS only, so these details cannot be changed here.' : 'Schools come from DNEMIS only, so these details cannot be changed here.'}</AlertDescription></Alert>
+    {readOnly ? <Alert><AlertDescription>{school?.dnemis ? 'Synced from DNEMIS. Schools come from DNEMIS only, so these details cannot be changed here.' : 'Schools come from DNEMIS only, so these details cannot be changed here'}</AlertDescription></Alert>
       : school?.dnemis && <Alert><AlertDescription>Synced from DNEMIS. The next sync replaces the name, code, LGA, level, location and enrolment; town and coordinates are kept.</AlertDescription></Alert>}
     <FieldGroup className="grid gap-4 sm:grid-cols-2">
       <div className="sm:col-span-2">{text('name', 'School name', { required: true })}</div>

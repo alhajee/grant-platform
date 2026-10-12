@@ -20,8 +20,8 @@ import { readQuarterUsage } from '@/lib/line-quarters-db';
 type Db = { query<R extends QueryResultRow>(sql: string, values?: unknown[]): Promise<QueryResult<R>> };
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } });
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
-const lockedMessage = (status: string) => status === 'ubec_approved' ? 'Plan details are locked because UBEC has approved this plan.' : 'Plan details are locked while the plan is with UBEC. They can be edited again if UBEC returns it.';
-const notAllowed = 'Only the Executive Chairman, the BEAP Chair or a colleague authorised to create plans can edit plan details.';
+const lockedMessage = (status: string) => status === 'ubec_approved' ? 'Plan details are locked because UBEC has approved this plan' : 'Plan details are locked while the plan is with UBEC. They can be edited again if UBEC returns it.';
+const notAllowed = 'Only the Executive Chairman, the BEAP Chair or a colleague authorised to create plans can edit plan details';
 
 async function proposedByComponent(db: Db, planId: number) {
   const rows = (await db.query<{ component: string; amount: string }>(`SELECT 'infrastructure' AS component, ROUND(COALESCE(SUM(total_cost),0),2)::text AS amount FROM infrastructure_packages WHERE plan_id=$1
@@ -36,12 +36,12 @@ const sourceKey = (sources: readonly FundingSource[]) => JSON.stringify(sources.
 export async function GET(request: NextRequest) {
   try {
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return error('Sign in to view this plan.', 401);
+    if (!workspace) return error('Sign in to view this plan', 401);
     const id = request.nextUrl.searchParams.get('plan') ?? '';
-    if (!/^[1-9]\d{0,9}$/.test(id)) return error('Choose a plan.');
+    if (!/^[1-9]\d{0,9}$/.test(id)) return error('Choose a plan');
     const db = getPostgres();
     const plan = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id=$1 AND state_code=$2`, [Number(id), workspace.stateCode])).rows[0];
-    if (!plan) return error('Action plan not found.', 404);
+    if (!plan) return error('Action plan not found', 404);
     const allowed = canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair);
     const lockedReason = !allowed ? notAllowed : !statePlanOpen(plan.status) ? lockedMessage(plan.status) : null;
     const [reserved, allProposed, quarterUsage, visible] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id), readQuarterUsage(db, plan.id), readStageVisibility(db, workspace, plan.id)]);
@@ -69,9 +69,9 @@ function describeChanges(before: ActionPlan, after: { planningYear: number; impl
 
 export async function PATCH(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return error('This request must come from the BEAPMS portal.', 403);
+    if (!isSameRequestOrigin(request)) return error('This request must come from the BEAPMS portal', 403);
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return error('Sign in to edit this plan.', 401);
+    if (!workspace) return error('Sign in to edit this plan', 401);
     if (!canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair)) return error(notAllowed, 403);
     const parsed = planEditSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return error(parsed.error.issues[0].message);
@@ -80,7 +80,7 @@ export async function PATCH(request: NextRequest) {
       const actor = (await db.query('SELECT full_name,email,role,can_create_plan,is_beap_chair FROM users WHERE id=$1 AND active AND session_version=$2 AND state_code=$3 FOR SHARE', [workspace.userId, workspace.sessionVersion, workspace.stateCode])).rows[0];
       if (!actor || !canCreateStatePlan(actor.role, actor.can_create_plan, actor.is_beap_chair)) return error(notAllowed, 403);
       const plan = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id=$1 AND state_code=$2 FOR UPDATE`, [input.plan, workspace.stateCode])).rows[0];
-      if (!plan) return error('Action plan not found.', 404);
+      if (!plan) return error('Action plan not found', 404);
       if (!statePlanOpen(plan.status)) return error(lockedMessage(plan.status), 409);
       if (plan.version !== input.version) return error('This plan has changed since you opened it. Close the dialog, refresh and try again.', 409);
       const changes = describeChanges(plan, input);
@@ -101,6 +101,12 @@ export async function PATCH(request: NextRequest) {
       if (shortfalls.length || ictProblem) return error([...shortfalls.map(shortfallMessage), ictProblem].filter(Boolean).join(' '), 409);
       const name = beapName(stateDisplayName(workspace.stateCode), input.planningYear, input.quarters);
       await db.query('UPDATE action_plans SET start_year=$1,end_year=$1,implementation_year=$2,funding_quarters=$3,state_lodgment=$4,beap_name=$5,version=version+1 WHERE id=$6', [input.planningYear, input.implementationYear, input.quarters, input.stateLodgment, name, plan.id]);
+      // Line dates sit in the implementation year (migration 059): a new year moves them by whole years, so each keeps
+      // its quarter (29 February becomes the 28th).
+      const yearShift = plan.implementationYear ? input.implementationYear - plan.implementationYear : 0;
+      if (yearShift) for (const table of ['activity_plan_lines', 'sports_budget_lines', 'infrastructure_packages']) {
+        await db.query(`UPDATE ${table} SET start_date=(start_date + make_interval(years => $2))::date, due_date=(due_date + make_interval(years => $2))::date WHERE plan_id=$1 AND start_date IS NOT NULL`, [plan.id, yearShift]);
+      }
       if (periodChanged) {
         await db.query('DELETE FROM plan_quarters WHERE plan_id=$1', [plan.id]);
         for (const quarter of input.quarters) await db.query('INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,$3,$4)', [plan.id, workspace.stateCode, input.planningYear, quarter]);
@@ -115,7 +121,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ plan: updated, changed: true });
     });
   } catch (cause) {
-    if ((cause as { code?: string }).code === '23505') return error('Those quarters already belong to another action plan.', 409);
+    if ((cause as { code?: string }).code === '23505') return error('Those quarters already belong to another action plan', 409);
     console.error('Unable to update plan details', cause);
     return error('The plan details could not be saved. Please try again.', 503);
   }

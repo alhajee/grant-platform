@@ -66,10 +66,10 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
     const parsed = planSetupSchema.safeParse(setupInput());
     const issues: Record<string, string> = {};
     if (!parsed.success) for (const issue of parsed.error.issues) issues[String(issue.path[0])] = issue.message;
-    if (Object.keys(sourceErrors).length) issues.fundingSources = 'Complete or remove each other funding source.';
-    if (!files.length) issues.rat = 'Attach the Rapid Assessment Tool (RAT) document.';
-    else if (files.some(file => !isRatSpreadsheet(file.name))) issues.rat = 'Upload the RAT as an Excel (.xlsx) file.';
-    else if (files.length > 3 || files.some(f => !f.size || f.size > maxRatFileBytes) || files.reduce((sum, f) => sum + f.size, 0) > maxRatTotalBytes) issues.rat = 'Use 1–3 Excel files, up to 5 MB each and 10 MB in total.';
+    if (Object.keys(sourceErrors).length) issues.fundingSources = 'Complete or remove each other funding source';
+    if (!files.length) issues.rat = 'Attach the Rapid Assessment Tool (RAT) document';
+    else if (files.some(file => !isRatSpreadsheet(file.name))) issues.rat = 'Upload the RAT as an Excel (.xlsx) file';
+    else if (files.length > 3 || files.some(f => !f.size || f.size > maxRatFileBytes) || files.reduce((sum, f) => sum + f.size, 0) > maxRatTotalBytes) issues.rat = 'Use 1–3 Excel files, up to 5 MB each and 10 MB in total';
     setErrors(issues);
     if (!parsed.success || Object.keys(issues).length) return;
     pending.current = true; setSaving(true);
@@ -78,10 +78,10 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
       files.forEach(file => body.append('rat', file));
       const response = await fetch('/api/plans', { method: 'POST', body });
       const result = await response.json() as { error?: string; plan: { id: number } };
-      if (!response.ok) throw new Error(result.error || 'Could not create your plan.');
+      if (!response.ok) throw new Error(result.error || 'Could not create your plan');
       window.location.assign(planHref('/beap/review', result.plan.id));
     } catch (cause) {
-      setErrors({ form: cause instanceof Error ? cause.message : 'Please try again.' });
+      setErrors({ form: cause instanceof Error ? cause.message : 'Please try again' });
       pending.current = false; setSaving(false);
     }
   }
@@ -130,8 +130,8 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
           <FieldGroup className="gap-3">
             <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>Plan period</FieldLegend><FieldGroup className="gap-3">
               <FieldGroup className="grid gap-3 sm:grid-cols-2">
-                <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year <RequiredMark /><FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} required aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(n))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
-                <Field data-invalid={!!implementationError}><FieldLabel htmlFor="implementation-year">Implementation year <RequiredMark /><FieldHelp>The year the funded activities are expected to be carried out.</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} required aria-invalid={!!implementationError} onChange={e => { setImplementation(e.target.value); setErrors(current => ({ ...current, implementationYear: '' })); }} />{implementationError && <FieldError>{implementationError}</FieldError>}</Field>
+                <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year <RequiredMark /><FieldHelp>The year the grant allocation belongs to</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} required aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(n))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
+                <Field data-invalid={!!implementationError}><FieldLabel htmlFor="implementation-year">Implementation year <RequiredMark /><FieldHelp>The year the funded activities are expected to be carried out</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} required aria-invalid={!!implementationError} onChange={e => { setImplementation(e.target.value); setErrors(current => ({ ...current, implementationYear: '' })); }} />{implementationError && <FieldError>{implementationError}</FieldError>}</Field>
               </FieldGroup>
               <QuarterTimeline id="quarters" label="Quarters" required help="Select every quarter covered by this plan. Locked quarters already belong to another plan." value={quarters} onChange={setQuarters} locked={[...occupied]} lockedReason="already assigned" disabled={saving} error={errors.quarters || undefined} noneAvailableMessage="All quarters are in another plan. Choose a different funding year." />
             </FieldGroup></FieldSet>
@@ -142,7 +142,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
             </FieldGroup></FieldSet>
             <Field data-invalid={!!errors.rat} className="gap-3 rounded-xl border bg-card p-3 shadow-xs">
               <div className="space-y-1"><FieldLabel htmlFor="rat-document"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">3</span>Rapid Assessment Tool (RAT) <RequiredMark /><FieldHelp>Upload the approved RAT as an Excel workbook. Each file can be up to 5 MB, with a 10 MB total.</FieldHelp></FieldLabel><FieldDescription>Excel (.xlsx) · up to 3 files</FieldDescription></div>
-              <FileUpload compact id="rat-document" label="Rapid Assessment Tool (RAT) Excel files" multiple accept={ratFileAccept} disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 Excel files and 10 MB in total.'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/>
+              <FileUpload compact id="rat-document" label="Rapid Assessment Tool (RAT) Excel files" multiple accept={ratFileAccept} disabled={saving} onFiles={incoming=>{const combined=[...files,...incoming];if(combined.length>3||combined.reduce((sum,f)=>sum+f.size,0)>maxRatTotalBytes){setErrors(e=>({...e,rat:'Use up to 3 Excel files and 10 MB in total'}));return;}setFiles(combined);setErrors(e=>({...e,rat:''}));}}/>
               <DocumentFiles compact documents={files.map((file,i)=>({id:String(i),name:file.name,size:file.size,file}))} disabled={saving} onRemove={id=>setFiles(current=>current.filter((_,i)=>String(i)!==id))}/>{errors.rat && <FieldError>{errors.rat}</FieldError>}
             </Field>
           </FieldGroup>

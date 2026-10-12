@@ -40,9 +40,9 @@ const photoAccept = '.png,.jpg,.jpeg,.pdf';
 /** Header help for every column with a text box (client feedback, October 2026). */
 const columnHelp = {
   required: 'Calculated from the school’s DNEMIS enrolment; the info icon on each row shows the working. For the perimeter fence, enter the metres the site needs.',
-  existing: 'How many the school has now, working or not.',
-  functional: 'How many of the existing ones are in good, usable condition.',
-  photos: 'Attach photographs of the non-functional units, one or more for each row that has any.',
+  existing: 'How many the school has now, working or not',
+  functional: 'How many of the existing ones are in good, usable condition',
+  photos: 'Attach photographs of the non-functional units, one or more for each row that has any',
   additional: 'How many to build or supply. Leave it blank to use the calculated shortfall shown in grey, or type your own figure.',
 };
 
@@ -59,7 +59,7 @@ function RowInfo({ gap }: { gap: AuditGap }) {
       {gap.category === 'minimum' ? <><p className="font-semibold">Required: {gap.key === 'fence' ? 'the metres you enter' : quantityLabel(gap.required, gap.unit)}</p><p>{gap.standard}</p></>
         : <p className="font-semibold">Other facility · optional</p>}
       {gap.remark && gap.key !== 'fence' && <p className="opacity-80">{gap.remark}</p>}
-      {gap.category === 'other' && <p className="opacity-80">Enter what the school has or needs; a row is added to the package once you enter a figure.</p>}
+      {gap.category === 'other' && <p className="opacity-80">Enter what the school has or needs; a row is added to the package once you enter a figure</p>}
     </div></TooltipContent></Tooltip>;
 }
 
@@ -167,7 +167,7 @@ export function InfrastructureAuditTable({ input, school, disabled, onChange, ph
               const visibleProblem = problem && (touched.has(gap.key) || gap.functional > gap.existing) ? problem : null;
               const photoMissing = photos.required && gap.nonFunctional > 0 && !rowPhotoIds(input, photos.documents.map(d => d.id), gap.key).length;
               const status = gap.category === 'other' ? (problem ? 'invalid' : gap.included ? (photoMissing ? 'incomplete' : 'added') : 'blank') : problem ? (visibleProblem ? 'invalid' : 'incomplete') : photoMissing ? 'incomplete' : 'complete';
-              const message = visibleProblem ?? problem ?? (photoMissing ? 'Attach a photo of the non-functional units.' : null);
+              const message = visibleProblem ?? problem ?? (photoMissing ? 'Attach a photo of the non-functional units' : null);
               return <TableRow key={gap.key} data-audit-key={gap.key} data-status={status} data-category={gap.category}>
                 <TableCell className="infra-audit-sticky whitespace-normal"><div className="flex items-start gap-1.5">
                   <span className="infra-audit-sn">{gap.sn}</span><span className="min-w-0 flex-1">{gap.label}{filter === 'all' && gap.category === 'other' && <Badge variant="outline" className="ml-1.5 align-middle">Other</Badge>}</span><RowInfo gap={gap} /></div></TableCell>

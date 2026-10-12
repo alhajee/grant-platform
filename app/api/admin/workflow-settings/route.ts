@@ -19,21 +19,21 @@ async function requireAdmin(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const actor = await requireAdmin(request);
-    if (!actor) return json({ error: 'Super-admin access required.' }, 403);
+    if (!actor) return json({ error: 'Super-admin access required' }, 403);
     return json({ setting: await readWorkflowSettings(getPostgres()) });
   } catch (cause) {
     console.error('Workflow settings could not be loaded', cause);
-    return json({ error: 'Unable to load workflow settings.' }, 503);
+    return json({ error: 'Unable to load workflow settings' }, 503);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
     const actor = await requireAdmin(request);
-    if (!actor) return json({ error: 'Super-admin access required.' }, 403);
+    if (!actor) return json({ error: 'Super-admin access required' }, 403);
     const parsed = inputSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Choose a valid submission mode.' }, 400);
+    if (!parsed.success) return json({ error: 'Choose a valid submission mode' }, 400);
     const { mode, ubecMode } = parsed.data;
     const db = getPostgres();
     await db.query(`
@@ -48,6 +48,6 @@ export async function POST(request: NextRequest) {
     return json({ mode, ubecMode });
   } catch (cause) {
     console.error('Workflow setting could not be saved', cause);
-    return json({ error: 'Unable to save the workflow setting.' }, 503);
+    return json({ error: 'Unable to save the workflow setting' }, 503);
   }
 }

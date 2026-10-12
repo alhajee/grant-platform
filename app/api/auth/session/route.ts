@@ -7,12 +7,12 @@ import { getAuthenticatedUser, getWorkspaceState, sessionBinding } from "@/lib/w
 export async function GET(request: NextRequest) {
   try {
     const user = await getWorkspaceState(request);
-    if(!user)return NextResponse.json({error:'Session expired.'},{status:401,headers:{'Cache-Control':'no-store'}});
+    if(!user)return NextResponse.json({error:'Session expired'},{status:401,headers:{'Cache-Control':'no-store'}});
     const {adminSessionId: _privateSession,...publicUser}=user;
     return NextResponse.json({user:publicUser},{headers:{'Cache-Control':'no-store'}});
   } catch (cause) {
     console.error("Session lookup failed", cause);
-    return NextResponse.json({ error: "The local database is unavailable." }, { status: 503 });
+    return NextResponse.json({ error: "The local database is unavailable" }, { status: 503 });
   }
 }
 
@@ -23,11 +23,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return NextResponse.json({ error: 'Cross-site request refused.' }, { status: 403 });
+    if (!isSameRequestOrigin(request)) return NextResponse.json({ error: 'Cross-site request refused' }, { status: 403 });
     const [actor, session] = await Promise.all([getAuthenticatedUser(request), readLocalSession(request)]);
-    if (!actor || !session) return NextResponse.json({ error: 'Session expired.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+    if (!actor || !session) return NextResponse.json({ error: 'Session expired' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     const lifetime = sessionLifetime(session.issuedAt);
-    if (lifetime < 60) return NextResponse.json({ error: 'Session expired.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
+    if (lifetime < 60) return NextResponse.json({ error: 'Session expired' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     const oldBinding = await sessionBinding(request);
     const token = await createLocalSession({ name: session.name, role: session.role, email: session.email, sessionVersion: session.sessionVersion, adminSessionId: session.adminSessionId }, session.issuedAt);
     const newBinding = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))), b => b.toString(16).padStart(2, '0')).join('');
@@ -40,6 +40,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (cause) {
     console.error('Session renewal failed', cause);
-    return NextResponse.json({ error: 'The local database is unavailable.' }, { status: 503 });
+    return NextResponse.json({ error: 'The local database is unavailable' }, { status: 503 });
   }
 }

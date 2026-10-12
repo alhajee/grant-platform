@@ -15,7 +15,7 @@ type Source = { key: string; label: string; amount: number; tone: string; info?:
 export function FundingDetails({ setup }: { setup: Partial<PlanSetup> }) {
   const state = Number(setup.stateLodgment ?? 0), other = Number(otherFundingTotal(setup));
   const sources: Source[] = [
-    { key: 'state', label: 'State contribution', amount: state, tone: 'var(--primary)' },
+    { key: 'state', label: 'State counterpart fund', amount: state, tone: 'var(--primary)' },
     { key: 'ubec', label: 'UBEC match', amount: state, tone: '#2c7a5e' },
     { key: 'other', label: 'Other funding', amount: other, tone: '#a9d05a', info: true },
   ];
@@ -38,7 +38,7 @@ export function FundingDetails({ setup }: { setup: Partial<PlanSetup> }) {
     </section>
     <section aria-labelledby="funding-documents-title">
       <h3 id="funding-documents-title">Documents</h3>
-      {documents.length ? <DocumentFiles compact documents={documents} /> : <p className="funding-none">No assessment documents attached.</p>}
+      {documents.length ? <DocumentFiles compact documents={documents} /> : <p className="funding-none">No assessment documents attached</p>}
     </section>
   </div>;
 }

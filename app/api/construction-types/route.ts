@@ -8,8 +8,8 @@ import { userDepartmentsSql } from '@/lib/user-departments';
 export async function POST(request: NextRequest) {
   try {
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return NextResponse.json({ error: "Sign in to create a construction type." }, { status: 401 });
-    if (!canEditPillar(workspace.role, workspace.departments ?? workspace.department, 'infrastructure')) return NextResponse.json({ error: 'Only staff assigned to Physical Planning can create construction types.' }, { status: 403 });
+    if (!workspace) return NextResponse.json({ error: "Sign in to create a construction type" }, { status: 401 });
+    if (!canEditPillar(workspace.role, workspace.departments ?? workspace.department, 'infrastructure')) return NextResponse.json({ error: 'Only staff assigned to Physical Planning can create construction types' }, { status: 403 });
     const input = await request.json().catch(() => null);
     const parsed = constructionTypeSchema.safeParse(input);
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });

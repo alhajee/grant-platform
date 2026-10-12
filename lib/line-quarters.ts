@@ -10,6 +10,31 @@ export const allQuarters = [1, 2, 3, 4] as const;
 export const normalizeQuarters = (quarters: readonly number[]): number[] =>
   [...new Set(quarters)].filter(q => Number.isInteger(q) && q >= 1 && q <= 4).sort((a, b) => a - b);
 
+/** True when the quarters form one unbroken run (Q2–Q3 yes, Q1 and Q4 no). Empty counts as contiguous. */
+export function isContiguous(quarters: readonly number[]): boolean {
+  const q = normalizeQuarters(quarters);
+  return q.length === quarters.length && (!q.length || q[q.length - 1] - q[0] + 1 === q.length);
+}
+export const contiguousMessage = 'Choose quarters next to each other (for example Q1–Q3), with no gaps';
+
+/**
+ * The selection after clicking quarter `q`, kept as one unbroken run. Adding a quarter fills the gap up to it
+ * (Q1 then Q4 = Q1–Q4), or starts again at it when a quarter in between cannot be chosen. Clicking an end removes
+ * it; clicking a middle quarter trims the run back to it (Q1–Q4, click Q2 = Q1–Q2).
+ */
+export function toggleQuarter(selected: readonly number[], q: number, selectable: readonly number[] = allQuarters): number[] {
+  const current = normalizeQuarters(selected);
+  if (!current.includes(q)) {
+    if (!selectable.includes(q)) return current;
+    const from = Math.min(q, ...current), to = Math.max(q, ...current), run = range(from, to);
+    return current.length && run.every(x => selectable.includes(x) || current.includes(x)) ? run : [q];
+  }
+  if (q === current[0]) return current.slice(1);
+  if (q === current[current.length - 1]) return current.slice(0, -1);
+  return range(current[0], q);
+}
+const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
+
 /** A plan's quarters; a legacy plan without quarters covers the whole year (same rule as migration 050). */
 export function planQuarters(plan: { fundingQuarters?: readonly number[] | null } | null | undefined): number[] {
   const quarters = normalizeQuarters(plan?.fundingQuarters ?? []);
@@ -20,14 +45,16 @@ export function planQuarters(plan: { fundingQuarters?: readonly number[] | null 
  * A line's timeline as the APIs take it. Optional in the payload: a client that sends none (older clients and
  * scripts) gets the plan's quarters (resolveLineQuarters). An empty list is refused.
  */
-export const lineQuartersSchema = z.array(z.number().int().min(1, 'Choose quarters between Q1 and Q4.').max(4, 'Choose quarters between Q1 and Q4.'))
-  .min(1, 'Choose at least one quarter for the timeline.').max(4, 'Choose at most four quarters.')
-  .refine(q => new Set(q).size === q.length, 'Choose each quarter once.')
+export const lineQuartersSchema = z.array(z.number().int().min(1, 'Choose quarters between Q1 and Q4').max(4, 'Choose quarters between Q1 and Q4'))
+  .min(1, 'Choose at least one quarter for the timeline').max(4, 'Choose at most four quarters')
+  .refine(q => new Set(q).size === q.length, 'Choose each quarter once')
+  .refine(isContiguous, contiguousMessage)
   .transform(q => [...q].sort((a, b) => a - b));
 
 /** Why a timeline does not fit the plan, or null. */
 export function lineQuartersProblem(quarters: readonly number[], plan: { fundingQuarters?: readonly number[] | null }): string | null {
-  if (!quarters.length) return 'Choose at least one quarter for the timeline.';
+  if (!quarters.length) return 'Choose at least one quarter for the timeline';
+  if (!isContiguous(quarters)) return contiguousMessage;
   const allowed = planQuarters(plan), outside = normalizeQuarters(quarters).filter(q => !allowed.includes(q));
   if (!outside.length) return null;
   return `${formatQuarters(outside)} ${outside.length === 1 ? 'is' : 'are'} not in this plan (${formatQuarters(allowed)}). Choose quarters within the plan.`;

@@ -21,7 +21,7 @@ const stateName = (code: string) => stateDisplayName(code).replace(/ State$/, ''
 async function call(init?: RequestInit) {
   const response = await fetch(endpoint, { cache: 'no-store', ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
   const body = await response.json().catch(() => ({})) as { status?: SyncStatus; error?: string };
-  if (!response.ok || !body.status) throw Object.assign(Error(body.error || 'Unable to reach the DNEMIS sync.'), { status: body.status });
+  if (!response.ok || !body.status) throw Object.assign(Error(body.error || 'Unable to reach the DNEMIS sync'), { status: body.status });
   return body.status;
 }
 
@@ -48,7 +48,7 @@ export function DnemisSync({ ready }: { ready: boolean }) {
   // The time is typed, so it is saved when the field loses focus (or on Enter), not on every keystroke.
   const [time, setTime] = useState('');
   const load = useCallback(async () => {
-    try { const next = await call(); setStatus(next); setTime(current => current || next.schedule.time); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load the DNEMIS sync.'); }
+    try { const next = await call(); setStatus(next); setTime(current => current || next.schedule.time); setError(''); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load the DNEMIS sync'); }
   }, []);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   useEffect(() => {
@@ -66,7 +66,7 @@ export function DnemisSync({ ready }: { ready: boolean }) {
     setStatus({ ...status, schedule: next });
     setSaving(true);
     try { setStatus(await call({ method: 'PUT', body: JSON.stringify(next) })); toast.success(next.mode === 'off' ? 'Automatic refresh turned off' : 'Refresh schedule saved'); }
-    catch (cause) { setStatus(previous); setTime(previous.schedule.time); toast.error(cause instanceof Error ? cause.message : 'Unable to save the refresh schedule.'); }
+    catch (cause) { setStatus(previous); setTime(previous.schedule.time); toast.error(cause instanceof Error ? cause.message : 'Unable to save the refresh schedule'); }
     finally { setSaving(false); }
   };
   const start = async (states?: string[]) => {
@@ -75,7 +75,7 @@ export function DnemisSync({ ready }: { ready: boolean }) {
     catch (cause) {
       const current = (cause as { status?: SyncStatus }).status;
       if (current) setStatus(current);
-      toast.error(cause instanceof Error ? cause.message : 'Unable to start the DNEMIS sync.');
+      toast.error(cause instanceof Error ? cause.message : 'Unable to start the DNEMIS sync');
     } finally { setStarting(false); }
   };
   const on = schedule.mode !== 'off';
@@ -85,7 +85,7 @@ export function DnemisSync({ ready }: { ready: boolean }) {
   };
 
   return <SettingsCard>
-    <SettingRow label="Automatic refresh" htmlFor="dnemis-auto" description={on && status.nextSync ? `Next sync ${formatLagos(status.nextSync)}` : 'Saved as soon as you change it.'}>
+    <SettingRow label="Automatic refresh" htmlFor="dnemis-auto" description={on && status.nextSync ? `Next sync ${formatLagos(status.nextSync)}` : 'Saved as soon as you change it'}>
       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
         {on && <>
           <Select value={schedule.mode} disabled={saving} onValueChange={mode => void save({ ...schedule, mode: mode as SyncSchedule['mode'] })}>

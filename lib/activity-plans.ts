@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, qualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
+import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, equipmentCategories, isQualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
 import { maxActivityNameLength, othersActivityName, teacherActivityInfo, teacherActivityNames } from './teacher-development.ts';
 import { teacherTrainingIssues, teacherTrainingShape } from './teacher-training-schema.ts';
 import { lineQuartersSchema } from './line-quarters.ts';
+import { lineDatesShape } from './line-dates.ts';
 export { maxActivityNameLength, othersActivityName };
 export const activityWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
 export type ActivityWorkstream = typeof activityWorkstreams[number];
@@ -27,25 +28,35 @@ export const activityNames = {
 /** Explanations shown as an info hint beside an activity (Quality Assurance, Planning, Research & Statistics and others). */
 export const activityInfo: Partial<Record<ActivityWorkstream, Record<number, string>>> = {
   quality: {
-    0: 'Procurement of motorcycles, vehicles and any other means of transportation, and office equipment.',
-    2: 'Capacity strengthening for Principals and Headteachers on the conduct of school self-evaluation and quality assurance practices and procedures.',
-    3: 'Capacity building for new M&E Officers on quality assurance practices and procedures.',
-    6: 'Conduct of CQA for 9 weeks to visit schools by UBEC, SUBEBs and LGEAs for evaluation of 324 schools over 3 terms (108 schools per term).',
-    8: 'Follow-up by UBEC, SUBEB and LGEAs for evaluation of 162 schools.',
+    0: 'Procurement of mobility (e.g. Hilux, Sienna, minibus, motorcycle, boat) and office equipment. Add one item per type, each with its own quantity and unit cost.',
+    1: 'Maintenance of mobility and office equipment. Add one item per type, each with its own quantity and unit cost.',
+    2: 'Capacity strengthening for principals and headteachers on the conduct of school self-evaluation procedures by UBEC trained facilitators',
+    3: 'Capacity building of M&E officers on school-based monitoring and evaluation procedures and data entry by UBEC trained facilitators',
+    6: 'Conduct of CSM&E for 9 weeks to visit schools by UBEC, SUBEBs and LGEAs for evaluation of 324 schools over 3 terms (108 schools per term)',
+    8: 'Follow-up by UBEC, SUBEB and LGEAs for evaluation of 162 schools',
   },
-  ict: { 2: 'All Model Smart Schools lines together may use up to ₦30,000,000.' },
-  curriculum: { 4: 'Not part of the 60/20/10/10 activity split; it counts toward the Curriculum allocation.' },
+  ict: { 2: 'All Model Smart Schools lines together may use up to ₦30,000,000' },
+  curriculum: { 4: 'Not part of the 60/20/10/10 activity split; it counts toward the Curriculum allocation' },
   teachers: teacherActivityInfo,
   planning: {
     0: 'Conduct annual school census and regular data updates to improve accuracy of planning and reporting, uploaded to DNEMIS.',
-    1: 'Develop State Medium-Term Basic Education Strategic Plans (SMTBESP) to guide state-level interventions.',
-    3: 'Capacity building of EMIS, ICT and PRS Officers at SUBEB and LGEA through targeted trainings and continuous professional support.',
-    4: 'Procure working tools and ICT resources for PRS Officers at SUBEBs and LGEAs to enhance efficiency.',
-    5: 'Provide technical assistance and ongoing support on planning, research and data management activities across states.',
+    1: 'Develop State Medium-Term Basic Education Strategic Plans (SMTBESP) to guide state-level interventions',
+    3: 'Capacity building of EMIS, ICT and PRS Officers at SUBEB and LGEA through targeted trainings and continuous professional support',
+    4: 'Procure working tools and ICT resources for PRS Officers at SUBEBs and LGEAs to enhance efficiency',
+    5: 'Provide technical assistance and ongoing support on planning, research and data management activities across states',
   },
 };
 /** Per-activity caps as a share of the component envelope, in basis points: Curriculum (UBEC30-32) and SBMC monitoring (5%). */
-export const activityShareCaps: Partial<Record<ActivityWorkstream, Record<number, number>>> = { curriculum: { 0: 6000, 1: 2000, 2: 1000, 3: 1000 }, sbmc: { 12: 500 } };
+export const activityShareCaps: Partial<Record<ActivityWorkstream, Record<number, number>>> = { curriculum: { 0: 6000, 1: 2000, 2: 1000, 3: 1000 }, sbmc: { 12: 500 },
+  // Quality Assurance (client observations, October 2026); 0 and 1 share one cap (activityShareGroups). Together the
+  // shares come to 100%; 5 and Others are retired (retiredActivities).
+  quality: { 2: 1000, 3: 500, 4: 1600, 6: 800, 7: 300, 8: 400, 9: 400, 10: 100, 11: 100 } };
+/** Activities whose items share one cap, in basis points: Quality Assurance Mobility and office equipment with its maintenance, 48%. */
+export const activityShareGroups: Partial<Record<ActivityWorkstream, readonly { activities: readonly number[]; share: number }[]>> = { quality: [{ activities: [0, 1], share: 4800 }] };
+/** The activities whose items count toward this activity's cap: its group, or itself. */
+export const capActivities = (workstream: ActivityWorkstream, activity: number): readonly number[] => activityShareGroups[workstream]?.find(g => g.activities.includes(activity))?.activities ?? [activity];
+/** This activity's share in basis points (its own, or its group's), or undefined when it has none. */
+export const activityShare = (workstream: ActivityWorkstream, activity: number): number | undefined => activityShareGroups[workstream]?.find(g => g.activities.includes(activity))?.share ?? activityShareCaps[workstream]?.[activity];
 export const curriculumActivityShares = [6000, 2000, 1000, 1000] as const;
 export { distributionWorkstreams, hasDistribution, distributionSnapshotKeys, distributionNames, emptyDistributionMessage, type DistributionWorkstream } from './distribution-lists.ts';
 /** Workstreams that collect documents in component_documents (the Supervision & Monitoring proforma invoices). */
@@ -57,7 +68,7 @@ export const activityHints: Partial<Record<ActivityWorkstream, Record<number, st
  tlm: {
   5: 'English Studies, Mathematics, Basic Science/Technology, Social Studies', 6: 'Story books, supplementary readers, graded readers', 7: 'Teacher guides, lesson and activity resources', 8: 'Charts, posters, diagrams, maps, globes', 9: 'Flashcards, picture, word and alphabet cards', 10: 'Counting blocks, abacus, number cards, geometric shapes, manipulatives', 11: 'Models, specimens, magnifying glasses, simple microscopes', 12: 'Maps, globes, charts, models', 13: 'Models, demonstration materials, practical learning resources', 14: 'Basic computers and learning resources', 15: 'Educational games', 16: 'Blackboards, whiteboards, rulers, protractors, scales', 17: 'Art and craft supplies', 18: 'Radios, tape recorders, CD players', 19: 'Tablets, where justified', 20: 'Overhead projectors', 21: 'Smart interactive boards', 22: 'Must be justified and meet UBEC standards',
 } };
-export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22], monitoring: [0,1,2,3,4], gscci: [0,1,2,3,4,5,6,7,8,9], curriculum: [0,1,2,3,4], quality: [0,1,2,3,4,5,6,7,8,9,10,11], ict: [0,1,2,3,4,5,6,7,8,9], teachers: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18], planning: [0,1,2,3,4,5,6] } as const;
+export const selectableActivityIndexes = { sbmc: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16], tlm: [5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22], monitoring: [0,1,2,3,4], gscci: [0,1,2,3,4,5,6,7,8,9], curriculum: [0,1,2,3,4], quality: [0,1,2,3,4,6,7,8,9,10,11], ict: [0,1,2,3,4,5,6,7,8,9], teachers: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18], planning: [0,1,2,3,4,5,6] } as const;
 /**
  * The "Others (specify)" activity of each component: always the last in its list (TLM's is "Other TLMs"), so earlier
  * indexes keep their meaning. Its lines name their own activity (custom_activity, migration 047); no other line may.
@@ -84,56 +95,60 @@ export const activityLineSchema = z.object({
   rationale: z.string().trim().max(1000).default(''),
   implementationApproach: z.string().trim().max(1000).default(''),
   quantity: z.number().int().min(1).max(1000000),
-  unitCost: z.number().positive().max(999999999999.99).refine(n=>Math.abs(n*100-Math.round(n*100))<.001, 'Use at most two decimal places.'),
+  unitCost: z.number().positive().max(999999999999.99).refine(n=>Math.abs(n*100-Math.round(n*100))<.001, 'Use at most two decimal places'),
   strategy: z.union([z.enum(implementationStrategies), z.literal('')]).default(''), targetGroup: z.union([z.enum(targetGroups), z.literal('')]).default(''), location: z.enum(['','Rural','Urban']).default(''),
   equipment: z.string().max(100).default(''),
-  customActivity: z.string().trim().max(maxActivityNameLength, `Use up to ${maxActivityNameLength} characters for the activity name.`).default(''),
+  customActivity: z.string().trim().max(maxActivityNameLength, `Use up to ${maxActivityNameLength} characters for the activity name`).default(''),
   textbookClasses: z.array(z.enum(textbookClasses)).max(textbookClasses.length).default([]),
   textbookSubject: z.string().max(100).default(''),
   // Listed values or, through "Others (specify)", whatever the user types (lib/activity-extras.ts).
-  equipmentType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters.`).default(''),
-  subscriptionTypes: z.array(z.string().trim().min(1, 'Enter the subscription name.').max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters.`)).max(subscriptionTypes.length + 1).default([]),
-  websiteType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters.`).default(''),
-  schoolIds: z.array(z.number().int().positive()).max(maxLineSchools, `Choose up to ${maxLineSchools.toLocaleString()} schools.`).default([]),
+  equipmentCategory: z.enum(['', ...equipmentCategories]).default(''),
+  equipmentType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters`).default(''),
+  subscriptionTypes: z.array(z.string().trim().min(1, 'Enter the subscription name').max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters`)).max(subscriptionTypes.length + 1).default([]),
+  websiteType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters`).default(''),
+  schoolIds: z.array(z.number().int().positive()).max(maxLineSchools, `Choose up to ${maxLineSchools.toLocaleString()} schools`).default([]),
   ...teacherTrainingShape,
   /** Timeline: implementation quarters within the plan's quarters (migration 050); omitted = the plan's quarters. */
   quarters: lineQuartersSchema.optional(),
+  /** Expected start and due dates inside the timeline (migration 059); omitted = kept or the whole timeline. */
+  ...lineDatesShape,
 }).superRefine((v,ctx)=>{
   const training=v.workstream==='teachers';
-  if(!v.description)ctx.addIssue({code:'custom',path:['description'],message:'Enter a description.'});
-  if(!training&&!v.strategy)ctx.addIssue({code:'custom',path:['strategy'],message:'Choose the implementation strategy.'});
-  if(!training&&!v.targetGroup)ctx.addIssue({code:'custom',path:['targetGroup'],message:'Choose the target group.'});
-  if(training&&(v.strategy||v.targetGroup))ctx.addIssue({code:'custom',path:['strategy'],message:'Implementation strategy and target group do not apply to Teacher Development.'});
+  if(!v.description)ctx.addIssue({code:'custom',path:['description'],message:'Enter a description'});
+  if(!training&&!v.strategy)ctx.addIssue({code:'custom',path:['strategy'],message:'Choose the implementation strategy'});
+  if(!training&&!v.targetGroup)ctx.addIssue({code:'custom',path:['targetGroup'],message:'Choose the target group'});
+  if(training&&(v.strategy||v.targetGroup))ctx.addIssue({code:'custom',path:['strategy'],message:'Implementation strategy and target group do not apply to Teacher Development'});
   for(const issue of teacherTrainingIssues(v))ctx.addIssue({code:'custom',...issue});
-  const needsEquipment=v.workstream==='quality'&&v.activity===qualityEquipmentActivity;
-  if(needsEquipment&&!v.equipmentType)ctx.addIssue({code:'custom',path:['equipmentType'],message:'Choose or enter the equipment type.'});
-  if(!needsEquipment&&v.equipmentType)ctx.addIssue({code:'custom',path:['equipmentType'],message:'Equipment type only applies to Mobility and Office Equipment.'});
+  const needsEquipment=isQualityEquipmentActivity(v.workstream,v.activity);
+  if(needsEquipment&&!v.equipmentCategory)ctx.addIssue({code:'custom',path:['equipmentCategory'],message:'Choose Mobility or Office equipment'});
+  if(needsEquipment&&!v.equipmentType)ctx.addIssue({code:'custom',path:['equipmentType'],message:'Choose or enter the type'});
+  if(!needsEquipment&&(v.equipmentType||v.equipmentCategory))ctx.addIssue({code:'custom',path:['equipmentType'],message:'Equipment category and type only apply to Mobility and office equipment and its maintenance'});
   const needsSubscriptions=v.workstream==='ict'&&v.activity===ictSubscriptionActivity;
-  if(needsSubscriptions&&!v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Choose at least one subscription type.'});
-  if(!needsSubscriptions&&v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Subscription types only apply to internet subscriptions.'});
-  if(v.subscriptionTypes.filter(t=>!(subscriptionTypes as readonly string[]).includes(t)).length>1)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Enter one other subscription.'});
-  if(new Set(v.subscriptionTypes.map(t=>t.toLowerCase())).size!==v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Choose each subscription type once.'});
+  if(needsSubscriptions&&!v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Choose at least one subscription type'});
+  if(!needsSubscriptions&&v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Subscription types only apply to internet subscriptions'});
+  if(v.subscriptionTypes.filter(t=>!(subscriptionTypes as readonly string[]).includes(t)).length>1)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Enter one other subscription'});
+  if(new Set(v.subscriptionTypes.map(t=>t.toLowerCase())).size!==v.subscriptionTypes.length)ctx.addIssue({code:'custom',path:['subscriptionTypes'],message:'Choose each subscription type once'});
   const needsWebsite=v.workstream==='ict'&&v.activity===ictWebsiteActivity;
-  if(needsWebsite&&!v.websiteType)ctx.addIssue({code:'custom',path:['websiteType'],message:'Choose or enter the website type.'});
-  if(!needsWebsite&&v.websiteType)ctx.addIssue({code:'custom',path:['websiteType'],message:'Website type only applies to the website activity.'});
+  if(needsWebsite&&!v.websiteType)ctx.addIssue({code:'custom',path:['websiteType'],message:'Choose or enter the website type'});
+  if(!needsWebsite&&v.websiteType)ctx.addIssue({code:'custom',path:['websiteType'],message:'Website type only applies to the website activity'});
   const needsSchools=hasLineSchools(v.workstream,v.activity);
-  if(needsSchools&&!v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose at least one school.'});
-  if(!needsSchools&&v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Schools only apply to activities that target schools.'});
-  if(new Set(v.schoolIds).size!==v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose each school once.'});
-  if(v.workstream==='sbmc') for(const field of ['rationale','implementationApproach'] as const) if(!v[field])ctx.addIssue({code:'custom',path:[field],message:field==='rationale'?'Enter a rationale.':'Enter an implementation approach.'});
-  if(!(selectableActivityIndexes[v.workstream] as readonly number[]).includes(v.activity))ctx.addIssue({code:'custom',path:['activity'],message:'Choose a valid allowable activity.'});
+  if(needsSchools&&!v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose at least one school'});
+  if(!needsSchools&&v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Schools only apply to activities that target schools'});
+  if(new Set(v.schoolIds).size!==v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose each school once'});
+  if(v.workstream==='sbmc') for(const field of ['rationale','implementationApproach'] as const) if(!v[field])ctx.addIssue({code:'custom',path:[field],message:field==='rationale'?'Enter a rationale':'Enter an implementation approach'});
+  if(!(selectableActivityIndexes[v.workstream] as readonly number[]).includes(v.activity))ctx.addIssue({code:'custom',path:['activity'],message:'Choose a valid allowable activity'});
   const isOther=isOtherActivity(v.workstream,v.activity);
-  if(isOther&&!v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'Enter the activity name.'});
-  if(!isOther&&v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'An activity name only applies when Others (specify) is selected.'});
-  if(v.equipment)ctx.addIssue({code:'custom',path:['equipment'],message:'Material type no longer applies; choose the material as the activity.'});
+  if(isOther&&!v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'Enter the activity name'});
+  if(!isOther&&v.customActivity)ctx.addIssue({code:'custom',path:['customActivity'],message:'An activity name only applies when Others (specify) is selected'});
+  if(v.equipment)ctx.addIssue({code:'custom',path:['equipment'],message:'Material type no longer applies; choose the material as the activity'});
   const isTextbook=v.workstream==='tlm'&&v.activity===textbookActivityIndex;
-  if(isTextbook&&!v.textbookClasses.length)ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Choose at least one class for the textbooks.'});
-  if(isTextbook&&!textbookSubjects.some(subject=>subject===v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookSubject'],message:'Choose a subject for the textbooks.'});
-  if(!isTextbook&&(v.textbookClasses.length||v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Class and subject only apply to textbooks.'});
-  if(!Number.isSafeInteger(Math.round(v.unitCost*100)*v.quantity))ctx.addIssue({code:'custom',path:['unitCost'],message:'Line total is too large.'});
+  if(isTextbook&&!v.textbookClasses.length)ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Choose at least one class for the textbooks'});
+  if(isTextbook&&!textbookSubjects.some(subject=>subject===v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookSubject'],message:'Choose a subject for the textbooks'});
+  if(!isTextbook&&(v.textbookClasses.length||v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Class and subject only apply to textbooks'});
+  if(!Number.isSafeInteger(Math.round(v.unitCost*100)*v.quantity))ctx.addIssue({code:'custom',path:['unitCost'],message:'Line total is too large'});
 });
 export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number;/** Reference code set by the database (migration 053), e.g. UBEC/SUBEB/SBMC/012/2026 · Q1–Q4. */code?:string;/** The client key the line was created with (migration 058), null for older lines. */clientKey?:string|null;schools?:LineSchool[];documents?:LineDocument[]};
-export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'|'equipmentType'|'subscriptionTypes'|'websiteType'|'schoolIds'|'trainingProvider'|'targetParticipants'|'schoolLevels'|'trainingDays'|'venueType'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string;equipment_type?:string;subscription_types?:string[];website_type?:string;
+export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'|'equipmentCategory'|'equipmentType'|'subscriptionTypes'|'websiteType'|'schoolIds'|'trainingProvider'|'targetParticipants'|'schoolLevels'|'trainingDays'|'venueType'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string;equipment_category?:string;equipment_type?:string;subscription_types?:string[];website_type?:string;
   /** Teacher Development training details (migration 040). */
   training_provider?:string;target_participants?:string;school_levels?:string[];training_days?:number|null;venue_type?:string};
 export type ComponentDocument = {id:string;component:typeof documentWorkstreams[number];name:string;size:number};

@@ -79,7 +79,7 @@ export async function queueSync(db: Db, triggeredBy: string, scope = 'all') {
   try {
     return (await db.query<{ id: number }>(`INSERT INTO dnemis_sync_runs(status, scope, triggered_by) VALUES('queued', $1, $2) RETURNING id`, [scope, triggeredBy.slice(0, 120)])).rows[0].id;
   } catch (cause) {
-    if ((cause as { code?: string }).code === '23505') throw new DnemisSyncBusyError('A DNEMIS sync is already queued or running.');
+    if ((cause as { code?: string }).code === '23505') throw new DnemisSyncBusyError('A DNEMIS sync is already queued or running');
     throw cause;
   }
 }

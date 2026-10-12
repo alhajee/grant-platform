@@ -1,25 +1,26 @@
 import { z } from 'zod';
 import { formatQuarters } from './format-quarters';
+import { contiguousMessage, isContiguous } from './line-quarters.ts';
 import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabels, fundingSourceTargets, isSplitMode, toKobo, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
 export { sharedBelowAllocationProblem } from './budget-pairs';
 
 const year = z.number().int().min(2004).max(2100);
 export const implementationYearError = (fundingYear: number, implementationYear: number) => Number.isInteger(fundingYear) && Number.isInteger(implementationYear) && implementationYear < fundingYear ? `Implementation year can't be earlier than the funding year (${fundingYear}).` : '';
-const amount = z.string().regex(/^\d{1,13}(\.\d{1,2})?$/, 'Enter an amount below ₦10 trillion, with up to two decimal places.');
+const amount = z.string().regex(/^\d{1,13}(\.\d{1,2})?$/, 'Enter an amount below ₦10 trillion, with up to two decimal places');
 export const maxFundingSources = 20;
 export const fundingSourceSchema = z.object({
   // 'all' is plan-wide funding, shared across every component by the policy shares (migration 041).
-  component: z.enum(fundingSourceTargets, { errorMap: () => ({ message: 'Choose the component this funding is for.' }) }),
-  funder: z.string().trim().min(1, 'Enter the funder.').max(120, 'Keep the funder name under 120 characters.'),
-  amount: amount.refine(v => toKobo(v) > BigInt(0), 'Enter an amount greater than zero.'),
+  component: z.enum(fundingSourceTargets, { errorMap: () => ({ message: 'Choose the component this funding is for' }) }),
+  funder: z.string().trim().min(1, 'Enter the funder').max(120, 'Keep the funder name under 120 characters'),
+  amount: amount.refine(v => toKobo(v) > BigInt(0), 'Enter an amount greater than zero'),
 }).strict();
 const periodAndFunding = {
   planningYear: year,
   implementationYear: year,
-  quarters: z.array(z.number().int().min(1).max(4)).min(1, 'Select at least one quarter.').max(4)
-    .refine(q => new Set(q).size === q.length, 'Do not repeat quarters.').transform(q=>[...q].sort()),
+  quarters: z.array(z.number().int().min(1).max(4)).min(1, 'Select at least one quarter').max(4)
+    .refine(q => new Set(q).size === q.length, 'Do not repeat quarters').refine(isContiguous, contiguousMessage).transform(q=>[...q].sort()),
   stateLodgment: amount,
-  fundingSources: z.array(fundingSourceSchema).max(maxFundingSources, `Add up to ${maxFundingSources} funding sources.`).default([]),
+  fundingSources: z.array(fundingSourceSchema).max(maxFundingSources, `Add up to ${maxFundingSources} funding sources`).default([]),
 };
 /** Sum of source amounts as a "123.45" string; malformed amounts count as zero (form input). */
 export const sourcesSum = (sources: readonly { amount: string }[]) => fromKobo(sources.reduce((sum, s) => sum + (/^\d{1,13}(\.\d{1,2})?$/.test(s.amount) ? toKobo(s.amount) : BigInt(0)), BigInt(0)));
@@ -27,10 +28,10 @@ type PeriodAndFunding = { planningYear: number; implementationYear: number; stat
 const checkSetup = (p: PeriodAndFunding, ctx: z.RefinementCtx) => {
   const message = implementationYearError(p.planningYear, p.implementationYear);
   if (message) ctx.addIssue({code:'custom',message,path:['implementationYear']});
-  if (/^\d{1,13}(\.\d{1,2})?$/.test(p.stateLodgment) && toKobo(fundingTotal(p.stateLodgment, sourcesSum(p.fundingSources))) <= BigInt(0)) ctx.addIssue({code:'custom',message:'Enter funding greater than zero.',path:['stateLodgment']});
+  if (/^\d{1,13}(\.\d{1,2})?$/.test(p.stateLodgment) && toKobo(fundingTotal(p.stateLodgment, sourcesSum(p.fundingSources))) <= BigInt(0)) ctx.addIssue({code:'custom',message:'Enter funding greater than zero',path:['stateLodgment']});
 };
 // Other funding is entered per component or for all components (fundingSources); otherFunding is accepted only as zero for older clients.
-export const planSetupSchema = z.object({ ...periodAndFunding, otherFunding: z.string().regex(/^0+(\.0{1,2})?$/, 'Enter other funding per component under Other funding sources.').optional() })
+export const planSetupSchema = z.object({ ...periodAndFunding, otherFunding: z.string().regex(/^0+(\.0{1,2})?$/, 'Enter other funding per component under Other funding sources').optional() })
   .strict().superRefine(checkSetup);
 export const planEditSchema = z.object({ plan: z.number().int().positive(), version: z.number().int().nonnegative(), ...periodAndFunding }).strict().superRefine(checkSetup);
 
@@ -75,6 +76,8 @@ export type PlanSetup = {
   tlmAllocation?: string | null;
   /** The platform's Infrastructure & TLM mode when read (migration 051). */
   infrastructureTlmMode?: import('./funding-policy').InfrastructureTlmMode | null;
+  /** The optional Quality Assurance activities chosen up front (migration 061); null until chosen. */
+  qualityActivities?: number[] | null;
   beapName: string | null; documents: PlanDocument[];
 };
 export const maxRatFileBytes = 5 * 1024 * 1024;

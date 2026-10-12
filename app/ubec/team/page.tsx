@@ -40,7 +40,7 @@ export default function TeamPage() {
       const result = await response.json() as Data & { error?: string };
       if (!response.ok) throw new Error(result.error);
       setData(result);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load Assessment Officers.'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load Assessment Officers'); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
@@ -50,22 +50,22 @@ export default function TeamPage() {
     try {
       const response = await fetch('/api/ubec/officers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, email: form.email, department: form.department || open[0] || data.departments[0] }) });
       const result = await response.json() as { error?: string; password?: string };
-      if (!response.ok) throw new Error(result.error || 'The officer could not be added.');
+      if (!response.ok) throw new Error(result.error || 'The officer could not be added');
       setAdding(false); setCredentials({ email: form.email, password: result.password ?? '' }); toast.success('Assessment Officer added'); await load();
-    } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'The officer could not be added.'); }
+    } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'The officer could not be added'); }
     finally { busy.current = false; setSaving(false); }
   }
   return <UbecShell team user={data?.user}>
     <div className="national-page-title"><div><span className="national-eyebrow">{data?.departments.length === 1 ? departmentLabel(data.departments[0]) : 'UBEC'}</span><h1>Assessment Officers</h1></div>{data && <div className="ubec-team-add"><Button disabled={!open.length} aria-describedby={!open.length ? 'officer-limit-reason' : undefined} onClick={() => { setForm({ name: '', email: '', department: open[0] }); setFormError(''); setAdding(true); }}><PlusIcon data-icon="inline-start" />Add officer</Button></div>}</div>
-    {data && !open.length && data.limits.length > 0 && <Alert id="officer-limit-reason" className="ubec-team-limit"><AlertTitle>{data.limits.length === 1 ? `${departmentLabel(data.limits[0].department)} has ${ofLimit(data.limits[0])}` : 'Every department is at its officer limit'}</AlertTitle><AlertDescription>Deactivate an officer, or ask the Super Admin to raise the limit (Admin &gt; Workflow settings), before adding another.</AlertDescription></Alert>}
+    {data && !open.length && data.limits.length > 0 && <Alert id="officer-limit-reason" className="ubec-team-limit"><AlertTitle>{data.limits.length === 1 ? `${departmentLabel(data.limits[0].department)} has ${ofLimit(data.limits[0])}` : 'Every department is at its officer limit'}</AlertTitle><AlertDescription>Deactivate an officer, or ask the Super Admin to raise the limit (Admin &gt; Workflow settings), before adding another</AlertDescription></Alert>}
     {error && <Alert variant="destructive"><AlertTitle>Officers unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
     {loading && !data ? <Skeleton className="h-64 w-full rounded-2xl" /> : data && <Card><CardHeader><CardTitle>Your officers <Badge variant="secondary">{data.officers.length}</Badge></CardTitle><CardDescription>One officer per component by default; the Super Admin sets each department&apos;s limit. An officer can hold several components of the same department.</CardDescription>
       {data.limits.length > 0 && <div className="ubec-team-limits" aria-label="Active officers against each limit">{data.limits.map(l => <Badge key={l.department} variant={isFull(l) ? 'warning' : 'outline'} data-testid={`limit-${l.department}`}>{data.limits.length > 1 ? `${departmentShort(l.department)} · ` : ''}{ofLimit(l)}{isFull(l) ? ' · full' : ''}</Badge>)}</div>}</CardHeader><CardContent>
       {data.officers.length ? <Table><TableHeader><TableRow><TableHead>Officer</TableHead><TableHead>Department</TableHead><TableHead>Open assessments</TableHead><TableHead>Completed</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>
         {data.officers.map(o => <TableRow key={o.id}><TableCell><strong>{o.name}</strong><small className="block text-muted-foreground">{o.email}</small></TableCell><TableCell>{departmentLabel(o.department)}</TableCell><TableCell>{o.open}</TableCell><TableCell>{o.completed}</TableCell><TableCell><Badge variant={o.active ? 'secondary' : 'outline'}>{o.active ? 'Active' : 'Inactive'}</Badge></TableCell></TableRow>)}
-      </TableBody></Table> : <UbecEmpty art={<NoOfficersArt />} title="No Assessment Officers yet">Add an officer, then assign them to components from the plan page.</UbecEmpty>}
+      </TableBody></Table> : <UbecEmpty art={<NoOfficersArt />} title="No Assessment Officers yet">Add an officer, then assign them to components from the plan page</UbecEmpty>}
     </CardContent></Card>}
-    <Dialog open={adding} onOpenChange={open => { if (!open && !saving) setAdding(false); }}><DialogContent className="national-dialog" showCloseButton={!saving}><DialogHeader><DialogTitle>Add Assessment Officer</DialogTitle><DialogDescription>They sign in with a one-time password you share securely.</DialogDescription></DialogHeader>
+    <Dialog open={adding} onOpenChange={open => { if (!open && !saving) setAdding(false); }}><DialogContent className="national-dialog" showCloseButton={!saving}><DialogHeader><DialogTitle>Add Assessment Officer</DialogTitle><DialogDescription>They sign in with a one-time password you share securely</DialogDescription></DialogHeader>
       <form onSubmit={event => { event.preventDefault(); void save(); }}><FieldGroup>
         <Field><FieldLabel htmlFor="officer-name">Full name</FieldLabel><Input id="officer-name" required minLength={2} maxLength={120} disabled={saving} value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></Field>
         <Field><FieldLabel htmlFor="officer-email">Email address</FieldLabel><Input id="officer-email" type="email" required disabled={saving} value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} /></Field>

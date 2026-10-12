@@ -18,13 +18,13 @@ const savedMs = 1600;
 /** The same limits as the line forms, worded for a single cell. */
 function problem(kind: InlineKind, raw: string): string | null {
   const value = raw.trim();
-  if (kind === 'text') return value ? value.length > 1000 ? 'Use up to 1,000 characters.' : null : 'Enter a description.';
+  if (kind === 'text') return value ? value.length > 1000 ? 'Use up to 1,000 characters' : null : 'Enter a description';
   if (kind === 'integer') {
     const n = Number(value);
     return /^\d+$/.test(value) && n >= 1 && n <= maxQuantity ? null : `Enter a whole number from 1 to ${maxQuantity.toLocaleString('en-NG')}.`;
   }
   const n = Number(value);
-  return value && Number.isFinite(n) && n > 0 && n <= maxMoney ? null : 'Enter an amount greater than zero.';
+  return value && Number.isFinite(n) && n > 0 && n <= maxMoney ? null : 'Enter an amount greater than zero';
 }
 
 type InlineCellProps = {
@@ -83,7 +83,7 @@ export function InlineCell({ kind, value, format, label, editable, lockedReason,
         timer.current = setTimeout(() => setStatus('idle'), savedMs);
       }
     } catch (cause) {
-      setError(cause instanceof Error && cause.message ? cause.message : 'Unable to save this change.');
+      setError(cause instanceof Error && cause.message ? cause.message : 'Unable to save this change');
       setStatus('idle');
     } finally { setPending(null); committing.current = false; }
   }

@@ -65,9 +65,9 @@ export function ConstructionTypePicker({ types, value, onSelect, onCreated, disa
       const response = await fetch("/api/construction-types", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parsed.data) });
       const payload = await response.json() as { constructionType?: ConstructionType; error?: string };
       if (response.status === 409 && payload.constructionType) { setConflict(payload.constructionType); return; }
-      if (!response.ok || !payload.constructionType) throw new Error(payload.error ?? "Could not save this construction type.");
+      if (!response.ok || !payload.constructionType) throw new Error(payload.error ?? "Could not save this construction type");
       choose(payload.constructionType);
-      toast.success("Construction type saved and selected.");
+      toast.success("Construction type saved and selected");
     } catch (cause) { setFormError(cause instanceof Error ? cause.message : "Could not save this construction type. Please try again."); }
     finally { savingRef.current = false; setSaving(false); }
   }
@@ -101,7 +101,7 @@ export function ConstructionTypePicker({ types, value, onSelect, onCreated, disa
             </FieldGroup>
             {summary && <p className="construction-summary" aria-live="polite">{summary}</p>}
             <Separator />
-            {duplicate ? <div className="flex flex-col gap-3"><p className="text-sm">This type is already saved.</p><p className="text-sm text-muted-foreground">{duplicate.duration} weeks · {money.format(duplicate.unitCost)}</p><Button type="button" onClick={() => choose(duplicate)}>Use existing type</Button></div> : <>
+            {duplicate ? <div className="flex flex-col gap-3"><p className="text-sm">This type is already saved</p><p className="text-sm text-muted-foreground">{duplicate.duration} weeks · {money.format(duplicate.unitCost)}</p><Button type="button" onClick={() => choose(duplicate)}>Use existing type</Button></div> : <>
               <FieldGroup className="grid grid-cols-2 gap-4">
                 <Field data-invalid={Boolean(fieldErrors.duration)}><FieldLabel htmlFor="new-type-duration">Duration (weeks)</FieldLabel><Input id="new-type-duration" type="number" inputMode="numeric" min="1" max="520" step="1" placeholder="e.g. 20" value={duration} disabled={saving} aria-invalid={Boolean(fieldErrors.duration)} onChange={(event) => setDuration(event.target.value)} />{fieldErrors.duration && <FieldError>{fieldErrors.duration}</FieldError>}</Field>
                 <Field data-invalid={Boolean(fieldErrors.unitCost)}><FieldLabel htmlFor="new-type-unitCost">Unit cost (₦)</FieldLabel><CurrencyInput id="new-type-unitCost" placeholder="e.g. 30,000,000.00" value={unitCost} disabled={saving} aria-invalid={Boolean(fieldErrors.unitCost)} aria-describedby={fieldErrors.unitCost ? "new-type-unitCost-error" : undefined} onValueChange={setUnitCost} />{fieldErrors.unitCost && <FieldError id="new-type-unitCost-error">{fieldErrors.unitCost}</FieldError>}</Field>
@@ -132,7 +132,7 @@ export function SchoolProjectDefaults({ type, override, onChange, disabled }: {
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); event.stopPropagation();
     const parsed = constructionTypeSchema.innerType().pick({ duration: true, unitCost: true }).safeParse({ duration: Number(duration), unitCost: Number(unitCost) });
-    if (!parsed.success) { setError("Enter a positive unit cost (up to two decimals) and a duration of 1–520 whole weeks."); return; }
+    if (!parsed.success) { setError("Enter a positive unit cost (up to two decimals) and a duration of 1–520 whole weeks"); return; }
     onChange(parsed.data.duration === type.duration && parsed.data.unitCost === type.unitCost ? null : parsed.data);
     setOpen(false);
   }

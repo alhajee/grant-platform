@@ -29,22 +29,22 @@ const command = z.object({
 export async function GET(request: NextRequest) {
   try {
     const user = await getWorkspaceState(request);
-    if (!user) return error('Sign in to view this plan.', 401);
+    if (!user) return error('Sign in to view this plan', 401);
     // The Super Admin opens any submitted plan read-only, with the officer assignment controls (migration 056).
     const admin = user.role === superAdminRole, national = isUbec(user.role) || admin;
-    if (!national && !canViewWholeStatePlan(user)) return error('Your account can view only its department components.', 403);
+    if (!national && !canViewWholeStatePlan(user)) return error('Your account can view only its department components', 403);
     const id = request.nextUrl.searchParams.get('plan');
-    if (!id || !/^[1-9]\d{0,9}$/.test(id)) return error('Choose a valid plan.');
+    if (!id || !/^[1-9]\d{0,9}$/.test(id)) return error('Choose a valid plan');
     return await getPostgres().transaction(async db => {
       const plan = (await db.query('SELECT id,state_code,start_year,end_year,funding_quarters,status,version FROM action_plans WHERE id=$1 FOR SHARE', [id])).rows[0];
-      if (!plan || (!national && plan.state_code !== user.stateCode)) return error('Plan not found.', 404);
+      if (!plan || (!national && plan.state_code !== user.stateCode)) return error('Plan not found', 404);
       const viewer = { id: user.userId, role: user.role, department: user.department };
       const allRounds = (await db.query<UbecRound>('SELECT * FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC', [id])).rows;
       const rounds = national && !admin ? await readViewerRounds(db, id, viewer) : allRounds;
-      if (national && !rounds.length) return error('No assigned submission found.', 404);
+      if (national && !rounds.length) return error('No assigned submission found', 404);
       const selected = request.nextUrl.searchParams.get('round');
       const round = selected ? rounds.find(r => String(r.id) === selected) : rounds[0];
-      if (selected && !round) return error('Submission not found.', 404);
+      if (selected && !round) return error('Submission not found', 404);
       const latest = !!round && allRounds[0]?.id === round.id;
       // State users see the earlier-flow department feedback only once UBEC has decided.
       let assignments: UbecAssignment[] = [];
@@ -68,37 +68,37 @@ export async function GET(request: NextRequest) {
         round: round ? { ...round, snapshot } : null, assignments, flow, events, fundingTotal,
       }, { headers: { 'Cache-Control': 'no-store' } });
     });
-  } catch (cause) { console.error(cause); return error('Unable to load the UBEC review.', 503); }
+  } catch (cause) { console.error(cause); return error('Unable to load the UBEC review', 503); }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const session = await getWorkspaceState(request);
-    if (!session) return error('Sign in to continue.', 401);
-    if (!isSameRequestOrigin(request)) return error('This action must come from the portal.', 403);
+    if (!session) return error('Sign in to continue', 401);
+    if (!isSameRequestOrigin(request)) return error('This action must come from the portal', 403);
     const parsed = command.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return error('Invalid review request.');
+    if (!parsed.success) return error('Invalid review request');
     const input = parsed.data, id = request.nextUrl.searchParams.get('plan');
-    if (input.shareCommentIds && input.action !== 'return') return error('Comments can only be shared with the SUBEB when returning the plan.');
-    if (!id || !/^[1-9]\d{0,9}$/.test(id)) return error('Choose a valid plan.');
+    if (input.shareCommentIds && input.action !== 'return') return error('Comments can only be shared with the SUBEB when returning the plan');
+    if (!id || !/^[1-9]\d{0,9}$/.test(id)) return error('Choose a valid plan');
     return await getPostgres().transaction(async db => {
       const user = await readActor(db, session);
-      if (!user) return error('Session expired.', 401);
+      if (!user) return error('Session expired', 401);
       const expectedRole = input.action === 'submit' ? 'Executive Chairman' : ubecRoles.chair;
-      if (user.role !== expectedRole) return error(user.role === ubecRoles.es ? 'The UBEC Executive Secretary oversees the review and does not take workflow actions.' : 'You do not have permission for this action.', 403);
+      if (user.role !== expectedRole) return error(user.role === ubecRoles.es ? 'The UBEC Executive Secretary oversees the review and does not take workflow actions' : 'You do not have permission for this action', 403);
       const userState = (await db.query<{ state_code: string }>('SELECT state_code FROM users WHERE id=$1', [user.id])).rows[0].state_code;
       const plan = (await db.query('SELECT * FROM action_plans WHERE id=$1 FOR UPDATE', [id])).rows[0];
-      if (!plan || (input.action === 'submit' && plan.state_code !== userState)) return error('Plan not found.', 404);
+      if (!plan || (input.action === 'submit' && plan.state_code !== userState)) return error('Plan not found', 404);
       if (plan.version !== input.version) return error('This review has changed. Refresh before continuing.', 409);
       let round = (await db.query<UbecRound>('SELECT * FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC LIMIT 1 FOR UPDATE', [id])).rows[0];
       let status = plan.status;
       if (input.action === 'submit') {
         const ubecMode = await readUbecSubmissionMode(db);
         const partial = ubecMode === 'reviewed_components';
-        if (partial ? !statePlanOpen(plan.status) : plan.status !== 'awaiting_chairman') return error(partial ? 'This plan is already with UBEC.' : 'The nominated BEAP Chair must send every implemented component to the SUBEB Executive Chairman first.', 409);
-        if (!(await db.query('SELECT id FROM users WHERE role=$1 AND active LIMIT 1', [ubecRoles.chair])).rowCount) return error('A UBEC BEAP Chair account must be configured first.', 409);
-        if (round && round.status !== 'returned') return error('This plan has already been submitted.', 409);
-        if (round && !input.comment) return error('Describe how the UBEC feedback was addressed.');
+        if (partial ? !statePlanOpen(plan.status) : plan.status !== 'awaiting_chairman') return error(partial ? 'This plan is already with UBEC.' : 'The nominated BEAP Chair must send every implemented component to the SUBEB Executive Chairman first', 409);
+        if (!(await db.query('SELECT id FROM users WHERE role=$1 AND active LIMIT 1', [ubecRoles.chair])).rowCount) return error('A UBEC BEAP Chair account must be configured first', 409);
+        if (round && round.status !== 'returned') return error('This plan has already been submitted', 409);
+        if (round && !input.comment) return error('Describe how the UBEC feedback was addressed');
         const snapshot: Snapshot = await readPlanSnapshot(db, plan.id);
         const reviews = await readPillarReviews(db, plan.id);
         const readiness = { documentsRequired: await readComponentDocumentsRequired(db) };
@@ -108,12 +108,12 @@ export async function POST(request: NextRequest) {
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(ubecSubmissionSnapshot(snapshot, reviews)), user.id])).rows[0];
         status = 'submitted_ubec';
       } else {
-        if (!round || round.id !== input.roundId || !['received', 'reviewing'].includes(round.status)) return error('This submission is no longer open for review.', 409);
+        if (!round || round.id !== input.roundId || !['received', 'reviewing'].includes(round.status)) return error('This submission is no longer open for review', 409);
         if (input.action === 'release') {
-          if (round.status !== 'received') return error('This submission has already been released to the departments.', 409);
-          if (!input.comment) return error('Enter your comment before releasing the plan to the UBEC departments.');
+          if (round.status !== 'received') return error('This submission has already been released to the departments', 409);
+          if (!input.comment) return error('Enter your comment before releasing the plan to the UBEC departments');
           const rows = releaseRows(round.snapshot);
-          if (!rows.length) return error('This submission has no components to review.', 409);
+          if (!rows.length) return error('This submission has no components to review', 409);
           const released = [];
           for (const row of rows) released.push({ ...row, id: (await db.query<{ id: number }>('INSERT INTO ubec_round_components(round_id,pillar,department) VALUES($1,$2,$3) RETURNING id', [round.id, row.pillar, row.department])).rows[0].id });
           // The Admin's default officers start on their components straight away; the Director can still change them.
@@ -121,12 +121,12 @@ export async function POST(request: NextRequest) {
           await db.query("UPDATE ubec_rounds SET status='reviewing',released_at=NOW(),released_by_name=$1,release_comment=$2 WHERE id=$3", [user.full_name, input.comment, round.id]);
           status = 'ubec_review';
         } else {
-          if (round.status !== 'reviewing') return error('Release the plan to the UBEC departments first.', 409);
-          if (!input.comment) return error('Enter the decision and consolidated feedback.');
+          if (round.status !== 'reviewing') return error('Release the plan to the UBEC departments first', 409);
+          if (!input.comment) return error('Enter the decision and consolidated feedback');
           const decisions = await readDecisions(db, round.id);
           const components = await readRoundComponents(db, round, decisions);
           const waiting = components.filter(c => c.stage !== 'chair');
-          if (!components.length || waiting.length) return error(`Every component must finish department assessment and oversight first (${waiting.length} still in progress).`, 409);
+          if (!components.length || waiting.length) return error(`Every component must finish department assessment and oversight first (${waiting.length} still in progress)`, 409);
           if (input.action === 'approve' && !approvableComponents(components)) return error('The plan cannot be approved while items are rejected. Return it to the SUBEB instead.', 409);
           // Only the UBEC threads ticked on return reach the state; approval never shares any.
           const share = input.shareCommentIds ?? [];

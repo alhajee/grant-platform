@@ -17,6 +17,6 @@ export async function GET(request: NextRequest) {
     return noStoreJson(body);
   } catch (cause) {
     console.error('School register options failed', cause);
-    return noStoreJson({ error: 'Unable to load the school register.' }, 503);
+    return noStoreJson({ error: 'Unable to load the school register' }, 503);
   }
 }

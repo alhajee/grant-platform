@@ -13,7 +13,7 @@ import { manualSchoolsAllowed, manualSchoolsOffMessage } from './school-register
 export const noStoreJson = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 export const registerFieldsSql = `id, school_code AS "schoolCode", name, town, ward, dnemis_id IS NOT NULL AS dnemis, lga, level, levels_offered AS levels, category, location, latitude, longitude,
   enrolment_male AS male, enrolment_female AS female, enrolment_by_class AS enrolment, updated_at AS "updatedAt", updated_by_name AS "updatedBy"`;
-export const managerMessage = 'Only the Executive Chairman, the BEAP Chair or staff they authorise can manage the school register.';
+export const managerMessage = 'Only the Executive Chairman, the BEAP Chair or staff they authorise can manage the school register';
 /** Clears the state's cached school lists once a successful change has committed. */
 export async function afterSchoolChange(response: NextResponse, stateCode: string) {
   if (response.ok) await invalidateSchoolLists([stateCode]);
@@ -38,16 +38,16 @@ export async function registerActor(request: NextRequest, { write = false, allow
 }
 
 async function registerActorFor(request: NextRequest, write: boolean, allowViewer: boolean): Promise<{ error: NextResponse } | { workspace: RegisterWorkspace; canManage: boolean }> {
-  if (write && !isSameRequestOrigin(request)) return { error: noStoreJson({ error: 'This action must come from the portal.' }, 403) };
+  if (write && !isSameRequestOrigin(request)) return { error: noStoreJson({ error: 'This action must come from the portal' }, 403) };
   const workspace = await getWorkspaceState(request);
-  if (!workspace) return { error: noStoreJson({ error: 'Sign in to continue.' }, 401) };
+  if (!workspace) return { error: noStoreJson({ error: 'Sign in to continue' }, 401) };
   // While switched into another account the request acts as that account, so only a real admin session gets here.
   if (workspace.role === superAdminRole && !workspace.impersonation) {
     const stateCode = request.nextUrl.searchParams.get('state')?.trim().toUpperCase() ?? '';
-    if (!isStateCode(stateCode)) return { error: noStoreJson({ error: 'Choose a state.' }, 400) };
+    if (!isStateCode(stateCode)) return { error: noStoreJson({ error: 'Choose a state' }, 400) };
     return { workspace: { ...workspace, stateCode, superAdmin: true }, canManage: true };
   }
-  if (!(subebRoles as readonly string[]).includes(workspace.role)) return { error: noStoreJson({ error: 'The school register belongs to SUBEB workspaces.' }, 403) };
+  if (!(subebRoles as readonly string[]).includes(workspace.role)) return { error: noStoreJson({ error: 'The school register belongs to SUBEB workspaces' }, 403) };
   const canManage = canManageSchoolRegister(workspace.role, workspace.isBeapChair, workspace.canManageSchools);
   if (!canManage && !allowViewer) return { error: noStoreJson({ error: managerMessage }, 403) };
   return { workspace, canManage };
@@ -95,7 +95,7 @@ export function validateImportRow(row: ParsedSchoolRow, lgas: string[]): { input
     if (typeof cells.total === 'number' && cells.total !== male + female) messages.push(`${item.label}: total ${cells.total} does not match ${male} male + ${female} female.`);
     enrolment[item.key] = { male, female }; sum += male + female;
   }
-  if (typeof row.total === 'number' && row.total !== sum) messages.push(`Total enrolment ${row.total} does not match the class figures (${sum}).`);
+  if (typeof row.total === 'number' && row.total !== sum) messages.push(`Total enrolment ${row.total} does not match the class figures (${sum})`);
   const rawLga = toText(row.base.lga), lga = rawLga ? matchLga(lgas, rawLga) : '';
   if (rawLga && lga === null) messages.push(`LGA "${rawLga}" is not an LGA in this state's register.`);
   // Level is optional in the client's layout: work it out from the classes with learners when blank.

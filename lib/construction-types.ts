@@ -17,16 +17,16 @@ export type ConstructionType = {
   unitCost: number;
 } & Record<RoomKey, number | null>;
 
-const count = z.number().int("Use whole numbers.").min(0, "Counts cannot be negative.").max(1000, "Use a count of 1,000 or less.");
+const count = z.number().int("Use whole numbers").min(0, "Counts cannot be negative").max(1000, "Use a count of 1,000 or less");
 export const constructionTypeSchema = z.object({
   classrooms: count,
   playroomsLabs: count,
   libraries: count,
   toilets: count,
   officesStores: count,
-  duration: z.number().int().min(1, "Enter a duration of at least one week.").max(520),
-  unitCost: z.number().positive("Enter a unit cost greater than zero.").max(999999999999.99).refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.01, "Use no more than two decimal places."),
-}).refine((value) => roomFields.some(({ key }) => value[key] > 0), { message: "Enter at least one room or facility.", path: ["classrooms"] });
+  duration: z.number().int().min(1, "Enter a duration of at least one week").max(520),
+  unitCost: z.number().positive("Enter a unit cost greater than zero").max(999999999999.99).refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.01, "Use no more than two decimal places"),
+}).refine((value) => roomFields.some(({ key }) => value[key] > 0), { message: "Enter at least one room or facility", path: ["classrooms"] });
 
 export function constructionTypeName(counts: RoomCounts) {
   return roomFields.filter(({ key }) => counts[key] > 0)

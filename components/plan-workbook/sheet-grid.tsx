@@ -148,7 +148,7 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
         })}
       </tr></thead>
       <ContextMenu><ContextMenuTrigger asChild><tbody onContextMenu={event => { if (!(event.target as HTMLElement).closest('[data-cell-key], .wb-gutter')) setMenuTarget(null); }}>
-        {!rows.length && <tr role="row" aria-rowindex={2}><td role="gridcell" aria-colindex={1} colSpan={colCount} className="wb-empty" data-art={!sheet.rows.length || undefined}>{sheet.rows.length ? `No ${sheet.itemLabel} match your search or filters.` : <EditorEmpty art={<EmptyLinesArt label={sheet.empty.replace(/\.$/, '')} />} caption={sheet.empty.replace(/\.$/, '')} />}</td></tr>}
+        {!rows.length && <tr role="row" aria-rowindex={2}><td role="gridcell" aria-colindex={1} colSpan={colCount} className="wb-empty" data-art={!sheet.rows.length || undefined}>{sheet.rows.length ? `No ${sheet.itemLabel} match your search or filters` : <EditorEmpty art={<EmptyLinesArt label={sheet.empty.replace(/\.$/, '')} />} caption={sheet.empty.replace(/\.$/, '')} />}</td></tr>}
         {rows.map((row, r) => {
           const open = !!expanded[row.id] && !!row.original.expandable;
           const label = String(row.original.values[columns[0]?.id] ?? row.id);

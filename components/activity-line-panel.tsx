@@ -19,6 +19,8 @@ export const lineSearchText = (workstream: ActivityWorkstream, l: ActivityLine) 
 
 type ActivityLinePanelProps = {
   workstream: ActivityWorkstream;
+  /** The activities offered (Quality Assurance: those chosen up front); default every selectable one. */
+  activities?: readonly number[];
   lines: readonly ActivityLine[] | null;
   /** Whether a "documents needed" badge shows on lines without their document. */
   documentsRequired: boolean;
@@ -50,14 +52,14 @@ type ActivityLinePanelProps = {
 
 function details(workstream: ActivityWorkstream, l: ActivityLine): string {
   const training = workstream === 'teachers';
-  return [l.equipment, l.textbookSubject, l.textbookClasses.join(', '), l.equipmentType || l.websiteType, (l.subscriptionTypes ?? []).join(', '),
+  return [l.equipment, l.textbookSubject, l.textbookClasses.join(', '), (l.equipmentType ? [l.equipmentCategory, l.equipmentType].filter(Boolean).join(' · ') : '') || l.websiteType, (l.subscriptionTypes ?? []).join(', '),
     l.schools?.length ? plural(l.schools.length, 'school') : '',
     training ? trainingSummary(l) : [l.strategy, l.targetGroup].filter(Boolean).join(' · ')].filter(Boolean).join(' · ');
 }
 
 /** The saved lines beside the activity editor: summary, view toggle and one section per activity. */
 export function ActivityLinePanel(props: ActivityLinePanelProps) {
-  const { workstream, lines, documentsRequired, summary, notices, selectedActivity, selectedId, dirtyId, mode, onMode, query, onQuery, flashId, inlineEditable, actionsDisabled, viewOnly, shareNote, onSaveCell, onEdit, onRemove, onStart } = props;
+  const { workstream, activities, lines, documentsRequired, summary, notices, selectedActivity, selectedId, dirtyId, mode, onMode, query, onQuery, flashId, inlineEditable, actionsDisabled, viewOnly, shareNote, onSaveCell, onEdit, onRemove, onStart } = props;
   const { isOpen, toggle } = useCollapsed();
   const all = lines ?? [];
   const needle = query.trim().toLowerCase();
@@ -67,11 +69,11 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
   const linesOf = (i: number) => matching.filter(l => l.activity === i);
   const withLines = [...new Set(all.map(l => l.activity))].sort((a, b) => a - b);
   // TLM has a long checklist, so its empty activities are not listed.
-  const empties = workstream === 'tlm' ? [] : selectable.filter(i => !withLines.includes(i) && i !== selectedActivity);
+  const empties = workstream === 'tlm' ? [] : (activities ?? selectable).filter(i => !withLines.includes(i) && i !== selectedActivity);
   const training = workstream === 'teachers';
   const panelLine = (l: ActivityLine): PanelLine => ({
     id: l.id, label: l.description || activityLabel(workstream, l.activity, l.customActivity), heading: l.customActivity || undefined, description: l.description,
-    details: details(workstream, l) || undefined, code: l.code, quarters: l.quarters, quantity: l.quantity, unitCost: l.unitCost,
+    details: details(workstream, l) || undefined, code: l.code, quarters: l.quarters, startDate: l.startDate, dueDate: l.dueDate, quantity: l.quantity, unitCost: l.unitCost,
     attachments: l.documents?.length ?? 0,
     // Only the documents the Supporting documents setting governs; optional supporting documents never show "needed".
     badges: requiredLineDocumentLabel(workstream, l.activity) && !l.documents?.length && documentsRequired ? <Badge variant="warning">{requiredLineDocumentLabel(workstream, l.activity)} needed</Badge> : undefined,
@@ -83,7 +85,7 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
     return <LineSection key={key} title={titleOf(i)} badges={badgesOf(i)} note={shareNote(i)} count={own.length} total={own.reduce((sum, l) => sum + lineAmount(l), 0)}
       selected={i === selectedActivity} open={isOpen(key) || own.some(l => l.id === flashId)} onOpenChange={open => toggle(key, open)}>
       <LineTable lines={own.map(panelLine)} itemLabel={workstream === 'sbmc' ? 'Description' : training ? 'Training' : 'Description / targeting'} quantityLabel={training ? 'Participants' : 'Qty'}
-        editable={inlineEditable} describe={!training} lockReason={id => id === dirtyId ? 'Save or cancel the changes in the form first.' : null}
+        editable={inlineEditable} describe={!training} lockReason={id => id === dirtyId ? 'Save or cancel the changes in the form first' : null}
         actionsDisabled={actionsDisabled} viewOnly={viewOnly} selectedId={selectedId} flashId={flashId} onSave={onSaveCell}
         onEdit={id => { const line = all.find(l => l.id === id); if (line) onEdit(line); }} onRemove={id => { const line = all.find(l => l.id === id); if (line) onRemove(line); }} />
     </LineSection>;
@@ -103,7 +105,7 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
       {pinned}
       {rest.map(section)}
       {!needle && empties.length > 0 && <div className="line-empty-group" role="group" aria-label="Activities without items"><h3>No items yet</h3>{empties.map(emptyRow)}</div>}
-      {needle && !matching.length && <p className="line-focus-empty">No saved items match your search.</p>}
+      {needle && !matching.length && <p className="line-focus-empty">No saved items match your search</p>}
     </>;
   }
   const others = mode === 'focus' ? all.length - all.filter(l => l.activity === selectedActivity).length : 0;

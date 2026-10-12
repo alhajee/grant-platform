@@ -21,7 +21,7 @@ export function DepartmentCheckboxes({ departments, selected, onChange, disabled
   return <FieldSet className="gap-3">
     <div>
       <FieldLegend variant="label">Departments <span aria-hidden="true" className="text-destructive">*</span></FieldLegend>
-      <FieldDescription>Select every department this user can access, edit, and submit for.</FieldDescription>
+      <FieldDescription>Select every department this user can access, edit, and submit for</FieldDescription>
     </div>
     <FieldGroup data-slot="checkbox-group" role="group" className="gap-2 rounded-lg border p-3">
       <Field orientation="horizontal" className="border-b pb-3">

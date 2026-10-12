@@ -62,7 +62,7 @@ export const schoolTotals = (enrolment: ClassEnrolment) => Object.values(enrolme
 export const collapseSpaces = (value: string) => value.replace(/\s+/g, ' ').trim();
 export const sameText = (a: string, b: string) => collapseSpaces(a).toLowerCase() === collapseSpaces(b).toLowerCase();
 
-const learners = z.number({ invalid_type_error: 'Enter whole numbers for learners.' }).int('Enter whole numbers for learners.').min(0, 'Learner figures cannot be negative.').max(maxLearnersPerClass, `A class cannot have more than ${maxLearnersPerClass.toLocaleString()} learners.`);
+const learners = z.number({ invalid_type_error: 'Enter whole numbers for learners' }).int('Enter whole numbers for learners').min(0, 'Learner figures cannot be negative').max(maxLearnersPerClass, `A class cannot have more than ${maxLearnersPerClass.toLocaleString()} learners`);
 const classKeys = schoolClasses.map(item => item.key) as [SchoolClassKey, ...SchoolClassKey[]];
 export const enrolmentSchema = z.record(z.enum(classKeys), z.object({ male: learners, female: learners }).strict())
   .transform(value => Object.fromEntries(classKeys.filter(key => value[key]).map(key => [key, value[key]])) as ClassEnrolment);
@@ -77,12 +77,12 @@ const coordinate = (label: 'Latitude' | 'Longitude', min: number, max: number) =
 export const schoolInputSchema = z.object({
   schoolCode: z.string().max(40).optional().nullable().transform(value => collapseSpaces(value ?? '').toUpperCase() || null)
     .refine(value => value === null || /^[A-Z0-9][A-Z0-9/_.-]*$/.test(value), 'School code may contain only letters, numbers, /, -, _ and .'),
-  name: z.string().transform(collapseSpaces).pipe(z.string().min(3, 'Enter the school name (at least 3 characters).').max(200, 'School name is too long.')),
-  town: z.string().max(120, 'Town is too long.').optional().default('').transform(collapseSpaces),
+  name: z.string().transform(collapseSpaces).pipe(z.string().min(3, 'Enter the school name (at least 3 characters)').max(200, 'School name is too long')),
+  town: z.string().max(120, 'Town is too long').optional().default('').transform(collapseSpaces),
   lga: z.string().transform(collapseSpaces).pipe(z.string().min(1, 'Choose the LGA.').max(80)),
-  category: z.enum(schoolTypes, { errorMap: () => ({ message: 'Choose Public or Private for the type of school.' }) }),
-  location: z.enum(schoolLocations, { errorMap: () => ({ message: 'Choose Urban or Rural for the location.' }) }),
-  level: z.enum([...schoolLevels, ...legacyLevels], { errorMap: () => ({ message: 'Choose ECCDE, Primary or JSS for the level.' }) }),
+  category: z.enum(schoolTypes, { errorMap: () => ({ message: 'Choose Public or Private for the type of school' }) }),
+  location: z.enum(schoolLocations, { errorMap: () => ({ message: 'Choose Urban or Rural for the location' }) }),
+  level: z.enum([...schoolLevels, ...legacyLevels], { errorMap: () => ({ message: 'Choose ECCDE, Primary or JSS for the level' }) }),
   latitude: coordinate('Latitude', 3.5, 14.5).default(''),
   longitude: coordinate('Longitude', 2.5, 15).default(''),
   /** Omitted or null on an edit keeps the current figures (used for schools without a class breakdown). */

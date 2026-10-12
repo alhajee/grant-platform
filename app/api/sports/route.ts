@@ -13,6 +13,7 @@ import { sportsAllocationSchema, sportsBudgetProblem, sportsCatalogError, sports
 import { componentEnvelope } from "@/lib/funding-policy";
 import { resolveLineQuarters } from "@/lib/line-quarters";
 import { readPlanQuarterSetup } from "@/lib/line-quarters-db";
+import { resolveSavedLineDates } from "@/lib/line-dates-db";
 import { clientKeySchema } from "@/lib/save-request";
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
@@ -21,15 +22,15 @@ const commandSchema = z.object({ entity: z.enum(["budget", "allocation"]), actio
 export async function GET(request: NextRequest) {
   try {
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return error("Sign in to view your sports plan.", 401);
-    if (!canViewComponent(workspace, 'sports')) return error("This component belongs to another department.", 403);
+    if (!workspace) return error("Sign in to view your sports plan", 401);
+    if (!canViewComponent(workspace, 'sports')) return error("This component belongs to another department", 403);
     const plan = await resolveActionPlan(request, workspace.stateCode);
-    if (!plan) return error("Action plan not found.", 404);
+    if (!plan) return error("Action plan not found", 404);
     const state = sqlText(workspace.stateCode);
     const db = getPostgres();
     if (!(await readStageVisibility(db, workspace, plan.id)).includes('sports')) return error(notSentYetMessage, 403);
     const [lines, allocations, schools] = await Promise.all([
-      db.query(`SELECT id, code, section, activity_type AS "activityType", description, quantity, unit_cost::float8 AS "unitCost", quarters, client_key AS "clientKey"
+      db.query(`SELECT id, code, section, activity_type AS "activityType", description, quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey"
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),
       db.query(`SELECT a.id, a.line_id AS "lineId", a.school_id AS "schoolId", a.quantity, a.longitude, a.latitude, a.client_key AS "clientKey",
         s.name, s.lga, s.level, s.location FROM sports_allocations a
@@ -47,15 +48,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return error("Sign in to update your sports plan.", 401);
+    if (!workspace) return error("Sign in to update your sports plan", 401);
     const plan = await resolveActionPlan(request, workspace.stateCode);
-    if (!plan) return error("Action plan not found.", 404);
+    if (!plan) return error("Action plan not found", 404);
     const body = await request.json().catch(() => null);
     const command = commandSchema.safeParse(body);
-    if (!command.success) return error("Choose a valid sports plan action.");
+    if (!command.success) return error("Choose a valid sports plan action");
     const { entity, action, id, clientKey } = command.data;
     if (action === "create" && id !== undefined) return error("A new line cannot specify an existing ID.");
-    if (action !== "create" && !id) return error("Choose the line to update.");
+    if (action !== "create" && !id) return error("Choose the line to update");
     const state = sqlText(workspace.stateCode);
 
     return await mutatePlan(workspace, plan, "sports", async (db) => {
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
       }
       if (entity === "budget") {
         const existing = id ? (await db.query(`SELECT section, activity_type, quantity, unit_cost::text AS unit_cost FROM sports_budget_lines WHERE id = ${id} AND state_code = ${state} AND plan_id = ${plan.id} FOR UPDATE`)).rows[0] : null;
-        if (action !== "create" && !existing) return error("Budget line not found.", 404);
+        if (action !== "create" && !existing) return error("Budget line not found", 404);
         const allocated = id ? Number((await db.query(`SELECT COALESCE(SUM(quantity), 0)::int AS quantity FROM sports_allocations WHERE line_id = ${id}`)).rows[0].quantity) : 0;
         if (action === "delete") {
           if (allocated) return error("Remove this item's school allocations before deleting it.", 409);
@@ -102,14 +103,19 @@ export async function POST(request: NextRequest) {
         // Timeline: within the plan's quarters, read under the plan lock; none sent = the plan's quarters (migration 050).
         const timeline = resolveLineQuarters(line.quarters, await readPlanQuarterSetup(db, plan.id));
         if (timeline.problem) return error(timeline.problem);
+        // Expected start and due dates: inside the timeline in the implementation year (migration 059).
+        const dated = await resolveSavedLineDates(db, "sports_budget_lines", plan.id, action === "create" ? null : id ?? null, line, timeline.quarters);
+        if (dated.problem) return error(dated.problem);
         const quarters = `ARRAY[${timeline.quarters.map(Number).join(",")}]::smallint[]`;
-        const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${line.quantity}, ${line.unitCost.toFixed(2)}, ${quarters}`;
+        const sqlDate = (value: string | null) => (value ? `${sqlText(value)}::date` : "NULL");
+        const startDate = sqlDate(dated.dates.startDate), dueDate = sqlDate(dated.dates.dueDate);
+        const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${line.quantity}, ${line.unitCost.toFixed(2)}, ${quarters}, ${startDate}, ${dueDate}`;
         const result = action === "create"
           ? await db.query(`WITH next_line AS (SELECT nextval(pg_get_serial_sequence('sports_budget_lines', 'id')) AS id)
-              INSERT INTO sports_budget_lines (id, plan_id, state_code, code, section, activity_type, description, quantity, unit_cost, quarters, client_key)
+              INSERT INTO sports_budget_lines (id, plan_id, state_code, code, section, activity_type, description, quantity, unit_cost, quarters, start_date, due_date, client_key)
               SELECT id, ${plan.id}, ${state}, 'UBEC/SUBEB/SPORT/' || LPAD(id::text, GREATEST(3, LENGTH(id::text)), '0') || ${sqlText('/' + planPeriod(plan))}, ${values}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid FROM next_line RETURNING id, code`)
           : await db.query(`UPDATE sports_budget_lines SET section = ${sqlText(line.section)}, activity_type = ${sqlText(line.activityType)},
-              description = ${sqlText(line.description)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(2)}, quarters = ${quarters}, updated_at = NOW()
+              description = ${sqlText(line.description)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(2)}, quarters = ${quarters}, start_date = ${startDate}, due_date = ${dueDate}, updated_at = NOW()
               WHERE id = ${id} AND state_code = ${state} RETURNING id, code`);
         return NextResponse.json(result.rows[0], { status: action === "create" ? 201 : 200 });
       }
@@ -117,7 +123,7 @@ export async function POST(request: NextRequest) {
       if (action !== "create") {
         const existing = await db.query(`SELECT a.id FROM sports_allocations a JOIN sports_budget_lines b ON b.id = a.line_id
           JOIN schools s ON s.id = a.school_id WHERE a.id = ${id} AND b.state_code = ${state} AND b.plan_id = ${plan.id} AND s.state_code = ${state}`);
-        if (!existing.rowCount) return error("School allocation not found.", 404);
+        if (!existing.rowCount) return error("School allocation not found", 404);
       }
       if (action === "delete") {
         await db.query(`DELETE FROM sports_allocations WHERE id = ${id}`);
@@ -128,11 +134,11 @@ export async function POST(request: NextRequest) {
       const allocation = parsed.data;
       const equipment = (await db.query(`SELECT b.quantity FROM sports_budget_lines b JOIN schools s ON s.state_code = b.state_code
         WHERE b.id = ${allocation.lineId} AND b.plan_id = ${plan.id} AND b.section = 'equipment' AND b.state_code = ${state} AND s.id = ${allocation.schoolId}`)).rows[0];
-      if (!equipment) return error("Choose a school and an equipment item from your state plan.");
+      if (!equipment) return error("Choose a school and an equipment item from your state plan");
       const duplicate = await db.query(`SELECT id FROM sports_allocations WHERE school_id = ${allocation.schoolId} AND line_id = ${allocation.lineId}${action === "update" ? ` AND id <> ${id}` : ""}`);
       if (duplicate.rowCount) return error("This school already has an allocation for this item. Edit that allocation instead.", 409);
       const allocated = Number((await db.query(`SELECT COALESCE(SUM(quantity), 0)::int AS quantity FROM sports_allocations WHERE line_id = ${allocation.lineId}${action === "update" ? ` AND id <> ${id}` : ""}`)).rows[0].quantity);
-      if (allocation.quantity + allocated > equipment.quantity) return error(`Only ${equipment.quantity - allocated} items remain available to allocate.`, 409);
+      if (allocation.quantity + allocated > equipment.quantity) return error(`Only ${equipment.quantity - allocated} items remain available to allocate`, 409);
       const result = action === "create"
         ? await db.query(`INSERT INTO sports_allocations (line_id, school_id, quantity, longitude, latitude, client_key)
             VALUES (${allocation.lineId}, ${allocation.schoolId}, ${allocation.quantity}, ${sqlText(allocation.longitude)}, ${sqlText(allocation.latitude)}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid) RETURNING id`)

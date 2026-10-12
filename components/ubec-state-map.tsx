@@ -65,7 +65,7 @@ export function UbecStateMap({ items, selectedState, onState, reviewer }: {
         <Separator className="map-detail-separator" />
         </div>
         <div className="map-status-list">{[{key:'received',label:'Awaiting assignment'},{key:'reviewing',label:'In review'},{key:'returned',label:'Returned to SUBEB'},{key:'approved',label:'Approved'}].map(stage => <div key={stage.key}><span><i data-stage={stage.key} />{stage.label}</span><strong>{summary[stage.key as 'received' | 'reviewing' | 'returned' | 'approved']}</strong></div>)}</div>
-        <p className="map-summary-note">{!summary.plans ? (reviewer ? 'No assigned submissions in this period.' : 'No submissions in this period.') : reviewer ? 'Assigned pillars · latest submissions.' : 'Latest submissions · proposed, not released funding.'}</p>
+        <p className="map-summary-note">{!summary.plans ? (reviewer ? 'No assigned submissions in this period' : 'No submissions in this period') : reviewer ? 'Assigned pillars · latest submissions' : 'Latest submissions · proposed, not released funding'}</p>
       </aside>
     </CardContent>
     <Separator className="map-footer-separator" />

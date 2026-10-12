@@ -12,7 +12,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { compulsoryActivities, equipmentTypes, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isSupportingDocumentLine, lineDocumentAcceptFor, lineDocumentLabel, maxTypeNameLength, qualityEquipmentActivity, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { compulsoryActivities, equipmentCategories, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isSupportingDocumentLine, lineDocumentAcceptFor, lineDocumentLabel, isQualityEquipmentActivity, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
@@ -22,7 +22,7 @@ import { teacherDocumentHint } from '@/lib/teacher-development';
 const count = new Intl.NumberFormat('en-NG');
 const pickerLimit = 200;
 const required = <span className="text-destructive" aria-label="required">*</span>;
-export type ExtraDraft = { activity: string; equipmentType: string; subscriptionTypes: string[]; websiteType: string; schoolIds: number[] };
+export type ExtraDraft = { activity: string; equipmentCategory: '' | typeof equipmentCategories[number]; equipmentType: string; subscriptionTypes: string[]; websiteType: string; schoolIds: number[] };
 
 /** The "Required" badge for a compulsory activity. */
 export function RequiredBadge({ workstream, activity }: { workstream: ActivityWorkstream; activity: number }) {
@@ -36,12 +36,16 @@ export function ActivityInfoHint({ workstream, activity }: { workstream: Activit
   return <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" className="rounded-full align-middle" aria-label={`About ${activityNames[workstream][activity]}`}><InfoIcon /></Button></TooltipTrigger><TooltipContent side="top" className="max-w-xs">{info}</TooltipContent></Tooltip>;
 }
 
-/** What is still missing before the component can be sent: compulsory activities without a line. */
+/** What is still missing before the component can be sent: lines on retired activities, and compulsory activities without a line. */
 export function CompulsoryChecklist({ workstream, lines }: { workstream: ActivityWorkstream; lines: readonly { activity: number }[] }) {
-  const missing = missingCompulsory(workstream, lines);
   if (!hasReadinessRules(workstream) || !(compulsoryActivities[workstream]?.length)) return null;
-  if (!missing.length) return <p className="activity-compulsory-done"><CheckIcon aria-hidden="true" />Every required activity has a budget line.</p>;
-  return <Alert className="activity-compulsory"><CircleAlertIcon /><AlertTitle>Required before sending · {missing.length} missing</AlertTitle><AlertDescription><ul>{compulsoryNames(workstream, missing).map(name => <li key={name}>{name}</li>)}</ul></AlertDescription></Alert>;
+  const missing = missingCompulsory(workstream, lines);
+  const retired = [...new Set(lines.filter(line => isRetiredActivity(workstream, line.activity)).map(line => line.activity))];
+  return <>
+    {retired.length > 0 && <Alert variant="destructive" className="activity-compulsory"><CircleAlertIcon /><AlertTitle>No longer allowable · move or remove these items before sending</AlertTitle><AlertDescription><ul>{retired.map(i => <li key={i}>{activityNames[workstream][i]}</li>)}</ul></AlertDescription></Alert>}
+    {missing.length ? <Alert className="activity-compulsory"><CircleAlertIcon /><AlertTitle>Required before sending · {missing.length} missing</AlertTitle><AlertDescription><ul>{compulsoryNames(workstream, missing).map(name => <li key={name}>{name}</li>)}</ul></AlertDescription></Alert>
+      : <p className="activity-compulsory-done"><CheckIcon aria-hidden="true" />Every required activity has a budget line</p>}
+  </>;
 }
 
 const otherValue = '__other__';
@@ -67,7 +71,7 @@ function SubscriptionFields({ value, onChange }: { value: string[]; onChange: (v
   const set = (nextListed: string[], nextTyped: string) => onChange([...nextListed, ...(nextTyped ? [nextTyped] : [])]);
   const toggle = (type: string, on: boolean) => set(on ? [...new Set([...listed, type])] : listed.filter(t => t !== type), typed);
   const box = (type: string) => <label key={type} className="subscription-option"><Checkbox checked={listed.includes(type)} onCheckedChange={v => toggle(type, v === true)} aria-label={type} /><span>{type}</span></label>;
-  return <FieldSet className="subscription-types"><FieldLegend variant="label">Subscription types {required}</FieldLegend><FieldDescription>Choose at least one.</FieldDescription>
+  return <FieldSet className="subscription-types"><FieldLegend variant="label">Subscription types {required}</FieldLegend><FieldDescription>Choose at least one</FieldDescription>
     <div className="subscription-grid">{subscriptionGroups.map((group, i) => group.label ? <div key={i} className="subscription-group" role="group" aria-label={group.label}><span>{group.label}</span><div>{group.types.map(box)}</div></div> : group.types.map(box))}
       <label className="subscription-option"><Checkbox checked={showOther} onCheckedChange={v => { setOther(v === true); if (v !== true) set(listed, ''); }} aria-label={othersActivityName} /><span>{othersActivityName}</span></label>
     </div>
@@ -75,10 +79,27 @@ function SubscriptionFields({ value, onChange }: { value: string[]; onChange: (v
   </FieldSet>;
 }
 
-/** Equipment type, subscription types and website type for the activities that ask for them. */
+/**
+ * Quality Assurance equipment items: Mobility or Office equipment, then the type listed for that category or typed
+ * through "Others (specify)". Each item is one line with its own quantity and unit cost, so a plan lists as many as it needs.
+ */
+function EquipmentFields({ draft, onChange }: { draft: ExtraDraft; onChange: (next: Partial<ExtraDraft>) => void }) {
+  const category = draft.equipmentCategory;
+  return <div className="grid grid-cols-2 gap-4">
+    <Field><FieldLabel htmlFor="equipmentCategory">Category {required}</FieldLabel>
+      <NativeSelect id="equipmentCategory" required value={category} onChange={e => onChange({ equipmentCategory: e.target.value as ExtraDraft['equipmentCategory'], equipmentType: '' })}>
+        <NativeSelectOption value="">Choose…</NativeSelectOption>{equipmentCategories.map(c => <NativeSelectOption key={c} value={c}>{c}</NativeSelectOption>)}
+      </NativeSelect>
+    </Field>
+    {category ? <TypeSelect key={category} id="equipmentType" label={category === 'Mobility' ? 'Mobility type' : 'Equipment type'} options={equipmentTypesByCategory[category]} value={draft.equipmentType} onChange={equipmentType => onChange({ equipmentType })} />
+      : <Field><FieldLabel htmlFor="equipmentType">Type {required}</FieldLabel><NativeSelect id="equipmentType" disabled value=""><NativeSelectOption value="">Choose the category first</NativeSelectOption></NativeSelect></Field>}
+  </div>;
+}
+
+/** Equipment category and type, subscription types and website type for the activities that ask for them. */
 export function LineExtraFields({ workstream, draft, onChange }: { workstream: ActivityWorkstream; draft: ExtraDraft; onChange: (next: Partial<ExtraDraft>) => void }) {
   const activity = Number(draft.activity);
-  if (workstream === 'quality' && activity === qualityEquipmentActivity) return <TypeSelect id="equipmentType" label="Equipment type" options={equipmentTypes} value={draft.equipmentType} onChange={equipmentType => onChange({ equipmentType })} />;
+  if (isQualityEquipmentActivity(workstream, activity)) return <EquipmentFields draft={draft} onChange={onChange} />;
   if (workstream === 'ict' && activity === ictWebsiteActivity) return <TypeSelect id="websiteType" label="Website type" options={websiteTypes} value={draft.websiteType} onChange={websiteType => onChange({ websiteType })} />;
   if (workstream === 'ict' && activity === ictSubscriptionActivity) return <SubscriptionFields value={draft.subscriptionTypes} onChange={subscriptionTypes => onChange({ subscriptionTypes })} />;
   return null;
@@ -98,7 +119,7 @@ export function LineSchoolPicker({ workstream, draft, schools, onChange, disable
     <div className="school-picker" role="group" aria-label="Schools for this item">
       <div className="school-pick school-pick-all"><span>{count.format(chosen.size)} selected</span>{chosen.size > 0 && <Button type="button" variant="ghost" size="sm" className="ml-auto" disabled={disabled} onClick={() => onChange([])}>Clear</Button>}</div>
       {matches.slice(0, pickerLimit).map(s => <label key={s.id} className="school-pick"><Checkbox checked={chosen.has(s.id)} disabled={disabled} onCheckedChange={v => toggle(s.id, v === true)} aria-label={`Select ${s.name}`} /><span className="school-option"><span>{s.name}</span><small>{s.lga} · {s.level}</small></span></label>)}
-      {!matches.length && <p className="school-pick-empty">{schools.length ? 'No schools match your search.' : 'No schools are available in your state register.'}</p>}
+      {!matches.length && <p className="school-pick-empty">{schools.length ? 'No schools match your search' : 'No schools are available in your state register'}</p>}
       {matches.length > pickerLimit && <p className="school-pick-empty">Showing {pickerLimit} of {count.format(matches.length)} schools. Search to narrow the list.</p>}
     </div>
   </Field>;
@@ -138,13 +159,13 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, pe
     try {
       const added = await uploadLineDocuments(workstream, lineId, files);
       toast.success(`Uploaded ${added} file${added === 1 ? '' : 's'}.`);
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to upload.'); }
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to upload'); }
     finally { setBusy(false); await onChanged().catch(() => undefined); }
   }
   async function remove(id: string) {
     setBusy(true);
     try { const r = await fetch(`${endpoint}${endpoint.includes('?') ? '&' : '?'}workstream=${workstream}&id=${encodeURIComponent(id)}`, { method: 'DELETE' }); const result = await r.json() as { error?: string }; if (!r.ok) throw new Error(result.error); toast.success('Removed.'); }
-    catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to remove.'); }
+    catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to remove'); }
     finally { setBusy(false); await onChanged().catch(() => undefined); }
   }
   return <Field><FieldLabel htmlFor="line-document">{label} {mandatory ? required : <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
@@ -152,6 +173,6 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, pe
     {lineId
       ? documents.length > 0 && <DocumentFiles compact documents={documents.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: label }))} disabled={disabled || busy} onRemove={disabled ? undefined : id => void remove(id)} />
       : pending.length > 0 && <DocumentFiles compact documents={pending.map((file, index) => ({ id: `pending-${index}`, name: file.name, size: file.size, file }))} disabled={disabled} onRemove={disabled ? undefined : id => onPendingChange(pending.filter((_, index) => `pending-${index}` !== id))} />}
-    <FieldDescription>{hint}{supporting ? 'PDF, Excel, Word or images' : 'PDF or Excel only'}, up to 5 MB each. {mandatory ? 'Required before sending.' : 'Optional.'}</FieldDescription>
+    <FieldDescription>{hint}{supporting ? 'PDF, Excel, Word or images' : 'PDF or Excel only'}, up to 5 MB each. {mandatory ? 'Required before sending' : 'Optional.'}</FieldDescription>
   </Field>;
 }

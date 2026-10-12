@@ -43,11 +43,11 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
         const response = await fetch(`/api/plans/setup?plan=${planId}`, { cache: 'no-store' });
         if (response.status === 401) { window.location.replace('/'); return; }
         const result = await response.json() as SetupData & { error?: string };
-        if (!response.ok) throw new Error(result.error || 'The plan details could not be loaded.');
+        if (!response.ok) throw new Error(result.error || 'The plan details could not be loaded');
         if (!active) return;
         setData(result); setYear(String(result.plan.startYear)); setImplementation(String(result.plan.implementationYear ?? result.plan.startYear));
         setQuarters(result.plan.fundingQuarters ?? []); setLodgment(result.plan.stateLodgment ?? ''); setSources(toDraftSources(result.plan.fundingSources));
-      } catch (cause) { if (active) setLoadError(cause instanceof Error ? cause.message : 'The plan details could not be loaded.'); }
+      } catch (cause) { if (active) setLoadError(cause instanceof Error ? cause.message : 'The plan details could not be loaded'); }
     })();
     return () => { active = false; };
   }, [planId]);
@@ -77,18 +77,18 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
     if (pending.current || !data || locked) return;
     const issues: Record<string, string> = {};
     if (!parsed.success) for (const issue of parsed.error.issues) issues[String(issue.path[0])] = issue.message;
-    if (Object.keys(sourceErrors).length) issues.fundingSources = 'Complete or remove each other funding source.';
+    if (Object.keys(sourceErrors).length) issues.fundingSources = 'Complete or remove each other funding source';
     setErrors(issues);
     if (!parsed.success || Object.keys(issues).length || shortfalls.length || ictProblem || quarterProblem) return;
     pending.current = true; setSaving(true);
     try {
       const response = await fetch('/api/plans/setup', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(parsed.data) });
       const result = await response.json() as { error?: string; plan: ActionPlan; changed: boolean };
-      if (!response.ok) throw new Error(result.error || 'The plan details could not be saved.');
+      if (!response.ok) throw new Error(result.error || 'The plan details could not be saved');
       toast.success(result.changed ? 'Plan details updated' : 'No changes to save');
       onSaved?.(result.plan); onClose();
     } catch (cause) {
-      setErrors({ form: cause instanceof Error ? cause.message : 'Please try again.' });
+      setErrors({ form: cause instanceof Error ? cause.message : 'Please try again' });
       pending.current = false; setSaving(false);
     }
   }
@@ -108,10 +108,10 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
             <FieldGroup className="gap-3">
               <FieldSet disabled={disabled} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend>Plan period</FieldLegend><FieldGroup className="gap-3">
                 <FieldGroup className="grid gap-3 sm:grid-cols-2">
-                  <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="edit-planning-year">Funding year<FieldHelp>The year the grant allocation belongs to.</FieldHelp></FieldLabel><Input id="edit-planning-year" type="number" min={2004} max={2100} value={year} aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(n))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
-                  <Field data-invalid={!!implementationError}><FieldLabel htmlFor="edit-implementation-year">Implementation year<FieldHelp>The year the funded activities are expected to be carried out.</FieldHelp></FieldLabel><Input id="edit-implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} aria-invalid={!!implementationError} onChange={e => { setImplementation(e.target.value); setErrors(current => ({ ...current, implementationYear: '' })); }} />{implementationError && <FieldError>{implementationError}</FieldError>}</Field>
+                  <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="edit-planning-year">Funding year<FieldHelp>The year the grant allocation belongs to</FieldHelp></FieldLabel><Input id="edit-planning-year" type="number" min={2004} max={2100} value={year} aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(n))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
+                  <Field data-invalid={!!implementationError}><FieldLabel htmlFor="edit-implementation-year">Implementation year<FieldHelp>The year the funded activities are expected to be carried out</FieldHelp></FieldLabel><Input id="edit-implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} aria-invalid={!!implementationError} onChange={e => { setImplementation(e.target.value); setErrors(current => ({ ...current, implementationYear: '' })); }} />{implementationError && <FieldError>{implementationError}</FieldError>}</Field>
                 </FieldGroup>
-                <QuarterTimeline id="edit-quarters" label="Quarters" help="Locked quarters already belong to another plan for that year." value={quarters} onChange={setQuarters} locked={[...occupied]} lockedReason="already assigned" disabled={disabled} error={errors.quarters || quarterProblem || undefined} selectAll={false} showMonths={false} noneAvailableMessage="All quarters of this year are in another plan. Choose a different funding year." />
+                <QuarterTimeline id="edit-quarters" label="Quarters" help="Locked quarters already belong to another plan for that year" value={quarters} onChange={setQuarters} locked={[...occupied]} lockedReason="already assigned" disabled={disabled} error={errors.quarters || quarterProblem || undefined} selectAll={false} showMonths={false} noneAvailableMessage="All quarters of this year are in another plan. Choose a different funding year." />
               </FieldGroup></FieldSet>
               <FieldSet disabled={disabled} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend>Funding</FieldLegend><FieldGroup className="gap-3">
                 <Field data-invalid={!!errors.stateLodgment} className="md:max-w-[calc(50%-6px)]"><FieldLabel htmlFor="edit-state-lodgment">State counterpart fund (₦)<FieldHelp>The amount paid by the state. UBEC adds the same amount, and both are shared across components by the funding policy.</FieldHelp></FieldLabel><CurrencyInput id="edit-state-lodgment" placeholder="0.00" value={lodgment} maxIntegerDigits={13} onValueChange={setLodgment} aria-invalid={!!errors.stateLodgment} />{errors.stateLodgment && <FieldError>{errors.stateLodgment}</FieldError>}</Field>

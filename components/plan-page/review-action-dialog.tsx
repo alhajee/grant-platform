@@ -26,13 +26,13 @@ const submitLabels: Partial<Record<ReviewAction, string>> = { submit: 'Send to D
 
 function describe(action: ReviewAction, data: PlanReview, reviewStatus: string | undefined) {
   if (action === 'submit') return 'Saved entries in this component will be sent to your department Director. Other departments can continue working.';
-  if (action === 'endorse') return 'Send this department’s reviewed component to the nominated BEAP Chair for state-level consolidation.';
+  if (action === 'endorse') return 'Send this department’s reviewed component to the nominated BEAP Chair for state-level consolidation';
   if (action === 'forward') return data.beapChairSubmissionMode === 'individual_components'
     ? 'This reviewed component will be sent to the Executive Chairman. Other components will remain with the BEAP Chair until they are sent separately.'
     : 'All reviewed components will be sent together as one collated SUBEB BEAP to the Executive Chairman for final state-level review before submission to UBEC.';
-  if (reviewStatus === 'chairman_ready') return 'Return this component to the BEAP Chair with the changes required by the Executive Chairman.';
-  if (reviewStatus === 'beap_review') return 'Return this component to its department Director with the changes required by the BEAP Chair.';
-  return 'Return this component to the department’s Data Entry Staff with the Director’s required changes.';
+  if (reviewStatus === 'chairman_ready') return 'Return this component to the BEAP Chair with the changes required by the Executive Chairman';
+  if (reviewStatus === 'beap_review') return 'Return this component to its department Director with the changes required by the BEAP Chair';
+  return 'Return this component to the department’s Data Entry Staff with the Director’s required changes';
 }
 
 const nameOf = (pillar: ImplementedPillar) => componentSections[pillar][0].name;
@@ -67,8 +67,8 @@ function confirmation(action: ReviewAction, pillar: ImplementedPillar | undefine
   if (openUbec > 0) facts.push({ label: 'UBEC comments', value: `${openUbec} still open` });
   if (action === 'request_changes') return {
     title: `Return ${what} to the ${shortRecipient}?`, confirm: `Yes, return to ${shortRecipient}`, facts,
-    description: `The ${recipient} is notified and makes the changes you ask for.`,
-    notes: [{ kind: 'lock', text: `It leaves your review until the ${recipient} sends it back to you.` }],
+    description: `The ${recipient} is notified and makes the changes you ask for`,
+    notes: [{ kind: 'lock', text: `It leaves your review until the ${recipient} sends it back to you` }],
   };
   const lockedFor = action === 'submit' ? 'You can’t edit it' : 'You can’t edit it or request changes';
   const returnedBy = action === 'forward' ? 'the Executive Chairman' : `the ${shortRecipient}`;
@@ -77,7 +77,7 @@ function confirmation(action: ReviewAction, pillar: ImplementedPillar | undefine
     description: `${pillar ? 'This component' : 'Every listed component'} goes to the ${recipient} for review.`,
     notes: [
       { kind: 'lock', text: `${lockedFor} while it is with ${returnedBy}, unless it is returned to you.` },
-      ...(!pillar ? [{ kind: 'info' as const, text: 'All components travel together as one collated submission.' }] : []),
+      ...(!pillar ? [{ kind: 'info' as const, text: 'All components travel together as one collated submission' }] : []),
     ],
   };
 }
@@ -135,7 +135,7 @@ export function ReviewActionDialog({ request, data, comments, onClose, onDone }:
             <p>{action === 'request_changes' ? `${commentCount(stateThreads.length)} will be sent with this request:` : `${commentCount(stateThreads.length)} on ${scope === 'general' ? 'this plan are' : 'this component are'} not resolved yet.`}</p>
             {action === 'request_changes' && <ul aria-label="Open comments">{stateThreads.map(t => <li key={t.id}><strong>{t.targetLabel}</strong><span>{t.body}</span></li>)}</ul>}
           </div>}
-          {ubecThreads.length > 0 && <p className="review-dialog-ubec">{ubecCount(ubecThreads.length)} from UBEC {ubecThreads.length === 1 ? 'is' : 'are'} still open on {where}. {action === 'request_changes' ? 'They stay on the plan for Data Entry Staff to answer.' : 'Reply to or resolve them before the plan goes back to UBEC; UBEC sees your replies once it is resubmitted.'}</p>}
+          {ubecThreads.length > 0 && <p className="review-dialog-ubec">{ubecCount(ubecThreads.length)} from UBEC {ubecThreads.length === 1 ? 'is' : 'are'} still open on {where}. {action === 'request_changes' ? 'They stay on the plan for Data Entry Staff to answer' : 'Reply to or resolve them before the plan goes back to UBEC; UBEC sees your replies once it is resubmitted'}</p>}
           <Field data-invalid={Boolean(formError)}>
             <FieldLabel htmlFor="review-comment">{noteOptional ? 'Note (optional)' : action === 'request_changes' ? 'Required changes' : resubmit ? 'Changes made' : 'Comment (optional)'}</FieldLabel>
             <Textarea id="review-comment" value={comment} onChange={e => setComment(e.target.value)} disabled={saving} required={(action === 'request_changes' && !noteOptional) || resubmit} maxLength={5000} aria-invalid={Boolean(formError)} />

@@ -37,7 +37,7 @@ export async function getDnemisConfig(db: Db): Promise<DnemisConfig | null> {
 }
 
 function networkMessage(cause: unknown, host: string, limitMs = timeoutMs) {
-  if (cause instanceof Error && (cause.name === 'TimeoutError' || cause.name === 'AbortError')) return new DnemisError(`DNEMIS did not respond within ${limitMs / 1000} seconds.`, 'timeout');
+  if (cause instanceof Error && (cause.name === 'TimeoutError' || cause.name === 'AbortError')) return new DnemisError(`DNEMIS did not respond within ${limitMs / 1000} seconds`, 'timeout');
   const code = (cause as { cause?: { code?: unknown } })?.cause?.code;
   return new DnemisError(`Could not reach DNEMIS at ${host}${typeof code === 'string' && /^[A-Z_]+$/.test(code) ? ` (${code})` : ''}. Check the address and the server's internet access.`, 'network');
 }
@@ -55,11 +55,11 @@ async function serverReason(response: Response, token: string) {
 /** GET a DHIS2 API path (must start with /api/) and return parsed JSON. */
 export async function dhis2Fetch<T = unknown>(path: string, config: DnemisConfig, init: { signal?: AbortSignal; timeoutMs?: number; maxBytes?: number } = {}): Promise<T> {
   const limitMs = init.timeoutMs ?? timeoutMs, limitBytes = init.maxBytes ?? maxResponseBytes;
-  if (!path.startsWith('/api/') || path.includes('..') || path.includes('//')) throw new DnemisError('Invalid DNEMIS API path.', 'bad_response');
-  if (!config.token) throw new DnemisError('Add a DNEMIS personal access token first.', 'not_configured');
+  if (!path.startsWith('/api/') || path.includes('..') || path.includes('//')) throw new DnemisError('Invalid DNEMIS API path', 'bad_response');
+  if (!config.token) throw new DnemisError('Add a DNEMIS personal access token first', 'not_configured');
   let baseUrl: string;
   try { baseUrl = normaliseDnemisBaseUrl(config.baseUrl); await assertPublicDnemisHost(baseUrl); }
-  catch (cause) { throw new DnemisError(cause instanceof DnemisUrlError ? cause.message : 'The DNEMIS address is not valid.', 'invalid_url'); }
+  catch (cause) { throw new DnemisError(cause instanceof DnemisUrlError ? cause.message : 'The DNEMIS address is not valid', 'invalid_url'); }
   const host = new URL(baseUrl).host;
   let response: Response;
   try {
@@ -84,11 +84,11 @@ export async function dhis2Fetch<T = unknown>(path: string, config: DnemisConfig
   if (/text\/html/i.test(contentType)) throw new DnemisError('DNEMIS returned its sign-in page instead of data. Check the access token.', 'unauthorised');
   if (!/json/i.test(contentType)) throw new DnemisError('DNEMIS returned an unexpected response. Check that the address points at the DHIS2 server (it usually ends in /dhis).', 'bad_response');
   const declared = Number(response.headers.get('content-length') ?? 0);
-  if (declared > limitBytes) throw new DnemisError('The DNEMIS response was too large.', 'bad_response', 413);
+  if (declared > limitBytes) throw new DnemisError('The DNEMIS response was too large', 'bad_response', 413);
   let text: string;
   try { text = await response.text(); } catch (cause) { throw networkMessage(cause, host, limitMs); }
-  if (text.length > limitBytes) throw new DnemisError('The DNEMIS response was too large.', 'bad_response', 413);
-  try { return JSON.parse(text) as T; } catch { throw new DnemisError('DNEMIS returned data that could not be read.', 'bad_response'); }
+  if (text.length > limitBytes) throw new DnemisError('The DNEMIS response was too large', 'bad_response', 413);
+  try { return JSON.parse(text) as T; } catch { throw new DnemisError('DNEMIS returned data that could not be read', 'bad_response'); }
 }
 
 type DhisMe = { id?: string; username?: string; displayName?: string; organisationUnits?: { id?: string; displayName?: string; level?: number }[] };

@@ -25,10 +25,10 @@ export function WriteAttemptsSheet({ session, open, onOpenChange }: { session: A
     const controller = new AbortController();
     fetch(`/api/admin/activity/requests?${new URLSearchParams({ session: id, page: String(page), pageSize: String(pageSize) })}`, { cache: 'no-store', signal: controller.signal }).then(async response => {
       const body = await response.json().catch(() => ({})) as ActivityRequestsPage & { error?: string };
-      if (!response.ok) throw Error(body.error || 'Unable to load write attempts.');
+      if (!response.ok) throw Error(body.error || 'Unable to load write attempts');
       setLoaded({ key, data: body });
     }).catch((cause: unknown) => {
-      if (!controller.signal.aborted) setLoaded({ key, error: cause instanceof Error ? cause.message : 'Unable to load write attempts.' });
+      if (!controller.signal.aborted) setLoaded({ key, error: cause instanceof Error ? cause.message : 'Unable to load write attempts' });
     });
     return () => controller.abort();
   }, [open, id, page, key]);
@@ -46,13 +46,13 @@ export function WriteAttemptsSheet({ session, open, onOpenChange }: { session: A
         {session && <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><Badge variant={session.status === 'active' ? 'default' : session.status === 'ended' ? 'secondary' : 'outline'}>{statusLabel(session.status)}</Badge><span>Started {formatDateTime(session.startedAt)}</span></div>}
       </SheetHeader>
       <div className="min-h-0 flex-1 overflow-y-auto px-4">
-        <p className="mb-3 text-sm text-muted-foreground">Every change request made while acting as this user is logged here, whether or not the portal accepted it.</p>
+        <p className="mb-3 text-sm text-muted-foreground">Every change request made while acting as this user is logged here, whether or not the portal accepted it</p>
         {error ? <Alert variant="destructive"><AlertTitle>Unable to load write attempts</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => setAttempt(value => value + 1)}>Try again</Button></AlertDescription></Alert>
           : <div className="overflow-hidden rounded-md border bg-card"><Table aria-busy={!current || undefined}>
             <TableHeader><TableRow><TableHead className="px-4">Method</TableHead><TableHead className="px-4">Path</TableHead><TableHead className="px-4 text-right">Time</TableHead></TableRow></TableHeader>
             <TableBody>{!data ? Array.from({ length: 6 }, (_, index) => <TableRow key={index}><TableCell className="px-4 py-3"><Skeleton className="h-5 w-14" /></TableCell><TableCell className="px-4 py-3"><Skeleton className="h-4 w-44" /></TableCell><TableCell className="px-4 py-3"><Skeleton className="ml-auto h-4 w-28" /></TableCell></TableRow>)
               : data.items.length ? data.items.map(item => <TableRow key={item.id}><TableCell className="px-4 py-3"><Badge variant="outline" className="font-mono">{item.method}</Badge></TableCell><TableCell className="admin-activity-path px-4 py-3 font-mono text-xs">{item.path}</TableCell><TableCell className="px-4 py-3 text-right whitespace-nowrap"><time dateTime={item.requestedAt}>{formatDateTime(item.requestedAt)}</time></TableCell></TableRow>)
-              : <TableRow><TableCell colSpan={3} className="h-24 text-center text-muted-foreground">No write attempts were logged in this session.</TableCell></TableRow>}</TableBody>
+              : <TableRow><TableCell colSpan={3} className="h-24 text-center text-muted-foreground">No write attempts were logged in this session</TableCell></TableRow>}</TableBody>
           </Table></div>}
       </div>
       <SheetFooter className="flex-row items-center justify-between border-t">

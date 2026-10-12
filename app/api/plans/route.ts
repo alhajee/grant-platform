@@ -30,7 +30,7 @@ function visibleFigures(plan: Record<string, unknown>, visible: readonly Impleme
 export async function GET(request: NextRequest) {
   try {
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return NextResponse.json({ error: "Sign in to view your action plans." }, { status: 401 });
+    if (!workspace) return NextResponse.json({ error: "Sign in to view your action plans" }, { status: 401 });
     const db = getPostgres();
     const result = await db.query(`SELECT p.id, p.start_year AS "startYear", p.end_year AS "endYear", p.created_at AS "createdAt", p.status, p.version, p.submission_number AS "submissionNumber", ${planSetupFields('p')},
       COALESCE(i.budget, 0)::float8 AS "infrastructureBudget", COALESCE(s.budget, 0)::float8 AS "sportsBudget", COALESCE(a.sbmc,0)::float8 AS "sbmcBudget", COALESCE(a.tlm,0)::float8 AS "tlmBudget", COALESCE(a.monitoring,0)::float8 AS "monitoringBudget", COALESCE(a.gscci,0)::float8 AS "gscciBudget", COALESCE(a.curriculum,0)::float8 AS "curriculumBudget", COALESCE(a.quality,0)::float8 AS "qualityBudget", COALESCE(a.teachers,0)::float8 AS "teachersBudget", COALESCE(a.ict,0)::float8 AS "ictBudget", COALESCE(a.planning,0)::float8 AS "planningBudget",
@@ -70,8 +70,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return NextResponse.json({ error: "Sign in to create an action plan." }, { status: 401 });
-    if (!canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair)) return NextResponse.json({error:'Only the Executive Chairman or an authorized colleague can create plans.'},{status:403});
+    if (!workspace) return NextResponse.json({ error: "Sign in to create an action plan" }, { status: 401 });
+    if (!canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair)) return NextResponse.json({error:'Only the Executive Chairman or an authorized colleague can create plans'},{status:403});
     const form = await planFormData(request);
     const parsed = planSetupSchema.safeParse(JSON.parse(String(form.get('setup') ?? 'null')));
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     const { planningYear, implementationYear, quarters, stateLodgment, fundingSources } = parsed.data;
     return await getPostgres().transaction(async db => {
     const actor = (await db.query('SELECT role,can_create_plan,is_beap_chair FROM users WHERE id=$1 AND active AND session_version=$2 AND state_code=$3 FOR SHARE', [workspace.userId,workspace.sessionVersion,workspace.stateCode])).rows[0];
-    if (!actor || !canCreateStatePlan(actor.role, actor.can_create_plan, actor.is_beap_chair)) return NextResponse.json({ error:'Only the Executive Chairman or a staff member they authorize can create an action plan.' },{status:403});
+    if (!actor || !canCreateStatePlan(actor.role, actor.can_create_plan, actor.is_beap_chair)) return NextResponse.json({ error:'Only the Executive Chairman or a staff member they authorize can create an action plan' },{status:403});
     const fundingPolicy = (await db.query('SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1 FOR SHARE')).rows[0];
     if (!fundingPolicy) return NextResponse.json({ error:'Funding allocations have not been configured. Ask the UBEC Executive Secretary or administrator to configure them before creating a plan.' },{status:409});
     await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`plan-period:${workspace.stateCode}:${planningYear}`]);
@@ -97,8 +97,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (cause) {
     if(cause instanceof PlanInputError) return NextResponse.json({error:cause.message},{status:cause.status});
-    if(cause instanceof SyntaxError) return NextResponse.json({error:'Invalid plan details.'},{status:400});
-    if((cause as {code?:string}).code==='23505') return NextResponse.json({error:'Those quarters already belong to an action plan.'},{status:409});
+    if(cause instanceof SyntaxError) return NextResponse.json({error:'Invalid plan details'},{status:400});
+    if((cause as {code?:string}).code==='23505') return NextResponse.json({error:'Those quarters already belong to an action plan'},{status:409});
     console.error("Unable to create action plan", cause);
     return NextResponse.json({ error: "Your plan could not be created. Please try again." }, { status: 503 });
   }

@@ -95,7 +95,7 @@ function UnavailableState() {
     <EmptyHeader>
       <EmptyMedia variant="icon"><BellOffIcon /></EmptyMedia>
       <EmptyTitle>Notifications unavailable</EmptyTitle>
-      <EmptyDescription>Check your connection, then open this panel again.</EmptyDescription>
+      <EmptyDescription>Check your connection, then open this panel again</EmptyDescription>
     </EmptyHeader>
   </Empty>;
 }
@@ -103,9 +103,9 @@ function UnavailableState() {
 function AlertSetting({ permission, onEnable }: { permission: AlertPermission; onEnable: () => void }) {
   // Alerts on, or not possible: nothing to offer.
   if (permission === 'unsupported' || permission === 'granted') return null;
-  if (permission === 'denied') return <span className="notification-alert-state" title="Allow notifications for this site in your browser settings to get desktop alerts."><BellOffIcon aria-hidden="true" />Desktop alerts blocked</span>;
+  if (permission === 'denied') return <span className="notification-alert-state" title="Allow notifications for this site in your browser settings to get desktop alerts"><BellOffIcon aria-hidden="true" />Desktop alerts blocked</span>;
   // The only footer item that needs a decision: tinted, with shadcn's shimmer on the label and a swinging bell.
-  return <Button variant="ghost" size="sm" className="notification-footer-action notification-alerts-cta" onClick={onEnable} title="Get an alert when something new arrives, even while this window is minimised."><BellRingIcon className="notification-alerts-icon" /><span className="shimmer shimmer-duration-2800">Turn on desktop alerts</span></Button>;
+  return <Button variant="ghost" size="sm" className="notification-footer-action notification-alerts-cta" onClick={onEnable} title="Get an alert when something new arrives, even while this window is minimised"><BellRingIcon className="notification-alerts-icon" /><span className="shimmer shimmer-duration-2800">Turn on desktop alerts</span></Button>;
 }
 
 function SoundSetting() {

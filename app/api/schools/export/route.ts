@@ -11,13 +11,13 @@ export async function POST(request: NextRequest) {
     const auth = await registerActor(request, { write: true });
     if ('error' in auth) return auth.error;
     const parsed = schoolSelectionSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return noStoreJson({ error: 'Choose the schools to export.' }, 400);
+    if (!parsed.success) return noStoreJson({ error: 'Choose the schools to export' }, 400);
     const { stateCode } = auth.workspace, stateName = stateDisplayName(stateCode);
     const { schools, lgas } = await getPostgres().transaction(async db => ({
       schools: (await db.query<RegisterSchool>(`SELECT ${registerFieldsSql} FROM schools WHERE state_code=$1 AND id = ANY($2::int[]) ORDER BY lower(lga), lower(name), id`, [stateCode, parsed.data.ids])).rows,
       lgas: await stateLgas(db, stateCode),
     }));
-    if (!schools.length) return noStoreJson({ error: 'None of the selected schools are in your state register.' }, 404);
+    if (!schools.length) return noStoreJson({ error: 'None of the selected schools are in your state register' }, 404);
     const bytes = await buildSchoolTemplate(stateName, lgas, schools);
     const filename = `${stateName.replace(/[^A-Za-z0-9]+/g, '-')}-schools-${schools.length}.xlsx`;
     return new Response(bytes, { headers: {

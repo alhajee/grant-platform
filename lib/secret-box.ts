@@ -21,7 +21,7 @@ const toBase64 = (bytes: Uint8Array) => {
 const fromBase64 = (text: string) => Uint8Array.from(atob(text), character => character.charCodeAt(0));
 
 async function deriveKey(secret = process.env.AUTH_SECRET) {
-  if (!secret || secret.length < 32) throw new SecretBoxConfigError('Integration secrets cannot be stored: the server AUTH_SECRET is missing or shorter than 32 characters.');
+  if (!secret || secret.length < 32) throw new SecretBoxConfigError('Integration secrets cannot be stored: the server AUTH_SECRET is missing or shorter than 32 characters');
   const material = await crypto.subtle.importKey('raw', encoder.encode(secret), 'HKDF', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
     { name: 'HKDF', hash: 'SHA-256', salt: encoder.encode(keySalt), info: encoder.encode(keyInfo) },
@@ -39,7 +39,7 @@ export async function sealSecret(plaintext: string, secret?: string) {
 
 export async function openSecret(box: string, secret?: string) {
   const parts = box.split(':');
-  if (parts.length !== 4 || parts[0] !== 'v1') throw new SecretBoxDecryptError('The stored secret has an unknown format.');
+  if (parts.length !== 4 || parts[0] !== 'v1') throw new SecretBoxDecryptError('The stored secret has an unknown format');
   const key = await deriveKey(secret);
   try {
     const [iv, tag, ciphertext] = parts.slice(1).map(fromBase64);

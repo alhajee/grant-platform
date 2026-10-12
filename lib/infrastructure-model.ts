@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { lineQuartersSchema } from './line-quarters.ts';
+import { lineDatesShape } from './line-dates.ts';
 import { requirements, fenceDeliverable, appliesToStream, auditKeys, solarKva, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
 export { quantityLabel, requirements, fenceDeliverable, minimumKeys, appliesToStream, eccdeOnlyKeys, standardText, deliverableGroups, deliverableGroup, deliverableCategory, deliverableInfo, deliverableDescription, groupDeliverables, inDeliverableOrder, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
 
@@ -7,7 +8,7 @@ export { quantityLabel, requirements, fenceDeliverable, minimumKeys, appliesToSt
 export const strategies = ['Request for quotation', 'NCB', 'Credit SBMC school account'] as const;
 export type InfrastructureStrategy = typeof strategies[number];
 export const defaultStrategy: InfrastructureStrategy = strategies[0];
-const strategyMessage = 'Choose Request for quotation, NCB or Credit SBMC school account as the implementation strategy.';
+const strategyMessage = 'Choose Request for quotation, NCB or Credit SBMC school account as the implementation strategy';
 const strategySchema = z.enum(strategies, { errorMap: () => ({ message: strategyMessage }) });
 /** Whether a saved strategy is still offered (older packages may carry a retired one until it is changed). */
 export const isListedStrategy = (value: string): value is InfrastructureStrategy => (strategies as readonly string[]).includes(value);
@@ -16,12 +17,12 @@ export const kindNames = { new: 'New Construction', whole: 'Whole School Renovat
 export const modelNames = ['Model 1 · Small School', 'Model 2 · Medium School', 'Model 3 · Large School'];
 export const modelFor = (enrolment: number) => enrolment <= 240 ? 0 : enrolment <= 320 ? 1 : 2;
 const quantity = z.number().int().min(0).max(1000000);
-const amount = z.number().min(0).max(99999999999.99).refine(n => Math.abs(n * 100 - Math.round(n * 100)) < .001, 'Use at most two decimal places.');
+const amount = z.number().min(0).max(99999999999.99).refine(n => Math.abs(n * 100 - Math.round(n * 100)) < .001, 'Use at most two decimal places');
 // Existing/functional stay unset until the auditor enters them (a Minimum Standard row is complete once both are set).
 // additional: the auditor's own figure (unset = the calculated shortfall). extra: retired "Extra beyond standard", kept so older rows keep their totals.
-const auditRow = z.object({ existing: quantity.optional(), functional: quantity.optional(), additional: quantity.optional(), extra: quantity.default(0) }).refine(v => (v.functional ?? 0) <= (v.existing ?? 0), 'Functional cannot exceed existing.');
+const auditRow = z.object({ existing: quantity.optional(), functional: quantity.optional(), additional: quantity.optional(), extra: quantity.default(0) }).refine(v => (v.functional ?? 0) <= (v.existing ?? 0), 'Functional cannot exceed existing');
 const modelIndex = z.number().int().min(0).max(2);
-export const profileSchema = z.object({male:quantity, female:quantity, latitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=90),'Invalid latitude.'),longitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=180),'Invalid longitude.')});
+export const profileSchema = z.object({male:quantity, female:quantity, latitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=90),'Invalid latitude'),longitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=180),'Invalid longitude')});
 export const packageSchema = z.object({
  kind:z.enum(['new','whole','furniture']),schoolId:z.number().int().positive(),
  components:z.array(z.enum(['ECCDE','Primary','JSS'])).min(1).max(3),
@@ -32,8 +33,8 @@ export const packageSchema = z.object({
  land:z.object({available:z.boolean(),documented:z.boolean(),unencumbered:z.boolean()}).default({available:false,documented:false,unencumbered:false}),
  documentIds:z.array(z.string().uuid()).max(100).default([]),
  /** Whole School photographic evidence: photo document id -> the audit row it shows (client feedback: one upload per row with non-functional units). */
- photoKeys:z.record(z.string().uuid(),z.string().max(40)).default({}).refine(p=>Object.values(p).every(k=>auditKeys.has(k)),'Unknown audit deliverable for a photo.'),
- audit:z.record(auditRow).default({}).refine(a=>Object.keys(a).every(k=>auditKeys.has(k)),'Unknown audit deliverable.'),
+ photoKeys:z.record(z.string().uuid(),z.string().max(40)).default({}).refine(p=>Object.values(p).every(k=>auditKeys.has(k)),'Unknown audit deliverable for a photo'),
+ audit:z.record(auditRow).default({}).refine(a=>Object.keys(a).every(k=>auditKeys.has(k)),'Unknown audit deliverable'),
  /** New Construction: the chosen model (0-2, Model I-III). Whole School packages saved before October 2026 may carry one; it is ignored. */
  model:modelIndex.optional(),fenceRequired:quantity.default(0),fenceLength:quantity.default(0),
  prices:z.record(amount).default({}),classroomStrategy:strategySchema.default(defaultStrategy),
@@ -44,6 +45,8 @@ export const packageSchema = z.object({
  furniture:z.array(z.object({description:z.string().trim().min(1).max(500),quantity:quantity.refine(n=>n>0),cost:amount.refine(n=>n>0)})).max(100).default([]),
  /** Timeline: implementation quarters within the plan's quarters (migration 050, also the package's quarters column); omitted = the plan's quarters. */
  quarters:lineQuartersSchema.optional(),
+ /** Expected start and due dates inside the timeline (migration 059, also the package's date columns); omitted = kept or the whole timeline. */
+ ...lineDatesShape,
 });
 export const landDeclarationCount = (input: Pick<InfrastructureInput, 'land'>) => Object.values(input.land ?? {}).filter(Boolean).length;
 /** All three land declarations ticked (client feedback, October 2026). */
@@ -121,14 +124,14 @@ export function wholeRequirements(facts: SchoolFacts, stream: SchoolStream): Rec
     office: { qty: offices, basis: `${working('Classrooms', classrooms, 3)}. One office for every 3 classrooms.` },
     store: { qty: offices, basis: `${working('Classrooms', classrooms, 3)}. One store for every 3 classrooms.` },
     toilet: { qty: per(learners, 20), basis: `${working('Enrolment', learners, 20)}. One compartment for every 20 learners.` },
-    staffroom: { qty: staffrooms, basis: facts.teachers ? `${working('Teachers', facts.teachers, 9)}. One staff room for every 9 teachers.` : 'DNEMIS has no teacher figure for this school: 1 staff room.' },
+    staffroom: { qty: staffrooms, basis: facts.teachers ? `${working('Teachers', facts.teachers, 9)}. One staff room for every 9 teachers.` : 'DNEMIS has no teacher figure for this school: 1 staff room' },
     eccdeFurniture: { qty: eccdeRooms * 6, basis: `6 sets per ECCDE classroom × ${eccdeRooms}.` },
     dualDesk: { qty: priRooms * 20, basis: `20 sets per Primary/JSS classroom × ${priRooms}.` },
     magneticBoard: { qty: classrooms, basis: `One per classroom: ${rooms}.` },
     teachersFurniture: { qty: classrooms, basis: `One set per classroom: ${rooms}.` },
     storageShelf: { qty: classrooms + offices + staffrooms, basis: `One in each classroom, office and staff room: ${classrooms} + ${offices} + ${staffrooms}.` },
   };
-  for (const r of requirements) if (r.category === 'minimum' && !need[r.key]) need[r.key] = { qty: r.qty[0], basis: r.key === 'solarPower' ? `${classrooms <= 11 ? solarKva[0] : solarKva[2]} KVA (10 KVA above 11 classrooms).` : r.tick ? 'Required for every school.' : `${r.qty[0]} ${r.unit} for every school.` };
+  for (const r of requirements) if (r.category === 'minimum' && !need[r.key]) need[r.key] = { qty: r.qty[0], basis: r.key === 'solarPower' ? `${classrooms <= 11 ? solarKva[0] : solarKva[2]} KVA (10 KVA above 11 classrooms).` : r.tick ? 'Required for every school' : `${r.qty[0]} ${r.unit} for every school.` };
   return need;
 }
 /** The Primary/JSS classroom row is named after the school's learners. */
@@ -139,7 +142,9 @@ export type PackageItem = {key:string;label:string;quantity:number;unit:string;l
 export type InfrastructureResult = ReturnType<typeof calculateInfrastructure>;
 export type InfrastructurePackage = {id:number;/** The client key the package was created with (migration 058), null for older packages. */client_key?:string|null;/** Reference code (migration 053), e.g. UBEC/SUBEB/INFRA/007/2026 · Q1–Q4. */code?:string;version:number;kind:InfrastructureInput['kind'];input:InfrastructureInput;result:InfrastructureResult;school:InfrastructureSchool;total_cost:string;
  /** Timeline (infrastructure_packages.quarters, migration 050): authoritative over input.quarters, which packages saved earlier lack. */
- quarters?:number[]};
+ quarters?:number[];
+ /** Expected start and due dates (migration 059, YYYY-MM-DD): authoritative over input.startDate/dueDate; null on packages saved before. */
+ start_date?:string|null;due_date?:string|null};
 const cents = (n:number) => Math.round(n*100);
 const money = (n:number) => Math.round(n)/100;
 /** The model a New Construction package is built to: the chosen one, else (older packages) the one enrolment suggests. */
@@ -172,18 +177,18 @@ export function auditGaps(input:InfrastructureInput, school:SchoolBasis) {
   return {...r,label:r.key==='classroomPri'?classroomLabel(facts,stream):r.label,category,existing,functional,extra,entered:{existing:stored?.existing!==undefined,functional:stored?.functional!==undefined,additional:stored?.additional!==undefined},
    /** Other Facilities count only once something is entered. */
    included:category==='minimum'||!!stored,
-   standard:category==='other'?'':r.key==='fence'?'Metres of fence the site needs.':need[r.key]?.basis??'',required,nonFunctional:Math.max(0,existing-functional),calculated,additional,toBuild:additional};
+   standard:category==='other'?'':r.key==='fence'?'Metres of fence the site needs':need[r.key]?.basis??'',required,nonFunctional:Math.max(0,existing-functional),calculated,additional,toBuild:additional};
  });
 }
 /** Why one audit row is incomplete or invalid (null when fine). Minimum Standard rows need existing and functional; Other Facilities are optional. */
 export function auditRowProblem(gap:AuditGap,input:Pick<InfrastructureInput,'fenceRequired'>):string|null{
  if(gap.category==='minimum'){
-  if(gap.key==='fence'&&input.fenceRequired<=0)return 'Enter the fence length required (metres).';
-  if(!gap.entered.existing&&!gap.entered.functional)return 'Enter existing and functional.';
-  if(!gap.entered.existing)return 'Enter existing.';
-  if(!gap.entered.functional)return 'Enter functional.';
- }else if(gap.entered.functional&&!gap.entered.existing)return 'Enter existing too.';
- return gap.functional>gap.existing?'Functional cannot exceed existing.':null;
+  if(gap.key==='fence'&&input.fenceRequired<=0)return 'Enter the fence length required (metres)';
+  if(!gap.entered.existing&&!gap.entered.functional)return 'Enter existing and functional';
+  if(!gap.entered.existing)return 'Enter existing';
+  if(!gap.entered.functional)return 'Enter functional';
+ }else if(gap.entered.functional&&!gap.entered.existing)return 'Enter existing too';
+ return gap.functional>gap.existing?'Functional cannot exceed existing':null;
 }
 /** The first Minimum Standard (or invalid Other Facilities) row that blocks a Whole School package. */
 export function wholeAuditProblem(input:InfrastructureInput,school:SchoolBasis):string|null{
@@ -203,7 +208,7 @@ export function rowPhotoIds(input:Pick<InfrastructureInput,'photoKeys'|'document
 export function photoEvidenceProblem(input:InfrastructureInput,gaps:AuditGap[],photoIds:readonly string[]):string|null{
  if(input.kind!=='whole')return null;
  const missing=photoRows(gaps).find(g=>!rowPhotoIds(input,photoIds,g.key).length);
- return missing?`Attach photographic evidence for ${missing.label}: non-functional units are recorded.`:null;
+ return missing?`Attach photographic evidence for ${missing.label}: non-functional units are recorded`:null;
 }
 export function calculateInfrastructure(input:InfrastructureInput,school:SchoolBasis) {
  const enrolment=totalOf(school),facts=toFacts(school,input.components),stream=schoolStream(input.components);
@@ -241,17 +246,17 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
 /** Why a package cannot be saved (null when it can). Land documents and photos are checked where the documents are known (API and editor). */
 export function packageProblem(input:InfrastructureInput,school:SchoolBasis){
  const enrolment=totalOf(school);
- if(enrolment<=0&&input.kind!=='furniture')return 'Record the school’s enrolment before creating its package.';
- if(input.kind==='new'&&!allLandDeclared(input))return 'Tick all three land declarations.';
- if(input.kind==='new'&&input.model===undefined)return 'Choose the school model.';
- if(input.kind==='new'&&input.fenceLength<=0)return 'Enter the perimeter fence length (metres).';
+ if(enrolment<=0&&input.kind!=='furniture')return 'Record the school’s enrolment before creating its package';
+ if(input.kind==='new'&&!allLandDeclared(input))return 'Tick all three land declarations';
+ if(input.kind==='new'&&input.model===undefined)return 'Choose the school model';
+ if(input.kind==='new'&&input.fenceLength<=0)return 'Enter the perimeter fence length (metres)';
  const auditProblem=wholeAuditProblem(input,school);if(auditProblem)return auditProblem;
  const result=calculateInfrastructure(input,school);
- if(!result.items.length||result.total<=0)return 'Add and cost the required items before saving.';
- if(!Number.isSafeInteger(cents(result.total)))return 'The package total is too large.';
- if(input.kind==='whole'&&result.items.some(i=>i.cost<=0||!i.duration))return 'Enter a cost and duration for each intervention.';
- if(input.kind==='new'&&input.targeting==='nonhope'&&!input.duration)return 'Enter the construction duration.';
+ if(!result.items.length||result.total<=0)return 'Add and cost the required items before saving';
+ if(!Number.isSafeInteger(cents(result.total)))return 'The package total is too large';
+ if(input.kind==='whole'&&result.items.some(i=>i.cost<=0||!i.duration))return 'Enter a cost and duration for each intervention';
+ if(input.kind==='new'&&input.targeting==='nonhope'&&!input.duration)return 'Enter the construction duration';
  return null;
 }
 /** Land documents (C of O, R of O or Community Agreement) a New Construction package needs: at least one, for declaration 2. */
-export const landDocumentProblem=(input:Pick<InfrastructureInput,'kind'|'land'>,attached:number)=>input.kind==='new'&&attached<1?'Attach the C of O, R of O or Community Agreement document.':null;
+export const landDocumentProblem=(input:Pick<InfrastructureInput,'kind'|'land'>,attached:number)=>input.kind==='new'&&attached<1?'Attach the C of O, R of O or Community Agreement document':null;

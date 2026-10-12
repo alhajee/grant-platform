@@ -50,20 +50,20 @@ export async function GET(request: NextRequest) {
     return json(await publicSettings());
   } catch (cause) {
     console.error('Integration settings could not be loaded', cause instanceof Error ? cause.message : 'unknown error');
-    return json({ error: 'Unable to load integration settings.' }, 503);
+    return json({ error: 'Unable to load integration settings' }, 503);
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
     const auth = await requireSuperAdmin(request);
     if (auth.error) return auth.error;
     const parsed = putSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Check the DNEMIS settings and try again.' }, 400);
+    if (!parsed.success) return json({ error: 'Check the DNEMIS settings and try again' }, 400);
     const { enabled, clearToken = false } = parsed.data;
     const token = parsed.data.token?.trim() ?? '';
-    if (clearToken && token) return json({ error: 'Either enter a new token or remove the saved one, not both.' }, 400);
+    if (clearToken && token) return json({ error: 'Either enter a new token or remove the saved one, not both' }, 400);
     if (token && !tokenPattern.test(token)) return json({ error: 'The access token looks wrong. Paste the whole token without spaces.' }, 400);
 
     let baseUrl: string;
@@ -76,9 +76,9 @@ export async function PUT(request: NextRequest) {
     const existing = await readRow();
     const keepsToken = !token && !clearToken && Boolean(existing?.ciphertext);
     if (keepsToken && existing && new URL(existing.baseUrl).origin !== new URL(baseUrl).origin) {
-      return json({ error: 'Enter the access token again when you change the server, so the saved token is never sent to a different server.' }, 400);
+      return json({ error: 'Enter the access token again when you change the server, so the saved token is never sent to a different server' }, 400);
     }
-    if (enabled && !token && !keepsToken) return json({ error: 'Add an access token before turning the DNEMIS connection on.' }, 400);
+    if (enabled && !token && !keepsToken) return json({ error: 'Add an access token before turning the DNEMIS connection on' }, 400);
 
     const ciphertext = token ? await sealSecret(token) : keepsToken ? existing!.ciphertext : null;
     const last4 = token ? token.slice(-4) : keepsToken ? existing!.tokenLast4 : null;
@@ -96,17 +96,17 @@ export async function PUT(request: NextRequest) {
   } catch (cause) {
     if (cause instanceof SecretBoxConfigError) return json({ error: cause.message }, 503);
     console.error('Integration settings could not be saved', cause instanceof Error ? cause.message : 'unknown error');
-    return json({ error: 'Unable to save the DNEMIS settings.' }, 503);
+    return json({ error: 'Unable to save the DNEMIS settings' }, 503);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
     const auth = await requireSuperAdmin(request);
     if (auth.error) return auth.error;
     const parsed = postSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Unknown action.' }, 400);
+    if (!parsed.success) return json({ error: 'Unknown action' }, 400);
     const db = getPostgres();
     const saved = await getDnemisConfig(db);
     const typedToken = parsed.data.token?.trim() ?? '';
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       catch (cause) { if (cause instanceof DnemisUrlError) return json({ error: cause.message }, 400); throw cause; }
     }
     // The saved token only ever goes to the saved server; a different address needs the token typed again.
-    if (!typedToken && saved && new URL(saved.baseUrl).origin !== new URL(baseUrl).origin) return json({ error: 'Enter the access token to test a different server.' }, 400);
+    if (!typedToken && saved && new URL(saved.baseUrl).origin !== new URL(baseUrl).origin) return json({ error: 'Enter the access token to test a different server' }, 400);
     const config: DnemisConfig | null = typedToken ? { source: saved?.source ?? 'database', enabled: saved?.enabled ?? false, baseUrl, token: typedToken } : saved ? { ...saved, baseUrl } : null;
     // Only a test of exactly the saved settings is recorded on them.
     const testsSaved = !typedToken && (!saved || saved.baseUrl === baseUrl);
@@ -132,6 +132,6 @@ export async function POST(request: NextRequest) {
     return json({ result, ...(await publicSettings()) });
   } catch (cause) {
     console.error('DNEMIS connection test could not run', cause instanceof Error ? cause.message : 'unknown error');
-    return json({ error: 'Unable to test the DNEMIS connection.' }, 503);
+    return json({ error: 'Unable to test the DNEMIS connection' }, 503);
   }
 }

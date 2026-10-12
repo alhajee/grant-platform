@@ -18,10 +18,10 @@ type OfficerRow = { round_component_id: number; officer_id: number; officer_name
 export async function GET(request: NextRequest) {
   try {
     const user = await getWorkspaceState(request);
-    if (!user) return NextResponse.json({ error: 'Sign in to continue.' }, { status: 401 });
-    if (!isUbec(user.role)) return NextResponse.json({ error: 'UBEC access required.' }, { status: 403 });
+    if (!user) return NextResponse.json({ error: 'Sign in to continue' }, { status: 401 });
+    if (!isUbec(user.role)) return NextResponse.json({ error: 'UBEC access required' }, { status: 403 });
     const yearValue = request.nextUrl.searchParams.get('year');
-    if (yearValue && !/^\d{4}$/.test(yearValue)) return NextResponse.json({ error: 'Invalid funding year.' }, { status: 400 });
+    if (yearValue && !/^\d{4}$/.test(yearValue)) return NextResponse.json({ error: 'Invalid funding year' }, { status: 400 });
     const year = yearValue ? Number(yearValue) : null;
     const viewer = { id: user.userId, role: user.role, department: user.department };
     const db = getPostgres();
@@ -95,5 +95,5 @@ export async function GET(request: NextRequest) {
       LEFT JOIN ubec_rounds r ON r.submitted_at>=m.month AND r.submitted_at<m.month+interval '1 month' AND r.plan_id=ANY($1::int[]) GROUP BY m.month ORDER BY m.month`, [planIds])).rows;
     const body: UbecDashboard = { user: { name: user.name, role: user.role, department: user.department }, items, queue, workload, activity, monthly, years };
     return NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });
-  } catch (cause) { console.error(cause); return NextResponse.json({ error: 'Unable to load the UBEC dashboard.' }, { status: 503 }); }
+  } catch (cause) { console.error(cause); return NextResponse.json({ error: 'Unable to load the UBEC dashboard' }, { status: 503 }); }
 }

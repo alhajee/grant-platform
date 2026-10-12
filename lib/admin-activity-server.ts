@@ -6,8 +6,8 @@ export const noStoreJson = (body: unknown, status = 200) => NextResponse.json(bo
 /** Same checks as /api/admin/impersonation: 401 when signed out, 403 for anyone but the Super Admin. */
 export async function requireSuperAdmin(request: NextRequest) {
   const actor = await getAuthenticatedUser(request);
-  if (!actor) return { error: noStoreJson({ error: 'Sign in to continue.' }, 401) };
-  if (actor.role !== 'Super Admin') return { error: noStoreJson({ error: 'Super-admin access required.' }, 403) };
+  if (!actor) return { error: noStoreJson({ error: 'Sign in to continue' }, 401) };
+  if (actor.role !== 'Super Admin') return { error: noStoreJson({ error: 'Super-admin access required' }, 403) };
   return { actor };
 }
 

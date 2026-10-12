@@ -10,14 +10,14 @@ export class DnemisUrlError extends Error {}
 /** Parses and normalises the address (https, no credentials, query or fragment, no trailing slash). */
 export function normaliseDnemisBaseUrl(input: string) {
   const text = input.trim();
-  if (!text || text.length > maxUrlLength) throw new DnemisUrlError('Enter the DNEMIS server address, for example https://asc.education.gov.ng/dhis.');
+  if (!text || text.length > maxUrlLength) throw new DnemisUrlError('Enter the DNEMIS server address, for example https://asc.education.gov.ng/dhis');
   let url: URL;
   try { url = new URL(text); } catch { throw new DnemisUrlError('Enter a full web address that starts with https://.'); }
-  if (url.protocol !== 'https:') throw new DnemisUrlError('The DNEMIS address must start with https:// so the access token is encrypted in transit.');
+  if (url.protocol !== 'https:') throw new DnemisUrlError('The DNEMIS address must start with https:// so the access token is encrypted in transit');
   if (url.username || url.password) throw new DnemisUrlError('Do not put a user name or password in the address. Use the access token field instead.');
-  if (url.search || url.hash) throw new DnemisUrlError('Remove the ? or # part from the address.');
+  if (url.search || url.hash) throw new DnemisUrlError('Remove the ? or # part from the address');
   const host = url.hostname.toLowerCase();
-  if (isBlockedHostname(host)) throw new DnemisUrlError('The DNEMIS address must be a public internet server, not a local or internal one.');
+  if (isBlockedHostname(host)) throw new DnemisUrlError('The DNEMIS address must be a public internet server, not a local or internal one');
   const path = url.pathname.replace(/\/+$/, '').replace(/\/api$/i, '');
   return `${url.origin}${path}`;
 }
@@ -94,8 +94,8 @@ export async function assertPublicDnemisHost(baseUrl: string) {
   if (isIpLiteral(host)) return;
   let addresses: { address: string }[];
   try { addresses = await lookup(host, { all: true, verbatim: true }); }
-  catch { throw new DnemisUrlError(`Could not reach ${host} (the name lookup failed).`); }
+  catch { throw new DnemisUrlError(`Could not reach ${host} (the name lookup failed)`); }
   if (!addresses.length || addresses.some(entry => isPrivateAddress(entry.address))) {
-    throw new DnemisUrlError('The DNEMIS address must be a public internet server, not a local or internal one.');
+    throw new DnemisUrlError('The DNEMIS address must be a public internet server, not a local or internal one');
   }
 }

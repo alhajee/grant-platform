@@ -75,27 +75,66 @@ try {
   for (const [code, name] of [[state, 'QI Smart School A'], [state, 'QI Smart School B'], [otherState, 'QI Elsewhere School']]) schoolIds.push((await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,$2,'QI LGA','Primary','Rural',50,50) RETURNING id", [code, name])).rows[0].id);
   const [schoolA, schoolB, foreign] = schoolIds;
 
-  // Quality Assurance: M&E department only, eleven activities, equipment type on activity 0, ₦40M ceiling.
+  // Quality Assurance: M&E department only, twelve activities plus Others, equipment category and type on activities 0 and 1, ₦40M ceiling.
   fails(await api('academic', url('quality')), 403);
   fails(await api('ict', url('quality'), line('quality', 1, 100)), 403);
-  fails(await api('qa', url('quality'), line('quality', 12, 100)), 400, /valid allowable activity/);
-  fails(await api('qa', url('quality'), line('quality', 0, 100)), 400, /equipment type/);
+  fails(await api('qa', url('quality'), line('quality', 13, 100)), 400, /valid allowable activity/);
+  fails(await api('qa', url('quality'), line('quality', 0, 100)), 400, /Mobility or Office equipment/);
+  fails(await api('qa', url('quality'), line('quality', 1, 100, { equipmentCategory: 'Office equipment' })), 400, /Choose or enter the type/);
+  fails(await api('qa', url('quality'), line('quality', 0, 100, { equipmentCategory: 'Vehicles', equipmentType: 'Hilux' })), 400);
+  // Optional activities are chosen up front (migration 061): no items until then, compulsory ones always included.
+  const choose = (who, activities) => api(who, `/api/activities/selection?plan=${planId}`, { workstream: 'quality', activities }, { method: 'PATCH' });
+  fails(await api('qa', url('quality'), line('quality', 2, 100)), 400, /Choose the Quality Assurance activities/);
+  fails(await choose('ict', [0]), 403);
+  fails(await choose('qa', [2]), 400, /optional activities/);
+  fails(await choose('qa', [0, 0]), 400, /once/);
+  // "Maintenance of E-Quality Assurance platform" (5) and Others (12) are not in the client's list any more.
+  fails(await choose('qa', [5]), 400, /optional activities/);
+  ok(await choose('qa', [0]));
+  assert.deepEqual(ok(await api('qa', url('quality'))).plan.qualityActivities, [0]);
+  fails(await api('qa', url('quality'), line('quality', 5, 100)), 400, /valid allowable activity/);
+  fails(await api('qa', url('quality'), line('quality', 12, 100, { customActivity: 'QA extra' })), 400, /valid allowable activity/);
+  fails(await api('qa', url('quality'), line('quality', 4, 100)), 400, /not one of the chosen Quality Assurance activities/);
+  // Required 35% + Mobility 48% = 83%, so capacity strengthening's 10% becomes 10/83 = 12.05% of ₦40M.
+  fails(await api('qa', url('quality'), line('quality', 2, 4819277.12)), 400, /₦4,819,277\.11 \(12\.05% of the Quality Assurance allocation\)/);
+  const scaled = ok(await api('qa', url('quality'), line('quality', 2, 4500000)));
+  // Adding Literacy and Numeracy (16%) shrinks the other caps (10/99 of ₦40M = ₦4,040,404.04), which this item would exceed.
+  fails(await choose('qa', [0, 4]), 409, /Capacity strengthening.*would be ₦459,595\.96 over.*Reduce those items first/);
+  ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: scaled.id }));
+  ok(await choose('qa', [0, 1, 4, 11]));
+  step('Quality Assurance: optional activities chosen up front, caps scaled to the chosen set, retired activities refused');
+
   // Others (specify): a typed equipment type is kept as typed.
-  const typed = ok(await api('qa', url('quality'), line('quality', 0, 100, { equipmentType: ' Bicycles ' })));
+  const typed = ok(await api('qa', url('quality'), line('quality', 0, 100, { equipmentCategory: 'Mobility', equipmentType: ' Bicycles ' })));
   assert.equal(ok(await api('qa', url('quality'))).lines.find(l => l.id === typed.id).equipmentType, 'Bicycles');
   ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: typed.id }));
-  fails(await api('qa', url('quality'), line('quality', 0, 100, { equipmentType: 'x'.repeat(101) })), 400);
-  fails(await api('qa', url('quality'), line('quality', 1, 100, { equipmentType: 'Vehicles' })), 400, /only applies/);
-  const equipment = ok(await api('qa', url('quality'), line('quality', 0, 2500000, { equipmentType: 'Motorcycles', quantity: 4 })));
+  fails(await api('qa', url('quality'), line('quality', 0, 100, { equipmentCategory: 'Mobility', equipmentType: 'x'.repeat(101) })), 400);
+  fails(await api('qa', url('quality'), line('quality', 2, 100, { equipmentType: 'Hilux' })), 400, /only apply/);
+  const equipment = ok(await api('qa', url('quality'), line('quality', 0, 2500000, { equipmentCategory: 'Mobility', equipmentType: 'Motorcycle', quantity: 4 })));
   assert.ok(Number.isInteger(equipment.id));
-  ok(await api('qa', url('quality'), { ...line('quality', 0, 2500000, { equipmentType: 'Vehicles', quantity: 4 }), action: 'update', id: equipment.id }));
+  ok(await api('qa', url('quality'), { ...line('quality', 0, 2500000, { equipmentCategory: 'Mobility', equipmentType: 'Hilux', quantity: 4 }), action: 'update', id: equipment.id }));
   ok(await api('qa', url('quality'), line('quality', 2, 1000000)));
   // The editor always sends schoolIds (empty for activities without schools).
-  const plain = ok(await api('qa', url('quality'), line('quality', 1, 100, { schoolIds: [], subscriptionTypes: [], equipmentType: '', websiteType: '' })));
+  const plain = ok(await api('qa', url('quality'), line('quality', 3, 100, { schoolIds: [], subscriptionTypes: [], equipmentCategory: '', equipmentType: '', websiteType: '' })));
   ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: plain.id }));
-  fails(await api('qa', url('quality'), line('quality', 4, 29000000.01)), 400, /exceeded the Quality Assurance allocation \(₦40,000,000\.00\) by ₦0\.01/);
+  // Activity shares (client observations): Mobility and office equipment and its maintenance share 48% (₦19.2M here); Literacy and Numeracy 16% (₦6.4M).
+  fails(await api('qa', url('quality'), line('quality', 1, 9200000.01, { equipmentCategory: 'Office equipment', equipmentType: 'Printer' })), 400, /together can use up to ₦19,200,000\.00 \(48% of the Quality Assurance allocation\)/);
+  const maintenance = ok(await api('qa', url('quality'), line('quality', 1, 9200000, { equipmentCategory: 'Office equipment', equipmentType: 'Printer' })));
+  ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: maintenance.id }));
+  fails(await api('qa', url('quality'), line('quality', 4, 6400000.01)), 400, /‘Literacy and Numeracy Assessment at LGEAs \(aligned with HOPE-EDU\)’ can use up to ₦6,400,000\.00 \(16% of the Quality Assurance allocation\)/);
+  fails(await api('qa', url('quality'), line('quality', 11, 400000.01)), 400, /Server renewal and dashboard.*₦400,000\.00 \(1%/);
+  // A plan already over one share can still save other items and bring the over item down, but not raise it.
+  const over = (await db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,'quality',6,'Over the share',1,5000000,'Request for quotation','Schools') RETURNING id", [planId])).rows[0].id;
+  const beside = ok(await api('qa', url('quality'), line('quality', 4, 100000)));
+  ok(await api('qa', url('quality'), { ...line('quality', 6, 4000000), action: 'update', id: over }));
+  fails(await api('qa', url('quality'), { ...line('quality', 6, 4500000), action: 'update', id: over }), 400, /CSM&E.*₦3,200,000\.00 \(8%/);
+  ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: over }));
+  ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: beside.id }));
+  // An activity with items cannot be left out.
+  fails(await choose('qa', [1, 4, 11]), 409, /Remove the items under ‘Mobility and office equipment’ \(1\)/);
   let quality = ok(await api('qa', url('quality')));
-  assert.equal(quality.lines.find(l => l.id === equipment.id).equipmentType, 'Vehicles');
+  assert.equal(quality.lines.find(l => l.id === equipment.id).equipmentType, 'Hilux');
+  assert.equal(quality.lines.find(l => l.id === equipment.id).equipmentCategory, 'Mobility');
   assert.deepEqual(quality.schools, []);
   // Every Quality Assurance line takes optional supporting documents (migration 057).
   ok(await upload('qa', equipment.id, 'spec.pdf', pdf, 'quality'));
@@ -103,12 +142,17 @@ try {
 
   // Compulsory activities block sending, with the missing list.
   const missing = fails(await review('qa', { action: 'submit', pillar: 'quality' }), 409, /compulsory activity/);
-  assert.match(missing.error, /Capacity building for new M&E Officers; Conduct of CQA for 9 weeks/);
+  assert.match(missing.error, /data entry; Conduct of Continuous School-based Monitoring and Evaluation \(CSM&E\) for 9 weeks/);
   assert.doesNotMatch(missing.error, /Capacity strengthening for Principals/);
   for (const activity of [3, 6, 7, 8, 9]) ok(await api('qa', url('quality'), line('quality', activity, 100000)));
   fails(await review('qa', { action: 'submit', pillar: 'quality' }), 409, /Production of instruments/);
   ok(await api('qa', url('quality'), line('quality', 10, 100000)));
   step('Compulsory Quality Assurance activities block Send to Director until each has a line');
+  // An item saved earlier under a retired activity blocks sending until it is moved or removed.
+  const retired = (await db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,'quality',5,'Old platform item',1,100,'Request for quotation','Schools') RETURNING id", [planId])).rows[0].id;
+  fails(await review('qa', { action: 'submit', pillar: 'quality' }), 409, /Old platform item.*no longer an allowable activity/);
+  ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: retired }));
+  step('Items on retired Quality Assurance activities block sending');
 
   // ICT: the allocation of the shared Teacher Development & ICT budget comes first and is bounded.
   fails(await api('ict', url('ict'), line('ict', 1, 100)), 400, /shared Teacher Development & ICT budget ICT will use/);
@@ -216,7 +260,7 @@ try {
   assert.ok(['quality', 'ict'].every(p => chairView.visiblePillars.includes(p)));
   assert.equal(chairView.snapshot.ict.find(l => l.id === dlc.id).documents[0].id, boq.id);
   assert.equal(chairView.snapshot.ict.find(l => l.id === smart.id).schools[0].name, 'QI Smart School A');
-  assert.equal(chairView.snapshot.quality.find(l => l.id === equipment.id).equipment_type, 'Vehicles');
+  assert.equal(chairView.snapshot.quality.find(l => l.id === equipment.id).equipment_type, 'Hilux');
   fails(await api('ec', `/api/activities/line-documents?id=${specDoc.id}`), 404);
   for (const pillar of ['quality', 'ict']) ok(await review('chair', { action: 'forward', pillar }));
   ok(await api('ec', `/api/activities/line-documents?id=${specDoc.id}`));

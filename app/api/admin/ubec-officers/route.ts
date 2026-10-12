@@ -22,9 +22,9 @@ const input = z.object({
   limits: z.array(z.object({ department: z.enum(departmentIds), limit: z.number().int().min(1).max(maxOfficerLimit).nullable() }).strict()).max(departmentIds.length).optional(),
   defaults: z.array(z.object({ pillar: z.enum(implementedPillars), officerIds: z.array(z.number().int().positive()).max(maxDefaultOfficers) }).strict()).max(implementedPillars.length).optional(),
 }).strict()
-  .refine(value => new Set(value.limits?.map(l => l.department)).size === (value.limits?.length ?? 0), 'Each department once.')
-  .refine(value => new Set(value.defaults?.map(d => d.pillar)).size === (value.defaults?.length ?? 0), 'Each component once.')
-  .refine(value => (value.defaults ?? []).every(d => new Set(d.officerIds).size === d.officerIds.length), 'Each officer once per component.');
+  .refine(value => new Set(value.limits?.map(l => l.department)).size === (value.limits?.length ?? 0), 'Each department once')
+  .refine(value => new Set(value.defaults?.map(d => d.pillar)).size === (value.defaults?.length ?? 0), 'Each component once')
+  .refine(value => (value.defaults ?? []).every(d => new Set(d.officerIds).size === d.officerIds.length), 'Each officer once per component');
 
 async function requireAdmin(request: NextRequest) {
   const actor = await getAuthenticatedUser(request);
@@ -54,21 +54,21 @@ async function readSettings(db: Db) {
 
 export async function GET(request: NextRequest) {
   try {
-    if (!await requireAdmin(request)) return json({ error: 'Super-admin access required.' }, 403);
+    if (!await requireAdmin(request)) return json({ error: 'Super-admin access required' }, 403);
     return json(await readSettings(getPostgres()));
   } catch (cause) {
     console.error('UBEC officer settings could not be loaded', cause);
-    return json({ error: 'Unable to load the UBEC Assessment Officer settings.' }, 503);
+    return json({ error: 'Unable to load the UBEC Assessment Officer settings' }, 503);
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal.' }, 403);
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
     const actor = await requireAdmin(request);
-    if (!actor) return json({ error: 'Super-admin access required.' }, 403);
+    if (!actor) return json({ error: 'Super-admin access required' }, 403);
     const parsed = input.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Enter a limit from 1 to 50 for each department and choose officers for each component.' }, 400);
+    if (!parsed.success) return json({ error: 'Enter a limit from 1 to 50 for each department and choose officers for each component' }, 400);
     const { limits = [], defaults = [] } = parsed.data;
     return await getPostgres().transaction(async db => {
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['admin:user-management']);
@@ -92,6 +92,6 @@ export async function PUT(request: NextRequest) {
     });
   } catch (cause) {
     console.error('UBEC officer settings could not be saved', cause);
-    return json({ error: 'Unable to save the UBEC Assessment Officer settings.' }, 503);
+    return json({ error: 'Unable to save the UBEC Assessment Officer settings' }, 503);
   }
 }

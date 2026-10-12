@@ -24,9 +24,9 @@ export function OfficersPanel({ onDirty }: { onDirty?: (dirty: boolean) => void 
     setError('');
     try {
       const response = await fetch(endpoint, { cache: 'no-store' });
-      if (!response.ok) throw Error(await errorOf(response, 'Unable to load the UBEC Assessment Officer settings.'));
+      if (!response.ok) throw Error(await errorOf(response, 'Unable to load the UBEC Assessment Officer settings'));
       apply(await response.json() as OfficerSettings);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load the UBEC Assessment Officer settings.'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load the UBEC Assessment Officer settings'); }
   }, []);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
@@ -40,10 +40,10 @@ export function OfficersPanel({ onDirty }: { onDirty?: (dirty: boolean) => void 
     setSaving(true);
     try {
       const response = await fetch(endpoint, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(changes) });
-      if (!response.ok) throw Error(await errorOf(response, 'Unable to save the UBEC Assessment Officer settings.'));
+      if (!response.ok) throw Error(await errorOf(response, 'Unable to save the UBEC Assessment Officer settings'));
       apply(await response.json() as OfficerSettings);
       toast.success('UBEC Assessment Officer settings saved');
-    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Unable to save the UBEC Assessment Officer settings.'); }
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Unable to save the UBEC Assessment Officer settings'); }
     finally { setSaving(false); }
   };
   const setLimit = (department: string, value: string) => setDraft(current => current && ({ ...current, limits: { ...current.limits, [department]: value } }));
@@ -68,7 +68,7 @@ function ReleasedPlans({ plans }: { plans: ReleasedPlan[] }) {
   return <div className="flex flex-col gap-3">
     <div className="admin-subhead">
       <h3>Plans in department assessment</h3>
-      <p>Assign or reassign officers on components still with their Director.</p>
+      <p>Assign or reassign officers on components still with their Director</p>
     </div>
     <SettingsCard className="overflow-hidden">
       {plans.length ? <Table>
@@ -80,7 +80,7 @@ function ReleasedPlans({ plans }: { plans: ReleasedPlan[] }) {
           <TableCell className="tabular-nums">{plan.atDirector} of {plan.released}</TableCell>
           <TableCell className="text-right"><Button asChild variant="outline" size="sm"><a href={`/ubec/review?plan=${plan.planId}`}>Assign officers<ArrowRightIcon data-icon="inline-end" /></a></Button></TableCell>
         </TableRow>)}</TableBody>
-      </Table> : <div className="p-6"><UbecEmpty art={<PipelineIdleArt />} title="No plans in department assessment" compact>Plans appear here once the UBEC BEAP Chair releases them.</UbecEmpty></div>}
+      </Table> : <div className="p-6"><UbecEmpty art={<PipelineIdleArt />} title="No plans in department assessment" compact>Plans appear here once the UBEC BEAP Chair releases them</UbecEmpty></div>}
     </SettingsCard>
   </div>;
 }

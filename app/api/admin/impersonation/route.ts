@@ -12,8 +12,8 @@ export async function GET(request:NextRequest){
   try{
     const actor=await getAuthenticatedUser(request);
     if(request.nextUrl.searchParams.get('status')==='1'&&actor?.role!=='Super Admin')return json({isAdmin:false,impersonating:false});
-    if(!actor)return json({error:'Sign in to continue.'},401);
-    if(actor.role!=='Super Admin')return json({error:'Super-admin access required.'},403);
+    if(!actor)return json({error:'Sign in to continue'},401);
+    if(actor.role!=='Super Admin')return json({error:'Super-admin access required'},403);
     const db=getPostgres();
     if(request.nextUrl.searchParams.get('status')==='1'){
       const id=request.cookies.get('ubec_impersonation')?.value;
@@ -23,24 +23,24 @@ export async function GET(request:NextRequest){
     const users=(await db.query(`SELECT id,full_name AS name,email,role,department,${userDepartmentsSql('users')} AS departments,state_code AS "stateCode",active,can_create_plan AS "canCreatePlan",can_manage_schools AS "canManageSchools",is_beap_chair AS "isBeapChair" FROM users WHERE role<>'Super Admin' ORDER BY state_code,role,full_name`)).rows;
     // Session history is paginated separately by /api/admin/activity.
     return json({user:{name:actor.name,role:actor.role,email:actor.email},users});
-  }catch{return json({error:'Unable to load the admin workspace.'},503);}
+  }catch{return json({error:'Unable to load the admin workspace'},503);}
 }
 export async function POST(request:NextRequest){
   try{
-    if(!isSameRequestOrigin(request))return json({error:'This action must come from the portal.'},403);
+    if(!isSameRequestOrigin(request))return json({error:'This action must come from the portal'},403);
     const actor=await getAuthenticatedUser(request);
-    if(!actor)return json({error:'Sign in to continue.'},401);
-    if(actor.role!=='Super Admin')return json({error:'Super-admin access required.'},403);
+    if(!actor)return json({error:'Sign in to continue'},401);
+    if(actor.role!=='Super Admin')return json({error:'Super-admin access required'},403);
     const parsed=z.discriminatedUnion('action',[z.object({action:z.literal('start'),userId:z.number().int().positive()}).strict(),z.object({action:z.literal('stop')}).strict()]).safeParse(await request.json().catch(()=>null));
-    if(!parsed.success)return json({error:'Choose a valid user or return to admin.'},400);
+    if(!parsed.success)return json({error:'Choose a valid user or return to admin'},400);
     const binding=await sessionBinding(request);
     return await getPostgres().transaction(async db=>{
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`impersonation:${binding}`]);
       const valid=(await db.query("SELECT id FROM users WHERE id=$1 AND active AND role='Super Admin' AND session_version=$2 FOR SHARE",[actor.userId,actor.sessionVersion])).rows[0];
-      if(!valid)return json({error:'Your admin access has changed.'},403);
+      if(!valid)return json({error:'Your admin access has changed'},403);
       const input=parsed.data;
       const target=input.action==='start'?(await db.query("SELECT id,full_name,email,role,state_code,session_version FROM users WHERE id=$1 AND active AND role<>'Super Admin' FOR SHARE",[input.userId])).rows[0]:null;
-      if(input.action==='start'&&!target)return json({error:'This user is unavailable or cannot be impersonated.'},404);
+      if(input.action==='start'&&!target)return json({error:'This user is unavailable or cannot be impersonated'},404);
       await db.query('UPDATE impersonation_sessions SET ended_at=NOW(),end_reason=$3 WHERE actor_id=$1 AND session_binding=$2 AND ended_at IS NULL',[actor.userId,binding,input.action==='stop'?'returned_to_admin':'switched_user']);
       const response=json({destination:target?destination(target.role):'/admin'});
       if(target){

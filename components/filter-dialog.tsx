@@ -78,7 +78,7 @@ export function FilterDialog({ sections, onClearAll, showLabel, triggerLabel = '
         <DialogHeader className="filter-dialog-header">
           <DialogTitle>Filters</DialogTitle>
           <Button type="button" variant="link" size="sm" className="filter-clear" disabled={!chips.length} onClick={onClearAll}>Clear all</Button>
-          <DialogDescription className="sr-only">Changes apply as you select them.</DialogDescription>
+          <DialogDescription className="sr-only">Changes apply as you select them</DialogDescription>
         </DialogHeader>
         <div className="filter-dialog-body">
           {chips.length > 0 && <ChipList chips={chips} />}

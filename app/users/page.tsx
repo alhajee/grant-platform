@@ -34,7 +34,7 @@ export default function UsersPage() {
       const result = await response.json() as Directory & { error?: string };
       if (!response.ok) throw new Error(result.error);
       setData(result);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load users.'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load users'); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
@@ -52,7 +52,7 @@ export default function UsersPage() {
       if (result.password) setCredentials({email,password:result.password});
       toast.success(passwordReset ? 'Password reset' : 'User saved');
       await load();
-    } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'Unable to save changes.'); }
+    } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'Unable to save changes'); }
     finally { pending.current=false; setSaving(false); }
   }
   return <div className="dashboard-page"><SubebHeader users /><main className="state-users-main">

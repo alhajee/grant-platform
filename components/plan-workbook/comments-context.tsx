@@ -74,7 +74,7 @@ export function usePlanComments(planId: number | undefined, enabled: boolean, re
   const controller = useMemo<CommentsController>(() => ({
     threads, readOnly: !data || data.locked, loaded: !!data, active, setActive, create, reply, setResolved, scope,
     abilities: (pillar, of = scope) => !data || data.locked ? none : (of === scope ? data.abilities : data.otherAbilities ?? {})[pillar] ?? none,
-    startHint: data?.locked ? 'Comments are read-only for this plan.' : scope === 'ubec' ? 'Only the UBEC ES and the reviewers assigned to this component can comment on it.' : 'Only the reviewer currently holding this component can start comments.',
+    startHint: data?.locked ? 'Comments are read-only for this plan' : scope === 'ubec' ? 'Only the UBEC ES and the reviewers assigned to this component can comment on it' : 'Only the reviewer currently holding this component can start comments',
     openCount: (pillar, of = scope) => threads.filter(t => t.pillar === pillar && !t.resolvedAt && t.scope === of).length,
   }), [threads, data, active, create, reply, setResolved, scope]);
   return enabled && planId ? controller : null;

@@ -6,7 +6,7 @@ export const allocationSchema = z.object({
   shares: z.object({ infrastructure: share, quality: share, teachers: share, sbmc: share, sports: share, monitoring: share, curriculum: share, planning: share, gscci: share }).strict(),
   // Retired: TLM and Infrastructure now share the whole infrastructure share (infrastructurePoolEnvelope). Older policy rows may carry it; it is ignored.
   tlmWithinInfrastructure: share.optional(),
-}).strict().refine(value => Object.values(value.shares).reduce((a,b)=>a+b,0) === 10000, 'Component allocations must total 100%.');
+}).strict().refine(value => Object.values(value.shares).reduce((a,b)=>a+b,0) === 10000, 'Component allocations must total 100%');
 export type Allocation = z.infer<typeof allocationSchema>;
 export type FundingPolicy = { id: number; allocation: Allocation; createdAt: string; createdBy: string };
 export const defaultAllocation: Allocation = {shares:{infrastructure:7500,quality:500,teachers:500,sbmc:500,sports:200,monitoring:200,curriculum:200,planning:200,gscci:200}};
@@ -38,6 +38,8 @@ export type EnvelopePlan = {
   tlmAllocation?: string | null;
   /** The platform's Infrastructure & TLM mode when the plan was read (GLOBAL setting, migration 051). Missing (older snapshots) means shared_pool. */
   infrastructureTlmMode?: InfrastructureTlmMode | null;
+  /** The optional Quality Assurance activities chosen up front (migration 061); null until chosen, missing on older snapshots. */
+  qualityActivities?: readonly number[] | null;
 };
 /** How Infrastructure and TLM use their shared pool (Super Admin, platform-wide; migration 051). */
 export const infrastructureTlmModes = ['split', 'shared_pool'] as const;

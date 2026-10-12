@@ -47,7 +47,7 @@ export function NewConstructionModel({ input, enrolment, disabled, onChange }: N
       <h3 className="text-sm font-semibold"><span className="infra-model-step-number" aria-hidden="true">2</span>{modelNames[model]} requirements</h3>
       <Badge variant="outline">{stream === 'jss' ? 'JSS list' : 'Primary/ECCDE list'}</Badge>
     </div>
-    <p className="text-sm text-muted-foreground">{stream === 'jss' ? 'This school teaches JSS only (DNEMIS), so the ECCDE block, ECCDE furniture, play equipment and kindergarten bed are left out.' : 'Primary/ECCDE schools include the ECCDE block and its furniture, play equipment and kindergarten bed.'} Enter the length of perimeter fence the site needs.</p>
+    <p className="text-sm text-muted-foreground">{stream === 'jss' ? 'This school teaches JSS only (DNEMIS), so the ECCDE block, ECCDE furniture, play equipment and kindergarten bed are left out' : 'Primary/ECCDE schools include the ECCDE block and its furniture, play equipment and kindergarten bed'} Enter the length of perimeter fence the site needs.</p>
     <div className="infra-audit-card">
       <Table className="infra-new-table">
         <TableHeader><TableRow>

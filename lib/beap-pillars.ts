@@ -1,13 +1,13 @@
 export const beapComponents = [
-  { id: "infrastructure", name: "Infrastructure Projects and TLMs", share: 75, description: "Build, improve and equip spaces where children learn.", areas: ["Construction", "Renovation", "Teaching and learning materials"], href: "/beap/infrastructure" },
-  { id: "quality", name: "Quality Assurance", share: 5, description: "Strengthen standards and the quality of basic education.", areas: ["Standards", "Quality"], href: "/beap/quality" },
-  { id: "teachers", name: "Teacher development and ICT", share: 5, description: "Support teacher development and digital learning.", areas: ["Teachers", "ICT"], href: "/beap/teachers" },
-  { id: "sbmc", name: "SBMC", share: 5, description: "Support school-based management committees.", areas: ["School management", "Community participation"], href: "/beap/sbmc" },
-  { id: "sports", name: "Sports activities", share: 2, description: "Create opportunities for children to play, participate and thrive.", areas: ["Equipment", "Competitions", "School sports"], href: "/beap/sports" },
-  { id: "monitoring", name: "Supervision and monitoring", share: 2, description: "Track delivery and supervise school projects.", areas: ["Supervision", "Monitoring"], href: "/beap/monitoring" },
-  { id: "curriculum", name: "Purchase and curriculum distribution", share: 2, description: "Plan curriculum purchases and distribution to schools.", areas: ["Curriculum", "Distribution"], href: "/beap/curriculum" },
-  { id: "planning", name: "Planning, EMIS & Data Platform", share: 2, description: "Strengthen education planning, research and data systems.", areas: ["Planning", "EMIS", "Research", "Statistics"], href: "/beap/planning" },
-  { id: "gscci", name: "Greening Schools, Climate Change & Safeguarding", share: 2, description: "Create safer, climate-resilient school environments.", areas: ["Greening schools", "Climate change", "Safeguarding"], href: "/beap/gscci" },
+  { id: "infrastructure", name: "Infrastructure Projects and TLMs", share: 75, description: "Build, improve and equip spaces where children learn", areas: ["Construction", "Renovation", "Teaching and learning materials"], href: "/beap/infrastructure" },
+  { id: "quality", name: "Quality Assurance", share: 5, description: "Strengthen standards and the quality of basic education", areas: ["Standards", "Quality"], href: "/beap/quality" },
+  { id: "teachers", name: "Teacher development and ICT", share: 5, description: "Support teacher development and digital learning", areas: ["Teachers", "ICT"], href: "/beap/teachers" },
+  { id: "sbmc", name: "SBMC", share: 5, description: "Support school-based management committees", areas: ["School management", "Community participation"], href: "/beap/sbmc" },
+  { id: "sports", name: "Sports activities", share: 2, description: "Create opportunities for children to play, participate and thrive", areas: ["Equipment", "Competitions", "School sports"], href: "/beap/sports" },
+  { id: "monitoring", name: "Supervision and monitoring", share: 2, description: "Track delivery and supervise school projects", areas: ["Supervision", "Monitoring"], href: "/beap/monitoring" },
+  { id: "curriculum", name: "Purchase and curriculum distribution", share: 2, description: "Plan curriculum purchases and distribution to schools", areas: ["Curriculum", "Distribution"], href: "/beap/curriculum" },
+  { id: "planning", name: "Planning, EMIS & Data Platform", share: 2, description: "Strengthen education planning, research and data systems", areas: ["Planning", "EMIS", "Research", "Statistics"], href: "/beap/planning" },
+  { id: "gscci", name: "Greening Schools, Climate Change & Safeguarding", share: 2, description: "Create safer, climate-resilient school environments", areas: ["Greening schools", "Climate change", "Safeguarding"], href: "/beap/gscci" },
 ] as const;
 
 // Compatibility alias for persisted review keys; these keys represent components.

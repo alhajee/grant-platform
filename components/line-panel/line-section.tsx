@@ -81,7 +81,7 @@ export function EmptySection({ title, badges, selected, onStart, startLabel }: {
 /** The focused view when its activity has nothing saved yet. */
 export function FocusEmpty({ title, others, onShowAll }: { title: ReactNode; others: number; onShowAll: () => void }) {
   return <div className="line-focus-empty">
-    <p><strong>{title}</strong> has no saved items yet.</p>
+    <p><strong>{title}</strong> has no saved items yet</p>
     <p>Fill in the form to add the first one.{others > 0 && <> <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={onShowAll}>Show all {others} {others === 1 ? 'item' : 'items'}</Button></>}</p>
   </div>;
 }

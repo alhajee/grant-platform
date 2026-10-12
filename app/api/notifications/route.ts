@@ -29,7 +29,7 @@ async function readTodos(workspace: { stateCode: string; role: string; departmen
 export async function GET(request: NextRequest) {
   try {
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return error('Sign in to continue.', 401);
+    if (!workspace) return error('Sign in to continue', 401);
     const db = getPostgres();
     const [items, unread, todos] = await Promise.all([
       db.query<NotificationItem>(`SELECT n.id, n.plan_id AS "planId", n.event_id AS "eventId", CASE WHEN n.ubec_event_id IS NULL THEN 'state' ELSE 'ubec' END AS source,
@@ -45,16 +45,16 @@ export async function GET(request: NextRequest) {
     ]);
     const feed: NotificationFeed = { notifications: items.rows, unreadCount: unread.rows[0].count, todos };
     return NextResponse.json(feed, { headers: noStore });
-  } catch (cause) { console.error('Notifications could not be loaded', cause); return error('Notifications are unavailable right now.', 503); }
+  } catch (cause) { console.error('Notifications could not be loaded', cause); return error('Notifications are unavailable right now', 503); }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
-    if (!isSameRequestOrigin(request)) return error('This request must come from the portal.', 403);
+    if (!isSameRequestOrigin(request)) return error('This request must come from the portal', 403);
     const workspace = await getWorkspaceState(request);
-    if (!workspace) return error('Sign in to continue.', 401);
+    if (!workspace) return error('Sign in to continue', 401);
     const parsed = markRead.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return error('Choose notifications to mark as read.');
+    if (!parsed.success) return error('Choose notifications to mark as read');
     const ids = 'ids' in parsed.data ? parsed.data.ids : null;
     await getPostgres().query(`UPDATE plan_notifications n SET read_at = NOW() FROM action_plans p
       WHERE p.id = n.plan_id AND ${visible} AND n.read_at IS NULL ${ids ? 'AND n.id = ANY($3::int[])' : ''}`, ids ? [workspace.userId, workspace.stateCode, ids] : [workspace.userId, workspace.stateCode]);

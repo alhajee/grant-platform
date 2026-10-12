@@ -82,6 +82,6 @@ export function CommentThread({ controller, thread, target, label, onClose, auto
       </div>
     </form>}
     {!thread && !can.start && <p className="wb-thread-note">{controller.startHint}</p>}
-    {thread?.scope === 'ubec' && controller.scope === 'state' && !controller.readOnly && resolved && <p className="wb-thread-note">Only UBEC can reopen a UBEC comment.</p>}
+    {thread?.scope === 'ubec' && controller.scope === 'state' && !controller.readOnly && resolved && <p className="wb-thread-note">Only UBEC can reopen a UBEC comment</p>}
   </div>;
 }

@@ -4,7 +4,7 @@ import { CircleAlertIcon, EyeIcon, PaperclipIcon, PencilIcon, Trash2Icon } from 
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { QuarterBadge } from '@/components/quarter-timeline';
+import { QuarterBadge, LineDatesNote } from '@/components/quarter-timeline';
 import { InlineCell } from './inline-cell';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' });
@@ -31,6 +31,9 @@ export type PanelLine = {
   attachments?: number;
   code?: string;
   quarters?: readonly number[];
+  /** Expected start and due dates (migration 059), YYYY-MM-DD. */
+  startDate?: string | null;
+  dueDate?: string | null;
   quantity: number;
   unitCost: number;
 };
@@ -91,7 +94,7 @@ export function LineTable({ lines, itemLabel, quantityLabel = 'Qty', editable, d
           </div>}
           {line.code && <p className="line-code" title="Reference code">{line.code}</p>}
         </TableCell>
-        <TableCell className="line-timeline" data-label="Timeline"><QuarterBadge quarters={line.quarters} /></TableCell>
+        <TableCell className="line-timeline" data-label="Timeline"><QuarterBadge quarters={line.quarters} /><LineDatesNote startDate={line.startDate} dueDate={line.dueDate} /></TableCell>
         <TableCell className="line-number line-qty" data-label={quantityLabel}>
           <InlineCell kind="integer" value={String(line.quantity)} format={value => count.format(Number(value))} label={`${quantityLabel} for ${line.label}`} editable={editable} lockedReason={locked} onSave={value => onSave(line.id, 'quantity', value)} onError={report(line.id)} />
         </TableCell>

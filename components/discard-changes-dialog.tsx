@@ -10,7 +10,7 @@ export function DiscardChangesDialog({ open, item = 'line', saved, onKeep, onDis
   open: boolean;
   /** What is unsaved, e.g. "line" or "package". */
   item?: string;
-  /** What stays safe, e.g. "Your saved items stay as they are." */
+  /** What stays safe, e.g. "Your saved items stay as they are" */
   saved: string;
   onKeep: () => void;
   onDiscard: () => void;

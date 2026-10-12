@@ -1,0 +1,4 @@
+.line-dates { gap: 8px; }
+.line-dates-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.line-date-trigger { width: 100%; justify-content: flex-start; font-weight: 400; }
+@media (max-width: 520px) { .line-dates-grid { grid-template-columns: 1fr; } }

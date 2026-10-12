@@ -21,7 +21,7 @@ export function TeacherTrainingFields({ draft, onChange }: Props) {
   return <>
     {select('trainingProvider', 'Training provider', trainingProviders)}
     {select('targetParticipants', 'Target participants', targetParticipants)}
-    <FieldSet className="subscription-types"><FieldLegend variant="label">School level {required}</FieldLegend><FieldDescription>Choose at least one.</FieldDescription>
+    <FieldSet className="subscription-types"><FieldLegend variant="label">School level {required}</FieldLegend><FieldDescription>Choose at least one</FieldDescription>
       <div className="subscription-grid" role="group" aria-label="School levels">{trainingSchoolLevels.map(level => <label key={level} className="subscription-option"><Checkbox checked={draft.schoolLevels.includes(level)} onCheckedChange={v => toggle(level, v === true)} aria-label={level} /><span>{level}</span></label>)}</div>
     </FieldSet>
     <FieldGroup className="grid grid-cols-2 gap-4">

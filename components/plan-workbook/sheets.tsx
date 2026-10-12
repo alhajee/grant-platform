@@ -5,6 +5,7 @@ import { activityLabel, activityTitles, allocateByEnrolment, curriculumActivityS
 import { kindNames } from '@/lib/infrastructure-model';
 import { sportsSections } from '@/lib/sports';
 import { formatQuarters } from '@/lib/line-quarters';
+import { formatLineDates } from '@/lib/line-dates';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import type { CellValue, WorkbookColumn, WorkbookRow, WorkbookSheet } from './types';
@@ -15,9 +16,11 @@ const sectionNames: Record<string, string> = Object.fromEntries(sportsSections.m
 const text = (id: string, header: string, size = 150, filter = false): WorkbookColumn => ({ id, header, kind: 'text', size, filter });
 const qty = (id = 'quantity', header = 'Qty.', total = false): WorkbookColumn => ({ id, header, kind: 'number', size: header === 'Qty.' ? 80 : 104, total });
 const amount = (id: string, header: string, total = false): WorkbookColumn => ({ id, header, kind: 'money', size: 156, total });
-/** Timeline column of every line sheet (migration 050): "Q1–Q3"; blank for submissions saved before timelines. */
-const timeline = (): WorkbookColumn => text('timeline', 'Timeline', 112, true);
-const quarters = (line: { quarters?: number[] | null }) => formatQuarters(line.quarters ?? []);
+/** Timeline column of every line sheet (migrations 050, 059): "Q1–Q3 · 3 Feb 2027 – 28 Jun 2027"; the dates are missing on
+ * lines saved before them, and the whole cell on submissions saved before timelines. */
+const timeline = (): WorkbookColumn => text('timeline', 'Timeline', 250, true);
+const quarters = (line: { quarters?: number[] | null; start_date?: string | null; due_date?: string | null }) =>
+  [formatQuarters(line.quarters ?? []), formatLineDates({ startDate: line.start_date, dueDate: line.due_date })].filter(Boolean).join(' · ');
 function row(id: string, values: Record<string, CellValue>, expandable = false): WorkbookRow {
   return { id, values, expandable, search: Object.values(values).join(' ').toLowerCase() };
 }
@@ -25,7 +28,7 @@ function row(id: string, values: Record<string, CellValue>, expandable = false):
 function infrastructureSheet(snapshot: Snapshot, editHref?: string): WorkbookSheet {
   const byId = new Map(snapshot.infrastructure.map(line => [String(line.id), line]));
   return {
-    key: 'infrastructure', label: 'Infrastructure', hash: 'review-infrastructure', icon: Building2, itemLabel: 'project lines', empty: 'No infrastructure projects.', editHref, editLabel: 'Infrastructure',
+    key: 'infrastructure', label: 'Infrastructure', hash: 'review-infrastructure', icon: Building2, itemLabel: 'project lines', empty: 'No infrastructure projects', editHref, editLabel: 'Infrastructure',
     columns: [text('school', 'School', 250), text('lga', 'LGA', 112, true), text('level', 'Level', 90, true), text('location', 'Location', 100, true), text('type', 'Project type', 200, true), text('code', 'Code', 96), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), text('scope', 'Components', 140), qty('learners', 'Learners'), text('strategy', 'Strategy', 120, true), text('duration', 'Duration', 120)],
     rows: snapshot.infrastructure.map(line => row(String(line.id), {
       school: line.school.name, lga: line.school.lga, level: line.school.level, location: line.school.location,
@@ -36,7 +39,7 @@ function infrastructureSheet(snapshot: Snapshot, editHref?: string): WorkbookShe
     }, true)),
     detail: id => {
       const line = byId.get(id); if (!line) return null;
-      return line.package ? <InfrastructurePackageDetails record={line.package} /> : <><h3>Project</h3><p className="review-comment">{line.construction.name}</p><dl className="review-facts"><div><dt>Implementation strategy</dt><dd>{line.strategy || '—'}</dd></div><div><dt>Latitude</dt><dd>{line.latitude || '—'}</dd></div><div><dt>Longitude</dt><dd>{line.longitude || '—'}</dd></div></dl><h3>Rationale</h3><p className="review-comment">{line.rationale || 'No rationale provided.'}</p></>;
+      return line.package ? <InfrastructurePackageDetails record={line.package} /> : <><h3>Project</h3><p className="review-comment">{line.construction.name}</p><dl className="review-facts"><div><dt>Implementation strategy</dt><dd>{line.strategy || '—'}</dd></div><div><dt>Latitude</dt><dd>{line.latitude || '—'}</dd></div><div><dt>Longitude</dt><dd>{line.longitude || '—'}</dd></div></dl><h3>Rationale</h3><p className="review-comment">{line.rationale || 'No rationale provided'}</p></>;
     },
   };
 }
@@ -44,8 +47,8 @@ function infrastructureSheet(snapshot: Snapshot, editHref?: string): WorkbookShe
 function sportsSheet(snapshot: Snapshot, editHref?: string): WorkbookSheet {
   const byId = new Map(snapshot.sports.map(line => [String(line.id), line]));
   return {
-    key: 'sports', label: 'Sports', hash: 'review-sports', icon: Trophy, itemLabel: 'budget items', empty: 'No sports budget items.', editHref, editLabel: 'Sports activities',
-    columns: [text('item', 'Budget item', 270), text('code', 'Code', 180), text('section', 'Section', 124, true), text('activity', 'Sport / sub-activity', 170, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), qty('schools', 'Schools', true), qty('allocated', 'Allocated qty.')],
+    key: 'sports', label: 'Sports', hash: 'review-sports', icon: Trophy, itemLabel: 'budget items', empty: 'No sports budget items', editHref, editLabel: 'Sports activities',
+    columns: [text('item', 'Budget item', 270), text('code', 'Code', 180), text('section', 'Section', 124, true), text('activity', 'Sport / sub-activity', 170, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), qty('schools', 'Schools', true), qty('allocated', 'Allocated qty')],
     rows: snapshot.sports.map(line => row(String(line.id), {
       item: line.description, code: line.code, section: sectionNames[line.section] || line.section, activity: line.activity_type || '', timeline: quarters(line),
       schools: line.section === 'equipment' ? line.allocations.length : '', allocated: line.section === 'equipment' ? line.allocations.reduce((sum, a) => sum + a.quantity, 0) : '',
@@ -55,7 +58,7 @@ function sportsSheet(snapshot: Snapshot, editHref?: string): WorkbookSheet {
       const line = byId.get(id); if (!line) return null;
       return <><div className="review-allocation-heading"><h3>School allocations</h3><span>{line.allocations.reduce((sum, a) => sum + a.quantity, 0).toLocaleString()} of {line.quantity.toLocaleString()} items allocated</span></div>
         <Table aria-label={`School allocations for ${line.description}`}><TableHeader><TableRow><TableHead>School</TableHead><TableHead>LGA</TableHead><TableHead>Level</TableHead><TableHead>Location</TableHead><TableHead>Latitude</TableHead><TableHead>Longitude</TableHead><TableHead className="text-right">Qty.</TableHead></TableRow></TableHeader><TableBody>
-          {!line.allocations.length && <TableRow><TableCell colSpan={7}>No school allocations.</TableCell></TableRow>}
+          {!line.allocations.length && <TableRow><TableCell colSpan={7}>No school allocations</TableCell></TableRow>}
           {line.allocations.map(a => <TableRow key={a.id}><TableCell className="whitespace-normal">{a.school.name}</TableCell><TableCell>{a.school.lga}</TableCell><TableCell>{a.school.level}</TableCell><TableCell>{a.school.location}</TableCell><TableCell>{a.latitude || '—'}</TableCell><TableCell>{a.longitude || '—'}</TableCell><TableCell className="text-right tabular-nums">{a.quantity.toLocaleString()}</TableCell></TableRow>)}
         </TableBody></Table></>;
     },
@@ -67,14 +70,14 @@ const activityIcons = { sbmc: Users, tlm: BookOpen, monitoring: ClipboardCheck, 
 function activityExtras(key: ActivitySheetKey): WorkbookColumn[] {
   if (key === 'tlm') return [text('material', 'Material type', 170, true), text('subject', 'Subject', 190, true), text('classes', 'Classes', 170)];
   if (key === 'sbmc') return [text('rationale', 'Rationale', 260), text('approach', 'Implementation approach', 260)];
-  if (key === 'quality') return [text('equipment', 'Equipment type', 200, true)];
+  if (key === 'quality') return [text('equipment', 'Equipment', 220, true)];
   if (key === 'ict') return [text('details', 'Details', 200), qty('schools', 'Schools', true), qty('documents', 'Documents')];
   return key === 'curriculum' ? [text('share', 'Activity share', 120, true)] : [];
 }
 function activityExtraValues(key: ActivitySheetKey, line: NonNullable<Snapshot['sbmc']>[number]): Record<string, CellValue> {
   if (key === 'tlm') return { material: line.equipment || '', subject: line.textbook_subject || '', classes: line.textbook_classes?.join(', ') ?? '' };
   if (key === 'sbmc') return { rationale: line.rationale || '', approach: line.implementation_approach || '' };
-  if (key === 'quality') return { equipment: line.equipment_type || '' };
+  if (key === 'quality') return { equipment: [line.equipment_category, line.equipment_type].filter(Boolean).join(' · ') };
   if (key === 'ict') return { details: line.subscription_types?.length ? line.subscription_types.join(', ') : line.website_type || '', schools: line.schools?.length || '', documents: line.documents?.length || '' };
   // Others (specify) has no share of its own; it only counts toward the Curriculum allocation.
   const share = (curriculumActivityShares as readonly number[])[line.activity];
@@ -86,7 +89,7 @@ function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc'
   const detailed = key !== 'gscci', byId = new Map(lines.map(line => [String(line.id), line]));
   const expandable = (line: NonNullable<Snapshot['sbmc']>[number]) => detailed && Boolean(line.equipment_type || line.subscription_types?.length || line.website_type || line.schools?.length || line.documents?.length || (key === 'ict' && [0, 3, 4].includes(line.activity)));
   return {
-    key, label: activityTitles[key], hash: `review-${key}`, icon: activityIcons[key], itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: activityTitles[key],
+    key, label: activityTitles[key], hash: `review-${key}`, icon: activityIcons[key], itemLabel: 'activity lines', empty: 'No saved items', editHref, editLabel: activityTitles[key],
     columns: [text('activity', 'Allowable activity', 240, true), text('code', 'Code', 210), text('description', 'Description', 280), ...activityExtras(key), text('strategy', 'Strategy', 170, true), text('target', 'Target group', 170, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
     rows: lines.map(line => row(String(line.id), {
       activity: activityLabel(key, line.activity, line.custom_activity), code: line.code ?? '', description: line.description,
@@ -101,7 +104,7 @@ function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc'
 function teacherSheet(lines: NonNullable<Snapshot['teachers']>, editHref?: string): WorkbookSheet {
   const byId = new Map(lines.map(line => [String(line.id), line]));
   return {
-    key: 'teachers', label: activityTitles.teachers, hash: 'review-teachers', icon: Presentation, itemLabel: 'activity lines', empty: 'No saved items.', editHref, editLabel: activityTitles.teachers,
+    key: 'teachers', label: activityTitles.teachers, hash: 'review-teachers', icon: Presentation, itemLabel: 'activity lines', empty: 'No saved items', editHref, editLabel: activityTitles.teachers,
     columns: [text('activity', 'Allowable activity', 260, true), text('code', 'Code', 210), text('provider', 'Training provider', 240, true), text('participants', 'Target participants', 170, true), text('levels', 'School level', 150, true), qty('days', 'Training days'), text('venue', 'Venue', 110, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true)],
     rows: lines.map(line => row(String(line.id), {
       activity: activityLabel('teachers', line.activity, line.custom_activity), code: line.code ?? '', provider: line.training_provider ?? '', participants: line.target_participants ?? '',
@@ -116,7 +119,7 @@ function distributionSheet(component: DistributionWorkstream, schools: NonNullab
   const shares = allocateByEnrolment(Math.round(lines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
   const name = distributionNames[component];
   return {
-    key: component === 'tlm' ? 'distribution' : distributionSnapshotKeys[component], label: `${name} distribution`, hash: `review-${component}-distribution`, icon: School, itemLabel: 'schools', empty: 'No distribution schools.', editHref, editLabel: `${name} distribution list`,
+    key: component === 'tlm' ? 'distribution' : distributionSnapshotKeys[component], label: `${name} distribution`, hash: `review-${component}-distribution`, icon: School, itemLabel: 'schools', empty: 'No distribution schools', editHref, editLabel: `${name} distribution list`,
     columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true), qty('learners', 'Learners', true), amount('allocation', 'Allocation', true)],
     rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, learners: s.enrolment ?? '', allocation: shares.has(s.id) ? shares.get(s.id)! / 100 : '' })),
   };

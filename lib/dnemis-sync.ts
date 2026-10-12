@@ -252,13 +252,13 @@ async function syncState(ctx: Context, db: Client, stateCode: string, stateId: s
 async function startRun(db: Client, runId: number | null, scope: string, triggeredBy: string) {
   if (runId) {
     const row = (await db.query<{ id: number }>(`UPDATE dnemis_sync_runs SET status = 'running', started_at = NOW(), message = 'Starting' WHERE id = $1 AND status = 'queued' RETURNING id`, [runId])).rows[0];
-    if (!row) throw new DnemisSyncBusyError('This sync has already been started or cancelled.');
+    if (!row) throw new DnemisSyncBusyError('This sync has already been started or cancelled');
     return row.id;
   }
   try {
     return (await db.query<{ id: number }>(`INSERT INTO dnemis_sync_runs(status, scope, triggered_by, started_at, message) VALUES('running', $1, $2, NOW(), 'Starting') RETURNING id`, [scope, triggeredBy.slice(0, 120)])).rows[0].id;
   } catch (cause) {
-    if ((cause as { code?: string }).code === '23505') throw new DnemisSyncBusyError('A DNEMIS sync is already queued or running.');
+    if ((cause as { code?: string }).code === '23505') throw new DnemisSyncBusyError('A DNEMIS sync is already queued or running');
     throw cause;
   }
 }
@@ -284,14 +284,14 @@ export async function syncDnemisSchools(options: SyncOptions): Promise<SyncSumma
   let runId: number | null = options.runId ?? null, finished = false, requests = 0;
   try {
     if (!(await db.query<{ ok: boolean }>('SELECT pg_try_advisory_lock(hashtext($1)) AS ok', [lockKey])).rows[0].ok) {
-      throw new DnemisSyncBusyError('Another DNEMIS sync is already running.');
+      throw new DnemisSyncBusyError('Another DNEMIS sync is already running');
     }
     const scope = wanted?.length ? wanted.join(',') : 'all';
     if (!dryRun) runId = await startRun(db, runId, scope, options.triggeredBy);
     let fetchJson = options.fetchJson;
     if (!fetchJson) {
       const config = await getDnemisConfig(db);
-      if (!config?.token || !config.enabled) throw new DnemisSyncConfigError('Turn on the DNEMIS connection and save an access token first.');
+      if (!config?.token || !config.enabled) throw new DnemisSyncConfigError('Turn on the DNEMIS connection and save an access token first');
       fetchJson = <T,>(path: string, init?: { timeoutMs?: number; maxBytes?: number }) => dhis2Fetch<T>(path, config, init);
     }
     const fetch = retrying(fetchJson, () => { requests++; });

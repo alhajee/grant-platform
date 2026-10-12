@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const auth = await registerActor(request);
     if ('error' in auth) return auth.error;
     const parsed = registerQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
-    if (!parsed.success) return noStoreJson({ error: 'Choose valid filters and sorting.' }, 400);
+    if (!parsed.success) return noStoreJson({ error: 'Choose valid filters and sorting' }, 400);
     const { page, pageSize, q, lga, level, type, location, gap, ids, id, sort, dir } = parsed.data;
     const params: unknown[] = [auth.workspace.stateCode], where = ['state_code = $1'];
     const add = (value: unknown, sql: (ref: string) => string) => { params.push(value); where.push(sql(`$${params.length}`)); };
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (cause) {
     console.error('School register list failed', cause);
-    return noStoreJson({ error: 'Unable to load the school register.' }, 503);
+    return noStoreJson({ error: 'Unable to load the school register' }, 503);
   }
 }
 
@@ -63,15 +63,15 @@ async function save(request: NextRequest, creating: boolean) {
     const auth = await registerActor(request, { write: true, manual: true });
     if ('error' in auth) return auth.error;
     const parsed = (creating ? schoolCreateSchema : schoolEditSchema).safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return noStoreJson({ error: schoolIssues(parsed.error)[0] ?? 'Enter valid school details.', issues: parsed.error.issues.map(issue => ({ field: String(issue.path[0] ?? ''), message: issue.message })) }, 400);
+    if (!parsed.success) return noStoreJson({ error: schoolIssues(parsed.error)[0] ?? 'Enter valid school details', issues: parsed.error.issues.map(issue => ({ field: String(issue.path[0] ?? ''), message: issue.message })) }, 400);
     const { workspace } = auth;
     return await afterSchoolChange(await getPostgres().transaction(async db => {
       const actor = await lockManager(db, workspace);
-      if (!actor) return noStoreJson({ error: `Your access has changed. ${managerMessage}` }, 403);
+      if (!actor) return noStoreJson({ error: `Your access has changed. ${managerMessage}.` }, 403);
       const { id = 0, ...fields } = parsed.data as SchoolInput & { id?: number };
       const current = id ? (await db.query<{ level: string; enrolment_male: number; enrolment_female: number; enrolment_by_class: object; dnemis: boolean }>('SELECT level,enrolment_male,enrolment_female,enrolment_by_class,dnemis_id IS NOT NULL AS dnemis FROM schools WHERE id=$1 AND state_code=$2 FOR UPDATE', [id, workspace.stateCode])).rows[0] : null;
-      if (id && !current) return noStoreJson({ error: 'School not found in your state register.' }, 404);
-      if (fields.level === 'SSS' && current?.level !== 'SSS') return noStoreJson({ error: 'Choose ECCDE, Primary or JSS for the level.', issues: [{ field: 'level', message: 'Choose ECCDE, Primary or JSS for the level.' }] }, 400);
+      if (id && !current) return noStoreJson({ error: 'School not found in your state register' }, 404);
+      if (fields.level === 'SSS' && current?.level !== 'SSS') return noStoreJson({ error: 'Choose ECCDE, Primary or JSS for the level', issues: [{ field: 'level', message: 'Choose ECCDE, Primary or JSS for the level' }] }, 400);
       const lga = matchLga(await stateLgas(db, workspace.stateCode), fields.lga);
       if (!lga) return noStoreJson({ error: `Choose one of your state's LGAs.`, issues: [{ field: 'lga', message: `Choose one of your state's LGAs.` }] }, 400);
       const input = { ...fields, lga };
@@ -88,7 +88,7 @@ async function save(request: NextRequest, creating: boolean) {
       return noStoreJson({ school }, creating ? 201 : 200);
     }), workspace.stateCode);
   } catch (cause) {
-    if ((cause as { code?: string }).code === '23505') return noStoreJson({ error: 'This school is already in the register.' }, 409);
+    if ((cause as { code?: string }).code === '23505') return noStoreJson({ error: 'This school is already in the register' }, 409);
     console.error('School register save failed', cause);
     return noStoreJson({ error: 'The school could not be saved. Please try again.' }, 503);
   }
@@ -103,10 +103,10 @@ export async function DELETE(request: NextRequest) {
     const auth = await registerActor(request, { write: true, manual: true });
     if ('error' in auth) return auth.error;
     const parsed = schoolSelectionSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return noStoreJson({ error: 'Choose the schools to delete.' }, 400);
+    if (!parsed.success) return noStoreJson({ error: 'Choose the schools to delete' }, 400);
     const { workspace } = auth, { ids } = parsed.data;
     return await afterSchoolChange(await getPostgres().transaction(async db => {
-      if (!await lockManager(db, workspace)) return noStoreJson({ error: `Your access has changed. ${managerMessage}` }, 403);
+      if (!await lockManager(db, workspace)) return noStoreJson({ error: `Your access has changed. ${managerMessage}.` }, 403);
       const schools = (await db.query<{ id: number; name: string }>('SELECT id, name FROM schools WHERE state_code=$1 AND id = ANY($2::int[]) FOR UPDATE', [workspace.stateCode, ids])).rows;
       // Every table that references a school (plans, packages, documents...), read from the catalogue so new ones are covered.
       const references = (await db.query<{ tbl: string; col: string }>(`SELECT c.conrelid::regclass::text AS tbl, a.attname AS col FROM pg_constraint c

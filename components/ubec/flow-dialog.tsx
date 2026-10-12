@@ -29,7 +29,7 @@ export type FlowRequest =
 const copy: Record<FlowRequest['kind'], { title: (name: string) => string; description: string; field: string; required: boolean; confirm: string }> = {
   release: { title: () => 'Release to UBEC departments', description: 'Each component goes to its department Director, who assigns Assessment Officers. Your comment is shared with them.', field: 'Your comment', required: true, confirm: 'Release to UBEC departments' },
   assign: { title: name => `Assign staff · ${name}`, description: 'Choose one or more Assessment Officers of the component’s department. They accept or reject each item and report back to the Director.', field: 'Comment for the officers', required: true, confirm: 'Assign staff' },
-  complete: { title: name => `Complete assessment · ${name}`, description: 'Your decisions are locked and sent to your Director.', field: 'Note for your Director (optional)', required: false, confirm: 'Submit assessment' },
+  complete: { title: name => `Complete assessment · ${name}`, description: 'Your decisions are locked and sent to your Director', field: 'Note for your Director (optional)', required: false, confirm: 'Submit assessment' },
   oversight: { title: name => `Complete & send for oversight · ${name}`, description: 'Audit, Procurement and Finance review it next. When all three have finished their observations it goes to the UBEC BEAP Chair.', field: 'Your comment', required: true, confirm: 'Send for oversight' },
   observe: { title: name => `Observations done · ${name}`, description: 'Add any comments on items in the workbook first. Once Audit, Procurement and Finance are all done, the component goes to the UBEC BEAP Chair.', field: 'Your observations (optional)', required: false, confirm: 'Observations done' },
   approve: { title: () => 'Approve action plan', description: 'Every item has been accepted. Approval locks the plan; it does not disburse funds.', field: 'Decision note', required: true, confirm: 'Approve action plan' },
@@ -62,7 +62,7 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   function toConfirm() {
     if (!request) return;
     if (text?.required && !comment.trim()) { setError(`${text.field} is required.`); return; }
-    if (request.kind === 'assign' && !officers.length) { setError('Choose at least one Assessment Officer.'); return; }
+    if (request.kind === 'assign' && !officers.length) { setError('Choose at least one Assessment Officer'); return; }
     setError(''); step.review();
   }
 
@@ -77,10 +77,10 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
     try {
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(result.error || 'This step could not be saved.');
+      if (!response.ok) throw new Error(result.error || 'This step could not be saved');
       toast.success(text!.confirm.replace(/^Submit /, 'Submitted ').replace(/ done$/, ' recorded'));
       reset(); onDone();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'This step could not be saved.'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'This step could not be saved'); }
     finally { busy.current = false; setSaving(false); }
   }
 
@@ -109,7 +109,7 @@ function OfficerPicker({ flow, component, value, onChange, disabled, admin }: { 
   const assigned = new Set(component?.officers.map(o => o.officerId));
   // The Super Admin's list holds every department's officers; only the component's department can take it.
   const officers = flow.officers.filter(o => !component || o.department === component.department);
-  if (!officers.length) return <UbecEmpty art={<NoOfficersArt />} title={admin ? `No Assessment Officers in ${departmentName(component?.department ?? '')} yet` : 'No Assessment Officers in your department yet'} compact><a href={admin ? '/admin/users' : '/ubec/team'}>Add an Assessment Officer</a> first, then assign them here.</UbecEmpty>;
+  if (!officers.length) return <UbecEmpty art={<NoOfficersArt />} title={admin ? `No Assessment Officers in ${departmentName(component?.department ?? '')} yet` : 'No Assessment Officers in your department yet'} compact><a href={admin ? '/admin/users' : '/ubec/team'}>Add an Assessment Officer</a> first, then assign them here</UbecEmpty>;
   return <FieldSet>
     <FieldLegend variant="label">Assessment Officers</FieldLegend>
     <FieldDescription>One officer per component by default; add more when the work needs it. {admin ? <>Officers of {departmentName(component?.department ?? '')}.</> : <a href="/ubec/team">Manage officers</a>}</FieldDescription>
@@ -127,7 +127,7 @@ function ComponentSummary({ component, threads, showOfficers }: { component: Flo
   return <div className="ubec-step-summary">
     <DecisionBar counts={component.counts} compact />
     <p className="ubec-step-stats"><span><CheckIcon aria-hidden="true" />{component.counts.accepted} accepted</span><span><XIcon aria-hidden="true" />{component.counts.rejected} rejected</span><span><MessageSquareTextIcon aria-hidden="true" />{threads} open {threads === 1 ? 'comment' : 'comments'}</span>{component.counts.undecided > 0 && <span><CircleDotIcon aria-hidden="true" />{component.counts.undecided} undecided</span>}</p>
-    {showOfficers && component.officers.length > 0 && <ul className="ubec-step-notes">{component.officers.map(o => <li key={o.id}><strong>{o.officerName}</strong>{o.completedAt ? <span>{o.completionNote || 'Assessment complete.'}</span> : <Badge variant="outline">Assessing</Badge>}</li>)}</ul>}
+    {showOfficers && component.officers.length > 0 && <ul className="ubec-step-notes">{component.officers.map(o => <li key={o.id}><strong>{o.officerName}</strong>{o.completedAt ? <span>{o.completionNote || 'Assessment complete'}</span> : <Badge variant="outline">Assessing</Badge>}</li>)}</ul>}
     {component.directorComment && <p className="ubec-step-quote"><strong>{component.directorName}</strong> {component.directorComment}</p>}
   </div>;
 }

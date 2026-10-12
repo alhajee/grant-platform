@@ -25,7 +25,7 @@ export default function Home() {
       const response = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: data.get("email"), password: data.get("password") }) });
       const payload = await response.json() as { error?: string; destination?: string };
       if (!response.ok) {
-        toast.error(payload.error ?? "Unable to sign in.");
+        toast.error(payload.error ?? "Unable to sign in");
         return;
       }
       window.location.assign(payload.destination === '/admin' ? '/admin' : payload.destination === '/ubec' ? '/ubec' : '/dashboard');
@@ -49,7 +49,7 @@ export default function Home() {
           </a>
           <div className="login-hero-copy">
             <h1 id="beapms-title">Basic Education Action Plan <span>Management System</span> <small>(BEAPMS)</small></h1>
-            <p>Supporting UBEC and SUBEBs to strengthen financial allocation and management in the basic education sector.</p>
+            <p>Supporting UBEC and SUBEBs to strengthen financial allocation and management in the basic education sector</p>
           </div>
           <div className="login-hero-footer" aria-hidden="true" />
         </div>

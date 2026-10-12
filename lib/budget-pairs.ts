@@ -21,8 +21,8 @@ export const sideNames: Record<SplitSide, string> = { ict: 'ICT', teachers: 'Tea
 /** What each side's proposals are called in messages. */
 export const sideItems: Record<SplitSide, string> = { ict: 'lines', teachers: 'lines', tlm: 'lines', infrastructure: 'packages' };
 const positiveAmount: Record<SplitSide, string> = {
-  ict: 'Enter an ICT allocation greater than zero.', tlm: 'Enter a TLM allocation greater than zero.',
-  teachers: 'Enter a Teacher Development amount greater than zero.', infrastructure: 'Enter an Infrastructure amount greater than zero.',
+  ict: 'Enter an ICT allocation greater than zero', tlm: 'Enter a TLM allocation greater than zero',
+  teachers: 'Enter a Teacher Development amount greater than zero', infrastructure: 'Enter an Infrastructure amount greater than zero',
 };
 export const isSplitSide = (value: string): value is SplitSide => (splitSides as readonly string[]).includes(value);
 export const pairOf = (side: SplitSide): BudgetPair => side === 'ict' || side === 'teachers' ? 'teachers-ict' : 'infrastructure-tlm';
@@ -42,7 +42,7 @@ export type SplitResult = { problem: string; allocation?: undefined } | { proble
  */
 export function sharedSplit(plan: EnvelopePlan, side: SplitSide, amount: string, proposed: SplitProposed): SplitResult {
   const pair = budgetPairs[pairOf(side)], shared = pair.envelope(plan), name = sideNames[side], partner = partnerOf(side), otherName = sideNames[partner];
-  if (shared == null) return { problem: `Set the plan funding before allocating the ${name} budget.` };
+  if (shared == null) return { problem: `Set the plan funding before allocating the ${name} budget` };
   const value = toKobo(amount), ceiling = toKobo(shared), own = toKobo(proposed.own), others = toKobo(proposed.partner);
   if (value <= BigInt(0)) return { problem: positiveAmount[side] };
   if (value > ceiling) return { problem: `${name} can use up to the shared ${pair.label} budget of ${formatKobo(ceiling)}.` };
@@ -58,7 +58,7 @@ export function sideAmount(plan: EnvelopePlan, side: SplitSide) {
   return side === pair.stored ? fromKobo(toKobo(stored)) : fromKobo(toKobo(shared) - toKobo(stored));
 }
 
-export const infrastructureSplitNeeded = 'Set how much of the shared Infrastructure & TLM budget Infrastructure will use before adding packages.';
+export const infrastructureSplitNeeded = 'Set how much of the shared Infrastructure & TLM budget Infrastructure will use before adding packages';
 /**
  * Why Infrastructure packages totalling `total` (kobo) cannot be saved or sent in split mode, or null (also while the plan
  * has no funding: no ceiling yet, as with the shared pool). Shared-pool mode is checked with infrastructurePoolProblem instead.

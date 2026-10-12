@@ -9,14 +9,16 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { LineDatesField } from "@/components/line-dates";
+import { keepDatesInWindow } from "@/lib/line-dates";
 import { QuarterTimeline } from "@/components/quarter-timeline";
 import { equipmentSports, findSport, isOtherSubActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, supervisionActivity, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
-export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; quantity: string; unitCost: string; quarters: number[] };
+export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; quantity: string; unitCost: string; quarters: number[]; startDate: string | null; dueDate: string | null };
 export type AllocationDraft = { id?: number; schoolId: number | null; lineId: number | null; quantity: string; longitude: string; latitude: string };
 export type FormErrors = Record<string, string>;
 /** The page fills a new line's timeline with the plan's quarters (planQuarters in lib/line-quarters.ts). */
-export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", quantity: "1", unitCost: "", quarters: [] };
+export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", quantity: "1", unitCost: "", quarters: [], startDate: null, dueDate: null };
 export const emptyAllocation: AllocationDraft = { schoolId: null, lineId: null, quantity: "1", longitude: "", latitude: "" };
 
 // "Select and type": pick a listed value or, when allowed, type your own.
@@ -35,10 +37,12 @@ function SelectOrType({ id, items, value, onChange, allowCustom, isDisabled, pla
   </Combobox>;
 }
 
-export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, planQuarters }: {
+export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, planQuarters, implementationYear }: {
   draft: BudgetDraft; onChange: (value: BudgetDraft) => void; plan: SportsPlan; errors: FormErrors; disabled: boolean;
   /** The action plan's quarters: the only ones the timeline may use. */
   planQuarters: readonly number[];
+  /** The plan's implementation year: the start and due dates fall in it, within the timeline. */
+  implementationYear?: number | null;
 }) {
   const section = sportsSections.find((item) => item.id === draft.section)!;
   const allocated = draft.id ? plan.allocations.filter((allocation) => allocation.lineId === draft.id).reduce((sum, allocation) => sum + allocation.quantity, 0) : 0;
@@ -104,7 +108,8 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
       <FieldLabel htmlFor="sports-total-cost">Total cost (NGN)</FieldLabel>
       <Input id="sports-total-cost" readOnly tabIndex={-1} value={sportsMoney.format(Number.isFinite(total) ? total : 0)} className="tabular-nums" />
     </Field>
-    <QuarterTimeline id="sports-quarters" size="compact" required help="The quarters in which this item will be implemented. Only this plan's quarters can be chosen." value={draft.quarters} onChange={(quarters) => onChange({ ...draft, quarters })} available={planQuarters} disabled={disabled} error={errors.quarters} selectAll={planQuarters.length > 1} />
+    <QuarterTimeline id="sports-quarters" size="compact" required help="The quarters in which this item will be implemented. Only this plan's quarters can be chosen." value={draft.quarters} onChange={(quarters) => onChange({ ...draft, quarters, ...keepDatesInWindow(draft, quarters, implementationYear) })} available={planQuarters} disabled={disabled} error={errors.quarters} selectAll={planQuarters.length > 1} />
+    <LineDatesField id="sports-dates" value={{ startDate: draft.startDate, dueDate: draft.dueDate }} onChange={(dates) => onChange({ ...draft, ...dates })} quarters={draft.quarters} year={implementationYear} disabled={disabled} error={errors.startDate} revealMissing />
     {allocated > 0 && <p className="construction-summary">{allocated} items allocated to schools. The sport and section are locked while allocations exist.</p>}
   </FieldGroup>;
 }
@@ -121,7 +126,7 @@ export function SportsAllocationFields({ draft, onChange, plan, errors, disabled
       <FieldLabel htmlFor="sports-school">School name</FieldLabel>
       <Combobox items={plan.schools} value={school} disabled={disabled} onValueChange={(value) => onChange({ ...draft, schoolId: value?.id ?? null })} itemToStringLabel={(value: SportsSchool) => value.name} itemToStringValue={(value: SportsSchool) => String(value.id)} isItemEqualToValue={(a, b) => a.id === b.id}>
         <ComboboxInput id="sports-school" className="w-full" placeholder="Search by school name…" disabled={disabled} showClear aria-invalid={Boolean(errors.schoolId)} aria-describedby={errors.schoolId ? "sports-school-error" : undefined} />
-        <ComboboxContent><ComboboxEmpty>No schools match your search.</ComboboxEmpty><ComboboxList>{(item: SportsSchool) => <ComboboxItem key={item.id} value={item}><span className="school-option"><span>{item.name}</span><small>{item.lga} · {item.level}</small></span></ComboboxItem>}</ComboboxList></ComboboxContent>
+        <ComboboxContent><ComboboxEmpty>No schools match your search</ComboboxEmpty><ComboboxList>{(item: SportsSchool) => <ComboboxItem key={item.id} value={item}><span className="school-option"><span>{item.name}</span><small>{item.lga} · {item.level}</small></span></ComboboxItem>}</ComboboxList></ComboboxContent>
       </Combobox>
       {errors.schoolId && <FieldError id="sports-school-error">{errors.schoolId}</FieldError>}
     </Field>
@@ -130,7 +135,7 @@ export function SportsAllocationFields({ draft, onChange, plan, errors, disabled
       <FieldLabel htmlFor="sports-equipment">Equipment item</FieldLabel>
       <Combobox items={equipment} value={selectedItem} disabled={disabled} onValueChange={(value) => onChange({ ...draft, lineId: value?.id ?? null })} itemToStringLabel={(value: SportsLine) => `${value.activityType} · ${value.description}`} itemToStringValue={(value: SportsLine) => String(value.id)} isItemEqualToValue={(a, b) => a.id === b.id}>
         <ComboboxInput id="sports-equipment" className="w-full" placeholder="Choose from your equipment budget…" disabled={disabled} showClear aria-invalid={Boolean(errors.lineId)} aria-describedby={errors.lineId ? "sports-equipment-error" : undefined} />
-        <ComboboxContent><ComboboxEmpty>No equipment matches your search.</ComboboxEmpty><ComboboxList>{(item: SportsLine) => <ComboboxItem key={item.id} value={item} disabled={remaining(item) < 1}><span className="school-option"><span>{item.description}</span><small>{item.activityType} · {remaining(item).toLocaleString()} available</small></span></ComboboxItem>}</ComboboxList></ComboboxContent>
+        <ComboboxContent><ComboboxEmpty>No equipment matches your search</ComboboxEmpty><ComboboxList>{(item: SportsLine) => <ComboboxItem key={item.id} value={item} disabled={remaining(item) < 1}><span className="school-option"><span>{item.description}</span><small>{item.activityType} · {remaining(item).toLocaleString()} available</small></span></ComboboxItem>}</ComboboxList></ComboboxContent>
       </Combobox>
       {errors.lineId && <FieldError id="sports-equipment-error">{errors.lineId}</FieldError>}
     </Field>

@@ -91,7 +91,7 @@ try {
 
   step('PATCH saves period, contribution and sources, renames the plan and records history');
   const other = ok(await create('chair', { ...setup, quarters: [4], fundingSources: [] }), 201).plan;
-  ok(await api('chair', '/api/plans/setup', { ...edit, quarters: [1, 2, 4] }, 'PATCH'), 409);
+  ok(await api('chair', '/api/plans/setup', { ...edit, quarters: [3, 4] }, 'PATCH'), 409);
   const saved = ok(await api('chair', '/api/plans/setup', { ...edit, planningYear: 2034, implementationYear: 2035, quarters: [2, 3], stateLodgment: '12000', fundingSources: [...setup.fundingSources, { component: 'tlm', funder: 'UNICEF', amount: '500.50' }] }, 'PATCH'));
   assert.equal(saved.changed, true); assert.equal(saved.plan.startYear, 2034); assert.equal(saved.plan.implementationYear, 2035); assert.deepEqual(saved.plan.fundingQuarters, [2, 3]);
   assert.match(saved.plan.beapName, /-2034-Q2.*Q3-BEAP$/); assert.equal(saved.plan.fundingTotal, '27500.50'); assert.equal(saved.plan.fundingSources.length, 2);

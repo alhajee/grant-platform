@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const auth = await requireSuperAdmin(request);
     if (auth.error) return auth.error;
     const parsed = activityQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
-    if (!parsed.success) return noStoreJson({ error: 'Choose a valid status, sort column and direction.' }, 400);
+    if (!parsed.success) return noStoreJson({ error: 'Choose a valid status, sort column and direction' }, 400);
     const { page, pageSize, q, status, admin, sort, dir } = parsed.data;
     const where: string[] = [], params: unknown[] = [];
     if (status.length) where.push(`(${status.map(value => statusFilters[value]).join(' OR ')})`);
@@ -49,6 +49,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (cause) {
     console.error('admin activity list failed', cause);
-    return noStoreJson({ error: 'Unable to load impersonation activity.' }, 503);
+    return noStoreJson({ error: 'Unable to load impersonation activity' }, 503);
   }
 }
