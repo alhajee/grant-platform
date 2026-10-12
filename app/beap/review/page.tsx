@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { currentPlanHref, planHref, planPeriod } from '@/lib/action-plans';
+import { currentPlanHref, planHref, planPeriod, ubecStageLabels } from '@/lib/action-plans';
 import type { PlanReview } from '@/lib/plan-review';
 import { componentSections, implementedPillars, subebComponentDepartments as pillarDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, hasDistribution } from '@/lib/activity-plans';
@@ -133,7 +133,7 @@ export default function PlanPage() {
           </section>
           <aside className="plan-glance-side" aria-label="Plan funding and status">
             <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
-            <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} />
+            <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} ubecStage={plan ? ubecStageLabels[plan.status] : null} />
           </aside>
         </div>
         {selected === 'current' && <UbecResultsCard planId={data.plan.id} reloadKey={data.plan.version} />}

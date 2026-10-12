@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { componentSections, groupByStrategicPillar, subebComponentDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
 import { componentEnvelope, isSplitMode, percent, policyShare, type EnvelopeComponent, type EnvelopePlan } from '@/lib/funding-policy';
 import { isPoolComponent, poolLabels, poolPartner } from '@/lib/infrastructure-pool';
-import { pillarReviewLabels, type PillarReview } from '@/lib/pillar-review';
+import { pillarReviewLabels, type PillarReview, type PillarReviewStatus } from '@/lib/pillar-review';
 import type { PlanReview } from '@/lib/plan-review';
 import type { PlanTotals } from '@/lib/plan-summary';
 import { subebDepartmentName } from '@/lib/subeb-departments';
@@ -65,6 +65,12 @@ function ComponentFunding({ sources }: { sources: readonly { funder: string; amo
   </Tooltip>;
 }
 
+/** A component sent to UBEC reads "With UBEC" (or "Approved by UBEC") while the plan is there, not its last SUBEB step */
+const reviewLabel = (planStatus: string, status: PillarReviewStatus) =>
+  status === 'chairman_ready' && planStatus === 'ubec_approved' ? 'Approved by UBEC'
+  : status === 'chairman_ready' && ['submitted_ubec', 'ubec_review'].includes(planStatus) ? 'With UBEC'
+  : pillarReviewLabels[status];
+
 function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, detail }: CardProps) {
   const { pillar } = review, section = componentSections[pillar][0], summary = totals[pillar];
   const ceilingValue = componentEnvelope(envelopePlan, pillar), ceiling = ceilingValue == null ? null : Number(ceilingValue);
@@ -79,7 +85,7 @@ function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, 
     <div className="component-card-body">
       <div className="component-card-title">
         <h4>{section.name}</h4>
-        <Badge variant={review.status === 'changes_requested' ? 'warning' : 'secondary'}>{pillarReviewLabels[review.status]}</Badge>
+        <Badge variant={review.status === 'changes_requested' ? 'warning' : 'secondary'}>{reviewLabel(plan.status, review.status)}</Badge>
       </div>
       <div className="component-card-department"><span>{subebDepartmentName(subebComponentDepartments[pillar])}</span><PolicyShare plan={envelopePlan} pillar={pillar} /></div>
       <p className="component-card-amount component-card-pending"><LockIcon aria-hidden="true" />Details appear once it is sent to you</p>
@@ -90,7 +96,7 @@ function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, 
     <div className="component-card-body">
       <div className="component-card-title">
         <h4><a className="component-card-link" href={actions.editHref ?? sheet}>{section.name}<span className="sr-only">{actions.editHref ? ', open editor' : ', view sheet'}</span></a></h4>
-        <Badge variant={review.status === 'changes_requested' ? 'warning' : 'secondary'}>{pillarReviewLabels[review.status]}</Badge>
+        <Badge variant={review.status === 'changes_requested' ? 'warning' : 'secondary'}>{reviewLabel(plan.status, review.status)}</Badge>
       </div>
       <div className="component-card-department"><span>{subebDepartmentName(subebComponentDepartments[pillar])}</span><PolicyShare plan={envelopePlan} pillar={pillar} /></div>
       <CeilingBar proposed={summary.budget} partner={partner} ceiling={ceiling} />

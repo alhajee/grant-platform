@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRightIcon, MessageSquareIcon } from 'lucide-react';
+import { ArrowRightIcon, LandmarkIcon, MessageSquareIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ReviewPath } from './review-path';
 import { reviewEventAnchor, timeAgo } from '@/lib/notifications';
@@ -13,6 +13,8 @@ export type StatusPanelProps = {
   feedback?: ReviewEvent;
   events: ReviewEvent[];
   scopeLabel: (scope: string) => string;
+  /** Where the plan is at UBEC ("With the UBEC BEAP Chair" …), while it is there */
+  ubecStage?: string | null;
 };
 
 const stepLabel = (event: ReviewEvent) => event.action === 'approve' && event.actorRole.startsWith('UBEC ') ? 'Approved by UBEC' : reviewActionLabels[event.action];
@@ -21,11 +23,12 @@ const stepLabel = (event: ReviewEvent) => event.action === 'approve' && event.ac
  * Beside the funding summary: what the plan is waiting on (the latest change request) and the last few review
  * steps, each linking to its Review history entry. Component stages are on the component cards below.
  */
-export function StatusPanel({ feedback, events, scopeLabel }: StatusPanelProps) {
+export function StatusPanel({ feedback, events, scopeLabel, ubecStage }: StatusPanelProps) {
   const recent = events.filter(event => event.id !== feedback?.id).slice(0, RECENT_STEPS);
   return <Card className="plan-status-panel">
     <CardHeader><CardTitle><h2>Where the plan is</h2></CardTitle></CardHeader>
     <CardContent>
+      {ubecStage && <div className="status-ubec"><span className="status-feedback-title"><LandmarkIcon aria-hidden="true" />{ubecStage}</span><small>Sent to UBEC by the Executive Chairman</small></div>}
       {feedback && <a className="status-feedback" href={reviewEventAnchor(feedback.id)}>
         <span className="status-feedback-title"><MessageSquareIcon aria-hidden="true" />Changes requested · {scopeLabel(feedback.scope)}</span>
         {feedback.comment && <span className="status-feedback-note">{feedback.comment}</span>}
@@ -37,7 +40,7 @@ export function StatusPanel({ feedback, events, scopeLabel }: StatusPanelProps) 
           <small>{event.actorName} · <time dateTime={event.createdAt}>{timeAgo(event.createdAt)}</time></small>
         </a></li>)}
       </ol>}
-      {!feedback && !recent.length && <div className="status-empty"><ReviewPath /></div>}
+      {!feedback && !ubecStage && !recent.length && <div className="status-empty"><ReviewPath /></div>}
       {events.length > 0 && <a className="status-history-link" href="#review-history">Full review history<ArrowRightIcon aria-hidden="true" /></a>}
     </CardContent>
   </Card>;
