@@ -33,7 +33,7 @@ const completeSnapshot = {
   infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1,land:{available:true,documented:true,unencumbered:true},documentIds:['l']}}}], sports:[{section:'equipment',unit_cost:'0',quantity:1}], sbmc:[{}], tlm:[{}], tlmDistribution:[{}], monitoring:[{}], gscci:[{}], gscciDistribution:[{}], curriculum:[{}], curriculumDistribution:[{}],
   // Quality Assurance and ICT: every compulsory activity, line schools and line documents (migration 038).
   quality:[2,3,6,7,8,9,10].map(activity=>({id:activity,activity,description:'QA'})),
-  ict:[{id:12,activity:2,description:'Smart',schools:[{id:1}]},{id:13,activity:3,description:'Connect',documents:[{id:'d'}]},{id:16,activity:6,description:'Website'}],
+  ict:[{id:17,activity:1,description:'NDPA'},{id:18,activity:5,description:'Internet'},{id:12,activity:2,description:'Smart',schools:[{id:1}]},{id:13,activity:3,description:'Connect',documents:[{id:'d'}]},{id:16,activity:6,description:'Website'}],
   // Teacher Development (migration 040): every line needs supporting documents and the shared budget split must be set.
   teachers:[{id:30,activity:0,description:'',documents:[{id:'t'}]}], setup:{ictAllocation:'100.00'},
   // Planning, Research & Statistics (migration 041): every compulsory activity.
@@ -79,7 +79,7 @@ assert.equal(readyForExecutiveChairman(reviews('beap_review','beap_review'),{...
 assert.equal(readyForExecutiveChairman(reviews('beap_review','beap_review','beap_review','beap_review','draft'),completeSnapshot),false);
 // Quality Assurance and ICT readiness: compulsory activities and line documents.
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,quality:completeSnapshot.quality.slice(1)}),false);
-assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,ict:[...completeSnapshot.ict.slice(0,1),{id:13,activity:3,description:'Connect'},...completeSnapshot.ict.slice(2)]}),false);
+assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,ict:[...completeSnapshot.ict.slice(0,3),{id:13,activity:3,description:'Connect'},...completeSnapshot.ict.slice(4)]}),false);
 assert.equal(readyForExecutiveChairman(reviews('beap_review','beap_review'),{...completeSnapshot,ict:completeSnapshot.ict.slice(1)}),false);
 assert.equal(readyForUbecSubmission('reviewed_components',reviews('draft','draft','draft','draft','chairman_ready'),{...completeSnapshot,ict:[]}),false);
 // Teacher Development readiness: documents on every line, the split set; no compulsory activities yet.

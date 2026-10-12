@@ -34,7 +34,7 @@ const step = message => { passed++; console.log('✓', message); };
 
 // Unit: the readiness rule skips documents only when they are not required.
 const { componentReadinessProblem } = load(resolve('lib/component-readiness.ts'));
-const compulsoryIct = [{ id: 3, activity: 2, description: 'Smart', schools: [{}] }, { id: 4, activity: 3, description: 'Connect', documents: [{}] }, { id: 5, activity: 6, description: 'Website' }];
+const compulsoryIct = [{ id: 6, activity: 1, description: 'NDPA' }, { id: 7, activity: 5, description: 'Internet' }, { id: 3, activity: 2, description: 'Smart', schools: [{}] }, { id: 4, activity: 3, description: 'Connect', documents: [{}] }, { id: 5, activity: 6, description: 'Website' }];
 const ictLines = [{ id: 1, activity: 0, description: 'Spec', documents: [] }, ...compulsoryIct];
 assert.match(componentReadinessProblem('ict', ictLines, null, { documentsRequired: true }) ?? '', /Upload the specification document/);
 assert.equal(componentReadinessProblem('ict', ictLines, null, { documentsRequired: false }), null);
@@ -124,7 +124,7 @@ try {
   // Lines save without documents (they never needed them to save), and the editors are told documents are optional.
   ok(await api('tpd', `/api/activities/ict-allocation?plan=${planId}`, { amount: '30000000', side: 'teachers' }, { method: 'PATCH' }));
   ok(await api('tpd', url('teachers'), training(0, 100000)));
-  for (const [activity, extra] of [[0, {}], [2, { schoolIds: [school] }], [3, {}], [4, { schoolIds: [school] }], [6, { websiteType: 'Hosting only' }]]) ok(await api('ict', url('ict'), ictLine(activity, 100000, extra)));
+  for (const [activity, extra] of [[0, {}], [1, {}], [2, { schoolIds: [school] }], [3, {}], [4, { schoolIds: [school] }], [5, { subscriptionTypes: ['Starlink'] }], [6, { websiteType: 'Hosting only' }]]) ok(await api('ict', url('ict'), ictLine(activity, 100000, extra)));
   assert.equal(ok(await api('ict', url('ict'))).documentsRequired, false);
   assert.equal(ok(await api('tpd', url('teachers'))).documentsRequired, false);
   assert.equal(ok(await api('chair', `/api/plans/review?plan=${planId}`)).documentsRequired, false);
@@ -211,7 +211,7 @@ try {
   assert.equal(ok(await api('ec', ubecPath())).canSubmit, true);
   ok(await api('ec', ubecPath(), { action: 'submit', version: ok(await api('ec', ubecPath())).plan.version }));
   const esView = ok(await api('es', ubecPath()));
-  assert.equal(esView.round.snapshot.ict.length, 5); assert.equal(esView.round.snapshot.teachers.length, 1); assert.equal(esView.round.snapshot.infrastructure.length, 3);
+  assert.equal(esView.round.snapshot.ict.length, 7); assert.equal(esView.round.snapshot.teachers.length, 1); assert.equal(esView.round.snapshot.infrastructure.length, 3);
   step('Executive Chairman → UBEC: refused while required, sent without documents while optional');
   console.log(`PASS: ${passed} documents-required checks.`);
 } finally {

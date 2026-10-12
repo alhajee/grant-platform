@@ -42,7 +42,7 @@ export const ictModelSchoolsCapKobo = BigInt(3_000_000_000);
 /** Activities that must have at least one budget line before the component can be sent on. Teacher Development has none yet. */
 export const compulsoryActivities: Partial<Record<string, readonly number[]>> = {
   quality: [2, 3, 6, 7, 8, 9, 10],
-  ict: [2, 3, 6],
+  ict: [1, 2, 3, 5, 6],
   teachers: [],
   planning: [0, 2, 3, 5],
 };

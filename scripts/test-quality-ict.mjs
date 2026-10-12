@@ -182,9 +182,10 @@ try {
   const connect = ok(await api('ict', url('ict'), line('ict', 3, 300000)));
   const dlc = ok(await api('ict', url('ict'), line('ict', 4, 2000000, { schoolIds: [schoolB] })));
   ok(await api('ict', url('ict'), line('ict', 8, 100000, { schoolIds: [schoolA, schoolB] })));
+  ok(await api('ict', url('ict'), line('ict', 1, 100000)));
   fails(await api('ict', url('ict'), line('ict', 7, 6000000)), 400, /exceeded the ICT allocation \(₦35,000,000\.00\)/);
   let ict = ok(await api('ict', url('ict')));
-  assert.equal(ict.lines.length, 8);
+  assert.equal(ict.lines.length, 9);
   assert.deepEqual(ict.lines.find(l => l.id === smart.id).schools.map(s => s.id), [schoolA]);
   assert.deepEqual(ict.lines.find(l => l.activity === 5).subscriptionTypes, ['Starlink', 'MTN', 'Fibre', 'Smile']);
   assert.equal(ict.lines.find(l => l.activity === 6).websiteType, 'Hosting only');
@@ -271,14 +272,14 @@ try {
   const ubecPath = `/api/ubec/review?plan=${planId}`;
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));
   const esView = ok(await api('es', ubecPath));
-  assert.equal(esView.round.snapshot.quality.length, 8); assert.equal(esView.round.snapshot.ict.length, 8);
+  assert.equal(esView.round.snapshot.quality.length, 8); assert.equal(esView.round.snapshot.ict.length, 9);
   ok(await api('es', `/api/activities/line-documents?id=${boq.id}`));
   ok(await api('ubecChair', ubecPath, { action: 'release', version: esView.plan.version, roundId: esView.round.id, comment: 'Released for assessment.' }));
   const components = `/api/ubec/components?plan=${planId}`;
   ok(await api('dme', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'quality', officerIds: [revQualityId], comment: 'Assess Quality Assurance.' }));
   ok(await api('dddpa', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'ict', officerIds: [revIctId], comment: 'Assess ICT.' }));
   const teachersView = ok(await api('revTeachers', ubecPath));
-  assert.equal(teachersView.round.snapshot.ict.length, 8); assert.deepEqual(teachersView.round.snapshot.quality, []);
+  assert.equal(teachersView.round.snapshot.ict.length, 9); assert.deepEqual(teachersView.round.snapshot.quality, []);
   ok(await api('revTeachers', `/api/activities/line-documents?id=${boq.id}`));
   fails(await api('revQuality', `/api/activities/line-documents?id=${boq.id}`), 404);
   assert.equal(ok(await api('revQuality', ubecPath)).round.snapshot.quality.length, 8);
