@@ -96,5 +96,8 @@ export function QuarterBadge({ quarters, className }: { quarters?: readonly numb
 /** A saved line's expected start and due dates under its timeline badge: "3 Feb 2027 – 28 Jun 2027" (nothing for older lines). */
 export function LineDatesNote({ startDate, dueDate }: { startDate?: string | null; dueDate?: string | null }) {
   const label = formatLineDates({ startDate, dueDate });
-  return label ? <span className="line-dates-note">{label}</span> : null;
+  if (!label) return null;
+  // Each date stays on one line, so a narrow cell breaks the range at the dash.
+  const parts = label.split(' – ');
+  return <span className="line-dates-note">{parts.map((part, i) => <span key={i} className="whitespace-nowrap">{i > 0 && ' – '}{part}</span>)}</span>;
 }

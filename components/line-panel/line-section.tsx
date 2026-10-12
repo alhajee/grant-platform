@@ -55,8 +55,8 @@ export function LineSection({ title, badges, note, count, total, selected, open,
           <ChevronRightIcon className="line-section-chevron" aria-hidden="true" />
         </CollapsibleTrigger>
         <div className="line-section-title">
-          <h2>{title}{badges}</h2>
-          {note && <p className="line-section-note">{note}</p>}
+          <h2>{title}</h2>
+          {(badges || note) && <div className="line-section-meta">{badges}{note && <p className="line-section-note">{note}</p>}</div>}
         </div>
         <div className="line-section-sum">
           {selected && <span className="line-section-flag">In the form</span>}

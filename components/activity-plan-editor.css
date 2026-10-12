@@ -55,7 +55,7 @@
 .envelope-left{font-weight:600;color:var(--primary)}
 .envelope-left[data-empty]{color:var(--warning-foreground)}
 /* The chosen activity's own cap, under the activity select (Curriculum shares, SBMC monitoring, ICT Model Smart Schools). */
-.activity-cap-card { display:grid;gap:6px;margin-top:2px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:color-mix(in srgb,var(--muted) 40%,var(--card));font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted-foreground); }
+.activity-cap-card { display:grid;gap:6px;margin-top:4px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--border) 70%,transparent);border-radius:12px;background:color-mix(in srgb,var(--muted) 35%,var(--card));font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted-foreground); }
 .activity-cap-card > div { display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px; }
 .activity-cap-card strong { color:var(--foreground);font-weight:600; }
 .activity-cap-card [data-slot=progress] { height:6px; }

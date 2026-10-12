@@ -49,8 +49,8 @@ export function ActivitySelectionPanel({ workstream, plan, lines, canEdit, onSav
   </section>;
   const chosen = chosenActivities(workstream, stored), all = chosenActivities(workstream, optionalActivities(workstream));
   return <div className="activity-selection-summary">
-    <div><strong>{chosen.length} of {all.length} activities</strong><span>{stored.length ? `Optional: ${stored.map(a => activityNames[workstream][a]).join(' · ')}` : 'Required activities only'}</span></div>
-    {canEdit && <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>Change activities</Button>}
+    <div className="activity-selection-summary-head"><strong>{chosen.length} of {all.length} activities</strong>{canEdit && <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setOpen(true)}>Change activities</Button>}</div>
+    <span>{stored.length ? `Optional: ${stored.map(a => activityNames[workstream][a]).join(' · ')}` : 'Required activities only'}</span>
     {dialog}
   </div>;
 }
