@@ -1,12 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { CheckIcon, ClipboardCheckIcon, MessageSquarePlusIcon, ShieldCheckIcon, Undo2Icon, XIcon } from 'lucide-react';
+import { CheckIcon, CircleDotIcon, ClipboardCheckIcon, MessageSquarePlusIcon, ShieldCheckIcon, Undo2Icon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { DecisionBar, OversightProgress } from '@/components/ubec/flow-bits';
+import { OversightProgress } from '@/components/ubec/flow-bits';
 import { decisionCounts, type ItemDecisionValue } from '@/lib/ubec-flow';
 import type { SheetAssessment } from './assessment-context';
 import type { WorkbookRow } from './types';
@@ -14,6 +14,7 @@ import type { WorkbookRow } from './types';
 /** The row actions of a sheet's assessment, shared by the toolbar and the right-click menu. */
 export type AssessActions = { busy: boolean; decide: (rowIds: string[], decision: ItemDecisionValue | null) => void };
 
+const pct = (n: number, total: number) => total ? `${n / total * 100}%` : '0%';
 const items = (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`;
 
 /** Decide rows of a sheet: accept saves at once, reject first asks for a reason (one for all chosen rows). */
@@ -49,7 +50,11 @@ export function AssessmentBar({ assessment, rows, selected, actions, observation
   const counts = decisionCounts(rows.map(row => ({ rowRef: row.id })), [...assessment.decisions(assessment.pillar)].map(([rowRef, d]) => ({ rowRef, decision: d.decision })));
   const can = assessment.canDecide(assessment.pillar), decided = selected.some(id => assessment.decisions(assessment.pillar).has(id));
   return <div className="wb-assessment" data-editable={can || undefined}>
-    <DecisionBar counts={counts} />
+    <div className="wb-assessment-progress" role="group" aria-label={`${counts.total - counts.undecided} of ${counts.total} items decided`}>
+      <span className="wb-assessment-meter" aria-hidden="true"><span data-kind="accept" style={{ width: pct(counts.accepted, counts.total) }} /><span data-kind="reject" style={{ width: pct(counts.rejected, counts.total) }} /></span>
+      <strong>{counts.total - counts.undecided} of {counts.total} decided</strong>
+      <span className="wb-assessment-counts"><span data-kind="accept"><CheckIcon aria-hidden="true" />{counts.accepted}<span className="sr-only"> accepted</span></span><span data-kind="reject"><XIcon aria-hidden="true" />{counts.rejected}<span className="sr-only"> rejected</span></span>{counts.undecided > 0 && <span data-kind="open"><CircleDotIcon aria-hidden="true" />{counts.undecided}<span className="sr-only"> to decide</span></span>}</span>
+    </div>
     {can && <div className="wb-assessment-actions">
       <span className="wb-assessment-hint">{selected.length ? `${items(selected.length)} selected` : 'Select rows, or right-click a row'}</span>
       <Button size="sm" variant="outline" className="rounded-full" data-kind="accept" disabled={!selected.length || actions.busy} onClick={() => actions.decide(selected, 'accept')}>{actions.busy ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}Accept</Button>
