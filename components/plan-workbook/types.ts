@@ -5,7 +5,8 @@ export type CellValue = string | number;
 export type ColumnKind = 'text' | 'number' | 'money';
 /** One spreadsheet column. `value` returns the raw value used for sorting, copying and export. */
 export type WorkbookColumn = { id: string; header: string; kind: ColumnKind; size?: number; filter?: boolean; total?: boolean };
-export type WorkbookRow = { id: string; values: Record<string, CellValue>; search: string; expandable?: boolean };
+/** `decision`: the UBEC item decision, on assessed component sheets only (assessment-context.tsx). */
+export type WorkbookRow = { id: string; values: Record<string, CellValue>; search: string; expandable?: boolean; decision?: 'accept' | 'reject' | 'open' };
 export type WorkbookSheet = {
   key: SheetKey; label: string; hash: string; icon: ComponentType<{ className?: string }>;
   itemLabel: string; empty: string; columns: WorkbookColumn[]; rows: WorkbookRow[];

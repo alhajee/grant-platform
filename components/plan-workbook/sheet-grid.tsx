@@ -9,6 +9,8 @@ import { handleGridKey } from './grid-navigation';
 import { ColumnFilterMenu } from './column-filter';
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu';
 import { CellMenu, type MenuTarget } from './cell-menu';
+import { decisionColumn, isAssessmentColumn } from './assessment-context';
+import type { AssessActions } from './assessment-bar';
 import { toTsv } from './selection';
 import { useSheetComments } from './comments-context';
 import { CommentLayer } from './comment-layer';
@@ -22,9 +24,11 @@ type Table = ReactTable<WorkbookFeatures, WorkbookRow>;
 type Props = {
   table: Table; sheet: WorkbookSheet; expanded: Record<string, boolean>; onToggle: (rowId: string) => void;
   filterOptions: Record<string, { value: string; count: number }[]>; onCopy: () => string | null; onDownloadSheet: () => void;
+  /** The assigned officer's decisions on this sheet: the selected rows and whether a row has a decision. */
+  assess?: AssessActions & { selected: string[]; decided: (rowId: string) => boolean };
 };
 
-export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onCopy, onDownloadSheet }: Props) {
+export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onCopy, onDownloadSheet, assess }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [menuTarget, setMenuTarget] = useState<MenuTarget>(null);
   const copied = useRef(false);
@@ -43,7 +47,7 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
     const values = sheet.rows.find(row => row.id === rowRef)?.values ?? {};
     return `${columnId ? specs.get(columnId)?.header ?? columnId : 'Row'} · ${String(values.description ?? values[sheet.columns[0]?.id] ?? rowRef)}`;
   };
-  const commentState = (rowId: string, columnId: string | null) => !comments ? null : comments.open.has(`${rowId}:${columnId ?? ''}`) ? 'open' as const : comments.can.start ? 'new' as const : null;
+  const commentState = (rowId: string, columnId: string | null) => !comments || isAssessmentColumn(columnId) ? null : comments.open.has(`${rowId}:${columnId ?? ''}`) ? 'open' as const : comments.can.start ? 'new' as const : null;
   function openComment(rowId: string, columnId: string | null) {
     if (!comments) return;
     const open = comments.open.has(`${rowId}:${columnId ?? ''}`);
@@ -78,7 +82,7 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
     // Google Sheets' comment shortcut: Ctrl+Alt+M (⌘⌥M on a Mac) on the focused cell.
     if (comments && (event.ctrlKey || event.metaKey) && event.altKey && event.code === 'KeyM') {
       const [rowId, columnId] = ((event.target as HTMLElement).dataset.cellKey ?? '').split(':');
-      if (rowId && columnId) { event.preventDefault(); openComment(rowId, columnId); }
+      if (rowId && columnId) { event.preventDefault(); openComment(rowId, isAssessmentColumn(columnId) ? null : columnId); }
       return;
     }
     handleGridKey(event, { table, rows, columns, pageSize, onToggle, onCopyKey: () => {
@@ -119,6 +123,8 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
     selectAll: () => table.selectAllCells(), toggleDetails: onToggle, download: onDownloadSheet,
     editHref: sheet.editHref, editLabel: sheet.editLabel,
     ...(comments ? { commentState, comment: openComment } : {}),
+    // A right-click inside the selection decides every selected row; elsewhere just the clicked row.
+    ...(assess ? { assess: { busy: assess.busy, rows: (rowId: string) => assess.selected.includes(rowId) ? assess.selected : [rowId], decided: assess.decided, decide: assess.decide } } : {}),
   };
   // aria-rowindex counts the header, data rows, open detail rows and the totals row in DOM order.
   const ariaRows: number[] = [], ariaDetails: number[] = [];
@@ -154,7 +160,7 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
           const label = String(row.original.values[columns[0]?.id] ?? row.id);
           const rowThread = comments?.open.get(`${row.id}:`)?.[0], rowUbec = fromUbec(`${row.id}:`);
           return <Fragment key={row.id}>
-            <tr role="row" aria-rowindex={ariaRows[r]} data-open={open || undefined} className={cn(rowThread && 'has-row-comment', activeComment === `${row.id}:` && 'row-comment-open')}>
+            <tr role="row" aria-rowindex={ariaRows[r]} data-open={open || undefined} data-decision={row.original.decision} className={cn(rowThread && 'has-row-comment', activeComment === `${row.id}:` && 'row-comment-open')}>
               <th role="rowheader" aria-colindex={1} className={cn('wb-gutter', rowThread && 'has-comment', rowUbec && 'has-ubec-comment')} data-row-key={row.id} data-comment-id={rowThread?.id} aria-label={rowThread ? `Row ${r + 1}, has ${rowUbec ? 'UBEC ' : ''}comment` : undefined}
                 onMouseDown={event => selectRow(event, row.id)} onClick={() => { if (rowThread) requestAnimationFrame(() => openComment(row.id, null)); }} onContextMenu={() => { if (columns[0]) openMenu(row.original, columns[0].id, !!row.getVisibleCells()[0]?.getIsSelected()); }}>
                 <div className="wb-gutter-inner">{row.original.expandable && <button type="button" tabIndex={-1} className="wb-expand" aria-expanded={open} aria-controls={`wb-${sheet.key}-${row.id}-details`} aria-label={`${open ? 'Hide' : 'Show'} details for ${label}`} onMouseDown={event => event.stopPropagation()} onClick={() => onToggle(row.id)}>{open ? <ChevronDown /> : <ChevronRight />}</button>}
@@ -167,7 +173,7 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
                 const thread = comments?.open.get(key)?.[0], ubec = fromUbec(key);
                 return <td key={cell.id} role="gridcell" aria-colindex={c + 2} aria-selected={selected} data-cell-key={key} data-row-index={r} data-col-index={c} data-comment-id={thread?.id}
                   tabIndex={hasFocusedCell ? cell.getTabIndex() : r === 0 && c === 0 ? 0 : -1}
-                  className={cn(c === 0 && 'wb-frozen', isNumeric(spec.kind) && 'wb-number', selected && 'is-selected', key === anchorKey && 'is-active', edges?.top && 'edge-t', edges?.bottom && 'edge-b', edges?.left && 'edge-l', edges?.right && 'edge-r', thread && 'has-comment', ubec && 'has-ubec-comment', activeComment === key && 'comment-open')}
+                  className={cn(c === 0 && 'wb-frozen', isNumeric(spec.kind) && 'wb-number', selected && 'is-selected', key === anchorKey && 'is-active', edges?.top && 'edge-t', edges?.bottom && 'edge-b', edges?.left && 'edge-l', edges?.right && 'edge-r', thread && 'has-comment', ubec && 'has-ubec-comment', activeComment === key && 'comment-open', spec.id === decisionColumn && 'wb-decision')}
                   style={c === 0 ? { left: GUTTER_WIDTH } : undefined} title={spec.kind === 'text' && text.length > 18 ? text : undefined}
                   onMouseDown={event => { if (event.button === 0) cell.getSelectionStartHandler()(event); }} onMouseEnter={cell.getSelectionExtendHandler()}
                   onContextMenu={() => openMenu(row.original, cell.column.id, selected)} onClick={event => { if (thread && !event.shiftKey && !event.ctrlKey && !event.metaKey) openComment(row.id, cell.column.id); }}

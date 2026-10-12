@@ -202,3 +202,18 @@
 .plan-workbook .wb-scroll { background: #fff; }
 .plan-workbook .wb-grid tbody td { background: #fff; }
 .plan-workbook .wb-grid tbody tr:not(.has-row-comment):hover > td:not(.is-selected):not(.has-comment) { background: #f3f8f5; }
+
+/* UBEC item assessment on a component sheet (assessment-bar.tsx): progress, row actions, decision marks. */
+.wb-assessment { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 0 0 10px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 16px; background: color-mix(in srgb, var(--muted) 45%, var(--card)); }
+.wb-assessment .ubec-decision { flex: 1 1 260px; min-width: 0; }
+.wb-assessment-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.wb-assessment-hint { margin-right: 4px; font-size: 12px; color: var(--muted-foreground); }
+.wb-assessment button[data-kind=accept]:not(:disabled) { color: #1f6b43; }
+.wb-assessment button[data-kind=accept]:not(:disabled):hover { color: #1f6b43; background: color-mix(in srgb, #2f9e64 12%, var(--background)); border-color: color-mix(in srgb, #2f9e64 40%, var(--border)); }
+.wb-assessment button[data-kind=reject]:not(:disabled) { color: var(--destructive); }
+.wb-assessment button[data-kind=reject]:not(:disabled):hover { color: var(--destructive); background: color-mix(in srgb, var(--destructive) 9%, var(--background)); border-color: color-mix(in srgb, var(--destructive) 35%, var(--border)); }
+.wb-grid tbody tr[data-decision=accept] > th.wb-gutter { box-shadow: inset 3px 0 0 #2f9e64; }
+.wb-grid tbody tr[data-decision=reject] > th.wb-gutter { box-shadow: inset 3px 0 0 var(--destructive); }
+.wb-grid tbody td.wb-decision { font-weight: 500; color: var(--muted-foreground); }
+.wb-grid tbody tr[data-decision=accept] > td.wb-decision { color: #1f6b43; background: color-mix(in srgb, #2f9e64 9%, var(--background)); }
+.wb-grid tbody tr[data-decision=reject] > td.wb-decision { color: var(--destructive); background: color-mix(in srgb, var(--destructive) 8%, var(--background)); }

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatQuarters } from '@/lib/format-quarters';
 import { CommentsProvider, type CommentsController } from './comments-context';
+import { AssessmentProvider, withDecisions, type WorkbookAssessment } from './assessment-context';
 import { useExpandedWorkbook } from './use-expanded';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { Snapshot } from '@/lib/plan-review';
@@ -22,9 +23,10 @@ const hashSheet = (hash: string, sheets: WorkbookSheet[]) => sheets.find(s => `#
 /** Read-only, Excel-inspired view of a plan: one sheet per visible component. Editing stays in the editors. */
 export type RequestChangesHandlers = Partial<Record<ImplementedPillar, () => void>>;
 
-export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null, requestChanges = {} }: { snapshot: Snapshot; visiblePillars: readonly string[]; links: SheetLinks; comments?: CommentsController | null; requestChanges?: RequestChangesHandlers }) {
+export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null, assessment = null, requestChanges = {} }: { snapshot: Snapshot; visiblePillars: readonly string[]; links: SheetLinks; comments?: CommentsController | null; assessment?: WorkbookAssessment | null; requestChanges?: RequestChangesHandlers }) {
   const { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref, qualityEditHref, ictEditHref, teachersEditHref, planningEditHref } = links;
-  const sheets = useMemo(() => buildSheets(snapshot, visiblePillars, { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref, qualityEditHref, ictEditHref, teachersEditHref, planningEditHref }), [snapshot, visiblePillars, infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref, qualityEditHref, ictEditHref, teachersEditHref, planningEditHref]);
+  const planSheets = useMemo(() => buildSheets(snapshot, visiblePillars, { infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref, qualityEditHref, ictEditHref, teachersEditHref, planningEditHref }), [snapshot, visiblePillars, infrastructureEditHref, sportsEditHref, sbmcEditHref, tlmEditHref, monitoringEditHref, gscciEditHref, curriculumEditHref, qualityEditHref, ictEditHref, teachersEditHref, planningEditHref]);
+  const sheets = useMemo(() => withDecisions(planSheets, assessment), [planSheets, assessment]);
   const cardRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
   const expandRef = useRef<HTMLButtonElement>(null);
@@ -74,7 +76,7 @@ export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null,
     return downloadWorkbook(`${baseName} - workbook.xlsx`, [...sheets.map(s => ({ name: s.label, columns: s.columns, rows: s.rows })), ...detailExportSheets(snapshot, sheets)]);
   };
   const label = expanded ? 'Exit full screen' : 'Expand workbook';
-  return <CommentsProvider value={comments}><div ref={slotRef} className="plan-workbook-slot" style={placeholderHeight ? { height: placeholderHeight } : undefined}>
+  return <AssessmentProvider value={assessment}><CommentsProvider value={comments}><div ref={slotRef} className="plan-workbook-slot" style={placeholderHeight ? { height: placeholderHeight } : undefined}>
     {expanded && <div className="plan-workbook-backdrop" aria-hidden="true" onClick={() => setExpanded(false)} />}
     <Card ref={cardRef} className="plan-workbook" data-expanded={expanded || undefined} onKeyDown={onKeyDown} {...(expanded ? { role: 'dialog', 'aria-modal': true, 'aria-label': 'Plan workbook — full screen' } : { 'aria-labelledby': 'plan-workbook-title' })}>
     {sheets.map(s => <span key={s.key} id={s.hash} className="plan-workbook-anchor" aria-hidden="true" />)}
@@ -90,5 +92,5 @@ export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null,
         <SheetView sheet={s} visited={visited.has(s.key)} onDownload={download} onRequestChanges={requestChanges[sheetPillar[s.key]]} />
       </TabsContent>)}
     </Tabs>
-  </Card></div></CommentsProvider>;
+  </Card></div></CommentsProvider></AssessmentProvider>;
 }

@@ -14,6 +14,8 @@ import { formatStat, selectedBlocks, selectionStats, toTsv, type Bounds } from '
 import type { WorkbookRow, WorkbookSheet } from './types';
 import { useSheetComments } from './comments-context';
 import { CommentsPanel } from './comments-panel';
+import { useSheetAssessment } from './assessment-context';
+import { AssessmentBar, useAssessActions } from './assessment-bar';
 import type { PlanCommentThread } from '@/lib/plan-comments';
 
 type Def = ColumnDef<WorkbookFeatures, WorkbookRow>;
@@ -62,6 +64,10 @@ export function SheetView({ sheet, visited, onDownload, onRequestChanges }: { sh
     else if (all.length) table.selectCellRange({ anchorRowId: thread.rowRef, anchorColumnId: all[0].id, focusRowId: thread.rowRef, focusColumnId: all[all.length - 1].id });
     requestAnimationFrame(() => comments?.controller.setActive({ sheet: sheet.key, rowRef: thread.rowRef, columnId: thread.columnId, threadId: thread.id }));
   }
+  const assessment = useSheetAssessment(sheet.key);
+  const assess = useAssessActions(assessment);
+  // Rows covered by the selection (any cell of a row selects it for a decision).
+  const selectedRows = assessment && table.state.cellSelection.length ? [...new Set(blocks().flatMap(block => block.rows.map(row => row.id)))] : [];
   const toggle = (rowId: string) => setExpanded(previous => ({ ...previous, [rowId]: !previous[rowId] }));
   return <div className="wb-sheet" data-sheet={sheet.key}>
     <div className="review-table-toolbar wb-toolbar">
@@ -81,7 +87,9 @@ export function SheetView({ sheet, visited, onDownload, onRequestChanges }: { sh
         {sheet.editHref && sheet.editLabel && <EditComponentButton href={sheet.editHref} label={sheet.editLabel} />}
       </div>
     </div>
-    {visited && <SheetGrid table={table} sheet={sheet} expanded={expanded} onToggle={toggle} filterOptions={filterOptions} onCopy={copy} onDownloadSheet={() => void download('sheet')} />}
+    {assessment && <AssessmentBar assessment={assessment} rows={sheet.rows} selected={selectedRows} actions={assess.actions} />}
+    {assessment && assess.dialog}
+    {visited && <SheetGrid assess={assessment?.canDecide(assessment.pillar) ? { ...assess.actions, selected: selectedRows, decided: (rowId: string) => assessment.decisions(assessment.pillar).has(rowId) } : undefined} table={table} sheet={sheet} expanded={expanded} onToggle={toggle} filterOptions={filterOptions} onCopy={copy} onDownloadSheet={() => void download('sheet')} />}
     {visited && <div className="wb-status" role="status" aria-live="polite">
       <span className="wb-status-rows">{table.getFilteredRowModel().rows.length === sheet.rows.length ? `${sheet.rows.length} ${sheet.itemLabel}` : `${table.getFilteredRowModel().rows.length} of ${sheet.rows.length} ${sheet.itemLabel}`}</span>
       <span className="wb-status-hint">Drag or Shift+click to select · Right-click for options{comments?.can.start ? ' or to comment' : ''} · Ctrl+C copies{sheet.detail ? ' · Enter shows details' : ''}</span>

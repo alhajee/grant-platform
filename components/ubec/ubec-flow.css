@@ -53,21 +53,6 @@
 
 .ubec-assessment { margin-top: 28px; margin-bottom: 24px; }
 .ubec-assessment-tabs { margin-bottom: 12px; }
-.ubec-items-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.ubec-items-head h3 { font-size: 17px; font-weight: 600; }
-.ubec-items-table { margin-top: 12px; overflow-x: auto; }
-.ubec-items-table tr { transition: background-color 160ms ease; }
-.ubec-items-table tr[data-decision=reject] { background: color-mix(in srgb, var(--destructive) 5%, transparent); }
-.ubec-items-table tr[data-decision=accept] { background: rgb(47 158 100 / 5%); }
-.ubec-item-cell { display: flex; flex-direction: column; gap: 2px; min-width: 220px; white-space: normal; }
-.ubec-item-cell small { font-size: 12px; color: var(--muted-foreground); }
-.ubec-item-code { font-family: var(--font-mono, monospace); font-size: 11px !important; }
-.ubec-item-note { color: var(--foreground) !important; font-style: italic; }
-.ubec-item-previous { display: inline-flex; align-items: center; gap: 4px; }
-.ubec-item-previous svg { width: 12px; height: 12px; }
-.ubec-item-actions { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 4px; }
-.ubec-item-actions .ubec-item-comment { position: relative; overflow: visible; }
-.ubec-item-thread-count { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; background: #1a73e8; color: #fff; }
 .ubec-item-pill[data-kind=accept] { background: #e3f5ea; color: #1f6b43; }
 .ubec-item-pill[data-kind=reject] { background: color-mix(in srgb, var(--destructive) 12%, transparent); color: var(--destructive); }
 .ubec-item-pill { display: inline-flex; gap: 3px; align-items: center; }
@@ -149,13 +134,6 @@
 
 /* Phones: each item becomes a stacked card so Accept / Reject stay in view. */
 @media (max-width: 640px) {
-  .ubec-items-table { overflow: visible; }
-  .ubec-items-table :is(table, tbody, tr, td) { display: block; width: 100%; }
-  .ubec-items-table thead { display: none; }
-  .ubec-items-table tr { margin-bottom: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; }
-  .ubec-items-table td { padding: 3px 0; border: 0; text-align: left !important; white-space: normal; }
-  .ubec-items-table td.ubec-item-cell { display: flex; min-width: 0; }
-  .ubec-item-actions { flex-wrap: wrap; justify-content: flex-start; padding-top: 6px; }
 }
 
 /* Release dialog: departments as assignees, components as tasks */
@@ -207,3 +185,5 @@
 .ubec-flow-dialog .confirm-notes li[data-kind="warning"] { background: rgb(255 255 255 / 60%); color: #6b3a10; }
 .ubec-flow-dialog[data-kind="return"] .confirm-notes li[data-kind="warning"] { background: color-mix(in srgb, var(--destructive) 8%, var(--card)); color: var(--foreground); }
 .ubec-flow-dialog .confirm-facts { border-radius: 14px; }
+.ubec-assessment-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 10px; }
+.ubec-assessment-summary .ubec-decision { flex: 1 1 240px; min-width: 0; }

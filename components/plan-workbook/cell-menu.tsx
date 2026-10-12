@@ -1,6 +1,6 @@
 'use client';
 import { useRef } from 'react';
-import { MessageSquarePlus, MessageSquareText, ArrowDownAZ, ArrowUpAZ, ArrowUpDown, ChevronsUpDown, ClipboardCopy, Copy, Download, Eye, EyeOff, FilterX, ListFilter, PencilIcon, Rows3, Columns3, SquareDashedMousePointer } from 'lucide-react';
+import { Check, Undo2, X, MessageSquarePlus, MessageSquareText, ArrowDownAZ, ArrowUpAZ, ArrowUpDown, ChevronsUpDown, ClipboardCopy, Copy, Download, Eye, EyeOff, FilterX, ListFilter, PencilIcon, Rows3, Columns3, SquareDashedMousePointer } from 'lucide-react';
 import { toast } from 'sonner';
 import { ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut } from '@/components/ui/context-menu';
 import { formatCell, isNumeric, type CellValue, type WorkbookColumn, type WorkbookRow } from './types';
@@ -16,6 +16,8 @@ export type CellMenuActions = {
   toggleDetails: (rowId: string) => void; download: () => void; editHref?: string; editLabel?: string;
   /** 'open' shows an existing thread, 'new' starts one, null hides the item (no permission). */
   commentState?: (rowId: string, columnId: string | null) => 'open' | 'new' | null; comment?: (rowId: string, columnId: string | null) => void;
+  /** UBEC item decisions (the assigned officer only): the rows a menu on `rowId` acts on. */
+  assess?: { busy: boolean; rows: (rowId: string) => string[]; decided: (rowId: string) => boolean; decide: (rowIds: string[], decision: 'accept' | 'reject' | null) => void };
 };
 
 const shortcut = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+';
@@ -36,10 +38,14 @@ export function CellMenu({ target, actions }: { target: MenuTarget; actions: Cel
   const text = column && !isNumeric(column.kind);
   const cellComment = row && column && actions.commentState ? actions.commentState(row.id, column.id) : null;
   const rowComment = row && actions.commentState ? actions.commentState(row.id, null) : null;
+  const assessRows = row && actions.assess ? actions.assess.rows(row.id) : [];
+  const many = assessRows.length > 1 ? ` ${assessRows.length} items` : ' item';
   const commentKey = shortcut === '⌘' ? '⌘⌥M' : 'Ctrl+Alt+M';
   // The comment popover opens once the menu has closed: a closing menu still traps focus and would dismiss it.
   const pending = useRef<(() => void) | null>(null);
   const comment = (rowId: string, columnId: string | null) => { pending.current = () => actions.comment?.(rowId, columnId); };
+  // The reject reason dialog opens the same way, after the menu has handed focus back.
+  const decide = (rowIds: string[], decision: 'accept' | 'reject' | null) => { pending.current = () => actions.assess?.decide(rowIds, decision); };
   return <ContextMenuContent className="wb-cell-menu" onCloseAutoFocus={event => { const run = pending.current; if (!run) return; pending.current = null; event.preventDefault(); run(); }}
     // Releasing the right button (or Ctrl+click on a Mac) over a menu that shifted under the pointer must not pick an item.
     onPointerUpCapture={event => { if (event.button === 2 || event.ctrlKey) event.preventDefault(); }}>
@@ -49,6 +55,11 @@ export function CellMenu({ target, actions }: { target: MenuTarget; actions: Cel
       {column && row && <ContextMenuItem onSelect={() => void write(value, 'Cell copied')}><ClipboardCopy />Copy cell value</ContextMenuItem>}
       {row && <ContextMenuItem onSelect={() => void write(actions.copyRow(row), 'Row copied')}><Rows3 />Copy row</ContextMenuItem>}
     </ContextMenuGroup>
+    {row && actions.assess && <><ContextMenuSeparator /><ContextMenuGroup>
+      <ContextMenuItem disabled={actions.assess.busy} onSelect={() => decide(assessRows, 'accept')}><Check />Accept{many}</ContextMenuItem>
+      <ContextMenuItem disabled={actions.assess.busy} variant="destructive" onSelect={() => decide(assessRows, 'reject')}><X />Reject{many}…</ContextMenuItem>
+      {assessRows.some(actions.assess.decided) && <ContextMenuItem disabled={actions.assess.busy} onSelect={() => decide(assessRows, null)}><Undo2 />Clear decision</ContextMenuItem>}
+    </ContextMenuGroup></>}
     {row && (cellComment || rowComment) && <><ContextMenuSeparator /><ContextMenuGroup>
       {column && cellComment && <ContextMenuItem onSelect={() => comment(row.id, column.id)}>{cellComment === 'open' ? <MessageSquareText /> : <MessageSquarePlus />}{cellComment === 'open' ? 'Show comment' : 'Comment'}<ContextMenuShortcut>{commentKey}</ContextMenuShortcut></ContextMenuItem>}
       {rowComment && <ContextMenuItem onSelect={() => comment(row.id, null)}>{rowComment === 'open' ? <MessageSquareText /> : <MessageSquarePlus />}{rowComment === 'open' ? 'Show row comment' : 'Comment on row'}</ContextMenuItem>}
