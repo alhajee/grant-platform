@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, LockIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -89,14 +89,12 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  // Quality Assurance: the activities are chosen first (ActivitySelectionPanel opens by itself until then).
  const needsChoice=choosesUpFront(workstream)&&!!data&&data.plan.qualityActivities==null;
  const disabled=busy||!data?.canEdit||!!error||needsSplit||needsChoice;
- // Why the form is locked (not while it is only saving), shown on the lock over it; the split and the activity
- // choice open from the panel above the form.
- const openSetup=()=>{const button=document.querySelector<HTMLButtonElement>('.ict-allocation button');button?.scrollIntoView({block:'center',behavior:'smooth'});button?.click();};
+ // Why the form is locked (not while it is only saving), shown above it.
  const lockReason:LockReason|null=!data||busy?null:error?{title:'Could not load this component',detail:'Reload the page and try again'}
   :!data.canEdit?{title:'Locked at this review stage',detail:'This component is with a reviewer or outside your departments, so its items cannot be changed now'}
   :needsSplit&&budgetPairs[pairOf(splitSide!)].envelope(data.plan)==null?{title:'Plan funding not set',detail:`Set the plan's funding on the plan page (Edit plan), then share the budget and add ${name} items`}
-  :needsSplit?{title:'Set the budget split first',detail:`Decide how much of the shared budget ${name} will use, then add its items`,action:{label:'Set the budget split',run:openSetup}}
-  :needsChoice?{title:'Choose the activities first',detail:`Pick the ${name} activities, then add items to them`,action:{label:'Choose activities',run:openSetup}}:null;
+  :needsSplit?{title:'Set the budget split first',detail:`Use “Set the budget split” above to decide how much of the shared budget ${name} will use, then add its items`}
+  :needsChoice?{title:'Choose the activities first',detail:`Use “Choose activities” above to pick the ${name} activities, then add items to them`}:null;
  const total=(data?.lines.reduce((s,l)=>s+Math.round(l.unitCost*100)*l.quantity,0)??0)/100;
  const envelopeKobo=data?componentEnvelopeKobo(data.plan,workstream):null;
  const envelope=envelopeKobo===null?null:Number(envelopeKobo)/100;
@@ -244,7 +242,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
    </div></ScrollArea><div className="editor-footer"><div className="line-total"><span>{view==='budget'?capped?'Sub-total':'Line total':'Distribution schools'}</span><strong>{view==='budget'?money.format((Math.round(Number(draft.unitCost||0)*100)*Number(draft.quantity||0))/100):data?.distribution.length??0}</strong></div><div className="footer-actions">{draft.id&&<><Button variant="ghost" disabled={busy} onClick={()=>guard(()=>reset())}>Cancel</Button><ButtonGroup className="activity-line-navigation" aria-label="Budget item navigation"><Button size="icon" variant="secondary" aria-label="Previous budget item" title="Previous budget item" disabled={disabled||selectedLineIndex<=0} onClick={()=>navigateLine(-1)}><ChevronLeftIcon/></Button><ButtonGroupSeparator/><Button size="icon" variant="secondary" aria-label="Next budget item" title="Next budget item" disabled={disabled||selectedLineIndex<0||selectedLineIndex===visibleLines.length-1} onClick={()=>navigateLine(1)}><ChevronRightIcon/></Button></ButtonGroup></>}{(()=>{const blocked=disabled||(view==='distribution'&&!picked.length)||(view==='budget'&&(!draftValid||!!timelineProblem))||!!budgetError;
    // A disabled button gets no hover, so the reason sits on a wrapper the pointer and keyboard can reach.
    const reason=blocked?saveBlockedReason({busy,canEdit:!!data?.canEdit,failed:!!error,needsIctAllocation:needsSplit,splitName:name,view:view==='distribution'?'distribution':'budget',pickedSchools:picked.length,issues:draftCheck.success?[]:draftCheck.error.issues,timelineError:timelineProblem,budgetError}):null;
-   const button=<Button form="activity-form" type="submit" disabled={blocked}>{busy?'Saving…':draft.id?'Save changes':view==='budget'?'Add item':`Add ${picked.length?count.format(picked.length)+' ':''}school${picked.length===1?'':'s'}`}</Button>;
+   const button=<Button form="activity-form" type="submit" disabled={blocked}>{lockReason&&<LockIcon data-icon="inline-start"/>}{busy?'Saving…':draft.id?'Save changes':view==='budget'?'Add item':`Add ${picked.length?count.format(picked.length)+' ':''}school${picked.length===1?'':'s'}`}</Button>;
    return reason?<Tooltip delayDuration={0}><TooltipTrigger asChild><span className="save-button-wrap" tabIndex={0} aria-label={reason}>{button}</span></TooltipTrigger><TooltipContent side="top" className="soft-tip max-w-64">{reason}</TooltipContent></Tooltip>:button;})()}</div></div></section>
    <section className="workspace-pane preview-pane" aria-label="Saved component"><ScrollArea className="pane-scroll">{view==='distribution'?<article className="preview-document sports-preview">
     <div className="plan-overview"><div><span>Proposed {name} budget</span><strong>{error?'Unavailable':data?money.format(total):'Loading…'}</strong></div>{!data?null:envelope===null?<p>{sharesBudget&&data.plan.stateLodgment!=null?(workstream==='ict'?'ICT allocation not set':`${name} budget not set`):'Funding envelope not set'}</p>:<EnvelopeMeter label={pooled?'Shared with Infrastructure':workstream==='ict'?'ICT allocation':training?'Teacher Development budget':sharesBudget?`${name} allocation`:'Funding envelope'} envelope={envelope} used={total} partner={pooled?{label:'Infrastructure',amount:poolUsed}:undefined} />}</div>
