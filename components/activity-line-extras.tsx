@@ -26,7 +26,7 @@ export type ExtraDraft = { activity: string; equipmentCategory: '' | typeof equi
 
 /** The "Required" badge for a compulsory activity. */
 export function RequiredBadge({ workstream, activity }: { workstream: ActivityWorkstream; activity: number }) {
-  return isCompulsory(workstream, activity) ? <Badge variant="warning">Required</Badge> : null;
+  return isCompulsory(workstream, activity) ? <Badge variant="warning" className="required-badge">Required</Badge> : null;
 }
 
 /** An info hint beside an activity name, when the activity has an explanation. */

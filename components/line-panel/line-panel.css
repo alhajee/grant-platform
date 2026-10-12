@@ -4,6 +4,9 @@
 .line-panel-document { --line-accent: var(--peach); }
 .activity-shell[data-workstream=sbmc] .line-panel-document { --line-accent: var(--sage); }
 .activity-shell[data-workstream=tlm] .line-panel-document { --line-accent: var(--lilac); }
+/* The activity in the form: a light wash of the accent; ICT uses its own palette green (componentPalette.ict) at full strength */
+.line-panel-document { --line-selected: color-mix(in srgb, var(--line-accent) 32%, var(--card)); }
+.activity-shell[data-workstream=ict] .line-panel-document { --line-accent: #c3e3a8; --line-selected: color-mix(in srgb, #c3e3a8 88%, var(--card)); }
 
 /* Sticky summary: total, envelope meter and the view controls stay in reach while the list scrolls. */
 .line-panel-summary { position: sticky; top: 0; z-index: 3; display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: end; gap: 14px 28px; margin: 0 -28px; padding: 22px 28px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--background) 94%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
@@ -25,7 +28,7 @@
 .line-section { overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--card); transition: box-shadow .2s, border-color .2s; }
 .line-section[data-selected] { border-color: color-mix(in srgb, var(--line-accent) 80%, var(--foreground) 8%); box-shadow: 0 0 0 3px color-mix(in srgb, var(--line-accent) 45%, transparent); }
 .line-section-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 4px 10px; padding: 12px 14px; }
-.line-section[data-selected] .line-section-head { background: color-mix(in srgb, var(--line-accent) 32%, var(--card)); }
+.line-section[data-selected] .line-section-head { background: var(--line-selected); }
 .line-section-toggle { display: grid; place-items: center; width: 24px; height: 24px; margin-top: -1px; border-radius: 999px; color: var(--muted-foreground); cursor: pointer; }
 .line-section-toggle:hover { background: color-mix(in srgb, var(--muted) 80%, transparent); color: var(--foreground); }
 .line-section-toggle:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
@@ -51,7 +54,7 @@
 .line-empty-group > h3 { padding: 9px 14px; color: var(--muted-foreground); font-size: 12px; font-weight: 600; letter-spacing: .02em; }
 .line-section-empty { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 10px 6px 14px; border-top: 1px dashed color-mix(in srgb, var(--foreground) 10%, var(--border)); font-size: 13.5px; }
 .line-section-empty:first-child { border-top: 0; }
-.line-section-empty[data-selected] { background: color-mix(in srgb, var(--line-accent) 32%, var(--card)); }
+.line-section-empty[data-selected] { background: var(--line-selected); }
 .line-section-empty-title { display: flex; flex: 1; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
 .line-section-empty-note { color: var(--muted-foreground); font-size: 12.5px; white-space: nowrap; }
 .line-focus-empty { display: flex; flex-direction: column; gap: 4px; padding: 18px 16px; border: 1px dashed color-mix(in srgb, var(--foreground) 16%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--line-accent) 18%, var(--card)); font-size: 14px; }
@@ -161,3 +164,5 @@
   .line-panel-search { max-width: none; }
 }
 @media print, (forced-colors: active) { .line-panel-summary { position: static; backdrop-filter: none; } }
+/* ICT's Required badges follow its palette green too */
+.activity-shell[data-workstream=ict] .required-badge { border-color: color-mix(in srgb, #c3e3a8 70%, #24420f 18%); background: color-mix(in srgb, #c3e3a8 55%, var(--card)); color: #24420f; }
