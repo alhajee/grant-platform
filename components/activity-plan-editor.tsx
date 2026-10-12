@@ -21,7 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, useComboboxAnchor } from '@/components/ui/combobox';
 import { activityHints, activityInfo, activityNames, activityLineSchema, activityTitles, allocateByEnrolment, capActivities, hasDistribution, isOtherActivity, maxActivityNameLength, selectableActivityIndexes, textbookActivityIndex, textbookClasses, textbookSubjects, implementationStrategies, targetGroups, type ActivityLine, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
 import { activityBudgetProblem, componentEnvelopeKobo, activityCap, activityCapKobo, activityPercent, activityFixedCaps, isCapped, isCappedFor, type BudgetLine } from '@/lib/activity-budget';
-import { sideSplits, storedAllocation } from '@/lib/budget-pairs';
+import { budgetPairs, pairOf, sideSplits, storedAllocation } from '@/lib/budget-pairs';
 import { isSplitMode } from '@/lib/funding-policy';
 import { isCompulsory, lineDocumentLabel } from '@/lib/activity-extras';
 import { LineDocumentsField, LineExtraFields, LineSchoolPicker, uploadLineDocuments } from '@/components/activity-line-extras';
@@ -29,6 +29,7 @@ import { ActivityLinePanel, lineSearchText } from '@/components/activity-line-pa
 import type { InlineField } from '@/components/line-panel/line-table';
 import { scrollLineIntoView, useLineFlash, usePanelMode } from '@/components/line-panel/use-line-panel';
 import { SharedBudgetPanel } from '@/components/shared-budget-panel';
+import { LockedOverlay, type LockReason } from '@/components/locked-overlay/locked-overlay';
 import { ActivitySelectionPanel } from '@/components/activity-selection';
 import { choosesUpFront, chosenActivities, planSelection } from '@/lib/activity-selection';
 import { TeacherTrainingFields } from '@/components/teacher-training-fields';
@@ -88,6 +89,14 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  // Quality Assurance: the activities are chosen first (ActivitySelectionPanel opens by itself until then).
  const needsChoice=choosesUpFront(workstream)&&!!data&&data.plan.qualityActivities==null;
  const disabled=busy||!data?.canEdit||!!error||needsSplit||needsChoice;
+ // Why the form is locked (not while it is only saving), shown on the lock over it; the split and the activity
+ // choice open from the panel above the form.
+ const openSetup=()=>{const button=document.querySelector<HTMLButtonElement>('.ict-allocation button');button?.scrollIntoView({block:'center',behavior:'smooth'});button?.click();};
+ const lockReason:LockReason|null=!data||busy?null:error?{title:'Could not load this component',detail:'Reload the page and try again'}
+  :!data.canEdit?{title:'Locked at this review stage',detail:'This component is with a reviewer or outside your departments, so its items cannot be changed now'}
+  :needsSplit&&budgetPairs[pairOf(splitSide!)].envelope(data.plan)==null?{title:'Plan funding not set',detail:`Set the plan's funding on the plan page (Edit plan), then share the budget and add ${name} items`}
+  :needsSplit?{title:'Set the budget split first',detail:`Decide how much of the shared budget ${name} will use, then add its items`,action:{label:'Set the budget split',run:openSetup}}
+  :needsChoice?{title:'Choose the activities first',detail:`Pick the ${name} activities, then add items to them`,action:{label:'Choose activities',run:openSetup}}:null;
  const total=(data?.lines.reduce((s,l)=>s+Math.round(l.unitCost*100)*l.quantity,0)??0)/100;
  const envelopeKobo=data?componentEnvelopeKobo(data.plan,workstream):null;
  const envelope=envelopeKobo===null?null:Number(envelopeKobo)/100;
@@ -204,8 +213,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
     {error&&<Alert variant="destructive"><AlertTitle>Unable to load</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={()=>void load().catch(e=>setError(e.message))}>Retry</Button></AlertDescription></Alert>}
     {splitSide&&data&&!error&&<SharedBudgetPanel key={storedAllocation(data.plan,splitSide)??'unset'} side={splitSide} plan={data.plan} proposed={total} partnerProposed={Number(data.partnerProposed??0)} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
     {choosesUpFront(workstream)&&data&&!error&&<ActivitySelectionPanel key={JSON.stringify(data.plan.qualityActivities)} workstream={workstream} plan={data.plan} lines={savedLines} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
-    {data&&!data.canEdit&&<Alert><AlertTitle>Read-only</AlertTitle><AlertDescription>This component cannot be edited by your account at its current review stage</AlertDescription></Alert>}
-    <form id="activity-form" onSubmit={view==='budget'?save:e=>{e.preventDefault();if(picked.length)void mutate({entity:'school',action:'create',schoolIds:picked});}}><fieldset disabled={disabled}><FieldGroup>
+    <form id="activity-form" onSubmit={view==='budget'?save:e=>{e.preventDefault();if(picked.length)void mutate({entity:'school',action:'create',schoolIds:picked});}}><LockedOverlay reason={lockReason}><fieldset disabled={disabled}><FieldGroup>
      {view==='distribution'?<Field><FieldLabel htmlFor="school-search">Schools {required}</FieldLabel><Input id="school-search" type="search" placeholder="Search by school, LGA or level…" value={schoolQuery} onChange={e=>{setPinned(picked);setSchoolQuery(e.target.value);}}/>
       <div className="school-picker" role="group" aria-label="Schools to add"><label className="school-pick school-pick-all"><Checkbox checked={allPicked?true:somePicked?'indeterminate':false} disabled={disabled||!addable.length} onCheckedChange={v=>toggleAll(v===true)} aria-label="Select all matching schools"/><span>Select all{needle?' matching':''} ({count.format(addable.length)})</span>{picked.length>0&&<Badge variant="secondary" className="ml-auto">{count.format(picked.length)} selected</Badge>}</label>
        {matches.slice(0,pickerLimit).map(s=>{const on=listed.has(s.id);return <label key={s.id} className="school-pick" data-listed={on||undefined}><Checkbox checked={on||pickedSet.has(s.id)} disabled={disabled||on} onCheckedChange={v=>togglePick(s.id,v===true)} aria-label={`Select ${s.name}`}/><span className="school-option"><span>{s.name}</span><small>{s.lga} · {s.level}{s.enrolment?` · ${count.format(s.enrolment)} learners`:''}</small></span><span className="school-pick-badges">{renovated.has(s.id)&&!on&&<Badge variant="warning">Suggested · Renovated</Badge>}{renovated.has(s.id)&&on&&<Badge variant="warning">Renovated</Badge>}{on&&<Badge variant="outline">On the list</Badge>}</span></label>;})}
@@ -232,7 +240,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
       <LineDocumentsField workstream={workstream} activity={Number(draft.activity)} lineId={draft.id&&previous?.activity===Number(draft.activity)?draft.id:undefined} documents={previous?.documents??[]} pending={pendingDocs} onPendingChange={setPendingDocs} required={data?.documentsRequired===true} disabled={disabled} onChanged={async()=>{await load();}}/>
       {budgetError&&<Alert variant="destructive"><AlertTitle>Allocation limit</AlertTitle><AlertDescription>{budgetError}</AlertDescription></Alert>}
      </>}
-    </FieldGroup></fieldset></form>
+    </FieldGroup></fieldset></LockedOverlay></form>
    </div></ScrollArea><div className="editor-footer"><div className="line-total"><span>{view==='budget'?capped?'Sub-total':'Line total':'Distribution schools'}</span><strong>{view==='budget'?money.format((Math.round(Number(draft.unitCost||0)*100)*Number(draft.quantity||0))/100):data?.distribution.length??0}</strong></div><div className="footer-actions">{draft.id&&<><Button variant="ghost" disabled={busy} onClick={()=>guard(()=>reset())}>Cancel</Button><ButtonGroup className="activity-line-navigation" aria-label="Budget item navigation"><Button size="icon" variant="secondary" aria-label="Previous budget item" title="Previous budget item" disabled={disabled||selectedLineIndex<=0} onClick={()=>navigateLine(-1)}><ChevronLeftIcon/></Button><ButtonGroupSeparator/><Button size="icon" variant="secondary" aria-label="Next budget item" title="Next budget item" disabled={disabled||selectedLineIndex<0||selectedLineIndex===visibleLines.length-1} onClick={()=>navigateLine(1)}><ChevronRightIcon/></Button></ButtonGroup></>}{(()=>{const blocked=disabled||(view==='distribution'&&!picked.length)||(view==='budget'&&(!draftValid||!!timelineProblem))||!!budgetError;
    // A disabled button gets no hover, so the reason sits on a wrapper the pointer and keyboard can reach.
    const reason=blocked?saveBlockedReason({busy,canEdit:!!data?.canEdit,failed:!!error,needsIctAllocation:needsSplit,splitName:name,view:view==='distribution'?'distribution':'budget',pickedSchools:picked.length,issues:draftCheck.success?[]:draftCheck.error.issues,timelineError:timelineProblem,budgetError}):null;
