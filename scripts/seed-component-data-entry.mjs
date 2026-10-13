@@ -1,5 +1,5 @@
-// One Data Entry account per component for chosen SUBEBs, next to the state's existing Director, BEAP Chair and
-// Executive Chairman (scripts/seed-production-users.mjs). Each account gets the component's SUBEB department
+// One Data Entry account and one Director per component for chosen SUBEBs, next to the state's existing general
+// Director, BEAP Chair and Executive Chairman (scripts/seed-production-users.mjs). Each account gets the component's SUBEB department
 // (access is per department, so e.g. the four Academic Services accounts can all edit Sports, TLM, Curriculum and
 // Greening). Accounts that already exist are left alone, so re-runs only add what is missing.
 // Usage: node --env-file=.env scripts/seed-component-data-entry.mjs --states=DE,FC,BY [--yes] [--production-confirmed]
@@ -42,15 +42,18 @@ try {
     // The state's existing seeded domain (e.g. fct.subeb.test), so new accounts sit beside the current ones.
     const existing = (await db.query("SELECT email FROM users WHERE state_code=$1 AND email LIKE 'data.entry@%' LIMIT 1", [code])).rows[0]?.email;
     const domain = existing ? existing.split('@')[1] : `${state.name.toLowerCase().replace(/[^a-z0-9]+/g, '.')}.subeb.test`;
-    for (const [key, label, department] of components) {
-      const email = `${key}.data.entry@${domain}`, name = `${subebName(state)} Data Entry – ${label}`;
+    const accounts = components.flatMap(([key, label, department]) => [
+      { email: `${key}.data.entry@${domain}`, name: `${subebName(state)} Data Entry – ${label}`, role: 'Data Entry Staff', department },
+      { email: `${key}.director@${domain}`, name: `${subebName(state)} Director – ${label}`, role: 'Director', department },
+    ]);
+    for (const { email, name, role, department } of accounts) {
       const found = (await db.query('SELECT id, role FROM users WHERE email=$1', [email])).rows[0];
       if (found) { kept.push(`${name} <${email}>`); continue; }
       created.push(`${name} <${email}> · ${department}`);
       if (!apply) continue;
       const id = (await db.query(
-        `INSERT INTO users(email,full_name,role,department,state_code,password_hash,active) VALUES($1,$2,'Data Entry Staff',$3,$4,$5,TRUE) RETURNING id`,
-        [email, name, department, code, hash])).rows[0].id;
+        `INSERT INTO users(email,full_name,role,department,state_code,password_hash,active) VALUES($1,$2,$3,$4,$5,$6,TRUE) RETURNING id`,
+        [email, name, role, department, code, hash])).rows[0].id;
       await db.query('INSERT INTO user_departments(user_id,department) VALUES($1,$2)', [id, department]);
     }
   }
