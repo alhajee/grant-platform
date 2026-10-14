@@ -55,10 +55,10 @@ try {
   assert.equal(ok(await api("des", "/api/plans")).targetedSchools, 0, "Other states' schools must be excluded");
   assert.equal((await api("des", "/api/beap")).status, 404, "Opening an editor without a plan must not create one");
   const a = ok(await api("ec", "/api/plans", planForm(2026, [1, 2])), 201).plan.id;
-  const b = ok(await api("ec", "/api/plans", planForm(2027, [1])), 201).plan.id;
+  const b = ok(await api("ec", "/api/plans", planForm(2017, [1])), 201).plan.id;
   for (const path of ["/api/beap", "/api/infrastructure/packages", "/api/sports"]) {
     for (const id of [foreign, "invalid", 0, 999999999]) assert.equal((await api("des", `${path}?plan=${id}`)).status, 404, `${path}?plan=${id}`);
-    assert.equal(ok(await api("des", `${path}?plan=${b}`)).plan.endYear, 2027, path);
+    assert.equal(ok(await api("des", `${path}?plan=${b}`)).plan.endYear, 2017, path);
   }
 
   const sportsBody = { entity: "budget", action: "create", section: "equipment", activityType: "Football", description: "QA balls", quantity: 10, unitCost: 100.25 };
@@ -74,7 +74,7 @@ try {
   assert.equal((await api("des", `/api/sports?plan=${b}`, { ...allocation, action: "delete", id: allocated.id })).status, 404);
 
   const lineB = ok(await api("des", `/api/sports?plan=${b}`, { ...sportsBody, description: "QA kits", quantity: 4, unitCost: 250.25 }), 201);
-  assert.match(lineB.code, /\/2027 · Q1$/);
+  assert.match(lineB.code, /\/2017 · Q1$/);
   ok(await api("des", `/api/sports?plan=${b}`, { ...allocation, lineId: lineB.id }), 201);
   const overviewA = ok(await api("des", `/api/beap?plan=${a}`));
   const overviewB = ok(await api("des", `/api/beap?plan=${b}`));
