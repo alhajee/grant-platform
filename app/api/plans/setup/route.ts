@@ -14,6 +14,8 @@ import { formatQuarters } from '@/lib/format-quarters';
 import type { ActionPlan } from '@/lib/action-plans';
 import { quarterRemovalProblem } from '@/lib/line-quarters';
 import { readQuarterUsage } from '@/lib/line-quarters-db';
+import { deletePlan, planSentToUbec, sentToUbecMessage } from '@/lib/plan-delete';
+import { z } from 'zod';
 
 // Edits a plan's period and funding after creation (UBEC33). Anyone who may create plans can edit
 // them while the plan is still at the state; every saved change is written to the review history.
@@ -44,10 +46,12 @@ export async function GET(request: NextRequest) {
     if (!plan) return error('Action plan not found', 404);
     const allowed = canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair);
     const lockedReason = !allowed ? notAllowed : !statePlanOpen(plan.status) ? lockedMessage(plan.status) : null;
-    const [reserved, allProposed, quarterUsage, visible] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id), readQuarterUsage(db, plan.id), readStageVisibility(db, workspace, plan.id)]);
+    const [reserved, allProposed, quarterUsage, visible, sentToUbec] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id), readQuarterUsage(db, plan.id), readStageVisibility(db, workspace, plan.id), planSentToUbec(db, plan.id)]);
+    // Plan creators may delete a plan until it first reaches UBEC.
+    const deleteBlockedReason = !allowed ? null : sentToUbec ? sentToUbecMessage : null;
     // Proposed amounts only for components that have reached the viewer (lib/stage-visibility.ts); the save still checks them all.
     const proposed = Object.fromEntries(Object.entries(allProposed).filter(([component]) => (visible as readonly string[]).includes(component)));
-    return NextResponse.json({ plan, reserved, proposed, quarterUsage, allowed, canEdit: !lockedReason, lockedReason }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ plan, reserved, proposed, quarterUsage, allowed, canEdit: !lockedReason, lockedReason, canDelete: allowed && !deleteBlockedReason, deleteBlockedReason }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (cause) {
     console.error('Unable to load plan details', cause);
     return error('The plan details could not be loaded. Please try again.', 503);
@@ -124,5 +128,35 @@ export async function PATCH(request: NextRequest) {
     if ((cause as { code?: string }).code === '23505') return error('Those quarters already belong to another action plan', 409);
     console.error('Unable to update plan details', cause);
     return error('The plan details could not be saved. Please try again.', 503);
+  }
+}
+
+const deleteSchema = z.object({ plan: z.number().int().positive(), version: z.number().int().nonnegative() });
+
+/** Deletes a plan that has not been sent to UBEC, with everything recorded against it. Same people as editing it. */
+export async function DELETE(request: NextRequest) {
+  try {
+    if (!isSameRequestOrigin(request)) return error('This request must come from the BEAPMS portal', 403);
+    const workspace = await getWorkspaceState(request);
+    if (!workspace) return error('Sign in to delete this plan', 401);
+    const notAllowedToDelete = 'Only the Executive Chairman, the BEAP Chair or a colleague authorised to create plans can delete plans';
+    if (!canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair)) return error(notAllowedToDelete, 403);
+    const parsed = deleteSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return error('Choose a plan');
+    const input = parsed.data;
+    return await getPostgres().transaction(async db => {
+      const actor = (await db.query('SELECT full_name,email,role,can_create_plan,is_beap_chair FROM users WHERE id=$1 AND active AND session_version=$2 AND state_code=$3 FOR SHARE', [workspace.userId, workspace.sessionVersion, workspace.stateCode])).rows[0];
+      if (!actor || !canCreateStatePlan(actor.role, actor.can_create_plan, actor.is_beap_chair)) return error(notAllowedToDelete, 403);
+      const plan = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id=$1 AND state_code=$2 FOR UPDATE`, [input.plan, workspace.stateCode])).rows[0];
+      if (!plan) return error('Action plan not found', 404);
+      if (await planSentToUbec(db, plan.id)) return error(sentToUbecMessage, 409);
+      if (plan.version !== input.version) return error('This plan has changed since you opened it. Refresh and try again.', 409);
+      await deletePlan(db, plan.id);
+      console.info(`Plan ${plan.id} (${workspace.stateCode}, ${plan.startYear}) deleted by ${actor.full_name} <${actor.email}>`);
+      return NextResponse.json({ deleted: plan.id }, { headers: { 'Cache-Control': 'no-store' } });
+    });
+  } catch (cause) {
+    console.error('Unable to delete plan', cause);
+    return error('The plan could not be deleted. Please try again.', 503);
   }
 }

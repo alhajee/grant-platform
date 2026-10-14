@@ -6,6 +6,7 @@ import { SubebHeader } from '@/components/subeb-header';
 import { PlanStatusBadge } from '@/components/plan-status';
 import { PlanReviewContent } from '@/components/plan-review-content';
 import { EditPlanDialog } from '@/components/edit-plan-dialog';
+import { DeletePlanButton } from '@/components/plan-page/delete-plan-dialog';
 import { PlanSummary } from '@/components/plan-page/plan-summary';
 import { ComponentCards, type CardActions } from '@/components/plan-page/component-cards';
 import { WorkflowBar } from '@/components/plan-page/workflow-bar';
@@ -45,6 +46,7 @@ export default function PlanPage() {
   const [error, setError] = useState('');
   const [request, setRequest] = useState<ReviewRequest | null>(null);
   const [canEditSetup, setCanEditSetup] = useState(false);
+  const [deleteBlocked, setDeleteBlocked] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   // One toggle opens the funding details and the full status panel together, so the two cards stay level.
   const [detailsOpen, setDetailsOpen] = useState(false), [sendingToUbec, setSendingToUbec] = useState(false);
@@ -70,7 +72,7 @@ export default function PlanPage() {
   // Plan details (period and funding) can be edited by plan creators; the dialog explains any lock.
   useEffect(() => {
     if (!planId) return;
-    void fetch(`/api/plans/setup?plan=${planId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<{ allowed?: boolean }> : null).catch(() => null).then(setup => setCanEditSetup(Boolean(setup?.allowed)));
+    void fetch(`/api/plans/setup?plan=${planId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<{ allowed?: boolean; deleteBlockedReason?: string | null }> : null).catch(() => null).then(setup => { setCanEditSetup(Boolean(setup?.allowed)); setDeleteBlocked(setup?.deleteBlockedReason ?? null); });
   }, [planId]);
   // Notification links target a history entry (#review-event-N), which only exists once the review has loaded.
   useEffect(() => {
@@ -118,6 +120,7 @@ export default function PlanPage() {
         <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{plan && <PlanStatusBadge status={plan.status} />}</div><div className="review-actions">
           {data && !error && <div className="review-version"><Select value={selected} onValueChange={value => void load(value)} disabled={loading}><SelectTrigger id="submission-version" aria-label="Plan version" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">Current working plan</SelectItem>{data.submissions.map(s => <SelectItem key={s.number} value={String(s.number)}>Submission {s.number} · {date.format(new Date(s.createdAt))}</SelectItem>)}</SelectGroup></SelectContent></Select></div>}
           {data && !error && canEditSetup && <Button variant="outline" className="rounded-full" onClick={() => setEditing(true)}><PencilIcon data-icon="inline-start" />Edit plan</Button>}
+          {data && !error && canEditSetup && selected === 'current' && <DeletePlanButton planId={data.plan.id} version={data.plan.version} title={`${planPeriod(data.plan).replace(' · ', ' ')} BEAP`} blockedReason={deleteBlocked} />}
         </div></div>
       </div>
       {error && <Alert variant="destructive"><AlertTitle>Plan unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={() => load(selected)}>Try again</Button></AlertDescription></Alert>}
