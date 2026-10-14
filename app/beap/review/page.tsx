@@ -21,12 +21,12 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectI
 import { Skeleton } from '@/components/ui/skeleton';
 import { currentPlanHref, planHref, planPeriod, ubecStageLabels } from '@/lib/action-plans';
 import type { PlanReview } from '@/lib/plan-review';
-import { componentSections, implementedPillars, subebComponentDepartments as pillarDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
+import { componentSections, implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, hasDistribution } from '@/lib/activity-plans';
 import { componentSendProblem, mayEditPillar, statePlanOpen, type PillarReview } from '@/lib/pillar-review';
 import { summarizeSnapshot } from '@/lib/plan-summary';
 import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
-import { hasDepartment } from '@/lib/user-departments';
+import { holdsComponent } from '@/lib/component-access';
 import { usePlanComments } from '@/components/plan-workbook/comments-context';
 import { UbecResultsCard } from '@/components/plan-page/ubec-results';
 
@@ -96,7 +96,7 @@ export default function PlanPage() {
   // Request changes lives in each sheet's toolbar, for whoever currently holds that component.
   const holds = (review: PillarReview) => {
     if (!data || !open) return false;
-    if (data.role === 'Director' && !data.isBeapChair) return review.status === 'director_review' && hasDepartment(data.departments, pillarDepartments[review.pillar]);
+    if (data.role === 'Director' && !data.isBeapChair) return review.status === 'director_review' && holdsComponent(data.departments, review.pillar);
     if (data.role === 'Director' && data.isBeapChair) return review.status === 'beap_review';
     return data.role === 'Executive Chairman' && review.status === 'chairman_ready';
   };
@@ -104,7 +104,7 @@ export default function PlanPage() {
   const actionsFor = (review: PillarReview): CardActions => {
     const { pillar, status } = review, actions: CardActions = { editHref: editHref(pillar) };
     if (!data || !open) return actions;
-    const owns = hasDepartment(data.departments, pillarDepartments[pillar]);
+    const owns = holdsComponent(data.departments, pillar);
     // Nothing saved yet means nothing to send: the card then only offers its editor.
     if (data.role === 'Data Entry Staff' && owns && ['draft', 'changes_requested'].includes(status)) return nothingToSend(data, pillar) ? actions : { ...actions, step: { label: 'Send to Director', run: () => setRequest({ action: 'submit', pillar }), blocked: readiness(data, pillar) } };
     if (data.role === 'Director' && !data.isBeapChair && owns && status === 'director_review') return { ...actions, step: { label: 'Send to BEAP Chair', run: () => setRequest({ action: 'endorse', pillar }), blocked: readiness(data, pillar) } };

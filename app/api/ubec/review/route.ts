@@ -143,7 +143,8 @@ export async function POST(request: NextRequest) {
           const event = (await db.query(`INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,'general') RETURNING id`, [id, plan.submission_number, input.action === 'return' ? 'request_changes' : 'approve', user.full_name, user.email, user.role, input.comment])).rows[0];
           // The SUBEB hears about it: a return goes to the BEAP Chair (the Executive Chairman, who sent it, is told too);
           // an approval also reaches the Directors and Data Entry staff of the round's components.
-          const stateDepartments = input.action === 'approve' ? [...new Set(components.map(c => subebComponentDepartments[c.pillar]))] : [];
+          // Whole departments and single-component grants ("academic/sports", lib/component-access.ts) of the round's components.
+          const stateDepartments = input.action === 'approve' ? [...new Set(components.flatMap(c => [subebComponentDepartments[c.pillar], `${subebComponentDepartments[c.pillar]}/${c.pillar}`]))] : [];
           await db.query(`INSERT INTO plan_notifications(plan_id,user_id,event_id) SELECT $1,u.id,$2 FROM users u WHERE u.state_code=$3 AND u.active AND (u.role='Executive Chairman' OR u.is_beap_chair
             OR (u.role IN ('Director','Data Entry Staff') AND (u.department=ANY($4::text[]) OR EXISTS(SELECT 1 FROM user_departments ud WHERE ud.user_id=u.id AND ud.department=ANY($4::text[])))))`, [id, event.id, plan.state_code, stateDepartments]);
         }

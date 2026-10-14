@@ -21,7 +21,8 @@ import { readComponentDocumentsRequired } from '@/lib/component-documents-settin
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
 import { aggregateReviewStatus, readPillarReviews, readyForExecutiveChairman, readyForUbecSubmission, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
 import { readBeapChairSubmissionMode, readWorkflowSettings } from '@/lib/workflow-settings';
-import { hasDepartment, userDepartmentsSql } from '@/lib/user-departments';
+import { userDepartmentsSql } from '@/lib/user-departments';
+import { holdsComponent } from '@/lib/component-access';
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const command = z.object({ action: z.enum(['submit', 'request_changes', 'endorse', 'forward']), version: z.number().int().nonnegative(), comment: z.string().trim().max(5000).default(''), pillar: z.enum(implementedPillars).optional() }).strict();
@@ -96,18 +97,18 @@ export async function POST(request: NextRequest) {
       let recipientLabel: string;
       let recipients: {id:number}[];
       if (input.action === 'submit') {
-        if (actor.role !== 'Data Entry Staff' || !hasDepartment(actor.departments, department)) return error('Only assigned Data Entry Staff can send this component to the department Director', 403);
+        if (actor.role !== 'Data Entry Staff' || !holdsComponent(actor.departments, input.pillar)) return error('Only assigned Data Entry Staff can send this component to the department Director', 403);
         if (!['draft','changes_requested'].includes(current.status)) return error('This action is no longer available for this component', 409);
         status = 'director_review'; recipientLabel = 'department Director';
         recipients = (await db.query("SELECT DISTINCT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND u.active AND u.role='Director' AND NOT u.is_beap_chair AND ud.department=$2", [workspace.stateCode,department])).rows;
       } else if (input.action === 'endorse' && current.status === 'director_review') {
-        if (actor.role !== 'Director' || actor.is_beap_chair || !hasDepartment(actor.departments, department)) return error('Only this department’s assigned Director can send the component to the BEAP Chair', 403);
+        if (actor.role !== 'Director' || actor.is_beap_chair || !holdsComponent(actor.departments, input.pillar)) return error('Only this department’s assigned Director can send the component to the BEAP Chair', 403);
         status = 'beap_review'; recipientLabel = 'nominated BEAP Chair';
         recipients = (await db.query('SELECT id FROM users WHERE state_code=$1 AND active AND is_beap_chair', [workspace.stateCode])).rows;
       } else if (input.action === 'request_changes' && current.status === 'director_review') {
-        if (actor.role !== 'Director' || actor.is_beap_chair || !hasDepartment(actor.departments, department)) return error('Only this department’s assigned Director can return this component to Data Entry Staff', 403);
+        if (actor.role !== 'Director' || actor.is_beap_chair || !holdsComponent(actor.departments, input.pillar)) return error('Only this department’s assigned Director can return this component to Data Entry Staff', 403);
         status = 'changes_requested'; recipientLabel = 'department Data Entry Staff';
-        recipients = (await db.query("SELECT DISTINCT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND u.active AND u.role='Data Entry Staff' AND ud.department=$2", [workspace.stateCode,department])).rows;
+        recipients = (await db.query("SELECT DISTINCT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND u.active AND u.role='Data Entry Staff' AND ud.department IN ($2,$3)", [workspace.stateCode,department,`${department}/${input.pillar}`])).rows;
       } else if (input.action === 'request_changes' && current.status === 'beap_review') {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can return this component to its department Director', 403);
         status = 'director_review'; recipientLabel = 'department Director';

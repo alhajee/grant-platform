@@ -1,6 +1,7 @@
 import { subebComponentDepartments as pillarDepartments } from './beap-pillars';
-import type { PillarId } from './beap-pillars';
-import { hasDepartment, type DepartmentAccess } from './user-departments';
+import type { ImplementedPillar, PillarId } from './beap-pillars';
+import type { DepartmentAccess } from './user-departments';
+import { holdsComponent } from './component-access';
 
 export const subebRoles = ['Data Entry Staff', 'Director', 'Executive Chairman'] as const;
 export const canCreateStatePlan = (role: string, delegated = false, isBeapChair = false) =>
@@ -9,7 +10,7 @@ export const canManageStateUsers = (role?: string) => role === 'Director' || rol
 export const canManageRole = (actor: string, target: string) =>
   target === 'Data Entry Staff' ? canManageStateUsers(actor) : target === 'Director' && actor === 'Executive Chairman';
 export const canEditPillar = (role: string, departments: DepartmentAccess, pillar: PillarId) =>
-  (role === 'Data Entry Staff' || role === 'Director') && hasDepartment(departments, pillarDepartments[pillar]);
+  (role === 'Data Entry Staff' || role === 'Director') && pillar in pillarDepartments && holdsComponent(departments, pillar as ImplementedPillar);
 
 type Reader = { role: string; department?: string | null; departments?: string[]; isBeapChair?: boolean };
 export const canViewWholeStatePlan = (user: Reader) => user.role === 'Executive Chairman' || (user.role === 'Director' && user.isBeapChair === true);

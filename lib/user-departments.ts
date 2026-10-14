@@ -11,10 +11,11 @@ export function hasDepartment(value: DepartmentAccess, department: string) {
   return normalizeDepartments(value).includes(department);
 }
 
+/** Whether every requested entry is within the container: a department, or one of its components ("academic/sports"). */
 export function departmentsContain(container: DepartmentAccess, requested: DepartmentAccess) {
   const allowed = new Set(normalizeDepartments(container));
   const selection = normalizeDepartments(requested);
-  return selection.length > 0 && selection.every(department => allowed.has(department));
+  return selection.length > 0 && selection.every(entry => allowed.has(entry) || allowed.has(entry.split('/')[0]));
 }
 
 export function userDepartmentsSql(alias = 'users') {

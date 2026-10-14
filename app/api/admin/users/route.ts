@@ -8,6 +8,7 @@ import { subebDepartments } from '@/lib/subeb-departments';
 import { isComponentDepartment, ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
 import { officerLimitProblem, pruneDefaultOfficers } from '@/lib/ubec-officer-limits';
 import { normalizeDepartments, replaceUserDepartments, userDepartmentsSql } from '@/lib/user-departments';
+import { hasComponentGrants, normalizeAccess, tokenDepartment } from '@/lib/component-access';
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 const roles = z.enum(['Data Entry Staff', 'Director', 'Executive Chairman', ...ubecRoleList] as [string, ...string[]]);
@@ -40,14 +41,24 @@ function validProfile(input: z.infer<typeof profile>) {
   if (!roleMatchesWorkspace) return 'Choose a role that belongs to this workspace';
   const needsDepartment = ['Data Entry Staff', 'Director'].includes(input.role) || ubecRoleDepartments(input.role).length > 0;
   const allowedDepartments = ubec ? ubecRoleDepartments(input.role) : subebDepartments;
-  const selected = normalizeDepartments(input.departments?.length ? input.departments : input.department);
-  if (needsDepartment && (!selected.length || selected.some(department => !allowedDepartments.some(item => item.id === department)))) return 'Choose at least one valid department';
+  const raw = input.departments?.length ? input.departments : input.department;
+  // SUBEB access may name single components of a department ("academic/sports", lib/component-access.ts).
+  const selected = ubec ? normalizeDepartments(raw) : normalizeAccess(raw);
+  if (!selected) return 'Choose at least one valid department';
+  if (needsDepartment && (!selected.length || selected.some(entry => !allowedDepartments.some(item => item.id === tokenDepartment(entry))))) return 'Choose at least one valid department';
+  if (!ubec && input.role !== 'Data Entry Staff' && hasComponentGrants(selected)) return 'Directors are assigned whole departments. Only Data Entry Staff can be given single components.';
   if (ubec && needsDepartment && selected.length !== 1) return `A ${input.role} must have exactly one department`;
   if (!needsDepartment && selected.length) return 'This role is not assigned to a department';
   if (input.isBeapChair && (ubec || input.role !== 'Director')) return 'The BEAP Chair must be a SUBEB Director';
   if (input.canManageSchools && ubec) return 'School register access applies to SUBEB accounts only';
   return null;
 }
+
+/** The account's departments as stored: SUBEB access tidied by normalizeAccess, UBEC departments as given. */
+const accessFor = (input: { stateCode: string; departments?: string[]; department?: string | null }) => {
+  const raw = input.departments?.length ? input.departments : input.department;
+  return input.stateCode === 'UBEC' ? normalizeDepartments(raw) : normalizeAccess(raw) ?? [];
+};
 
 async function mutate(request: NextRequest, creating: boolean) {
   try {
@@ -67,7 +78,7 @@ async function mutate(request: NextRequest, creating: boolean) {
       if (!resetting) {
         const validationError = validProfile(input);
         if (validationError) return json({ error: validationError }, 400);
-        const selectedDepartments = normalizeDepartments(input.departments?.length ? input.departments : input.department);
+        const selectedDepartments = accessFor(input);
         if (target && input.stateCode !== target.stateCode) return json({ error: 'A user cannot be moved to another workspace. Create a new account instead.' }, 409);
         if (!target && !(await db.query("SELECT 1 FROM users WHERE state_code=$1 AND role<>'Super Admin' LIMIT 1", [input.stateCode])).rowCount) return json({ error: 'Choose an existing workspace' }, 400);
         const chair = input.isBeapChair ?? target?.isBeapChair ?? false;
@@ -88,13 +99,13 @@ async function mutate(request: NextRequest, creating: boolean) {
       let id = target?.id;
       if ('email' in input) {
         if ((await db.query('SELECT id FROM users WHERE email=$1', [input.email])).rowCount) return json({ error: 'An account already uses this email address' }, 409);
-        const selectedDepartments = normalizeDepartments(input.departments?.length ? input.departments : input.department);
+        const selectedDepartments = accessFor(input);
         id = (await db.query('INSERT INTO users(full_name,email,password_hash,role,department,state_code,active,can_create_plan,is_beap_chair,can_manage_schools) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id', [input.name, input.email, hashSync(password!, 10), input.role, selectedDepartments[0] || null, input.stateCode, input.active, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? false])).rows[0].id;
         await replaceUserDepartments(db, id, selectedDepartments);
       } else if (resetting) {
         await db.query('UPDATE users SET password_hash=$1,session_version=session_version+1 WHERE id=$2', [hashSync(password!, 10), id]);
       } else {
-        const selectedDepartments = normalizeDepartments(input.departments?.length ? input.departments : input.department);
+        const selectedDepartments = accessFor(input);
         await db.query('UPDATE users SET full_name=$1,role=$2,department=$3,active=$4,session_version=session_version+1,can_create_plan=$6,is_beap_chair=$7,can_manage_schools=$8 WHERE id=$5', [input.name, input.role, selectedDepartments[0] || null, input.active, id, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? target.canManageSchools]);
         await replaceUserDepartments(db, id!, selectedDepartments);
         // Default officer choices follow the account: none once it is deactivated, another role or department.

@@ -1,7 +1,8 @@
 import type { QueryResult, QueryResultRow } from 'pg';
-import { implementedPillars, subebComponentDepartments, type ImplementedPillar } from './beap-pillars';
+import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import { canViewComponent } from './subeb-access';
-import { hasDepartment, normalizeDepartments, type DepartmentAccess } from './user-departments';
+import { normalizeDepartments, type DepartmentAccess } from './user-departments';
+import { holdsComponent } from './component-access';
 
 /**
  * Stage-gated visibility: a component's details (lines, amounts, schools, documents, comments) reach a reviewer
@@ -52,7 +53,7 @@ export function requiredLevel(user: StageViewer, pillar: ImplementedPillar): Sta
   if (!canViewComponent({ role: user.role, departments: normalizeDepartments(user.departments ?? user.department), isBeapChair: user.isBeapChair }, pillar)) return null;
   if (user.role === 'Data Entry Staff') return 0;
   if (user.role === 'Executive Chairman') return 3;
-  if (user.role === 'Director') return user.isBeapChair && !hasDepartment(user.departments ?? user.department, subebComponentDepartments[pillar]) ? 2 : 1;
+  if (user.role === 'Director') return user.isBeapChair && !holdsComponent(user.departments ?? user.department, pillar) ? 2 : 1;
   return null;
 }
 

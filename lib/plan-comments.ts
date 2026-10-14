@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { ImplementedPillar } from './beap-pillars';
-import { subebComponentDepartments as pillarDepartments } from './beap-pillars';
 import { canViewComponent } from './subeb-access';
-import { hasDepartment, normalizeDepartments, type DepartmentAccess } from './user-departments';
+import { normalizeDepartments, type DepartmentAccess } from './user-departments';
+import { holdsComponent as grantsComponent } from './component-access';
 import type { Snapshot } from './plan-review';
 import { qualityIctActivityNames } from './activity-extras';
 
@@ -69,7 +69,7 @@ export const isStateReviewer = (user: Viewer) => user.role === 'Director' || use
 
 /** The reviewer who currently holds the component and may start new threads on it. */
 export function holdsComponent(user: Viewer, pillar: ImplementedPillar, status: string) {
-  if (status === 'director_review') return user.role === 'Director' && !user.isBeapChair && hasDepartment(departments(user), pillarDepartments[pillar]);
+  if (status === 'director_review') return user.role === 'Director' && !user.isBeapChair && grantsComponent(departments(user), pillar);
   if (status === 'beap_review') return user.role === 'Director' && user.isBeapChair === true;
   if (status === 'chairman_ready') return user.role === 'Executive Chairman';
   return false;
@@ -79,7 +79,7 @@ export type CommentAbilities = { start: boolean; reply: boolean; resolveAny: boo
 export function commentAbilities(user: Viewer, pillar: ImplementedPillar, status: string): CommentAbilities {
   const view = canViewComponent({ role: user.role, departments: normalizeDepartments(departments(user)), isBeapChair: user.isBeapChair }, pillar);
   const holder = view && holdsComponent(user, pillar, status);
-  const staff = user.role === 'Data Entry Staff' && hasDepartment(departments(user), pillarDepartments[pillar]);
+  const staff = user.role === 'Data Entry Staff' && grantsComponent(departments(user), pillar);
   return { start: holder, reply: view, resolveAny: view && (staff || holder), reopen: view && isStateReviewer(user) };
 }
 /**
@@ -89,7 +89,7 @@ export function commentAbilities(user: Viewer, pillar: ImplementedPillar, status
  */
 export function sharedUbecAbilities(user: Viewer, pillar: ImplementedPillar, status: string): CommentAbilities {
   const own = commentAbilities(user, pillar, status);
-  const staff = user.role === 'Data Entry Staff' && hasDepartment(departments(user), pillarDepartments[pillar]);
+  const staff = user.role === 'Data Entry Staff' && grantsComponent(departments(user), pillar);
   return { start: false, reply: own.reply, resolveAny: own.reply && (staff || own.start), reopen: false };
 }
 /** UBEC abilities on one visible component of an open round. The UBEC ES is supervisory and read-only. */

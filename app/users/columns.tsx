@@ -13,13 +13,14 @@ import { canManageRole } from '@/lib/subeb-access';
 import { DataTableColumnHeader as SortHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
 import { departmentsContain } from '@/lib/user-departments';
+import { accessLabel } from '@/lib/component-access';
 
 export type User = { id: number; name: string; email: string; role: string; department: string | null; departments: string[]; active: boolean; canCreatePlan: boolean; canManageSchools: boolean; isBeapChair: boolean };
 const helper = createColumnHelper<DataTableFeatures, User>();
 export const departmentLabel = (user: User) => {
   if (user.role === 'Executive Chairman') return 'Whole state';
   const assigned = user.departments ?? (user.department ? [user.department] : []);
-  return assigned.length === subebDepartments.length ? 'All departments' : assigned.map(value => departments.find(d => d.id === value)?.name ?? value).join(', ');
+  return subebDepartments.every(d => assigned.includes(d.id)) ? 'All departments' : accessLabel(assigned) || assigned.map(value => departments.find(d => d.id === value)?.name ?? value).join(', ');
 };
 
 export function userColumns(actorId: number, actorRole: string, actorDepartments: string[], onEdit: (user: User) => void, onReset: (user: User) => void) {

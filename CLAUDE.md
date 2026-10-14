@@ -351,6 +351,7 @@ DNEMIS is a DHIS2 server (`https://asc.education.gov.ng/dhis`, API at `<base>/ap
 - A Director can manage only staff whose department set is contained within the Director's own assignments.
 - The Executive Chairman can create Directors, nominate the one BEAP Chair, and delegate plan creation.
 - The BEAP Chair is visually identified in the account menu.
+- Component access (no migration, `lib/component-access.ts`): Data Entry Staff can be limited to single components of a department. A `user_departments` row is a whole department (`academic`) or one component (`academic/sports`); `normalizeAccess` validates and tidies a selection (a whole department drops its component rows, all components of a department become the department) and both Users APIs use it; Directors keep whole departments (400 otherwise). Every component check goes through `holdsComponent` (`canEditPillar`, the review route incl. the Data Entry recipients of a return, pending actions, comments, stage visibility, the plan page, UBEC approval notices); `departmentsContain` lets a Director manage accounts holding components of their departments. The Users dialogs (`components/department-checkboxes.tsx`, `components`) list the components of Physical Planning and Academic Services under them for Data Entry Staff; lists show "Academic Services (Sports, TLM)" (`accessLabel`). Test: `node --env-file=.env scripts/test-component-access.mjs [baseUrl]`.
 - Important files:
   - `db/postgres/024-user-departments.sql`
   - `lib/user-departments.ts`

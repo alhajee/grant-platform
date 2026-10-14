@@ -1,5 +1,5 @@
-import { componentSections, implementedPillars, subebComponentDepartments as pillarDepartments, type ImplementedPillar } from '@/lib/beap-pillars';
-import { hasDepartment } from '@/lib/user-departments';
+import { componentSections, implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
+import { holdsComponent } from '@/lib/component-access';
 
 export type PendingAction = { label: string; href: string };
 export type PillarReviewRow = { plan_id: number; pillar: ImplementedPillar; status: string };
@@ -15,7 +15,7 @@ export function pendingActionsFor(workspace: Worker, plan: { id: number; status:
   for (const pillar of implementedPillars) {
     const status = statusOf(pillar);
     const name = componentSections[pillar][0].name;
-    const owns = hasDepartment(workspace.departments, pillarDepartments[pillar]);
+    const owns = holdsComponent(workspace.departments, pillar);
     if (owns && workspace.role === 'Director' && status === 'director_review') actions.push({ label: `Review ${name}`, href: `/beap/review?plan=${plan.id}#review-${pillar}` });
     if (owns && workspace.role === 'Data Entry Staff' && ['draft', 'changes_requested'].includes(status)) actions.push({ label: `${status === 'changes_requested' ? 'Address feedback on' : 'Complete'} ${name}`, href: `${componentSections[pillar][0].href}?plan=${plan.id}` });
     if (workspace.role === 'Director' && workspace.isBeapChair && status === 'beap_review') actions.push({ label: `BEAP Chair review: ${name}`, href: `/beap/review?plan=${plan.id}#review-${pillar}` });
