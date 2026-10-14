@@ -60,7 +60,7 @@ try {
   // Supervision & Monitoring: Physical Planning, four activities, envelope ceiling.
   fails(await api('academic', url('monitoring')), 403);
   fails(await api('academic', url('monitoring'), line('monitoring', 0, 100)), 403);
-  fails(await api('physical', url('monitoring'), line('monitoring', 5, 100)), 400, /valid allowable activity/);
+  fails(await api('physical', url('monitoring'), line('monitoring', 6, 100)), 400, /valid allowable activity/);
   fails(await api('physical', url('monitoring'), line('monitoring', 0, 100, { description: '' })), 400);
   fails(await api('physical', url('monitoring'), line('monitoring', 0, 100, { strategy: '' })), 400);
   ok(await api('physical', url('monitoring'), line('monitoring', 0, 1500, { quantity: 2 })));

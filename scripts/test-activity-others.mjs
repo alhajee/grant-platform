@@ -37,7 +37,7 @@ async function user(key, role, departments, chair = false) {
 const components = [
   { workstream: 'sbmc', who: 'social', others: 16, plain: 0 },
   { workstream: 'tlm', who: 'academic', others: 22, plain: 6 },
-  { workstream: 'monitoring', who: 'physical', others: 4, plain: 0 },
+  { workstream: 'monitoring', who: 'physical', others: 5, plain: 0 },
   { workstream: 'gscci', who: 'academic', others: 9, plain: 0 },
   { workstream: 'curriculum', who: 'academic', others: 4, plain: 1 },
   { workstream: 'ict', who: 'ict', others: 9, plain: 1 },
