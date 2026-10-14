@@ -16,7 +16,7 @@ const sortColumns: Record<RegisterSort, string> = {
   name: 'lower(name)', lga: 'lower(lga)', level: 'level', learners: '(enrolment_male + enrolment_female)', updated: 'updated_at',
 };
 
-/** One page of the state's school register with facet counts over the whole state (managers only). */
+/** One page of the state's school list with facet counts over the whole state (managers only). */
 export async function GET(request: NextRequest) {
   try {
     const auth = await registerActor(request);
@@ -53,8 +53,8 @@ export async function GET(request: NextRequest) {
       return noStoreJson({ items, total, page: served, pageSize, facets });
     });
   } catch (cause) {
-    console.error('School register list failed', cause);
-    return noStoreJson({ error: 'Unable to load the school register' }, 503);
+    console.error('School list failed', cause);
+    return noStoreJson({ error: 'Unable to load the school list' }, 503);
   }
 }
 
@@ -88,8 +88,8 @@ async function save(request: NextRequest, creating: boolean) {
       return noStoreJson({ school }, creating ? 201 : 200);
     }), workspace.stateCode);
   } catch (cause) {
-    if ((cause as { code?: string }).code === '23505') return noStoreJson({ error: 'This school is already in the register' }, 409);
-    console.error('School register save failed', cause);
+    if ((cause as { code?: string }).code === '23505') return noStoreJson({ error: 'This school is already in the list' }, 409);
+    console.error('School list save failed', cause);
     return noStoreJson({ error: 'The school could not be saved. Please try again.' }, 503);
   }
 }
@@ -123,7 +123,7 @@ export async function DELETE(request: NextRequest) {
     }), workspace.stateCode);
   } catch (cause) {
     if ((cause as { code?: string }).code === '23503') return noStoreJson({ error: 'A selected school was just added to a plan. Please try again.' }, 409);
-    console.error('School register delete failed', cause);
+    console.error('School list delete failed', cause);
     return noStoreJson({ error: 'The schools could not be deleted. Please try again.' }, 503);
   }
 }

@@ -52,7 +52,7 @@ async function mutate(request: NextRequest, creating: boolean) {
         if (chair && (input.role !== 'Director' || !selectedDepartments.length)) return fail('The BEAP Chair must be a department Director');
         if (chair && (await db.query('SELECT id FROM users WHERE state_code=$1 AND is_beap_chair AND id<>$2', [workspace.stateCode,target?.id ?? 0])).rowCount) return fail('This state already has a BEAP Chair. Remove the existing appointment before nominating another Director.',409);
         if (input.canCreatePlan !== undefined && actor.role !== 'Executive Chairman') return fail('Only the Executive Chairman can grant or revoke plan creation', 403);
-        if (input.canManageSchools !== undefined && actor.role !== 'Executive Chairman') return fail('Only the Executive Chairman can grant or revoke school register access', 403);
+        if (input.canManageSchools !== undefined && actor.role !== 'Executive Chairman') return fail('Only the Executive Chairman can grant or revoke school list access', 403);
         if (!canManageRole(actor.role, input.role)) return fail('Only the Executive Chairman can appoint a Director', 403);
         if (!selectedDepartments.length || selectedDepartments.some(entry => !departments.some(d => d.id === tokenDepartment(entry)))) return fail('Choose at least one valid department for this user');
         if (input.role !== 'Data Entry Staff' && hasComponentGrants(selectedDepartments)) return fail('Directors are assigned whole departments. Only Data Entry Staff can be given single components.');

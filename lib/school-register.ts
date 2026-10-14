@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Shared by the School register page, the plan-creation "new schools" step and /api/schools.
+// Shared by the School list page, the plan-creation "new schools" step and /api/schools.
 // Public pre-primary, primary and JSS schools come from DNEMIS (lib/dnemis-sync.ts, `dnemis: true`); managers can
 // still add and edit schools by hand. The sync overwrites the DNEMIS fields of DNEMIS schools and never touches the rest.
 
@@ -50,7 +50,7 @@ export const schoolGapLabels: Record<SchoolGap, string> = { coordinates: 'Missin
 /** Most schools one bulk action (or "select all matching") can cover; the largest state has about 7,000. */
 export const maxSelection = 20000;
 export type RegisterPage = { items: RegisterSchool[]; total: number; page: number; pageSize: number; facets: RegisterFacets };
-/** `manualEntry`: the user may add, edit, delete and import schools (a manager, and the register source allows hand changes). */
+/** `manualEntry`: the user may add, edit, delete and import schools (a manager, and the list source allows hand changes). */
 export type RegisterOptions = { canManage: boolean; manualEntry: boolean; source: 'dnemis_only' | 'dnemis_and_manual'; stateName: string; lgas: string[] };
 export type ImportIssue = { row: number; name: string; messages: string[] };
 export type ImportDuplicate = { row: number; name: string; reason: string };
@@ -138,7 +138,7 @@ export function canonicalLevel(value: string) {
 }
 export const canonicalOption = <T extends string>(options: readonly T[], value: string) => options.find(option => sameText(option, value)) ?? collapseSpaces(value);
 
-/** A school register API path; the Super Admin's national register adds the chosen `state`. */
+/** A school list API path; the Super Admin's national register adds the chosen `state`. */
 export function schoolApiPath(path: string, stateCode?: string) {
   if (!stateCode) return path;
   const url = new URL(path, 'http://register.local');

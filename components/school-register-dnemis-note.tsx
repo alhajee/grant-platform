@@ -1,17 +1,14 @@
+'use client';
 import { DatabaseIcon } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Banner } from '@/components/ui/banner';
 import { Button } from '@/components/ui/button';
 
-/** Shown above the School register while schools come from DNEMIS only (Admin > Settings > School register source). */
+/** Banner above the School list while schools come from DNEMIS only (Admin > Settings > School list source); dismissible per browser. */
 export function DnemisOnlyNote({ admin = false }: { admin?: boolean }) {
-  return <Alert>
-    <DatabaseIcon />
-    <AlertTitle>Schools come from DNEMIS</AlertTitle>
-    <AlertDescription>
-      {admin
-        ? 'Adding, editing, deleting and bulk-importing schools by hand is turned off. The register is kept up to date by the DNEMIS sync. You can still export schools.'
-        : 'Adding or changing schools by hand is turned off by the administrator. The register is kept up to date from DNEMIS. You can still search and export schools.'}
-      {admin && <Button asChild variant="outline" size="sm"><a href="/admin?section=schools">Change in Settings</a></Button>}
-    </AlertDescription>
-  </Alert>;
+  return <Banner tone="info" icon={<DatabaseIcon />} title="Schools come from DNEMIS" dismissible dismissKey={`beapms:dnemis-note-dismissed:${admin ? 'admin' : 'state'}`}
+    action={admin && <Button asChild variant="secondary" size="sm" className="h-7 rounded-full"><a href="/admin?section=schools">Change in Settings</a></Button>}>
+    {admin
+      ? 'Adding, editing, deleting and bulk-importing schools by hand is turned off. The list is kept up to date by the DNEMIS sync. You can still export schools.'
+      : 'Adding or changing schools by hand is turned off by the administrator. The list is kept up to date from DNEMIS. You can still search and export schools.'}
+  </Banner>;
 }

@@ -13,7 +13,7 @@ import { manualSchoolsAllowed, manualSchoolsOffMessage } from './school-register
 export const noStoreJson = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 export const registerFieldsSql = `id, school_code AS "schoolCode", name, town, ward, dnemis_id IS NOT NULL AS dnemis, lga, level, levels_offered AS levels, category, location, latitude, longitude,
   enrolment_male AS male, enrolment_female AS female, enrolment_by_class AS enrolment, updated_at AS "updatedAt", updated_by_name AS "updatedBy"`;
-export const managerMessage = 'Only the Executive Chairman, the BEAP Chair or staff they authorise can manage the school register';
+export const managerMessage = 'Only the Executive Chairman, the BEAP Chair or staff they authorise can manage the school list';
 /** Clears the state's cached school lists once a successful change has committed. */
 export async function afterSchoolChange(response: NextResponse, stateCode: string) {
   if (response.ok) await invalidateSchoolLists([stateCode]);
@@ -21,15 +21,15 @@ export async function afterSchoolChange(response: NextResponse, stateCode: strin
 }
 type Workspace = NonNullable<Awaited<ReturnType<typeof getWorkspaceState>>>;
 /**
- * The register a request works on. `stateCode` is the user's own state; for a Super Admin it is the
+ * The list a request works on. `stateCode` is the user's own state; for a Super Admin it is the
  * validated `?state=` they chose (`superAdmin` set). State users' `?state=` is ignored.
  */
 export type RegisterWorkspace = Workspace & { superAdmin?: true };
 export const superAdminRole = 'Super Admin';
 
 /**
- * Signed-in state user (writes: same origin) who may manage the register; `allowViewer` returns non-managers too. A Super Admin manages any state chosen with `?state=`.
- * `manual` marks a hand change (add, edit, delete, import): refused with 409 while the register source is DNEMIS only (migration 046).
+ * Signed-in state user (writes: same origin) who may manage the list; `allowViewer` returns non-managers too. A Super Admin manages any state chosen with `?state=`.
+ * `manual` marks a hand change (add, edit, delete, import): refused with 409 while the list source is DNEMIS only (migration 046).
  */
 export async function registerActor(request: NextRequest, { write = false, allowViewer = false, manual = false } = {}): Promise<{ error: NextResponse } | { workspace: RegisterWorkspace; canManage: boolean }> {
   const result = await registerActorFor(request, write || manual, allowViewer);
@@ -47,7 +47,7 @@ async function registerActorFor(request: NextRequest, write: boolean, allowViewe
     if (!isStateCode(stateCode)) return { error: noStoreJson({ error: 'Choose a state' }, 400) };
     return { workspace: { ...workspace, stateCode, superAdmin: true }, canManage: true };
   }
-  if (!(subebRoles as readonly string[]).includes(workspace.role)) return { error: noStoreJson({ error: 'The school register belongs to SUBEB workspaces' }, 403) };
+  if (!(subebRoles as readonly string[]).includes(workspace.role)) return { error: noStoreJson({ error: 'The school list belongs to SUBEB workspaces' }, 403) };
   const canManage = canManageSchoolRegister(workspace.role, workspace.isBeapChair, workspace.canManageSchools);
   if (!canManage && !allowViewer) return { error: noStoreJson({ error: managerMessage }, 403) };
   return { workspace, canManage };
@@ -68,7 +68,7 @@ export async function stateLgas(db: Client, stateCode: string) {
   return cachedSchoolList(stateCode, 'lgas', async () => (await db.query<{ lga: string }>('SELECT DISTINCT lga FROM schools WHERE state_code=$1 AND lga<>\'\' ORDER BY lga', [stateCode])).rows.map(row => row.lga));
 }
 
-/** Uses the register's spelling of an LGA; unknown LGAs are rejected once the state has any. */
+/** Uses the list's spelling of an LGA; unknown LGAs are rejected once the state has any. */
 export function matchLga(lgas: string[], value: string) {
   const wanted = collapseSpaces(value).toLowerCase();
   return lgas.find(lga => collapseSpaces(lga).toLowerCase() === wanted) ?? (lgas.length ? null : collapseSpaces(value));
@@ -115,7 +115,7 @@ export function validateImportRow(row: ParsedSchoolRow, lgas: string[]): { input
 export const identityKey = (school: { name: string; lga: string; level: string }) => [school.name, school.lga, school.level].map(value => collapseSpaces(value).toLowerCase()).join('|');
 
 /**
- * Finds the register school a new or edited school would duplicate (same code, or same name, LGA and level).
+ * Finds the list school a new or edited school would duplicate (same code, or same name, LGA and level).
  * DNEMIS lists some schools with the same name in one LGA, so editing a DNEMIS school checks the code only.
  */
 export async function findConflict(db: Client, stateCode: string, input: SchoolInput, exceptId = 0, checkName = true) {
@@ -124,5 +124,5 @@ export async function findConflict(db: Client, stateCode: string, input: SchoolI
       OR ($7 AND lower(regexp_replace(btrim(name),'\\s+',' ','g'))=lower($4) AND lower(btrim(lga))=lower($5) AND level=$6)) ORDER BY (school_code IS NOT DISTINCT FROM $3) DESC LIMIT 1`,
     [stateCode, exceptId, input.schoolCode, input.name, input.lga, input.level, checkName])).rows[0];
   if (!found) return null;
-  return input.schoolCode && found.school_code === input.schoolCode ? `School code ${input.schoolCode} is already used by ${found.name}.` : `${found.name} (${found.lga}, ${found.level}) is already in the register.`;
+  return input.schoolCode && found.school_code === input.schoolCode ? `School code ${input.schoolCode} is already used by ${found.name}.` : `${found.name} (${found.lga}, ${found.level}) is already in the list.`;
 }

@@ -1,6 +1,6 @@
 import type { QueryResult, QueryResultRow } from 'pg';
 
-/** Where the school register comes from (Super Admin, platform-wide; migration 046). */
+/** Where the school list comes from (Super Admin, platform-wide; migration 046). */
 export const schoolRegisterSources = ['dnemis_only', 'dnemis_and_manual'] as const;
 export type SchoolRegisterSource = typeof schoolRegisterSources[number];
 /** Also used when the GLOBAL settings row (or the column) is missing, so a reset never reopens manual entry. */

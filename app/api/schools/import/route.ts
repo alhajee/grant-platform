@@ -29,7 +29,7 @@ async function uploadedFile(request: NextRequest) {
 }
 
 type Ready = { row: number; input: SchoolInput };
-/** Validates every row, then splits valid rows into new schools and duplicates (in the file or already in the register). */
+/** Validates every row, then splits valid rows into new schools and duplicates (in the file or already in the list). */
 async function classify(db: Client, stateCode: string, bytes: ArrayBuffer) {
   const rows = await readSchoolRows(bytes);
   const lgas = await stateLgas(db, stateCode);
@@ -47,8 +47,8 @@ async function classify(db: Client, stateCode: string, bytes: ArrayBuffer) {
     if (codeRow || keyRow) { errors.push({ row: row.row, name, messages: [`Same school as row ${codeRow ?? keyRow} of this file`] }); continue; }
     if (input.schoolCode) seenCode.set(input.schoolCode, row.row);
     seenKey.set(key, row.row);
-    if (input.schoolCode && byCode.has(input.schoolCode)) { duplicates.push({ row: row.row, name: input.name, reason: `School code ${input.schoolCode} is already in the register (${byCode.get(input.schoolCode)})` }); continue; }
-    if (byKey.has(key)) { duplicates.push({ row: row.row, name: input.name, reason: `Already in the register as ${byKey.get(key)} (${input.lga}, ${input.level})` }); continue; }
+    if (input.schoolCode && byCode.has(input.schoolCode)) { duplicates.push({ row: row.row, name: input.name, reason: `School code ${input.schoolCode} is already in the list (${byCode.get(input.schoolCode)})` }); continue; }
+    if (byKey.has(key)) { duplicates.push({ row: row.row, name: input.name, reason: `Already in the list as ${byKey.get(key)} (${input.lga}, ${input.level})` }); continue; }
     ready.push({ row: row.row, input });
   }
   return { rows: rows.length, ready, duplicates, errors };

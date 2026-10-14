@@ -1,4 +1,4 @@
-// DNEMIS -> School register sync. Imports PUBLIC pre-primary, primary and JSS schools (the two yearly census forms)
+// DNEMIS -> School list sync. Imports PUBLIC pre-primary, primary and JSS schools (the two yearly census forms)
 // for each state, with enrolment by class, facilities and teachers from the latest census year that has data.
 // * Schools are matched on dnemis_id (DHIS2 org unit id); a hand-added school with the same school code is adopted.
 // * Only DNEMIS fields are written; schools without dnemis_id (added by hand) are never changed. Town and
@@ -141,7 +141,7 @@ async function stateSchools(ctx: Context, stateId: string) {
 
 type ExistingRow = { id: number; dnemis_id: string | null; school_code: string | null; location: string };
 
-/** Resolves school codes (unique per state) and locations against the register, and finds hand-added schools to adopt. */
+/** Resolves school codes (unique per state) and locations against the list, and finds hand-added schools to adopt. */
 function planWrites(records: SyncedSchool[], existing: ExistingRow[]) {
   const byDnemis = new Map(existing.filter(row => row.dnemis_id).map(row => [row.dnemis_id!, row]));
   const codeOwner = new Map(existing.filter(row => row.school_code).map(row => [row.school_code!, row]));

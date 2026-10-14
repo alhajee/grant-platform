@@ -23,15 +23,15 @@ export default function SchoolsPage() {
       const response = await fetch('/api/schools/options', { cache: 'no-store' });
       if (response.status === 401) { window.location.replace('/'); return; }
       const body = await response.json().catch(() => ({})) as RegisterOptions & { error?: string };
-      if (!response.ok) throw Error(body.error || 'Unable to load the school register');
+      if (!response.ok) throw Error(body.error || 'Unable to load the school list');
       setOptions(body);
-      // "Update in the School register" links from the plan editors open one school directly.
+      // "Update in the School list" links from the plan editors open one school directly.
       const editId = Number(new URLSearchParams(window.location.search).get('edit'));
       if (Number.isInteger(editId) && editId > 0) {
         const found = await fetch(`/api/schools?id=${editId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<RegisterPage> : null).catch(() => null);
         if (found?.items[0]) setEditing(found.items[0]);
       }
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load the school register'); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load the school list'); }
   }, []);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
   const refresh = () => setRefreshKey(value => value + 1);
@@ -39,11 +39,11 @@ export default function SchoolsPage() {
 
   return <div className="dashboard-page"><SubebHeader schools /><main className="state-users-main">
     <div className="state-users-heading">
-      <div><p className="text-muted-foreground">{options?.stateName ?? 'SUBEB'}</p><h1>School register</h1></div>
+      <div><p className="text-muted-foreground">{options?.stateName ?? 'SUBEB'}</p><h1>School list</h1></div>
       {options?.manualEntry && <div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => setBulk(true)}><FileUpIcon data-icon="inline-start" />Bulk entry</Button><Button onClick={() => setEditing('new')}><PlusIcon data-icon="inline-start" />Add school</Button></div>}
     </div>
-    {error && <Alert variant="destructive"><AlertTitle>School register unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={load}>Try again</Button></AlertDescription></Alert>}
-    {!options && !error ? <Skeleton className="h-80 w-full" /> : options && !options.canManage ? <Alert><AlertTitle>School register access</AlertTitle><AlertDescription>Only the Executive Chairman, the BEAP Chair or staff they authorise can manage your state&apos;s schools.<Button asChild variant="outline"><a href="/dashboard">Back to plans</a></Button></AlertDescription></Alert>
+    {error && <Alert variant="destructive"><AlertTitle>School list unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={load}>Try again</Button></AlertDescription></Alert>}
+    {!options && !error ? <Skeleton className="h-80 w-full" /> : options && !options.canManage ? <Alert><AlertTitle>School list access</AlertTitle><AlertDescription>Only the Executive Chairman, the BEAP Chair or staff they authorise can manage your state&apos;s schools.<Button asChild variant="outline"><a href="/dashboard">Back to plans</a></Button></AlertDescription></Alert>
       : options && <>{!options.manualEntry && <DnemisOnlyNote />}<SchoolRegisterTable refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} onView={options.manualEntry ? undefined : setEditing} /></>}
     <Dialog open={Boolean(editing)} onOpenChange={open => { if (!open) closeEdit(); }}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">

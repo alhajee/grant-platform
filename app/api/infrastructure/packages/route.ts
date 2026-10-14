@@ -35,7 +35,7 @@ export async function GET(req:NextRequest){
    db.query('SELECT d.id,d.kind,d.name,d.size,d.school_id AS "schoolId",s.name AS "schoolName" FROM infrastructure_documents d LEFT JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.removed_at IS NULL ORDER BY d.created_at',[plan.id]),readPillarReviews(db,plan.id)]);
   // Infrastructure shares its pool with TLM (split or shared, by the platform mode): the editor shows what TLM's lines already propose
   // (tlmProposed, also as partnerProposed like the activity editors).
-  // While schools come from DNEMIS only, nobody is offered the School register edit link.
+  // While schools come from DNEMIS only, nobody is offered the School list edit link.
   const manualSchools=await manualSchoolsAllowed(db);
   const tlmProposed=(await db.query<{total:string}>("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='tlm'",[plan.id])).rows[0].total;
   // documentsRequired: the Super Admin's Supporting documents setting (migration 052); land documents are required either way.
@@ -51,7 +51,7 @@ export async function POST(req:NextRequest){
   if(!command.success)return error('Invalid package action');
   const v=command.data;
   return await mutatePlan(user,plan,'infrastructure',async db=>{
-   // School enrolment and coordinates are edited only in the School register (/api/schools, UBEC07).
+   // School enrolment and coordinates are edited only in the School list (/api/schools, UBEC07).
    const prior=v.id?(await db.query('SELECT * FROM infrastructure_packages WHERE id=$1 AND plan_id=$2 FOR UPDATE',[v.id,plan.id])).rows[0]:null;
    if(v.id&&!prior)return error('Package not found',404);
    // A new package repeated with the same client key (the first reply was lost) returns the package already saved,
@@ -74,7 +74,7 @@ export async function POST(req:NextRequest){
    const base={...(parsed.data.kind==='new'?{...parsed.data,targeting:'nonhope' as const}:parsed.data),quarters:timeline.quarters,...dated.dates};
    const school=(await db.query(`SELECT ${schoolFields} FROM schools WHERE id=$1 AND state_code=$2 FOR SHARE`,[base.schoolId,user.stateCode])).rows[0];
    if(!school)return error('Select a school from your state register',404);
-   // School components are read-only: always taken from the School register.
+   // School components are read-only: always taken from the School list.
    const draft={...base,components:schoolComponents(school)};
    const facts=schoolFacts(school);
    const problem=packageProblem(draft,facts);if(problem)return error(problem);

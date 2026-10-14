@@ -63,7 +63,7 @@ export function useSchoolActions({ onDeleted, stateCode }: { onDeleted: (result:
     <AlertDialogContent>
       <AlertDialogHeader>
         <AlertDialogTitle className="break-words">{pending?.title}</AlertDialogTitle>
-        <AlertDialogDescription>{pending?.ids.length === 1 ? 'It is' : 'They are'} removed from your state&apos;s School register. Schools already used in a plan are kept. This cannot be undone.</AlertDialogDescription>
+        <AlertDialogDescription>{pending?.ids.length === 1 ? 'It is' : 'They are'} removed from your state&apos;s School list. Schools already used in a plan are kept. This cannot be undone.</AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel disabled={!!busy}>Cancel</AlertDialogCancel>

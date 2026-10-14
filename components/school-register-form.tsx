@@ -22,7 +22,7 @@ export type SchoolEntryFormProps = {
   saveLabel?: string;
   /** The state a Super Admin is editing; state users omit it. */
   stateCode?: string;
-  /** Show the school's details without letting them change (School register source "DNEMIS only"). */
+  /** Show the school's details without letting them change (School list source "DNEMIS only"). */
   readOnly?: boolean;
 };
 
@@ -32,7 +32,7 @@ const formFor = (school?: RegisterSchool | null): Form => ({ schoolCode: school?
 const count = (value: string) => value.trim() === '' ? 0 : Number(value);
 
 /**
- * Single school entry for the School register and the plan-creation step. It renders no <form>
+ * Single school entry for the School list and the plan-creation step. It renders no <form>
  * element, so it can sit inside another form (the plan dialog); Enter in a text field saves.
  */
 export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, stateCode, readOnly = false }: SchoolEntryFormProps) {
@@ -64,7 +64,7 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, st
         if (body.issues?.length) setErrors(Object.fromEntries(body.issues.map(issue => [issue.field, issue.message])));
         throw Error(body.error || 'The school could not be saved');
       }
-      toast.success(school ? 'School updated' : `${body.school.name} added to the register`);
+      toast.success(school ? 'School updated' : `${body.school.name} added to the list`);
       if (!school) { setForm(formFor(null)); setGrid(blankGrid()); }
       onSaved(body.school);
     } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'The school could not be saved'); }
@@ -98,7 +98,7 @@ export function SchoolEntryForm({ school, lgas, onSaved, onCancel, saveLabel, st
     </FieldGroup>
     <FieldSet>
       <FieldLegend>Enrolment by class</FieldLegend>
-      {school && !readOnly && !hasBreakdown && (school.male + school.female > 0) && <FieldDescription>The register holds {school.male.toLocaleString()} male and {school.female.toLocaleString()} female learners without a class breakdown. Leave the table empty to keep these totals, or enter every class to replace them.</FieldDescription>}
+      {school && !readOnly && !hasBreakdown && (school.male + school.female > 0) && <FieldDescription>The list holds {school.male.toLocaleString()} male and {school.female.toLocaleString()} female learners without a class breakdown. Leave the table empty to keep these totals, or enter every class to replace them.</FieldDescription>}
       <div className="overflow-hidden rounded-md border">
         <Table>
           <TableHeader><TableRow><TableHead>Class</TableHead><TableHead className="w-28">Male</TableHead><TableHead className="w-28">Female</TableHead><TableHead className="w-20 text-right">Total</TableHead></TableRow></TableHeader>

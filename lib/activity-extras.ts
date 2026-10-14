@@ -71,7 +71,7 @@ export const isCompulsory = (workstream: string, activity: number) => (compulsor
 export const retiredActivities: Partial<Record<string, readonly number[]>> = { quality: [5, 12] };
 export const isRetiredActivity = (workstream: string, activity: number) => (retiredActivities[workstream] ?? []).includes(activity);
 
-/** Activities whose lines choose schools from the state's School register (at least one per line). */
+/** Activities whose lines choose schools from the state's School list (at least one per line). */
 export const lineSchoolActivities: Partial<Record<string, readonly number[]>> = { ict: [2, 4, 8] };
 export const hasLineSchools = (workstream: string, activity: number) => (lineSchoolActivities[workstream] ?? []).includes(activity);
 export const maxLineSchools = 2000;

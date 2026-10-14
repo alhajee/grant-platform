@@ -61,7 +61,7 @@ export function userColumns(actorId: number, actorRole: string, actorDepartments
     }),
     helper.accessor(user => user.role === 'Executive Chairman' || (user.role === 'Director' && user.isBeapChair) || user.canManageSchools ? 'Allowed' : '—', {
       id: 'schoolRegister',
-      header: ({ column }) => <SortHeader column={column} title="School register" />,
+      header: ({ column }) => <SortHeader column={column} title="School list" />,
       sortFn: 'text',
     }),
     helper.accessor(user => user.active ? 'Active' : 'Inactive', {

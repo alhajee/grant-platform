@@ -86,7 +86,7 @@ export async function buildSchoolTemplate(stateName: string, lgas: string[], sch
   guide.getColumn(1).width = 28; guide.getColumn(2).width = 90;
   const lists = [['LGA', ...lgas], ['Type of school', ...schoolTypes], ['Location', ...schoolLocations], ['Level', ...schoolLevels]];
   const rows: [string, string][] = [
-    ['School register template', stateName],
+    ['School list template', stateName],
     ['How to use', `Enter one school per row on the Schools sheet, starting on row ${firstDataRow}. Keep the header rows unchanged. Lists in the same layout (for example "TLMs list 2025") can be uploaded as they are.`],
     ['Required', 'School name, LGA, Type of school (Public or Private) and Location (Urban or Rural)'],
     ['Optional', 'Longitude, Latitude, Town, enrolment by class, Level and School code (EMIS/DNEMIS)'],
@@ -94,7 +94,7 @@ export async function buildSchoolTemplate(stateName: string, lgas: string[], sch
     ['Coordinates', 'Decimal degrees, for example Longitude 11.9608 and Latitude 11.7469. Longitude comes first.'],
     ['Enrolment', 'Enter male and female learners for each class. The Total columns add up automatically.'],
     ['Errors', 'Every row is checked first. If any row has an error, nothing is added until the file is corrected.'],
-    ['Duplicates', 'A school already in the register (same school code, or same name, LGA and level) is skipped'],
+    ['Duplicates', 'A school already in the list (same school code, or same name, LGA and level) is skipped'],
     ['S/N', 'Optional row number for your own reference; it is not saved'],
   ];
   rows.forEach(([label, value], index) => { const row = guide.getRow(index + 1); row.getCell(1).value = label; row.getCell(2).value = value; row.getCell(1).font = { bold: true }; row.getCell(2).alignment = { wrapText: true }; });

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const body: RegisterOptions = { canManage: auth.canManage, manualEntry, source, stateName: stateDisplayName(auth.workspace.stateCode), lgas };
     return noStoreJson(body);
   } catch (cause) {
-    console.error('School register options failed', cause);
-    return noStoreJson({ error: 'Unable to load the school register' }, 503);
+    console.error('School list options failed', cause);
+    return noStoreJson({ error: 'Unable to load the school list' }, 503);
   }
 }

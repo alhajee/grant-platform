@@ -101,7 +101,7 @@ try {
   const created = ok(await api('chair', '/api/schools', school(), 'POST'), 201).school;
   assert.deepEqual([created.lga, created.schoolCode, created.male, created.female, created.updatedBy], ['QA North', 'QA-001', 50, 47, 'QA chair']);
   assert.deepEqual(created.enrolment, { P1: { male: 30, female: 25 }, P2: { male: 20, female: 22 } });
-  assert.match(ok(await api('beap', '/api/schools', school({ name: ' qa register  primary school ', schoolCode: null }), 'POST'), 409).error, /already in the register/);
+  assert.match(ok(await api('beap', '/api/schools', school({ name: ' qa register  primary school ', schoolCode: null }), 'POST'), 409).error, /already in the list/);
   assert.match(ok(await api('beap', '/api/schools', school({ name: 'Another School', schoolCode: 'QA-001' }), 'POST'), 409).error, /already used/);
 
   // Edit: omitted enrolment keeps the current figures; other states cannot reach the school.

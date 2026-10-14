@@ -6,7 +6,7 @@ const ink = '#2c7a5e';
 /** Empty register: a school waiting to be listed, beside register rows still to fill. */
 export function EmptyRegisterArt() {
   const stripes = useId();
-  return <svg className="register-empty-art" viewBox="0 0 220 112" role="img" aria-label="No schools in the register yet">
+  return <svg className="register-empty-art" viewBox="0 0 220 112" role="img" aria-label="No schools in the list yet">
     <defs>
       <pattern id={stripes} width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
         <rect width="9" height="9" fill={ink} fillOpacity=".04" />

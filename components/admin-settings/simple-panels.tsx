@@ -100,14 +100,14 @@ const sourceOptions: Choice<SchoolRegisterSource>[] = [
 const readSource = (body: unknown) => (body as { source: SchoolRegisterSource }).source;
 
 export function SchoolSourcePanel({ onDirty }: PanelProps) {
-  const s = useSetting<SchoolRegisterSource>({ url: '/api/admin/school-register-source', read: readSource, write: source => ({ source }), noun: 'school register setting', saved: source => source === 'dnemis_only' ? 'Schools now come from DNEMIS only' : 'Manual school changes allowed', onDirty });
-  return <SettingsPanel title="School register source" description="Where every state's School register comes from.">
-    {s.error ? <PanelError title="School register setting unavailable" message={s.error} onRetry={() => void s.load()} />
+  const s = useSetting<SchoolRegisterSource>({ url: '/api/admin/school-register-source', read: readSource, write: source => ({ source }), noun: 'school list setting', saved: source => source === 'dnemis_only' ? 'Schools now come from DNEMIS only' : 'Manual school changes allowed', onDirty });
+  return <SettingsPanel title="School list source" description="Where every state's School list comes from.">
+    {s.error ? <PanelError title="School list setting unavailable" message={s.error} onRetry={() => void s.load()} />
       : !s.draft ? <PanelSkeleton rows={1} /> : <>
         <SettingsCard>
-          <SettingRow label="Source of schools" description="Who may change the register besides the sync"
+          <SettingRow label="Source of schools" description="Who may change the list besides the sync"
             info="Manual changes are open to the Executive Chairman, the BEAP Chair and staff they authorise. The next DNEMIS sync still replaces DNEMIS fields.">
-            <ChoiceCards name="School register source" value={s.draft} options={sourceOptions} disabled={s.saving} onChange={s.setDraft} />
+            <ChoiceCards name="School list source" value={s.draft} options={sourceOptions} disabled={s.saving} onChange={s.setDraft} />
           </SettingRow>
         </SettingsCard>
         <SaveBar dirty={s.dirty} saving={s.saving} onDiscard={s.discard} onSave={() => void s.save()} />

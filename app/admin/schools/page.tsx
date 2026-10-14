@@ -31,7 +31,7 @@ function initialState() {
   return isStateCode(wanted) ? wanted : isStateCode(last) ? last : statesByName[0];
 }
 
-/** The national school register: the Super Admin picks a state and manages it as that state's managers do (read-only while schools come from DNEMIS only). */
+/** The national school list: the Super Admin picks a state and manages it as that state's managers do (read-only while schools come from DNEMIS only). */
 export default function AdminSchoolsPage() {
   const { me, error: meError, reload } = useAdminMe();
   const [state, setState] = useState<string | null>(null), [loaded, setLoaded] = useState<Loaded | null>(null), [attempt, setAttempt] = useState(0);
@@ -43,9 +43,9 @@ export default function AdminSchoolsPage() {
     fetch(schoolApiPath('/api/schools/options', state), { cache: 'no-store', signal: controller.signal }).then(async response => {
       if (response.status === 401) { window.location.replace('/'); return; }
       const body = await response.json().catch(() => ({})) as RegisterOptions & { error?: string };
-      if (!response.ok) throw Error(body.error || 'Unable to load the school register');
+      if (!response.ok) throw Error(body.error || 'Unable to load the school list');
       setLoaded({ state, options: body });
-    }).catch((cause: unknown) => { if (!controller.signal.aborted) setLoaded({ state, error: cause instanceof Error ? cause.message : 'Unable to load the school register' }); });
+    }).catch((cause: unknown) => { if (!controller.signal.aborted) setLoaded({ state, error: cause instanceof Error ? cause.message : 'Unable to load the school list' }); });
     return () => controller.abort();
   }, [me, state, attempt]);
   const choose = useCallback((next: string) => { if (!isStateCode(next)) return; rememberState(next); setState(next); setEditing(null); }, []);
@@ -65,7 +65,7 @@ export default function AdminSchoolsPage() {
         {options?.manualEntry && <><Button variant="outline" onClick={() => setBulk(true)}><FileUpIcon data-icon="inline-start" />Bulk entry</Button><Button onClick={() => setEditing('new')}><PlusIcon data-icon="inline-start" />Add school</Button></>}
       </div>
     </div>
-    {error && <Alert variant="destructive"><AlertTitle>School register unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => void (meError ? reload() : setAttempt(value => value + 1))}>Try again</Button></AlertDescription></Alert>}
+    {error && <Alert variant="destructive"><AlertTitle>School list unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => void (meError ? reload() : setAttempt(value => value + 1))}>Try again</Button></AlertDescription></Alert>}
     {me?.impersonating ? <Alert><AlertTitle>You are using another account</AlertTitle><AlertDescription>Return to your administrator account to manage schools</AlertDescription></Alert>
       : !options && !error ? <Skeleton className="h-80 w-full" />
       : options && state && <>{!options.manualEntry && <DnemisOnlyNote admin />}<SchoolRegisterTable key={state} stateCode={state} refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} onView={options.manualEntry ? undefined : setEditing} /></>}

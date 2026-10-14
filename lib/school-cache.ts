@@ -1,4 +1,4 @@
-// Per-state cache of the school lists read by the School register and the component editors' school pickers.
+// Per-state cache of the school lists read by the School list and the component editors' school pickers.
 // Only state-wide data that every caller already passed its permission check for is cached; nothing per user.
 // Keys: beapms:schools:<state>:v<version>:<list>. Invalidation bumps the state's version, so old entries simply
 // expire. Without Redis (or while it is down) every read goes straight to PostgreSQL.

@@ -50,7 +50,7 @@ function validProfile(input: z.infer<typeof profile>) {
   if (ubec && needsDepartment && selected.length !== 1) return `A ${input.role} must have exactly one department`;
   if (!needsDepartment && selected.length) return 'This role is not assigned to a department';
   if (input.isBeapChair && (ubec || input.role !== 'Director')) return 'The BEAP Chair must be a SUBEB Director';
-  if (input.canManageSchools && ubec) return 'School register access applies to SUBEB accounts only';
+  if (input.canManageSchools && ubec) return 'School list access applies to SUBEB accounts only';
   return null;
 }
 

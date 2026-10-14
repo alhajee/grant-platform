@@ -44,7 +44,7 @@ export function SchoolBulkUpload({ onImported, dialog = false, stateCode }: Scho
       if (!ok && !result.rows) throw Error(result.error || 'The file could not be checked');
       if (mode === 'preview' || !ok) { setChecked({ file, result }); if (!ok) setError(result.error || 'No schools were added'); return; }
       setChecked(null); setDone(result);
-      toast.success(result.created ? `${plural(result.created, 'school')} added to the register` : 'No new schools to add');
+      toast.success(result.created ? `${plural(result.created, 'school')} added to the list` : 'No new schools to add');
       onImported(result);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The file could not be checked');
@@ -70,12 +70,12 @@ export function SchoolBulkUpload({ onImported, dialog = false, stateCode }: Scho
       <Button type="button" variant="ghost" size="icon" className="size-8 shrink-0 rounded-full" disabled={!!busy} onClick={reset} aria-label="Remove file"><XIcon /></Button>
     </div>}
     {error && <Alert variant="destructive"><AlertTitle>{checked ? 'Schools not added' : 'File not accepted'}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
-    {done && <Alert><CheckCircle2Icon /><AlertTitle>{done.created ? `${plural(done.created, 'school')} added` : 'No new schools added'}</AlertTitle><AlertDescription>{done.duplicates.length ? `${done.duplicates.length} already in the register ${done.duplicates.length === 1 ? 'was' : 'were'} skipped.` : 'Every school in the file was new'}</AlertDescription></Alert>}
+    {done && <Alert><CheckCircle2Icon /><AlertTitle>{done.created ? `${plural(done.created, 'school')} added` : 'No new schools added'}</AlertTitle><AlertDescription>{done.duplicates.length ? `${done.duplicates.length} already in the list ${done.duplicates.length === 1 ? 'was' : 'were'} skipped.` : 'Every school in the file was new'}</AlertDescription></Alert>}
     {result && result.errorCount > 0 && <>
       <IssueTable title={`Rows with errors${result.errorCount > result.errors.length ? ` (first ${result.errors.length} of ${result.errorCount})` : ''}`} rows={result.errors.map(item => ({ row: item.row, name: item.name, detail: item.messages.join(' ') }))} />
       <p className="text-sm text-muted-foreground">Fix these rows in the file and upload it again. Nothing is added while any row has errors.</p>
     </>}
-    {result && result.duplicates.length > 0 && <IssueTable title="Already in the register (will be skipped)" rows={result.duplicates.map(item => ({ row: item.row, name: item.name, detail: item.reason }))} />}
+    {result && result.duplicates.length > 0 && <IssueTable title="Already in the list (will be skipped)" rows={result.duplicates.map(item => ({ row: item.row, name: item.name, detail: item.reason }))} />}
   </div>;
 
   const actions: ReactNode = <>

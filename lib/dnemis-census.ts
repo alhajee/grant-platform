@@ -1,4 +1,4 @@
-// Maps DNEMIS (DHIS2) school census data to school register records. Pure functions only: lib/dnemis-sync.ts does
+// Maps DNEMIS (DHIS2) school census data to school list records. Pure functions only: lib/dnemis-sync.ts does
 // the fetching and writing. Data elements are recognised by their names, so a new element id for the same question
 // (DNEMIS has renamed category combos before) keeps working.
 import type { ClassEnrolment, SchoolClassKey, SchoolFacilities, SchoolTeachers, UsableCount } from './school-register';
@@ -195,7 +195,7 @@ export function toSyncedSchool(unit: DhisOrgUnit, form: CensusForm, census: Scho
 
 /**
  * DNEMIS keeps the primary and JSS sections of one school as separate records (different codes) with the same name
- * in the same ward. Each record gets the levels of all of them, so the register shows every level the school offers.
+ * in the same ward. Each record gets the levels of all of them, so the list shows every level the school offers.
  */
 export function mergeSectionLevels(records: SyncedSchool[]): SyncedSchool[] {
   const key = (record: SyncedSchool) => [record.name, record.lga, record.ward].map(value => collapse(value).toLowerCase()).join('|');

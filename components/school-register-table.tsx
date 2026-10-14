@@ -20,7 +20,7 @@ import { defaultRegisterPageSize, registerPageSizes, schoolApiPath, schoolGapLab
 import { EmptyRegisterArt, NoMatchingSchoolsArt } from '@/components/empty-art/school-register';
 
 /** `stateCode`: the state a Super Admin is viewing; state users omit it and get their own state. */
-/** Without `onEdit` the register is read-only (schools come from DNEMIS only): no edit, no delete, export only; `onView` opens the read-only details. */
+/** Without `onEdit` the list is read-only (schools come from DNEMIS only): no edit, no delete, export only; `onView` opens the read-only details. */
 export type SchoolRegisterTableProps = { refreshKey: number; onEdit?: (school: RegisterSchool) => void; onView?: (school: RegisterSchool) => void; stateCode?: string };
 type Loaded = { key: string; data: RegisterPage } | { key: string; error: string };
 const helper = createColumnHelper<DataTableFeatures, RegisterSchool>();
@@ -61,10 +61,10 @@ export function SchoolRegisterTable({ refreshKey, onEdit, onView, stateCode }: S
     fetch(schoolApiPath(`/api/schools?${query}`, stateCode), { cache: 'no-store', signal: controller.signal }).then(async response => {
       if (response.status === 401) { window.location.replace('/'); return; }
       const body = await response.json().catch(() => ({})) as RegisterPage & { error?: string };
-      if (!response.ok) throw Error(body.error || 'Unable to load the school register');
+      if (!response.ok) throw Error(body.error || 'Unable to load the school list');
       if (body.page !== pagination.pageIndex + 1) setPagination(current => ({ ...current, pageIndex: body.page - 1 }));
       else setLoaded({ key, data: body });
-    }).catch((cause: unknown) => { if (!controller.signal.aborted) setLoaded({ key, error: cause instanceof Error ? cause.message : 'Unable to load the school register' }); });
+    }).catch((cause: unknown) => { if (!controller.signal.aborted) setLoaded({ key, error: cause instanceof Error ? cause.message : 'Unable to load the school list' }); });
     return () => controller.abort();
   }, [key, query, pagination.pageIndex, stateCode]);
 
@@ -134,9 +134,9 @@ export function SchoolRegisterTable({ refreshKey, onEdit, onView, stateCode }: S
     </DropdownMenu></div> }),
   ]), [onEdit, onView, pageIds, pageTicked, selected, toggle, busy, exportSchools, confirmDelete]);
 
-  const empty = error ? 'The school register could not be loaded' : filtered
+  const empty = error ? 'The school list could not be loaded' : filtered
     ? <div className="register-empty"><NoMatchingSchoolsArt /><p>No schools match your filters</p><Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button></div>
-    : <div className="register-empty"><EmptyRegisterArt /><p>No schools in the register yet</p></div>;
+    : <div className="register-empty"><EmptyRegisterArt /><p>No schools in the list yet</p></div>;
 
   return <div className="flex flex-col gap-4">
     {error && <Alert variant="destructive"><AlertTitle>Unable to load schools</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => setAttempt(value => value + 1)}>Try again</Button></AlertDescription></Alert>}

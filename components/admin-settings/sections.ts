@@ -11,7 +11,7 @@ export const sectionGroups: { label: string; items: { id: SettingsSection; label
   ] },
   { label: 'UBEC', items: [{ id: 'officers', label: 'Assessment Officers', icon: UsersRoundIcon }] },
   { label: 'Data', items: [
-    { id: 'schools', label: 'School register source', icon: SchoolIcon },
+    { id: 'schools', label: 'School list source', icon: SchoolIcon },
     { id: 'dnemis', label: 'DNEMIS integration', icon: PlugZapIcon },
   ] },
 ];
