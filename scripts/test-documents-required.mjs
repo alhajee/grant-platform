@@ -205,6 +205,7 @@ try {
   // The BOQ is always required (client, October 2026): refused without it even while the setting is off.
   fails(await review('physical', { action: 'submit', pillar: 'infrastructure' }), 400, /Attach a BOQ for DR School/);
   await infraDoc('boq', school);
+  await infraDoc('supporting', school); // optional supporting documents of their own (migration 066)
   ok(await review('physical', { action: 'submit', pillar: 'infrastructure' }));
   ok(await review('physicalDirector', { action: 'endorse', pillar: 'infrastructure' }));
   ok(await review('chair', { action: 'forward', pillar: 'infrastructure' }));

@@ -28,7 +28,7 @@ export async function POST(req:NextRequest){
   const form=await planFormData(req);
   // Plan drawings are no longer collected: drawings uploaded earlier stay listed and downloadable, but no new ones are accepted.
   if(form.get('kind')==='drawings')return error('Plan drawings are no longer collected for Infrastructure');
-  const kind=z.enum(['boq','survey','land','photo']).safeParse(form.get('kind'));
+  const kind=z.enum(['boq','survey','land','photo','supporting']).safeParse(form.get('kind'));
   if(!kind.success)return error('Choose the document type');
   const schoolId=Number(form.get('schoolId'));
   if(!Number.isSafeInteger(schoolId)||!schoolId||schoolId<1)return error('Select the school for this document');
