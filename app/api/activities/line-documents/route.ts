@@ -8,7 +8,7 @@ import { getPostgres } from '@/lib/postgres';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { readStageVisibility } from '@/lib/stage-visibility';
 import { planFormData, PlanInputError } from '@/lib/plan-upload';
-import { isSupportingDocumentLine, lineDocumentLabel, lineDocumentWorkstreams, maxLineDocumentBytes, maxLineDocuments, type LineDocumentWorkstream } from '@/lib/activity-extras';
+import { lineDocumentSlots, lineDocumentWorkstreams, maxLineDocumentBytes, maxLineDocuments, type LineDocumentWorkstream } from '@/lib/activity-extras';
 import { lineDocumentTypeError, lineDocumentTypes, safeFileName, supportingDocumentTypeError, supportingDocumentTypes, validLineDocument } from '@/lib/line-document-upload';
 
 // Documents attached to one budget line (activity_line_documents): the governed ICT and Teacher Development documents
@@ -31,15 +31,19 @@ export async function POST(req: NextRequest) {
     return await mutatePlan(user, plan, workstream.data, async db => {
       const target = (await db.query<{ activity: number }>('SELECT activity FROM activity_plan_lines WHERE id=$1 AND plan_id=$2 AND workstream=$3', [line.data, plan.id, workstream.data])).rows[0];
       if (!target) return error('Budget line not found', 404);
-      if (!lineDocumentLabel(workstream.data, target.activity)) return error('This activity does not take documents');
-      // Word and image files are accepted only as optional supporting documents; governed documents stay PDF/Excel.
-      if (isSupportingDocumentLine(workstream.data, target.activity)) { if (!valid) return error(supportingDocumentTypeError); }
+      // The line's upload slot (TLM: BOQ or sample, migration 065; others: their one 'document' slot).
+      const slots = lineDocumentSlots(workstream.data, target.activity), kind = String(form.get('kind') || 'document');
+      const slot = slots.find(s => s.kind === kind);
+      if (!slots.length) return error('This activity does not take documents');
+      if (!slot) return error('Choose which document this is');
+      // Word and image files only where the slot takes them (supporting documents, TLM samples); the rest stay PDF/Excel.
+      if (slot.accept.includes('.docx')) { if (!valid) return error(supportingDocumentTypeError); }
       else if (!valid || !lineDocumentTypes[ext]) return error(lineDocumentTypeError);
       const count = (await db.query('SELECT COUNT(*)::int AS count FROM activity_line_documents WHERE line_id=$1 AND removed_at IS NULL', [line.data])).rows[0].count;
       if (count >= maxLineDocuments) return error(`This budget line has reached its ${maxLineDocuments}-document limit`);
       const id = crypto.randomUUID();
-      await db.query("INSERT INTO activity_line_documents(id,plan_id,line_id,component,name,media_type,content,size) VALUES($1,$2,$3,$4,$5,$6,decode($7,'hex'),$8)", [id, plan.id, line.data, workstream.data, name, supportingDocumentTypes[ext], bytes.toString('hex'), bytes.length]);
-      return NextResponse.json({ id, name, size: bytes.length });
+      await db.query("INSERT INTO activity_line_documents(id,plan_id,line_id,component,name,media_type,content,size,kind) VALUES($1,$2,$3,$4,$5,$6,decode($7,'hex'),$8,$9)", [id, plan.id, line.data, workstream.data, name, supportingDocumentTypes[ext], bytes.toString('hex'), bytes.length, slot.kind]);
+      return NextResponse.json({ id, name, size: bytes.length, kind: slot.kind });
     });
   } catch (cause) { if (cause instanceof PlanInputError) return error(cause.message, cause.status); console.error(cause); return error('Unable to upload the document', 503); }
 }

@@ -12,7 +12,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isSupportingDocumentLine, lineDocumentAcceptFor, lineDocumentLabel, isQualityEquipmentActivity, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isQualityEquipmentActivity, lineDocumentSlots, type LineDocumentSlot, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
@@ -140,13 +140,15 @@ export function LineSchoolPicker({ workstream, draft, schools, onChange, disable
   </Field>;
 }
 
-/** Documents of a saved line that needs one (ICT specification, supporting document, Bill of Quantities). */
+/** A file chosen for a line that is not saved yet, with the slot it goes to (migration 065). */
+export type PendingDocument = { file: File; kind: LineDocumentSlot['kind'] };
+
 /** Uploads files to a saved budget line, one at a time; returns how many were added (throws on the first failure). */
-export async function uploadLineDocuments(workstream: ActivityWorkstream, lineId: number, files: readonly File[]) {
+export async function uploadLineDocuments(workstream: ActivityWorkstream, lineId: number, files: readonly PendingDocument[]) {
   const endpoint = currentPlanHref('/api/activities/line-documents');
   let added = 0;
-  for (const file of files) {
-    const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); form.set('file', file);
+  for (const { file, kind } of files) {
+    const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); form.set('kind', kind); form.set('file', file);
     const r = await fetch(endpoint, { method: 'POST', body: form }); const result = await r.json().catch(() => ({})) as { error?: string };
     if (!r.ok) throw new Error(result.error || `Unable to upload ${file.name}.`);
     added++;
@@ -155,24 +157,24 @@ export async function uploadLineDocuments(workstream: ActivityWorkstream, lineId
 }
 
 /**
- * Documents for one budget line. On a saved line files upload straight away; on a new line they wait in the
- * form (pending) and the editor uploads them right after the item is added. `required` follows the Super Admin
- * setting (migration 052): when off the field is marked optional and nothing is refused for a missing document.
- * Supporting documents (migration 057: SBMC, TLM, Monitoring, Curriculum, QA, other ICT activities, Planning) are
- * always optional and also take Word documents and photos.
+ * Documents for one budget line, one field per upload slot (TLM: BOQ and Sample of the quantity; others: their one
+ * slot). On a saved line files upload straight away; on a new line they wait in the form (pending) and the editor
+ * uploads them right after the item is added. `required` follows the Super Admin setting (migration 052): governed
+ * slots are marked required only while it is on. Supporting documents (migration 057) are always optional.
  */
-export function LineDocumentsField({ workstream, activity, lineId, documents, pending, onPendingChange, required: isRequired, disabled, onChanged }: { workstream: ActivityWorkstream; activity: number; lineId?: number; documents: LineDocument[]; pending: File[]; onPendingChange: (files: File[]) => void; required: boolean; disabled: boolean; onChanged: () => Promise<void> }) {
+export function LineDocumentsField({ workstream, activity, lineId, documents, pending, onPendingChange, required: isRequired, disabled, onChanged }: { workstream: ActivityWorkstream; activity: number; lineId?: number; documents: LineDocument[]; pending: PendingDocument[]; onPendingChange: (files: PendingDocument[]) => void; required: boolean; disabled: boolean; onChanged: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
-  const label = lineDocumentLabel(workstream, activity), supporting = isSupportingDocumentLine(workstream, activity);
-  const hint = workstream === 'teachers' ? `${teacherDocumentHint}. ` : supporting ? 'Quotations, specifications, photos or other evidence for this item. ' : '';
-  if (!label) return null;
-  const mandatory = isRequired && !supporting, accept = lineDocumentAcceptFor(workstream, activity);
+  const slots = lineDocumentSlots(workstream, activity);
+  if (!slots.length) return null;
   const endpoint = currentPlanHref('/api/activities/line-documents');
-  async function upload(files: File[]) {
-    if (!lineId) { onPendingChange([...pending, ...files]); return; }
+  const kinds = new Set(slots.map(slot => slot.kind));
+  // Documents saved before the line had these slots (earlier TLM supporting documents) are still listed.
+  const earlier = documents.filter(d => !kinds.has((d.kind ?? 'document') as LineDocumentSlot['kind']));
+  async function upload(kind: LineDocumentSlot['kind'], files: File[]) {
+    if (!lineId) { onPendingChange([...pending, ...files.map(file => ({ file, kind }))]); return; }
     setBusy(true);
     try {
-      const added = await uploadLineDocuments(workstream, lineId, files);
+      const added = await uploadLineDocuments(workstream, lineId, files.map(file => ({ file, kind })));
       toast.success(`Uploaded ${added} file${added === 1 ? '' : 's'}.`);
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to upload'); }
     finally { setBusy(false); await onChanged().catch(() => undefined); }
@@ -183,11 +185,21 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, pe
     catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to remove'); }
     finally { setBusy(false); await onChanged().catch(() => undefined); }
   }
-  return <Field><FieldLabel htmlFor="line-document">{label} {mandatory ? required : <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
-    <FileUpload compact id="line-document" label={label} multiple accept={accept} disabled={disabled} busy={busy} onFiles={upload} />
-    {lineId
-      ? documents.length > 0 && <DocumentFiles compact documents={documents.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: label }))} disabled={disabled || busy} onRemove={disabled ? undefined : id => void remove(id)} />
-      : pending.length > 0 && <DocumentFiles compact documents={pending.map((file, index) => ({ id: `pending-${index}`, name: file.name, size: file.size, file }))} disabled={disabled} onRemove={disabled ? undefined : id => onPendingChange(pending.filter((_, index) => `pending-${index}` !== id))} />}
-    <FieldDescription>{hint}{supporting ? 'PDF, Excel, Word or images' : 'PDF or Excel only'}, up to 5 MB each. {mandatory ? 'Required before sending' : 'Optional.'}</FieldDescription>
-  </Field>;
+  const hintFor = (slot: LineDocumentSlot) => workstream === 'teachers' ? `${teacherDocumentHint}. PDF or Excel only` : slot.kind === 'document' && !slot.governed ? `Quotations, specifications, photos or other evidence for this item. ${slot.hint}` : slot.hint;
+  return <>
+    {slots.map(slot => {
+      const mandatory = isRequired && slot.governed, id = `line-document-${slot.kind}`;
+      const saved = documents.filter(d => (d.kind ?? 'document') === slot.kind), waiting = pending.map((p, index) => ({ ...p, index })).filter(p => p.kind === slot.kind);
+      return <Field key={slot.kind}><FieldLabel htmlFor={id}>{slot.label} {mandatory ? required : <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
+        <FileUpload compact id={id} label={slot.label} multiple accept={slot.accept} disabled={disabled} busy={busy} onFiles={files => void upload(slot.kind, files)} />
+        {lineId
+          ? saved.length > 0 && <DocumentFiles compact documents={saved.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: slot.label }))} disabled={disabled || busy} onRemove={disabled ? undefined : docId => void remove(docId)} />
+          : waiting.length > 0 && <DocumentFiles compact documents={waiting.map(p => ({ id: `pending-${p.index}`, name: p.file.name, size: p.file.size, file: p.file }))} disabled={disabled} onRemove={disabled ? undefined : docId => onPendingChange(pending.filter((_, index) => `pending-${index}` !== docId))} />}
+        <FieldDescription>{hintFor(slot)}, up to 5 MB each. {mandatory ? 'Required before sending' : 'Optional.'}</FieldDescription>
+      </Field>;
+    })}
+    {lineId && earlier.length > 0 && <Field><FieldLabel>Earlier documents</FieldLabel>
+      <DocumentFiles compact documents={earlier.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: 'Earlier document' }))} disabled={disabled || busy} onRemove={disabled ? undefined : docId => void remove(docId)} />
+    </Field>}
+  </>;
 }

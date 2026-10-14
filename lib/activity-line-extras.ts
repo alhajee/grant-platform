@@ -10,7 +10,7 @@ export async function readLineExtras(db: Db, planId: number, workstream?: string
   const schoolRows = (await db.query<LineSchool & { lineId: number }>(`SELECT ls.line_id AS "lineId", s.id, s.name, s.lga, s.level FROM activity_line_schools ls
     JOIN activity_plan_lines l ON l.id = ls.line_id JOIN schools s ON s.id = ls.school_id
     WHERE l.plan_id = $1 AND ($2::text IS NULL OR l.workstream = $2) ORDER BY s.name, s.id`, [planId, workstream ?? null])).rows;
-  const documentRows = (await db.query<LineDocument & { lineId: number }>(`SELECT d.line_id AS "lineId", d.id, d.name, d.size FROM activity_line_documents d
+  const documentRows = (await db.query<LineDocument & { lineId: number }>(`SELECT d.line_id AS "lineId", d.id, d.name, d.size, d.kind FROM activity_line_documents d
     WHERE d.plan_id = $1 AND d.line_id IS NOT NULL AND d.removed_at IS NULL AND ($2::text IS NULL OR d.component = $2) ORDER BY d.created_at, d.id`, [planId, workstream ?? null])).rows;
   const group = <T extends { lineId: number }>(rows: T[]) => rows.reduce((map, { lineId, ...rest }) => map.set(lineId, [...(map.get(lineId) ?? []), rest]), new Map<number, Omit<T, 'lineId'>[]>());
   return { schools: group(schoolRows) as Map<number, LineSchool[]>, documents: group(documentRows) as Map<number, LineDocument[]> };

@@ -1,4 +1,4 @@
-import { compulsoryActivities, hasLineSchools, isRetiredActivity, qualityIctActivityNames, requiredLineDocumentLabel } from './activity-extras';
+import { compulsoryActivities, hasLineSchools, isRetiredActivity, qualityIctActivityNames, missingLineDocument } from './activity-extras';
 import { activityBudgetProblem, lineKobo } from './activity-budget';
 import { infrastructureSplitProblem } from './budget-pairs';
 import { isSplitMode, type EnvelopePlan } from './funding-policy';
@@ -9,13 +9,13 @@ import type { Snapshot } from './plan-review';
 // line that needs a document has one (only while the Super Admin requires supporting documents, migration 052),
 // and Teacher Development has its share of the shared budget set.
 // Shared by the editor, the plan page and every send step on the server.
-type ReadinessLine = { id: number; activity: number; description: string; custom_activity?: string; customActivity?: string; schools?: readonly unknown[]; documents?: readonly unknown[] };
+type ReadinessLine = { id: number; activity: number; description: string; custom_activity?: string; customActivity?: string; schools?: readonly unknown[]; documents?: readonly { kind?: string }[] };
 /** The plan setup fields readiness reads (a snapshot's setup or an ActionPlan). */
 type ReadinessSetup = { ictAllocation?: string | null; qualityActivities?: readonly number[] | null } | null | undefined;
 /** Platform settings readiness depends on: whether supporting documents (ICT, Teacher Development, Infrastructure except land documents) are required (migration 052). */
 export type ReadinessOptions = { documentsRequired: boolean };
 
-export const readinessWorkstreams = ['quality', 'ict', 'teachers', 'planning'] as const;
+export const readinessWorkstreams = ['quality', 'ict', 'teachers', 'planning', 'tlm'] as const;
 export type ReadinessWorkstream = typeof readinessWorkstreams[number];
 export const hasReadinessRules = (workstream: string): workstream is ReadinessWorkstream => (readinessWorkstreams as readonly string[]).includes(workstream);
 
@@ -43,8 +43,10 @@ export function componentReadinessProblem(workstream: string, lines: readonly Re
   if (noSchools) return `Choose the schools for “${lineName(workstream, noSchools)}” before sending`;
   if (!options.documentsRequired) return null;
   // Only the governed documents; optional supporting documents (migration 057) never block a send.
-  const noDocument = lines.find(line => requiredLineDocumentLabel(workstream, line.activity) && !line.documents?.length);
-  if (noDocument) return `Upload the ${requiredLineDocumentLabel(workstream, noDocument.activity)!.toLowerCase()} for “${lineName(workstream, noDocument)}” before sending`;
+  for (const line of lines) {
+    const slot = missingLineDocument(workstream, line.activity, line.documents);
+    if (slot) return `Upload the ${slot.label === 'BOQ' ? 'BOQ' : slot.label.toLowerCase()} for “${lineName(workstream, line)}” before sending`;
+  }
   return null;
 }
 

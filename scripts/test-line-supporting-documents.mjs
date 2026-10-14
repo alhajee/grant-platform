@@ -42,7 +42,7 @@ const url = workstream => `/api/activities?plan=${planId}&workstream=${workstrea
 const line = (workstream, activity, unitCost, extra = {}) => ({ workstream, entity: 'line', action: 'create', activity, description: `LD ${workstream} ${activity}`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...(workstream === 'gscci' ? { item: 'Tree seedlings' } : {}), ...(workstream === 'planning' && activity === 0 ? { censusType: 'NPA' } : {}), ...extra });
 const create = async (who, workstream, activity, unitCost, extra) => ok(await api(who, url(workstream), line(workstream, activity, unitCost, extra))).id;
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
-const upload = async (who, workstream, lineId, name, bytes) => { const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); form.set('file', new Blob([bytes]), name); return api(who, `/api/activities/line-documents?plan=${planId}`, form); };
+const upload = async (who, workstream, lineId, name, bytes, kind) => { const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); if (kind) form.set('kind', kind); form.set('file', new Blob([bytes]), name); return api(who, `/api/activities/line-documents?plan=${planId}`, form); };
 const download = (who, id) => api(who, `/api/activities/line-documents?id=${id}`);
 
 const pdf = Buffer.from('%PDF-1.4\n% LD supporting document\n%%EOF\n');
@@ -62,6 +62,7 @@ try {
   await db.query('DELETE FROM ubec_default_officers');
   await user('social', 'Data Entry Staff', ['social']);
   await user('academic', 'Data Entry Staff', ['academic']);
+  await user('academicDirector', 'Director', ['academic']);
   await user('me', 'Data Entry Staff', ['me']);
   await user('planning', 'Data Entry Staff', ['planning']);
   await user('meDirector', 'Director', ['me']);
@@ -90,13 +91,22 @@ try {
 
   // Uploads: every listed component's lines, PDF/Excel plus Word and images.
   const sbmcDoc = ok(await upload('social', 'sbmc', sbmc, 'sbmc-quote.pdf', pdf));
-  const tlmDoc = ok(await upload('academic', 'tlm', tlm, 'tlm-quote.xlsx', xlsx));
+  // TLM items take a BOQ and a sample of the quantity (migration 065): each upload names its slot.
+  fails(await upload('academic', 'tlm', tlm, 'tlm-quote.xlsx', xlsx), 400, /Choose which document this is/);
+  fails(await upload('academic', 'tlm', tlm, 'boq.png', png, 'boq'), 400, /PDF or Excel/);
+  const tlmDoc = ok(await upload('academic', 'tlm', tlm, 'tlm-quote.xlsx', xlsx, 'boq'));
+  // With the Supporting documents setting on, TLM cannot be sent until the sample is there too.
+  const school = (await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,'LD TLM School','Test LGA','Primary','Rural',50,50) RETURNING id", [state])).rows[0].id;
+  ok(await api('academic', url('tlm'), { workstream: 'tlm', entity: 'school', action: 'create', schoolId: school }));
+  fails(await review('academic', { action: 'submit', pillar: 'tlm' }), 409, /sample of the quantity/);
+  const tlmSample = ok(await upload('academic', 'tlm', tlm, 'sample.png', png, 'sample'));
+  assert.equal(tlmSample.kind, 'sample');
   const qaDoc = ok(await upload('me', 'quality', qaLines[4], 'workshop-plan.docx', docx));
   const qaPhoto = ok(await upload('me', 'quality', qaLines[4], 'site.png', png));
   const planningLine = ok(await api('planning', url('planning'))).lines.find(l => l.activity === 0).id;
   const planningDoc = ok(await upload('planning', 'planning', planningLine, 'census.jpg', jpg));
   assert.deepEqual(ok(await api('social', url('sbmc'))).lines.find(l => l.id === sbmc).documents.map(d => d.name), ['sbmc-quote.pdf']);
-  assert.deepEqual(ok(await api('academic', url('tlm'))).lines.find(l => l.id === tlm).documents.map(d => d.name), ['tlm-quote.xlsx']);
+  assert.deepEqual(ok(await api('academic', url('tlm'))).lines.find(l => l.id === tlm).documents.map(d => [d.name, d.kind]), [['tlm-quote.xlsx', 'boq'], ['sample.png', 'sample']]);
   assert.deepEqual(ok(await api('me', url('quality'))).lines.find(l => l.id === qaLines[4]).documents.map(d => d.name), ['workshop-plan.docx', 'site.png']);
   assert.deepEqual(ok(await api('planning', url('planning'))).lines.find(l => l.id === planningLine).documents.map(d => d.name), ['census.jpg']);
   const photo = await download('me', qaPhoto.id);
@@ -156,7 +166,9 @@ try {
     for (const t of ['plan_comments', 'plan_notifications', 'plan_review_events', 'plan_submissions', 'plan_pillar_reviews', 'activity_line_documents', 'activity_plan_lines', 'plan_quarters']) await db.query(`DELETE FROM ${t} WHERE plan_id=$1`, [planId]);
     await db.query('DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE plan_id=$1)', [planId]);
     await db.query('DELETE FROM sports_budget_lines WHERE plan_id=$1', [planId]);
+    await db.query('DELETE FROM tlm_distribution WHERE plan_id=$1', [planId]);
     await db.query('DELETE FROM action_plans WHERE id=$1', [planId]);
+    await db.query('DELETE FROM schools WHERE state_code=$1', [state]);
   }
   if (userIds.length) await db.query('DELETE FROM users WHERE id=ANY($1::int[])', [userIds]);
   await db.end();

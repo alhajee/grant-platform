@@ -8,7 +8,7 @@ import { LineTable, lineAmount, type InlineField, type PanelLine } from '@/compo
 import { EmptySection, FocusEmpty, LineSection, PanelSummary, PanelToolbar } from '@/components/line-panel/line-section';
 import { useCollapsed, type PanelMode } from '@/components/line-panel/use-line-panel';
 import { activityLabel, activityNames, selectableActivityIndexes, type ActivityLine, type ActivityWorkstream } from '@/lib/activity-plans';
-import { requiredLineDocumentLabel } from '@/lib/activity-extras';
+import { missingLineDocument } from '@/lib/activity-extras';
 
 const count = new Intl.NumberFormat('en-NG');
 const plural = (n: number, word: string, many = `${word}s`) => `${count.format(n)} ${n === 1 ? word : many}`;
@@ -78,7 +78,7 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
     details: details(workstream, l) || undefined, code: l.code, quarters: l.quarters, startDate: l.startDate, dueDate: l.dueDate, quantity: l.quantity, unitCost: l.unitCost,
     attachments: l.documents?.length ?? 0,
     // Only the documents the Supporting documents setting governs; optional supporting documents never show "needed".
-    badges: requiredLineDocumentLabel(workstream, l.activity) && !l.documents?.length && documentsRequired ? <Badge variant="warning">{requiredLineDocumentLabel(workstream, l.activity)} needed</Badge> : undefined,
+    badges: documentsRequired && missingLineDocument(workstream, l.activity, l.documents) ? <Badge variant="warning">{missingLineDocument(workstream, l.activity, l.documents)!.label} needed</Badge> : undefined,
   });
   const titleOf = (i: number) => <>{nameOf(i)}</>;
   const badgesOf = (i: number) => <><RequiredBadge workstream={workstream} activity={i} /><ActivityInfoHint workstream={workstream} activity={i} /></>;

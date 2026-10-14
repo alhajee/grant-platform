@@ -72,7 +72,7 @@ function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
  * or (split mode, migration 051) Infrastructure/TLM without their split or over their own part. The mode comes from the snapshot's setup.
  */
 export function componentSendProblem(pillar: ImplementedPillar, snapshot: Snapshot, options: ReadinessOptions): string | null {
-  if (hasReadinessRules(pillar)) return componentReadinessProblem(pillar, snapshot[pillar] ?? [], snapshot.setup, options);
+  if (hasReadinessRules(pillar)) return componentReadinessProblem(pillar, snapshot[pillar] ?? [], snapshot.setup, options) ?? splitReadinessProblem(pillar, snapshot);
   if (pillar === 'sports') return sportsSnapshotProblem(snapshot.sports, snapshot.setup);
   return splitReadinessProblem(pillar, snapshot);
 }

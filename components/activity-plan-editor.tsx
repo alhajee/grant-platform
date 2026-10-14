@@ -23,8 +23,9 @@ import { activityHints, activityInfo, activityNames, activityLineSchema, activit
 import { activityBudgetProblem, componentEnvelopeKobo, activityCap, activityCapKobo, activityPercent, activityFixedCaps, isCapped, isCappedFor, type BudgetLine } from '@/lib/activity-budget';
 import { budgetPairs, pairOf, sideSplits, storedAllocation } from '@/lib/budget-pairs';
 import { isSplitMode } from '@/lib/funding-policy';
-import { isCompulsory, lineDocumentLabel } from '@/lib/activity-extras';
-import { LineDocumentsField, LineExtraFields, LineSchoolPicker, uploadLineDocuments } from '@/components/activity-line-extras';
+import { isCompulsory, lineDocumentSlots } from '@/lib/activity-extras';
+import { FieldHelp } from '@/components/field-help';
+import { LineDocumentsField, LineExtraFields, LineSchoolPicker, uploadLineDocuments, type PendingDocument } from '@/components/activity-line-extras';
 import { ActivityLinePanel, lineSearchText } from '@/components/activity-line-panel';
 import type { InlineField } from '@/components/line-panel/line-table';
 import { scrollLineIntoView, useLineFlash, usePanelMode } from '@/components/line-panel/use-line-panel';
@@ -74,7 +75,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const load=useCallback(async()=>{const r=await fetch(currentPlanHref('/api/activities')+(currentPlanHref('/api/activities').includes('?')?'&':'?')+'workstream='+workstream,{cache:'no-store'});if(!r.ok)throw new Error((await r.json() as {error?:string}).error||'Unable to load component');const next=await r.json() as Data;setData(next);{const quarters=planQuarters(next.plan),offered=chosenActivities(workstream,planSelection(workstream,next.plan)),fill=(d:Draft)=>{const q=!d.id&&!d.quarters.length?{...d,quarters}:d;return !q.id&&offered.length&&!offered.includes(Number(q.activity))?{...q,activity:String(offered[0])}:q;};setDraft(fill);setBaseline(fill);}{const suggested=(next.renovated??[]).filter(id=>!next.distribution.some(d=>d.id===id));setPicked(suggested);setPinned(suggested);};setError('');return next;},[workstream]);
  useEffect(()=>{void Promise.resolve().then(load).catch(e=>setError(e.message));},[load]);
  useEffect(()=>{const warn=(e:BeforeUnloadEvent)=>{if(dirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
- const [pendingDocs,setPendingDocs]=useState<File[]>([]);
+ const [pendingDocs,setPendingDocs]=useState<PendingDocument[]>([]);
  // A new item's timeline starts as all of the plan's quarters, so narrowing it is one click.
  // Quality Assurance offers only the activities chosen up front (migration 061); other components every listed one.
  const selection=data?planSelection(workstream,data.plan):undefined,offered=chosenActivities(workstream,selection);
@@ -148,7 +149,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
   const result=await send(body,clientKey);if(!result)return;
   // Files picked before the item existed upload now that it has an id.
   const files=pendingDocs;let uploadFailed=false;
-  if(isCreate&&result.id&&files.length&&lineDocumentLabel(workstream,Number(draft.activity))){try{await uploadLineDocuments(workstream,result.id,files);}catch(err){uploadFailed=true;toast.error(err instanceof Error?err.message:'Unable to upload the documents');}}
+  if(isCreate&&result.id&&files.length&&lineDocumentSlots(workstream,Number(draft.activity)).length){try{await uploadLineDocuments(workstream,result.id,files);}catch(err){uploadFailed=true;toast.error(err instanceof Error?err.message:'Unable to upload the documents');}}
   reset();setRemoval(null);const next=await load();
   // The saved line flashes and scrolls into view in the panel.
   const savedId=body.entity==='line'&&body.action!=='delete'?result.id??body.id:undefined;if(savedId&&next.lines.some(l=>l.id===savedId))flash(savedId);
@@ -230,7 +231,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
       {workstream!=='quality'&&workstream!=='gscci'&&workstream!=='planning'&&<LineExtraFields workstream={workstream} draft={draft} onChange={next=>setDraft({...draft,...next})}/>}
       <LineSchoolPicker workstream={workstream} draft={draft} schools={data?.schools??[]} disabled={disabled} onChange={schoolIds=>setDraft({...draft,schoolIds})}/>
       {workstream==='sbmc'&&([ ['rationale','Rationale'],['implementationApproach','Implementation approach'] ] as const).map(([key,label])=><Field key={key}><FieldLabel htmlFor={key}>{label} {required}</FieldLabel><Textarea id={key} required maxLength={1000} value={draft[key]} onChange={e=>setDraft({...draft,[key]:e.target.value})}/></Field>)}
-      <FieldGroup className="grid grid-cols-2 gap-4"><Field><FieldLabel htmlFor="quantity">{training?'Quantity (Number of Participants)':'Quantity'} {required}</FieldLabel><Input id="quantity" type="number" min="1" max="1000000" step="1" required value={draft.quantity} onChange={e=>setDraft({...draft,quantity:e.target.value})}/></Field><Field><FieldLabel htmlFor="unitCost">{training?'Unit cost per teacher (₦)':'Unit cost (₦)'} {required}</FieldLabel><CurrencyInput id="unitCost" placeholder="0.00" maxIntegerDigits={12} required value={draft.unitCost} onValueChange={unitCost=>setDraft({...draft,unitCost})}/></Field></FieldGroup>
+      <FieldGroup className="grid grid-cols-2 gap-4"><Field><FieldLabel htmlFor="quantity">{training?'Quantity (Number of Participants)':'Quantity'} {required}</FieldLabel><Input id="quantity" type="number" min="1" max="1000000" step="1" required value={draft.quantity} onChange={e=>setDraft({...draft,quantity:e.target.value})}/></Field><Field><FieldLabel htmlFor="unitCost">{training?'Unit cost per teacher (₦)':'Unit cost (₦)'} {required}{workstream==='tlm'&&<FieldHelp>What the cost covers falls under the guidelines and customization (Track &amp; Trace, Customization, Academic)</FieldHelp>}</FieldLabel><CurrencyInput id="unitCost" placeholder="0.00" maxIntegerDigits={12} required value={draft.unitCost} onValueChange={unitCost=>setDraft({...draft,unitCost})}/></Field></FieldGroup>
       {training?<Field><FieldLabel htmlFor="description">Description {required}</FieldLabel><Textarea id="description" required maxLength={1000} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></Field>
        :<>{select('strategy',workstream==='sbmc'?'Procurement strategy':'Implementation strategy',implementationStrategies)}{select('targetGroup','Target group',targetGroups)}</>}
       <QuarterTimeline id="activity-quarters" size="compact" required help="The quarters in which this item will be implemented. Only this plan's quarters can be chosen." value={draft.quarters} onChange={quarters=>setDraft({...draft,quarters,...keepDatesInWindow(draft,quarters,data?.plan.implementationYear)})} available={data?planQuarters(data.plan):[]} disabled={disabled} error={quartersProblem??undefined} selectAll={!!data&&planQuarters(data.plan).length>1}/>

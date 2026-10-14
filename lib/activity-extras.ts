@@ -93,7 +93,7 @@ export const requiredLineDocumentLabel = (workstream: string, activity: number) 
  * Components whose other lines take optional supporting documents (migration 057): never required, whatever the
  * Supporting documents setting, and never checked at a send step. Sports and Greening (GSCCI) take none.
  */
-export const supportingDocumentWorkstreams = ['sbmc', 'tlm', 'monitoring', 'curriculum', 'quality', 'ict', 'planning'] as const;
+export const supportingDocumentWorkstreams = ['sbmc', 'monitoring', 'curriculum', 'quality', 'ict', 'planning'] as const;
 export const supportingDocumentLabel = 'Supporting documents';
 const takesSupportingDocuments = (workstream: string) => (supportingDocumentWorkstreams as readonly string[]).includes(workstream);
 /** True when this line's documents are the optional supporting documents rather than ones the setting governs. */
@@ -107,8 +107,27 @@ export type LineDocumentWorkstream = typeof lineDocumentWorkstreams[number];
 export const lineDocumentAccept = '.pdf,.xls,.xlsx';
 export const supportingDocumentAccept = '.pdf,.xls,.xlsx,.docx,.png,.jpg,.jpeg';
 export const lineDocumentAcceptFor = (workstream: string, activity: number) => isSupportingDocumentLine(workstream, activity) ? supportingDocumentAccept : lineDocumentAccept;
+/**
+ * The upload slots of a line. TLM items (migration 065) take a BOQ and a sample of the quantity, both governed by the
+ * Supporting documents setting; every other line has at most one slot, kind 'document' (governed or supporting).
+ */
+export type LineDocumentSlot = { kind: 'document' | 'boq' | 'sample'; label: string; governed: boolean; accept: string; hint: string };
+const tlmDocumentSlots: readonly LineDocumentSlot[] = [
+  { kind: 'boq', label: 'BOQ', governed: true, accept: lineDocumentAccept, hint: 'The Bill of Quantities for this item. PDF or Excel' },
+  { kind: 'sample', label: 'Sample of the quantity', governed: true, accept: supportingDocumentAccept, hint: 'A sample of what is supplied, such as photos or a specimen. PDF, Excel, Word or images' },
+];
+export function lineDocumentSlots(workstream: string, activity: number): readonly LineDocumentSlot[] {
+  if (workstream === 'tlm') return tlmDocumentSlots;
+  const label = lineDocumentLabel(workstream, activity);
+  if (!label) return [];
+  const supporting = isSupportingDocumentLine(workstream, activity);
+  return [{ kind: 'document', label, governed: !supporting, accept: supporting ? supportingDocumentAccept : lineDocumentAccept, hint: supporting ? 'PDF, Excel, Word or images' : 'PDF or Excel only' }];
+}
+/** The first governed slot of a line with no document yet, or null. */
+export const missingLineDocument = (workstream: string, activity: number, documents: readonly { kind?: string }[] | undefined) =>
+  lineDocumentSlots(workstream, activity).find(slot => slot.governed && !(documents ?? []).some(d => (d.kind ?? 'document') === slot.kind)) ?? null;
 export const maxLineDocumentBytes = 5 * 1024 * 1024;
 export const maxLineDocuments = 10;
 
 export type LineSchool = { id: number; name: string; lga: string; level: string };
-export type LineDocument = { id: string; name: string; size: number };
+export type LineDocument = { id: string; name: string; size: number; /** Which slot (migration 065); 'document' for all but TLM. */ kind?: string };
