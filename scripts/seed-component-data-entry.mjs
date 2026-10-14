@@ -1,8 +1,7 @@
 // One Data Entry account per component and one Director per SUBEB department for chosen SUBEBs, next to the state's
-// BEAP Chair and Executive Chairman (scripts/seed-production-users.mjs). Each Data Entry account gets the component's
-// SUBEB department (access is per department, so e.g. the four Academic Services accounts can all edit Sports, TLM,
-// Curriculum and Greening). A state may have only one active Director per department
-// (one_active_subeb_department_director), so the department Directors replace the state's general Director
+// BEAP Chair and Executive Chairman (scripts/seed-production-users.mjs). Each Data Entry account gets only its own
+// component ("academic/sports", lib/component-access.ts); a department's only component is stored as the department.
+// A state may have only one active Director per department (one_active_subeb_department_director), so the department Directors replace the state's general Director
 // (director@...), which is deactivated (kept for history, sessions revoked). Accounts that already exist are left
 // alone, so re-runs only add what is missing.
 // Usage: node --env-file=.env scripts/seed-component-data-entry.mjs --states=DE,FC,BY [--yes] [--production-confirmed]
@@ -63,7 +62,7 @@ try {
     }
     const accounts = [
       ...departments.map(([department, label]) => ({ email: `${department}.director@${domain}`, name: `${subebName(state)} Director – ${label}`, role: 'Director', department })),
-      ...components.map(([key, label, department]) => ({ email: `${key}.data.entry@${domain}`, name: `${subebName(state)} Data Entry – ${label}`, role: 'Data Entry Staff', department })),
+      ...components.map(([key, label, department]) => ({ email: `${key}.data.entry@${domain}`, name: `${subebName(state)} Data Entry – ${label}`, role: 'Data Entry Staff', department: components.filter(c => c[2] === department).length > 1 ? `${department}/${key}` : department })),
     ];
     for (const { email, name, role, department } of accounts) {
       const found = (await db.query('SELECT id, role FROM users WHERE email=$1', [email])).rows[0];
