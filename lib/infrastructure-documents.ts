@@ -5,8 +5,8 @@ import type { ReadinessOptions } from './component-readiness';
  * Why Infrastructure cannot be sent yet because of its documents, or null.
  * New Construction always needs all three land declarations ticked and its C of O / R of O / Community Agreement document
  * (client feedback, October 2026; older packages saved with fewer ticks are asked for the rest here).
- * Each school's BOQ and geophysical survey report are required only while the Super Admin's Supporting
- * documents setting is on (migration 052, `documentsRequired`). Plan drawings are no longer collected or required.
+ * Each school's BOQ is always required (client, October 2026); its geophysical survey report only while the Super
+ * Admin's Supporting documents setting is on (migration 052, `documentsRequired`). Plan drawings are no longer collected or required.
  */
 export function infrastructureDocumentProblem(snapshot: Snapshot, options: ReadinessOptions): string | null {
  const documents=snapshot.infrastructureDocuments??[];
@@ -22,9 +22,9 @@ export function infrastructureDocumentProblem(snapshot: Snapshot, options: Readi
   const survey=line.package?.kind!=='furniture';
   schools.set(id,{name:line.school.name,survey:survey||schools.get(id)?.survey===true});
  }
- if(!options.documentsRequired)return null;
+ // Each school's BOQ is always required (client, October 2026); the survey report only while the setting is on.
  for(const [id,school] of schools){
-  for(const kind of school.survey?['boq','survey']:['boq']){
+  for(const kind of [ 'boq' as const, ...(school.survey&&options.documentsRequired?['survey' as const]:[]) ]){
    if(!documents.some(d=>d.schoolId===id&&d.kind===kind))return `Attach ${kind==='boq'?'a BOQ':'a geophysical survey report'} for ${school.name} before sending Infrastructure.`;
   }
  }

@@ -55,7 +55,7 @@ try {
   await user('foreign', 'Director', ['academic'], states[1]);
   await user('nodir', 'Data Entry Staff', ['academic'], states[2]);
 
-  const plan = await createPlan('ec', 2033);
+  const plan = await createPlan('ec', 2023);
   const path = `/api/plans/review?plan=${plan.id}`, sports = `/api/sports?plan=${plan.id}`;
   const version = async () => ok(await api('ec', path)).plan.version;
   const review = async (who, action, extra = {}) => api(who, path, { action, pillar: 'sports', version: await version(), ...extra });
@@ -126,7 +126,7 @@ try {
   assert.deepEqual(events.slice(0, 2), ['forward', 'request_changes']);
 
   // A content write racing a submission: exactly one wins, and the submitted version never changes afterwards.
-  const racePlan = await createPlan('ec', 2034);
+  const racePlan = await createPlan('ec', 2024);
   const raceSports = `/api/sports?plan=${racePlan.id}`, raceReview = `/api/plans/review?plan=${racePlan.id}`;
   const raceLine = ok(await api('des', raceSports, budgetBody), 201).id;
   const raceVersion = ok(await api('des', raceReview)).plan.version;
@@ -144,7 +144,7 @@ try {
   assert.equal((await api('des', raceReview, { action: 'submit', pillar: 'sports', version: ok(await api('ec', raceReview)).plan.version })).status, 403);
 
   // A state without a department Director cannot send a component on.
-  const noDirPlan = (await db.query('INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding) VALUES($1,2033,2033,100000000,0) RETURNING id', [states[2]])).rows[0].id;
+  const noDirPlan = (await db.query('INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding) VALUES($1,2023,2023,100000000,0) RETURNING id', [states[2]])).rows[0].id;
   ok(await api('nodir', `/api/sports?plan=${noDirPlan}`, budgetBody), 201);
   const noDirVersion = ok(await api('nodir', `/api/plans/review?plan=${noDirPlan}`)).plan.version;
   const noDir = await api('nodir', `/api/plans/review?plan=${noDirPlan}`, { action: 'submit', pillar: 'sports', version: noDirVersion });

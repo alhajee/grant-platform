@@ -53,11 +53,15 @@ assert.match(infrastructureDocumentProblem(bare, { documentsRequired: false }) ?
 const unlanded = { infrastructure: [newLine([], all)], infrastructureDocuments: [] };
 assert.match(infrastructureDocumentProblem(unlanded, { documentsRequired: false }) ?? '', /C of O, R of O or Community Agreement document for Unit school/);
 const landed = { infrastructure: [newLine(['l1'], all)], infrastructureDocuments: [{ id: 'l1', kind: 'land', schoolId: 7 }] };
-assert.equal(infrastructureDocumentProblem(landed, { documentsRequired: false }), null, 'one land document is enough');
+// The BOQ is always required (client, October 2026); with it, one land document is enough while the setting is off.
+assert.match(infrastructureDocumentProblem(landed, { documentsRequired: false }) ?? '', /a BOQ for Unit school/);
+const landedBoq = { ...landed, infrastructureDocuments: [...landed.infrastructureDocuments, { id: 'b', kind: 'boq', schoolId: 7 }] };
+assert.equal(infrastructureDocumentProblem(landedBoq, { documentsRequired: false }), null, 'one land document and the BOQ are enough');
+assert.match(infrastructureDocumentProblem(landedBoq, { documentsRequired: true }) ?? '', /geophysical survey report for Unit school/);
 assert.match(infrastructureDocumentProblem(landed, { documentsRequired: true }) ?? '', /a BOQ for Unit school/);
 const complete = { ...landed, infrastructureDocuments: [...landed.infrastructureDocuments, { id: 'b', kind: 'boq', schoolId: 7 }, { id: 's', kind: 'survey', schoolId: 7 }] };
 assert.equal(infrastructureDocumentProblem(complete, { documentsRequired: true }), null, 'drawings are never required');
-step('Infrastructure readiness: BOQ and survey follow the setting, drawings are never required, land documents always are (unit)');
+step('Infrastructure readiness: BOQ always, survey follows the setting, drawings are never required, land documents always are (unit)');
 
 async function api(who, path, body, { method = body ? 'POST' : 'GET', origin = base } = {}) {
   const jar = jars[who] ??= {}, isForm = body instanceof FormData;
@@ -192,12 +196,15 @@ try {
   fails(await api('physical', infra, { action: 'save', id: saved.id, version: saved.version, input: { ...whole, documentIds: [photo], photoKeys: { [photo]: 'classroomPri' } } }), 400, /updated BOQ/);
   step('Setting on: re-saving a Whole School package needs an updated BOQ');
 
-  // Optional: re-save without an updated BOQ, then send Infrastructure without BOQs, surveys or photos (and no drawings).
+  // Optional: re-save without an updated BOQ, then send Infrastructure with only its BOQ (no surveys, photos or drawings).
   await setRequired(false);
   saved = await savedPackage('whole');
   ok(await api('physical', infra, { action: 'save', id: saved.id, version: saved.version, input: { ...whole, documentIds: [] } }));
   const infraKinds = (await db.query('SELECT DISTINCT kind FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL', [planId])).rows.map(row => row.kind).sort();
   assert.deepEqual(infraKinds, ['land', 'photo'], 'no drawings, BOQ or survey uploaded');
+  // The BOQ is always required (client, October 2026): refused without it even while the setting is off.
+  fails(await review('physical', { action: 'submit', pillar: 'infrastructure' }), 400, /Attach a BOQ for DR School/);
+  await infraDoc('boq', school);
   ok(await review('physical', { action: 'submit', pillar: 'infrastructure' }));
   ok(await review('physicalDirector', { action: 'endorse', pillar: 'infrastructure' }));
   ok(await review('chair', { action: 'forward', pillar: 'infrastructure' }));
