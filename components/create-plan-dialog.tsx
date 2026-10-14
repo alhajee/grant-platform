@@ -12,7 +12,7 @@ import { CurrencyInput } from '@/components/currency-input';
 import { FileUpload, DocumentFiles } from '@/components/document-files';
 import { FieldHelp } from '@/components/field-help';
 import { FundingSourcesField, fromDraftSources, draftSourceErrors, type DraftSource } from '@/components/funding-sources-field';
-import { planSetupSchema, implementationYearError, fundingTotal, sourcesSum, isRatSpreadsheet, maxRatFileBytes, maxRatTotalBytes, ratFileAccept } from '@/lib/plan-setup';
+import { planSetupSchema, implementationYearError, futureYearError, currentPlanYear, fundingTotal, sourcesSum, isRatSpreadsheet, maxRatFileBytes, maxRatTotalBytes, ratFileAccept } from '@/lib/plan-setup';
 import { planHref, type PlanOverview } from '@/lib/action-plans';
 
 const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
@@ -55,7 +55,9 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
   const total = /^\d{0,13}(\.\d{0,2})?$/.test(lodgment) ? fundingTotal(lodgment || '0', other) : '0';
   const displayedTotal = money.format(Number(total));
   const setupInput = () => ({ planningYear: Number(year), implementationYear: Number(implementation), quarters, stateLodgment: lodgment, fundingSources });
-  const setupReady = planSetupSchema.safeParse(setupInput()).success && !Object.keys(sourceErrors).length;
+  // No plan for a year after the current one (client, October 2026).
+  const futureError = year.length === 4 ? futureYearError(Number(year)) : '';
+  const setupReady = planSetupSchema.safeParse(setupInput()).success && !Object.keys(sourceErrors).length && !futureError;
   const ratReady = files.length > 0 && files.length <= 3 && files.every(file => isRatSpreadsheet(file.name) && file.size > 0 && file.size <= maxRatFileBytes) && files.reduce((sum, file) => sum + file.size, 0) <= maxRatTotalBytes;
   const canSubmit = setupReady && ratReady;
   const implementationError = errors.implementationYear || (year.length === 4 && implementation.length === 4 ? implementationYearError(Number(year), Number(implementation)) : '');
@@ -66,6 +68,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
     const parsed = planSetupSchema.safeParse(setupInput());
     const issues: Record<string, string> = {};
     if (!parsed.success) for (const issue of parsed.error.issues) issues[String(issue.path[0])] = issue.message;
+    if (futureError) issues.planningYear = futureError;
     if (Object.keys(sourceErrors).length) issues.fundingSources = 'Complete or remove each other funding source';
     if (!files.length) issues.rat = 'Attach the Rapid Assessment Tool (RAT) document';
     else if (files.some(file => !isRatSpreadsheet(file.name))) issues.rat = 'Upload the RAT as an Excel (.xlsx) file';
@@ -130,7 +133,7 @@ export function CreatePlanDialog({ stateName, plans, onClose }: { stateName: str
           <FieldGroup className="gap-3">
             <FieldSet disabled={saving} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend className="flex items-center gap-2"><span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">1</span>Plan period</FieldLegend><FieldGroup className="gap-3">
               <FieldGroup className="grid gap-3 sm:grid-cols-2">
-                <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="planning-year">Funding year <RequiredMark /><FieldHelp>The year the grant allocation belongs to</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={2100} value={year} required aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(n))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
+                <Field data-invalid={!!(errors.planningYear || futureError)}><FieldLabel htmlFor="planning-year">Funding year <RequiredMark /><FieldHelp>The year the grant allocation belongs to</FieldHelp></FieldLabel><Input id="planning-year" type="number" min={2004} max={currentPlanYear()} value={year} required aria-invalid={!!(errors.planningYear || futureError)} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(n))); }} />{(errors.planningYear || futureError) && <FieldError>{errors.planningYear || futureError}</FieldError>}</Field>
                 <Field data-invalid={!!implementationError}><FieldLabel htmlFor="implementation-year">Implementation year <RequiredMark /><FieldHelp>The year the funded activities are expected to be carried out</FieldHelp></FieldLabel><Input id="implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} required aria-invalid={!!implementationError} onChange={e => { setImplementation(e.target.value); setErrors(current => ({ ...current, implementationYear: '' })); }} />{implementationError && <FieldError>{implementationError}</FieldError>}</Field>
               </FieldGroup>
               <QuarterTimeline id="quarters" label="Quarters" required help="Select every quarter covered by this plan. Locked quarters already belong to another plan." value={quarters} onChange={setQuarters} locked={[...occupied]} lockedReason="already assigned" disabled={saving} error={errors.quarters || undefined} noneAvailableMessage="All quarters are in another plan. Choose a different funding year." />

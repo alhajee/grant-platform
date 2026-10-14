@@ -47,24 +47,24 @@ try {
   ok(await createPlan('director'),401);
   await login('director');
   assert.equal(ok(await api('director','/api/plans')).canCreatePlan,true);
-  ok(await createPlan('director',2031),201);
+  ok(await createPlan('director',2021),201);
   const second=ok(await api('chair','/api/users',{name:'QA second',email:`second.${marker.toLowerCase()}@test.local`,role:'Director',department:'academic',active:true}),201);
   accounts.second={id:second.id,role:'Director'};
   ok(await api('chair','/api/users',{id:second.id,name:'QA second',role:'Director',department:'academic',active:true,isBeapChair:true},'PATCH'),409);
   ok(await api('chair','/api/users',{...profile('director'),isBeapChair:false},'PATCH'));
-  await login('director');ok(await createPlan('director',2032),403);
+  await login('director');ok(await createPlan('director',2022),403);
   ok(await api('foreign','/api/users',{...profile('director'),canCreatePlan:true},'PATCH'),404);
   ok(await api('director','/api/users',{...profile('officer'),canCreatePlan:true},'PATCH'),403);
   ok(await api('chair','/api/users',{...profile('director'),canCreatePlan:true},'PATCH'));
   ok(await createPlan('director'),401); // Permission edits invalidate old sessions.
   await login('director');
   assert.equal(ok(await api('director','/api/plans')).canCreatePlan,true);
-  const delegated=ok(await createPlan('director',2027),201).plan;
+  const delegated=ok(await createPlan('director',2017),201).plan;
   ok(await api('foreign',`/api/infrastructure/packages?plan=${delegated.id}`),404);
   ok(await api('director','/api/users',{...profile('officer'),canCreatePlan:true},'PATCH'),403);
   ok(await api('chair','/api/users',{...profile('officer'),canCreatePlan:true},'PATCH'));
   await login('officer');
-  ok(await createPlan('officer',2028),201);
+  ok(await createPlan('officer',2018),201);
   ok(await api('director','/api/users',profile('officer'),'PATCH'));
   assert.equal((await db.query('SELECT can_create_plan FROM users WHERE id=$1',[accounts.officer.id])).rows[0].can_create_plan,true);
   ok(await api('chair','/api/users',{...profile('director'),canCreatePlan:false},'PATCH'));

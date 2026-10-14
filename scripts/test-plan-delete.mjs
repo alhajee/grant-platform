@@ -41,8 +41,12 @@ try {
     const r = await api(who, '/api/auth/login', { email, password }); ok(r); cookies[who] = r.cookie;
   }
 
+  step('no plan for a year after the current one (Africa/Lagos)');
+  const nextYear = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', year: 'numeric' }).format(new Date())) + 1;
+  const future = await create(nextYear); ok(future, 400); assert.match(future.data.error, /Plans can't be created for a year after/);
+
   step('a plan with a line, a submitted component, a comment and notifications');
-  const plan = ok(await create(2034), 201).plan; plans.push(plan.id);
+  const plan = ok(await create(2024), 201).plan; plans.push(plan.id);
   ok(await api('social', `/api/activities?plan=${plan.id}&workstream=sbmc`, line));
   const version = async () => ok(await api('chair', `/api/plans/setup?plan=${plan.id}`)).plan.version;
   const reviewVersion = ok(await api('social', `/api/plans/review?plan=${plan.id}`)).plan.version;
@@ -79,7 +83,7 @@ try {
   ok(await api('chair', '/api/plans/setup', body, 'DELETE'), 404);
 
   step('its quarters are free again: a new plan can take them');
-  plans.push(ok(await create(2034), 201).plan.id);
+  plans.push(ok(await create(2024), 201).plan.id);
   console.log('PASS plan delete');
 } finally {
   for (const table of ['plan_notifications', 'plan_comments', 'plan_review_events', 'plan_submissions', 'plan_pillar_reviews', 'activity_plan_lines', 'ubec_rounds']) await db.query(`DELETE FROM ${table} WHERE plan_id=ANY($1::int[])`, [plans]);

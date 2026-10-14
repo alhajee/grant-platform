@@ -72,7 +72,7 @@ try {
   }
   // State contribution ₦10,000 → shared ₦20,000 → pool 75% = ₦15,000 under the default policy.
   const workbook = new ExcelJS.Workbook(); workbook.addWorksheet('RAT').addRow(['Pool QA']);
-  const form = new FormData(); form.set('setup', JSON.stringify({ planningYear: 2037, implementationYear: 2037, quarters: [1], stateLodgment: '10000', fundingSources: [] }));
+  const form = new FormData(); form.set('setup', JSON.stringify({ planningYear: 2017, implementationYear: 2017, quarters: [1], stateLodgment: '10000', fundingSources: [] }));
   form.append('rat', new Blob([await workbook.xlsx.writeBuffer()]), 'rat.xlsx');
   const created = ok(await api('chair', '/api/plans', form), 201).plan; planId = created.id;
   const policy = created.fundingPolicy.allocation;
@@ -102,7 +102,7 @@ try {
   step('either side is refused (409) when the combined total would exceed the pool; lowering is always allowed');
 
   const info = ok(await api('chair', `/api/plans/setup?plan=${planId}`));
-  const edit = { plan: planId, version: info.plan.version, planningYear: 2037, implementationYear: 2037, quarters: [1], stateLodgment: '10000', fundingSources: [] };
+  const edit = { plan: planId, version: info.plan.version, planningYear: 2017, implementationYear: 2017, quarters: [1], stateLodgment: '10000', fundingSources: [] };
   fails(await api('chair', '/api/plans/setup', { ...edit, stateLodgment: '9900' }, 'PATCH'), 409, /Infrastructure and TLM would share/);
   ok(await api('chair', '/api/plans/setup', { ...edit, fundingSources: [{ component: 'tlm', funder: 'UNICEF', amount: '50' }] }, 'PATCH'));
   ok(await api('physical', infraUrl, furniture(150)));

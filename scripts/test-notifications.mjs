@@ -59,7 +59,7 @@ try {
 
   const rat = new ExcelJS.Workbook(); rat.addWorksheet('RAT').addRow(['Notifications QA']);
   const form = new FormData();
-  form.set('setup', JSON.stringify({ planningYear: 2031, implementationYear: 2031, quarters: [1, 2, 3, 4], stateLodgment: '500000000', otherFunding: '0' }));
+  form.set('setup', JSON.stringify({ planningYear: 2021, implementationYear: 2021, quarters: [1, 2, 3, 4], stateLodgment: '500000000', otherFunding: '0' }));
   form.append('rat', new Blob([await rat.xlsx.writeBuffer()]), 'rat.xlsx');
   planId = ok(await api('ec', '/api/plans', form), 201).plan.id;
   const q = `?plan=${planId}`, reviewPath = `/api/plans/review${q}`, ubecPath = `/api/ubec/review${q}`;
@@ -69,7 +69,7 @@ try {
 
   let data = await feed('des');
   assert.deepEqual(Object.keys(data).sort(), ['notifications', 'todos', 'unreadCount']);
-  assert.ok(data.todos.some(t => t.planId === planId && t.label === 'Complete Sports Activities' && t.href === `/beap/sports?plan=${planId}` && t.period === '2031 · Q1–Q4 BEAP'), JSON.stringify(data.todos));
+  assert.ok(data.todos.some(t => t.planId === planId && t.label === 'Complete Sports Activities' && t.href === `/beap/sports?plan=${planId}` && t.period === '2021 · Q1–Q4 BEAP'), JSON.stringify(data.todos));
   assert.match((await api('des', '/api/notifications')).headers.get('cache-control') ?? '', /no-store/);
   step('Data Entry Staff: "Complete Sports Activities" is listed under To do, response is no-store');
 

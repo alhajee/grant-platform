@@ -87,7 +87,7 @@ try {
   }
   // State contribution ₦10,000 → shared ₦20,000 → pool 75% = ₦15,000 under the default policy.
   const workbook = new ExcelJS.Workbook(); workbook.addWorksheet('RAT').addRow(['Split QA']);
-  const form = new FormData(); form.set('setup', JSON.stringify({ planningYear: 2038, implementationYear: 2038, quarters: [1], stateLodgment: '10000', fundingSources: [] }));
+  const form = new FormData(); form.set('setup', JSON.stringify({ planningYear: 2018, implementationYear: 2018, quarters: [1], stateLodgment: '10000', fundingSources: [] }));
   form.append('rat', new Blob([await workbook.xlsx.writeBuffer()]), 'rat.xlsx');
   const created = ok(await api('chair', '/api/plans', form), 201).plan; const planId = created.id; planIds.push(planId);
   const pool = 20000 * created.fundingPolicy.allocation.shares.infrastructure / 10000;
@@ -137,7 +137,7 @@ try {
   step('lowering a package is allowed while over; raising is refused');
 
   const info = ok(await api('chair', `/api/plans/setup?plan=${planId}`));
-  const edit = { plan: planId, version: info.plan.version, planningYear: 2038, implementationYear: 2038, quarters: [1], stateLodgment: '10000', fundingSources: [] };
+  const edit = { plan: planId, version: info.plan.version, planningYear: 2018, implementationYear: 2018, quarters: [1], stateLodgment: '10000', fundingSources: [] };
   fails(await api('chair', '/api/plans/setup', { ...edit, stateLodgment: '8900' }, 'PATCH'), 409, /Infrastructure would have ₦8,350\.00 available, but ₦8,500\.00 is already proposed/);
   fails(await api('chair', '/api/plans/setup', { ...edit, stateLodgment: '3000' }, 'PATCH'), 409, /Infrastructure & TLM would have ₦4,500\.00 available, but TLM has already been allocated ₦5,000\.00/);
   ok(await api('chair', '/api/plans/setup', { ...edit, fundingSources: [{ component: 'tlm', funder: 'UNICEF', amount: '100' }] }, 'PATCH'));
@@ -173,7 +173,7 @@ try {
   // Backfill (migration 051's UPDATE, limited to this test's plans): TLM lines total; ₦0 with only packages; NULL with neither.
   const migration = readFileSync(resolve('db/postgres/051-infrastructure-tlm-split.sql'), 'utf8');
   const backfill = migration.match(/UPDATE action_plans p SET tlm_allocation[\s\S]*?;/)[0].replace('WHERE t.id = p.id', 'WHERE t.id = p.id AND p.id = ANY($1::int[])');
-  const insertPlan = async () => (await db.query("INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding) VALUES($1,2039,2039,10000,0) RETURNING id", [state])).rows[0].id;
+  const insertPlan = async () => (await db.query("INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding) VALUES($1,2019,2019,10000,0) RETURNING id", [state])).rows[0].id;
   const packagesOnly = await insertPlan(), empty = await insertPlan(); planIds.push(packagesOnly, empty);
   await db.query("INSERT INTO infrastructure_packages(plan_id,school_id,kind,input,result,total_cost) VALUES($1,$2,'furniture','{}'::jsonb,'{}'::jsonb,1000)", [packagesOnly, schoolIds[0]]);
   await db.query('UPDATE action_plans SET tlm_allocation=NULL WHERE id=ANY($1::int[])', [planIds]);

@@ -26,13 +26,13 @@ try{
  for(const role of ['chair','reviewer','officer']) expect(await api(role,'/api/funding-policy',{version:initial.id,allocation:initial.allocation},'PUT'),403);
  expect(await api('es','/api/funding-policy',{version:initial.id,allocation:{...initial.allocation,tlmWithinInfrastructure:10001}},'PUT'),400);
  expect(await api('es','/api/funding-policy',{version:initial.id,allocation:{...initial.allocation,shares:{...initial.allocation.shares,infrastructure:0}}},'PUT'),400);
- const before=await createPlan(2090);assert.equal(before.fundingPolicy.id,initial.id);
+ const before=await createPlan(2020);assert.equal(before.fundingPolicy.id,initial.id);
  // Save identical allocations: exercise versioning without altering live funding percentages.
  const saved=expect(await api('es','/api/funding-policy',{version:initial.id,allocation:initial.allocation},'PUT')).policy;policyIds.push(saved.id);
  // The retired TLM split (initial rows may carry it) is accepted from older clients but never stored.
  assert.equal(saved.allocation.tlmWithinInfrastructure,undefined);assert.deepEqual(saved.allocation.shares,initial.allocation.shares);
  expect(await api('es','/api/funding-policy',{version:initial.id,allocation:initial.allocation},'PUT'),409);
- const after=await createPlan(2091);assert.equal(after.fundingPolicy.id,saved.id);
+ const after=await createPlan(2021);assert.equal(after.fundingPolicy.id,saved.id);
  const persisted=(await db.query('SELECT funding_policy_id FROM action_plans WHERE id=$1',[before.id])).rows[0];assert.equal(persisted.funding_policy_id,initial.id);
  const actions=async who=>expect(await api(who,'/api/plans')).plans.find(p=>p.id===before.id).pendingActions;
  // Physical Planning owns Infrastructure and Supervision & Monitoring, so its Data Entry Staff see both.

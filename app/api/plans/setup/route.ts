@@ -8,7 +8,7 @@ import { stateDisplayName } from '@/lib/state-names';
 import { canCreateStatePlan } from '@/lib/subeb-access';
 import { statePlanOpen } from '@/lib/pillar-review';
 import { isSameRequestOrigin } from '@/lib/request-origin';
-import { beapName, envelopeShortfalls, sharedBelowAllocationProblem, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
+import { beapName, envelopeShortfalls, futureYearError, sharedBelowAllocationProblem, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
 import { fundingComponentIds, fundingSourceLabels, type FundingComponent, type FundingSource } from '@/lib/funding-policy';
 import { formatQuarters } from '@/lib/format-quarters';
 import type { ActionPlan } from '@/lib/action-plans';
@@ -90,6 +90,8 @@ export async function PATCH(request: NextRequest) {
       const changes = describeChanges(plan, input);
       if (!changes.length) return NextResponse.json({ plan, changed: false });
       const periodChanged = plan.startYear !== input.planningYear || formatQuarters(plan.fundingQuarters ?? []) !== formatQuarters(input.quarters);
+      // Only a changed funding year is checked, so plans already dated later can still be edited.
+      if (plan.startYear !== input.planningYear && futureYearError(input.planningYear)) return error(futureYearError(input.planningYear));
       if (periodChanged && plan.startYear !== plan.endYear) return error('This older multi-year plan cannot change its period. You can still update its funding.', 409);
       if (periodChanged) {
         await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`plan-period:${workspace.stateCode}:${input.planningYear}`]);

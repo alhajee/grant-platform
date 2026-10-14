@@ -57,7 +57,7 @@ try {
   step('a plan: each account edits and sees only its components');
   const workbook = new ExcelJS.Workbook(); workbook.addWorksheet('RAT').addRow(['Component access QA']);
   const form = new FormData();
-  form.set('setup', JSON.stringify({ planningYear: 2035, implementationYear: 2035, quarters: [1, 2], stateLodgment: '100000', fundingSources: [] }));
+  form.set('setup', JSON.stringify({ planningYear: 2025, implementationYear: 2025, quarters: [1, 2], stateLodgment: '100000', fundingSources: [] }));
   form.append('rat', new Blob([await workbook.xlsx.writeBuffer()]), 'rat.xlsx');
   const planId = ok(await api('chair', '/api/plans', form), 201).plan.id; plans.push(planId);
   const url = workstream => `/api/activities?plan=${planId}&workstream=${workstream}`;

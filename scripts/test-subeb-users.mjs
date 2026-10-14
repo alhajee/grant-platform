@@ -66,7 +66,7 @@ try {
   // Department access: each Data Entry officer edits only their own departments' components.
   const rat = new ExcelJS.Workbook(); rat.addWorksheet('RAT').addRow(['Users QA']);
   const form = new FormData();
-  form.set('setup', JSON.stringify({ planningYear: 2036, implementationYear: 2036, quarters: [1], stateLodgment: '100000000', fundingSources: [] }));
+  form.set('setup', JSON.stringify({ planningYear: 2026, implementationYear: 2026, quarters: [1], stateLodgment: '100000000', fundingSources: [] }));
   form.append('rat', new Blob([await rat.xlsx.writeBuffer()]), 'rat.xlsx');
   const plan = ok(await api('chair', '/api/plans', form), 201).plan;
   const sports = `/api/sports?plan=${plan.id}`, monitoring = `/api/activities?plan=${plan.id}&workstream=monitoring`;

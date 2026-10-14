@@ -33,7 +33,7 @@ async function api(who, path, body, method = body ? 'POST' : 'GET', origin = bas
   return { status: r.status, data: await r.json(), cookie: r.headers.get('set-cookie')?.split(';')[0] };
 }
 const ok = (r, status = 200) => { assert.equal(r.status, status, JSON.stringify(r.data)); return r.data; };
-const setup = { planningYear: 2033, implementationYear: 2033, quarters: [1, 2], stateLodgment: '10000', fundingSources: [{ component: 'sbmc', funder: 'World Bank', amount: '3000' }] };
+const setup = { planningYear: 2023, implementationYear: 2023, quarters: [1, 2], stateLodgment: '10000', fundingSources: [{ component: 'sbmc', funder: 'World Bank', amount: '3000' }] };
 const workbook = new ExcelJS.Workbook(); workbook.addWorksheet('RAT').addRow(['Funding sources QA']);
 const ratFile = new Blob([await workbook.xlsx.writeBuffer()]);
 function create(who, input) { const form = new FormData(); form.set('setup', JSON.stringify(input)); form.append('rat', ratFile, 'rat.xlsx'); return api(who, '/api/plans', form); }
@@ -79,11 +79,11 @@ try {
   assert.equal(staffInfo.allowed, false); assert.equal(staffInfo.canEdit, false); assert.match(staffInfo.lockedReason, /authorised/);
 
   step('PATCH guards: origin, permission, version and ceilings');
-  const edit = { plan: created.id, version: info.plan.version, planningYear: 2033, implementationYear: 2033, quarters: [1, 2], stateLodgment: '10000', fundingSources: setup.fundingSources };
+  const edit = { plan: created.id, version: info.plan.version, planningYear: 2023, implementationYear: 2023, quarters: [1, 2], stateLodgment: '10000', fundingSources: setup.fundingSources };
   ok(await api('chair', '/api/plans/setup', edit, 'PATCH', null), 403);
   ok(await api('director', '/api/plans/setup', edit, 'PATCH'), 403);
   ok(await api('chair', '/api/plans/setup', { ...edit, version: edit.version + 5 }, 'PATCH'), 409);
-  ok(await api('chair', '/api/plans/setup', { ...edit, implementationYear: 2032 }, 'PATCH'), 400);
+  ok(await api('chair', '/api/plans/setup', { ...edit, implementationYear: 2022 }, 'PATCH'), 400);
   const short = await api('chair', '/api/plans/setup', { ...edit, fundingSources: [] }, 'PATCH'); ok(short, 409); assert.match(short.data.error, /SBMC would have .* already proposed/);
   // Moving the source to another component leaves SBMC short too.
   ok(await api('chair', '/api/plans/setup', { ...edit, fundingSources: [{ component: 'sports', funder: 'World Bank', amount: '3000' }] }, 'PATCH'), 409);
@@ -92,14 +92,14 @@ try {
   step('PATCH saves period, contribution and sources, renames the plan and records history');
   const other = ok(await create('chair', { ...setup, quarters: [4], fundingSources: [] }), 201).plan;
   ok(await api('chair', '/api/plans/setup', { ...edit, quarters: [3, 4] }, 'PATCH'), 409);
-  const saved = ok(await api('chair', '/api/plans/setup', { ...edit, planningYear: 2034, implementationYear: 2035, quarters: [2, 3], stateLodgment: '12000', fundingSources: [...setup.fundingSources, { component: 'tlm', funder: 'UNICEF', amount: '500.50' }] }, 'PATCH'));
-  assert.equal(saved.changed, true); assert.equal(saved.plan.startYear, 2034); assert.equal(saved.plan.implementationYear, 2035); assert.deepEqual(saved.plan.fundingQuarters, [2, 3]);
-  assert.match(saved.plan.beapName, /-2034-Q2.*Q3-BEAP$/); assert.equal(saved.plan.fundingTotal, '27500.50'); assert.equal(saved.plan.fundingSources.length, 2);
-  assert.deepEqual((await db.query('SELECT planning_year,quarter FROM plan_quarters WHERE plan_id=$1 ORDER BY quarter', [created.id])).rows, [{ planning_year: 2034, quarter: 2 }, { planning_year: 2034, quarter: 3 }]);
+  const saved = ok(await api('chair', '/api/plans/setup', { ...edit, planningYear: 2024, implementationYear: 2025, quarters: [2, 3], stateLodgment: '12000', fundingSources: [...setup.fundingSources, { component: 'tlm', funder: 'UNICEF', amount: '500.50' }] }, 'PATCH'));
+  assert.equal(saved.changed, true); assert.equal(saved.plan.startYear, 2024); assert.equal(saved.plan.implementationYear, 2025); assert.deepEqual(saved.plan.fundingQuarters, [2, 3]);
+  assert.match(saved.plan.beapName, /-2024-Q2.*Q3-BEAP$/); assert.equal(saved.plan.fundingTotal, '27500.50'); assert.equal(saved.plan.fundingSources.length, 2);
+  assert.deepEqual((await db.query('SELECT planning_year,quarter FROM plan_quarters WHERE plan_id=$1 ORDER BY quarter', [created.id])).rows, [{ planning_year: 2024, quarter: 2 }, { planning_year: 2024, quarter: 3 }]);
   const review = ok(await api('chair', `/api/plans/review?plan=${created.id}`));
-  const event = review.events.find(e => e.action === 'edit'); assert.ok(event); assert.match(event.comment, /funding year 2033 → 2034/); assert.match(event.comment, /UNICEF/);
+  const event = review.events.find(e => e.action === 'edit'); assert.ok(event); assert.match(event.comment, /funding year 2023 → 2024/); assert.match(event.comment, /UNICEF/);
   assert.equal(review.snapshot.setup.fundingSources.length, 2);
-  // The freed 2033 quarters are available again.
+  // The freed 2023 quarters are available again.
   ok(await create('chair', { ...setup, fundingSources: [] }), 201);
 
   step('plan-wide sources ("all") join the shared envelope and raise every component by its policy share');
@@ -114,8 +114,8 @@ try {
     assert.ok(Math.abs(raised - expected) <= 1, `${component} raised by ${raised}, expected ${expected}`);
   }
   for (const change of [[{ component: 'all', funder: '', amount: '5' }], [{ component: 'all', funder: 'EU', amount: '0' }], [{ component: 'everything', funder: 'EU', amount: '5' }]])
-    ok(await create('chair', { ...setup, planningYear: 2036, implementationYear: 2036, quarters: [1], fundingSources: change }), 400);
-  const wide = ok(await create('chair', { ...setup, planningYear: 2036, implementationYear: 2036, quarters: [1], fundingSources: withWide.fundingSources.map(({ component, funder, amount }) => ({ component, funder, amount: String(Number(amount)) })) }), 201).plan;
+    ok(await create('chair', { ...setup, planningYear: 2026, implementationYear: 2026, quarters: [1], fundingSources: change }), 400);
+  const wide = ok(await create('chair', { ...setup, planningYear: 2026, implementationYear: 2026, quarters: [1], fundingSources: withWide.fundingSources.map(({ component, funder, amount }) => ({ component, funder, amount: String(Number(amount)) })) }), 201).plan;
   assert.equal(wide.fundingTotal, '26000.00');
   assert.deepEqual(wide.fundingSources.map(s => s.component), ['all', 'sbmc']);
   assert.equal(ok(await api('chair', '/api/plans')).plans.find(p => p.id === wide.id).fundingTotal, '26000.00');
@@ -129,7 +129,7 @@ try {
 
   step('editing or removing a plan-wide source is refused when a component would drop below its lines');
   const wideInfo = ok(await api('chair', `/api/plans/setup?plan=${wide.id}`));
-  const wideEdit = { plan: wide.id, version: wideInfo.plan.version, planningYear: 2036, implementationYear: 2036, quarters: [1], stateLodgment: '10000', fundingSources: wideInfo.plan.fundingSources.map(({ component, funder, amount }) => ({ component, funder, amount })) };
+  const wideEdit = { plan: wide.id, version: wideInfo.plan.version, planningYear: 2026, implementationYear: 2026, quarters: [1], stateLodgment: '10000', fundingSources: wideInfo.plan.fundingSources.map(({ component, funder, amount }) => ({ component, funder, amount })) };
   const removed = await api('chair', '/api/plans/setup', { ...wideEdit, fundingSources: wideEdit.fundingSources.filter(s => s.component !== 'all') }, 'PATCH'); ok(removed, 409);
   assert.match(removed.data.error, /would have .* already proposed/);
   ok(await api('chair', '/api/plans/setup', { ...wideEdit, fundingSources: wideEdit.fundingSources.map(s => s.component === 'all' ? { ...s, amount: '4000' } : s) }, 'PATCH'), 409);
@@ -144,7 +144,7 @@ try {
   step('locked while the plan is with UBEC');
   await db.query("UPDATE action_plans SET status='ubec_review' WHERE id=$1", [created.id]);
   const locked = ok(await api('chair', `/api/plans/setup?plan=${created.id}`)); assert.equal(locked.canEdit, false); assert.match(locked.lockedReason, /with UBEC/);
-  const blocked = await api('chair', '/api/plans/setup', { ...edit, version: locked.plan.version, planningYear: 2034, implementationYear: 2035, quarters: [2, 3], stateLodgment: '1' }, 'PATCH'); ok(blocked, 409); assert.match(blocked.data.error, /with UBEC/);
+  const blocked = await api('chair', '/api/plans/setup', { ...edit, version: locked.plan.version, planningYear: 2024, implementationYear: 2025, quarters: [2, 3], stateLodgment: '1' }, 'PATCH'); ok(blocked, 409); assert.match(blocked.data.error, /with UBEC/);
   assert.ok(other.id);
   console.log('PASS: component and plan-wide funding sources, ceilings, plan detail edits, history and locks.');
 } finally {

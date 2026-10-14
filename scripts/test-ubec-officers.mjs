@@ -119,7 +119,7 @@ try {
   assert.deepEqual(department(await adminSettings(), 'physical').components.find(c => c.pillar === 'monitoring').defaults, [users.offP1]);
   const rat = new ExcelJS.Workbook(); rat.addWorksheet('RAT').addRow(['UBEC officers QA']);
   const form = new FormData();
-  form.set('setup', JSON.stringify({ planningYear: 2037, implementationYear: 2037, quarters: [1, 2, 3, 4], stateLodgment: '100000000', fundingSources: [] }));
+  form.set('setup', JSON.stringify({ planningYear: 2017, implementationYear: 2017, quarters: [1, 2, 3, 4], stateLodgment: '100000000', fundingSources: [] }));
   form.append('rat', new Blob([await rat.xlsx.writeBuffer()]), 'rat.xlsx');
   planId = ok(await api('ec', '/api/plans', form), 201).plan.id;
   const q = `?plan=${planId}`, statePath = `/api/plans/review${q}`, path = `/api/ubec/review${q}`, components = `/api/ubec/components${q}`;

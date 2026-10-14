@@ -5,6 +5,9 @@ import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabel
 export { sharedBelowAllocationProblem } from './budget-pairs';
 
 const year = z.number().int().min(2004).max(2100);
+/** The current year in Nigeria (Africa/Lagos): no plan may be created for, or moved to, a later funding year (client, October 2026). */
+export const currentPlanYear = (now: Date = new Date()) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', year: 'numeric' }).format(now));
+export const futureYearError = (fundingYear: number, now?: Date) => Number.isInteger(fundingYear) && fundingYear > currentPlanYear(now) ? `Plans can't be created for a year after ${currentPlanYear(now)}.` : '';
 export const implementationYearError = (fundingYear: number, implementationYear: number) => Number.isInteger(fundingYear) && Number.isInteger(implementationYear) && implementationYear < fundingYear ? `Implementation year can't be earlier than the funding year (${fundingYear}).` : '';
 const amount = z.string().regex(/^\d{1,13}(\.\d{1,2})?$/, 'Enter an amount below ₦10 trillion, with up to two decimal places');
 export const maxFundingSources = 20;

@@ -8,7 +8,7 @@ import { pendingActionsFor, type PillarReviewRow } from '@/lib/pending-actions';
 import { canCreateStatePlan } from '@/lib/subeb-access';
 import { readStateStageVisibility } from '@/lib/stage-visibility';
 import { implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
-import { planSetupSchema, beapName } from '@/lib/plan-setup';
+import { planSetupSchema, beapName, futureYearError } from '@/lib/plan-setup';
 import { planFormData, ratDocuments, PlanInputError } from '@/lib/plan-upload';
 
 // Recent activity is filtered per component after reading, so read a few more rows than are shown.
@@ -75,6 +75,8 @@ export async function POST(request: NextRequest) {
     const form = await planFormData(request);
     const parsed = planSetupSchema.safeParse(JSON.parse(String(form.get('setup') ?? 'null')));
     if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const future = futureYearError(parsed.data.planningYear);
+    if (future) return NextResponse.json({ error: future }, { status: 400 });
     const files = await ratDocuments(form);
     const { planningYear, implementationYear, quarters, stateLodgment, fundingSources } = parsed.data;
     return await getPostgres().transaction(async db => {

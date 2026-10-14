@@ -57,7 +57,7 @@ try {
 
   const ratWorkbook = new ExcelJS.Workbook(); ratWorkbook.addWorksheet('RAT').addRow(['UBEC review QA']);
   const form = new FormData();
-  form.set('setup', JSON.stringify({ planningYear: 2035, implementationYear: 2035, quarters: [1, 2, 3, 4], stateLodgment: '100000000', fundingSources: [] }));
+  form.set('setup', JSON.stringify({ planningYear: 2025, implementationYear: 2025, quarters: [1, 2, 3, 4], stateLodgment: '100000000', fundingSources: [] }));
   form.append('rat', new Blob([await ratWorkbook.xlsx.writeBuffer()]), 'rat.xlsx');
   planId = ok(await api('ec', '/api/plans', form), 201).plan.id;
   const q = `?plan=${planId}`, statePath = `/api/plans/review${q}`, path = `/api/ubec/review${q}`, sports = `/api/sports${q}`, components = `/api/ubec/components${q}`;

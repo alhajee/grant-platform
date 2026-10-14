@@ -14,7 +14,7 @@ import { QuarterTimeline } from '@/components/quarter-timeline';
 import { CurrencyInput } from '@/components/currency-input';
 import { FieldHelp } from '@/components/field-help';
 import { FundingSourcesField, draftSourceErrors, fromDraftSources, toDraftSources, type DraftSource } from '@/components/funding-sources-field';
-import { envelopeShortfalls, fundingTotal, sharedBelowAllocationProblem, implementationYearError, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
+import { futureYearError, currentPlanYear, envelopeShortfalls, fundingTotal, sharedBelowAllocationProblem, implementationYearError, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
 import type { FundingComponent, FundingSource } from '@/lib/funding-policy';
 import type { ActionPlan } from '@/lib/action-plans';
 import { quarterRemovalProblem, type QuarterUsage } from '@/lib/line-quarters';
@@ -70,7 +70,9 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
   const implementationError = errors.implementationYear || (year.length === 4 && implementation.length === 4 ? implementationYearError(Number(year), Number(implementation)) : '');
   // Quarters that saved lines use in their timelines cannot be removed (migration 050).
   const quarterProblem = data && quarters.length ? quarterRemovalProblem(data.plan.fundingQuarters, quarters, data.quarterUsage ?? []) : null;
-  const canSave = !!data && !locked && parsed.success && !Object.keys(sourceErrors).length && !shortfalls.length && !ictProblem && !quarterProblem;
+  // No moving a plan to a year after the current one; plans already dated later keep their year (client, October 2026).
+  const futureError = data && year.length === 4 && Number(year) !== data.plan.startYear ? futureYearError(Number(year)) : '';
+  const canSave = !!data && !locked && parsed.success && !Object.keys(sourceErrors).length && !shortfalls.length && !ictProblem && !quarterProblem && !futureError;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -108,7 +110,7 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
             <FieldGroup className="gap-3">
               <FieldSet disabled={disabled} className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend>Plan period</FieldLegend><FieldGroup className="gap-3">
                 <FieldGroup className="grid gap-3 sm:grid-cols-2">
-                  <Field data-invalid={!!errors.planningYear}><FieldLabel htmlFor="edit-planning-year">Funding year<FieldHelp>The year the grant allocation belongs to</FieldHelp></FieldLabel><Input id="edit-planning-year" type="number" min={2004} max={2100} value={year} aria-invalid={!!errors.planningYear} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(n))); }} />{errors.planningYear && <FieldError>{errors.planningYear}</FieldError>}</Field>
+                  <Field data-invalid={!!(errors.planningYear || futureError)}><FieldLabel htmlFor="edit-planning-year">Funding year<FieldHelp>The year the grant allocation belongs to</FieldHelp></FieldLabel><Input id="edit-planning-year" type="number" min={2004} max={Math.max(currentPlanYear(), data?.plan.startYear ?? 0)} value={year} aria-invalid={!!(errors.planningYear || futureError)} onChange={e => { const value = e.target.value; setYear(value); setImplementation(current => value && Number(current) < Number(value) ? value : current); setQuarters(q => q.filter(n => !reserved(value).has(n))); }} />{(errors.planningYear || futureError) && <FieldError>{errors.planningYear || futureError}</FieldError>}</Field>
                   <Field data-invalid={!!implementationError}><FieldLabel htmlFor="edit-implementation-year">Implementation year<FieldHelp>The year the funded activities are expected to be carried out</FieldHelp></FieldLabel><Input id="edit-implementation-year" type="number" min={Number(year) || 2004} max={2100} value={implementation} aria-invalid={!!implementationError} onChange={e => { setImplementation(e.target.value); setErrors(current => ({ ...current, implementationYear: '' })); }} />{implementationError && <FieldError>{implementationError}</FieldError>}</Field>
                 </FieldGroup>
                 <QuarterTimeline id="edit-quarters" label="Quarters" help="Locked quarters already belong to another plan for that year" value={quarters} onChange={setQuarters} locked={[...occupied]} lockedReason="already assigned" disabled={disabled} error={errors.quarters || quarterProblem || undefined} selectAll={false} showMonths={false} noneAvailableMessage="All quarters of this year are in another plan. Choose a different funding year." />

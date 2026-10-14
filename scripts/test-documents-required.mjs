@@ -84,7 +84,7 @@ const training = (activity, unitCost) => ({ workstream: 'teachers', entity: 'lin
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
 const ubecPath = () => `/api/ubec/review?plan=${planId}`;
 const ratForm = async withRat => {
-  const form = new FormData(); form.set('setup', JSON.stringify({ planningYear: 2038, implementationYear: 2038, quarters: [1], stateLodgment: '400000000', fundingSources: [] }));
+  const form = new FormData(); form.set('setup', JSON.stringify({ planningYear: 2018, implementationYear: 2018, quarters: [1], stateLodgment: '400000000', fundingSources: [] }));
   if (withRat) { const workbook = new ExcelJS.Workbook(); workbook.addWorksheet('RAT').addRow(['Documents QA']); form.append('rat', new Blob([await workbook.xlsx.writeBuffer()]), 'rat.xlsx'); }
   return form;
 };
