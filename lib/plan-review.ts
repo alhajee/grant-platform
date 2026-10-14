@@ -18,7 +18,7 @@ export type Snapshot = {
   ict?: import('./activity-plans').ActivitySnapshotLine[];
   /** Teacher Development lines carry their training details and documents (migration 040). */
   teachers?: import('./activity-plans').ActivitySnapshotLine[];
-  /** Planning, Research & Statistics lines (migration 041). */
+  /** Planning, EMIS & Data Platform lines (migration 041). */
   planning?: import('./activity-plans').ActivitySnapshotLine[];
   /** Component documents (component_documents): the Supervision & Monitoring proforma invoices. */
   componentDocuments?: import('./activity-plans').ComponentDocument[];

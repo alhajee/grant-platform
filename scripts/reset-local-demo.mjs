@@ -13,7 +13,7 @@ assert.ok(backup, 'A database backup path is required');
 assert.equal(readFileSync(backup).subarray(0,5).toString(), 'PGDMP', 'A PostgreSQL custom-format backup is required');
 const departments = [
   ['academic','Academic Services'], ['administration','Administration and Supplies'],
-  ['physical','Physical Planning'], ['planning','Planning, Research & Statistics'],
+  ['physical','Physical Planning'], ['planning','Planning, EMIS & Data Platform'],
   ['special','Special Programmes'], ['teachers','Teacher Development'],
   ['finance','Finance and Accounts'], ['audit','Internal Audit'],
   ['quality','Quality Assurance'], ['social','Social Mobilization'],

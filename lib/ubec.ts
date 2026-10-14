@@ -18,7 +18,7 @@ export const legacyReviewerRole = 'UBEC Department Reviewer';
 /** Departments that review components (one Director and their Assessment Officers each). */
 export const componentDepartments = [
   { id: 'physical', name: 'Physical Planning', short: 'DPP' },
-  { id: 'planning', name: 'Planning, Research & Statistics', short: 'DPRS' },
+  { id: 'planning', name: 'Planning, EMIS & Data Platform', short: 'DPRS' },
   { id: 'academic', name: 'Academic Services', short: 'DACS' },
   { id: 'teachers', name: 'Teacher Professional Development', short: 'DTPD' },
   { id: 'digital', name: 'Data, Digital Platforms & Analytics', short: 'DDDPA' },

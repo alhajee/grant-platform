@@ -67,7 +67,9 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
   const selectable = selectableActivityIndexes[workstream] as readonly number[];
   const nameOf = (i: number) => (activityNames[workstream][i] ?? 'Legacy activity') + (selectable.includes(i) ? '' : ' (earlier activity)');
   const linesOf = (i: number) => matching.filter(l => l.activity === i);
-  const withLines = [...new Set(all.map(l => l.activity))].sort((a, b) => a - b);
+  // In the order the activity list offers them; earlier (retired) activities first, as before.
+  const rank = (i: number) => selectable.indexOf(i);
+  const withLines = [...new Set(all.map(l => l.activity))].sort((a, b) => rank(a) - rank(b) || a - b);
   // TLM has a long checklist, so its empty activities are not listed.
   const empties = workstream === 'tlm' ? [] : (activities ?? selectable).filter(i => !withLines.includes(i) && i !== selectedActivity);
   const training = workstream === 'teachers';

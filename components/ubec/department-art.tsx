@@ -21,7 +21,7 @@ const badges: Record<string, Badge> = {
   // Physical Planning: a school building
   physical: { shape: 'shield', tones: { base: '#ffb547', edge: '#e0861a', face: '#ffa62b', glyph: '#b85f06', light: '#ffd48a' },
     glyph: c => <path fill={c} d="M20 10.5 28.5 17v1.6h-1.8V26h-4.4v-4.6h-4.6V26h-4.4v-7.4h-1.8V17Z" /> },
-  // Planning, Research & Statistics: rising bars
+  // Planning, EMIS & Data Platform: rising bars
   planning: { shape: 'hexagon', tones: { base: '#4fc3ff', edge: '#1b8fd6', face: '#2fb0f5', glyph: '#0b6aa8', light: '#9fdcff' },
     glyph: c => <g fill={c}><rect x="12.5" y="20" width="4" height="7" rx="1.2" /><rect x="18" y="16" width="4" height="11" rx="1.2" /><rect x="23.5" y="12" width="4" height="15" rx="1.2" /></g> },
   // Academic Services: an open book

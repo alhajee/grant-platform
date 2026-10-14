@@ -24,7 +24,7 @@ const sharedPassword = process.env.SEED_SHARED_PASSWORD?.trim();
 if (apply && !sharedPassword) throw new Error('SEED_SHARED_PASSWORD is required so new UBEC accounts get the agreed shared password.');
 
 const ES = 'UBEC Executive Secretary';
-const directors = [['physical', 'Physical Planning (DPP)', 'dpp'], ['planning', 'Planning, Research & Statistics (DPRS)', 'dprs'], ['academic', 'Academic Services (DACS)', 'dacs'], ['teachers', 'Teacher Professional Development (DTPD)', 'dtpd'], ['digital', 'Data, Digital Platforms & Analytics (DDDPA)', 'dddpa'], ['quality', 'Monitoring & Evaluation (DME)', 'dme'], ['social', 'Social Mobilisation (DSM)', 'dsm']];
+const directors = [['physical', 'Physical Planning (DPP)', 'dpp'], ['planning', 'Planning, EMIS & Data Platform (DPRS)', 'dprs'], ['academic', 'Academic Services (DACS)', 'dacs'], ['teachers', 'Teacher Professional Development (DTPD)', 'dtpd'], ['digital', 'Data, Digital Platforms & Analytics (DDDPA)', 'dddpa'], ['quality', 'Monitoring & Evaluation (DME)', 'dme'], ['social', 'Social Mobilisation (DSM)', 'dsm']];
 const oversight = [['audit', 'Audit'], ['procurement', 'Procurement'], ['finance', 'Finance']];
 // Component → [UBEC department, name] (lib/ubec.ts pillarDepartments).
 const components = [['infrastructure', 'physical', 'Infrastructure'], ['monitoring', 'physical', 'Supervision & Monitoring'], ['planning', 'planning', 'Planning (EMIS)'], ['sports', 'academic', 'Sports'], ['tlm', 'academic', 'TLM'], ['curriculum', 'academic', 'Curriculum'], ['gscci', 'academic', 'Greening'], ['teachers', 'teachers', 'Teacher Development'], ['ict', 'digital', 'ICT'], ['quality', 'quality', 'Quality Assurance'], ['sbmc', 'social', 'SBMC']];
