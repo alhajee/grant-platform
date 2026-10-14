@@ -61,10 +61,17 @@
 .infra-audit-filter{flex-wrap:wrap;max-width:100%}
 .infra-audit-filter [data-slot=toggle-group-item]{gap:6px}
 .infra-audit-card{min-width:0;border:1px solid var(--border);border-radius:12px;background:var(--card);overflow:hidden}
-/* The New Construction and Whole School tables scroll inside their card, so the header row stays in view (sticky). */
-.infra-audit-card [data-slot=table-container]{overflow:auto;max-height:min(68vh,640px);overscroll-behavior:contain}
-.infra-audit-card thead th{position:sticky;top:0;z-index:2;background:var(--card);box-shadow:inset 0 -1px 0 var(--border)}
-.infra-audit-card thead th.infra-audit-sticky{z-index:3;box-shadow:inset 0 -1px 0 var(--border),1px 0 0 var(--border)}
+/* The New Construction and Whole School tables scroll sideways on narrow screens. On wide ones they sit in the page's
+   own scroll and their header row stays pinned to the top of the pane (sticky; overflow:clip keeps the rounded corners
+   without making a scroll box of its own, so nothing is cut off at the top or bottom). */
+.infra-audit-card [data-slot=table-container]{overflow-x:auto;overscroll-behavior-x:contain}
+.infra-audit-card thead th{background:var(--card)}
+@media(min-width:1200px){
+  .infra-audit-card{overflow:clip}
+  .infra-audit-card [data-slot=table-container]{overflow:visible}
+  .infra-audit-card thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -1px 0 var(--border)}
+  .infra-audit-card thead th.infra-audit-sticky{z-index:3;box-shadow:inset 0 -1px 0 var(--border),1px 0 0 var(--border)}
+}
 .infra-audit-table{min-width:1040px}
 .infra-audit-table th{white-space:nowrap;background:var(--card)}
 .infra-audit-table td{vertical-align:middle}
