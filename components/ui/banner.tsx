@@ -16,12 +16,12 @@ import { BrandArt, DangerArt, InfoArt, SuccessArt, WarningArt } from './banner-a
 const bannerVariants = cva('relative isolate flex min-h-24 items-stretch overflow-hidden rounded-2xl shadow-[0_1px_2px_rgb(0_0_0/.05),0_10px_28px_-14px_rgb(0_0_0/.25)]', {
   variants: {
     tone: {
-      info: 'bg-[#ebe4d8] text-[#1d1d1f] [--banner-muted:#4a4640]',
-      success: 'bg-[#56b461] text-white [--banner-muted:rgb(255_255_255/.88)]',
-      warning: 'bg-[#f4e24f] text-[#1d1d1f] [--banner-muted:#4d4513] [background-image:radial-gradient(rgb(0_0_0/.16)_1px,transparent_1.2px)] [background-size:14px_14px]',
-      danger: 'bg-[#f5cdd7] text-[#1d1d1f] [--banner-muted:#5a3b43]',
-      brand: 'bg-[#f2efe4] text-[#1d1d1f] [--banner-muted:#4b4a42] [background-image:radial-gradient(rgb(0_0_0/.07)_1px,transparent_1.2px)] [background-size:7px_7px]',
-      plain: 'border bg-white text-[#1d1d1f] [--banner-muted:#55555a]',
+      info: 'bg-[#efe8dc] text-[#2a2620] [--banner-muted:#5e574c]',
+      success: 'bg-[#dcebd5] text-[#1f2e1c] [--banner-muted:#4a5c45]',
+      warning: 'bg-[#f7edbd] text-[#2e2810] [--banner-muted:#5f5530] [background-image:radial-gradient(rgb(94_80_20/.12)_1px,transparent_1.2px)] [background-size:14px_14px]',
+      danger: 'bg-[#f6e0e2] text-[#33191d] [--banner-muted:#6b4a50]',
+      brand: 'bg-[#f3f0e6] text-[#24302b] [--banner-muted:#55605a] [background-image:radial-gradient(rgb(0_0_0/.05)_1px,transparent_1.2px)] [background-size:7px_7px]',
+      plain: 'border bg-white text-[#1d1d1f] [--banner-muted:#5f5f64]',
     },
   },
   defaultVariants: { tone: 'info' },
