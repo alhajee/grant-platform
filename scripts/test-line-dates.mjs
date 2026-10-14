@@ -72,7 +72,7 @@ try {
 
   // Activity lines.
   const url = `/api/activities?plan=${planId}&workstream=planning`;
-  const line = (activity, extra = {}) => ({ workstream: 'planning', entity: 'line', action: 'create', activity, description: `LD activity ${activity}`, quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'State level', schoolIds: [], ...extra });
+  const line = (activity, extra = {}) => ({ workstream: 'planning', entity: 'line', action: 'create', activity, description: `LD activity ${activity}`, quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'State level', schoolIds: [], ...(activity === 0 ? { censusType: 'Annual School Census' } : {}), ...extra });
   fails(await api('prs', url, line(0, { quarters: [1, 2], startDate: '2038-02-01', dueDate: '2038-03-01' })), 400, /within the timeline \(1 Jan 2039 – 30 Jun 2039\)/);
   fails(await api('prs', url, line(0, { quarters: [1], startDate: '2039-02-01', dueDate: '2039-04-01' })), 400, /due date must fall within/);
   fails(await api('prs', url, line(0, { quarters: [1], startDate: '2039-03-01', dueDate: '2039-02-01' })), 400, /cannot be before/);

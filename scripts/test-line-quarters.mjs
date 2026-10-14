@@ -78,7 +78,7 @@ try {
 
   // Activity lines (shared editor): default, required, subset of the plan's quarters, sorted, no repeats.
   const url = `/api/activities?plan=${planId}&workstream=planning`;
-  const line = (activity, extra = {}) => ({ workstream: 'planning', entity: 'line', action: 'create', activity, description: `LQ activity ${activity}`, quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'State level', schoolIds: [], ...extra });
+  const line = (activity, extra = {}) => ({ workstream: 'planning', entity: 'line', action: 'create', activity, description: `LQ activity ${activity}`, quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'State level', schoolIds: [], ...(activity === 0 ? { censusType: 'Annual School Census' } : {}), ...extra });
   const legacy = ok(await api('prs', url, line(0)));
   fails(await api('prs', url, line(1, { quarters: [] })), 400, /at least one quarter/);
   fails(await api('prs', url, line(1, { quarters: [4] })), 400, /Q4 is not in this plan \(Q1–Q3\)/);

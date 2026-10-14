@@ -33,7 +33,7 @@ async function user(key, role, departments, chair = false, stateCode = state) {
   ok(await api(key, '/api/auth/login', { email, password }));
 }
 const url = () => `/api/activities?plan=${planId}&workstream=planning`;
-const line = (activity, unitCost, extra = {}) => ({ workstream: 'planning', entity: 'line', action: 'create', activity, description: `PL activity ${activity}`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'State level', schoolIds: [], ...extra });
+const line = (activity, unitCost, extra = {}) => ({ workstream: 'planning', entity: 'line', action: 'create', activity, description: `PL activity ${activity}`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'State level', schoolIds: [], ...(activity === 0 ? { censusType: 'Annual School Census' } : {}), ...extra });
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
 
 await db.connect();
@@ -57,6 +57,10 @@ try {
   // Department permissions: only Planning, EMIS & Data Platform staff (and the whole-plan roles) see it; only they edit it.
   fails(await api('qa', url()), 403);
   fails(await api('qa', url(), line(1, 100)), 403);
+  // Census type (migration 064): required on "Conduct annual school census", one of the two types, nowhere else.
+  fails(await api('prs', url(), line(0, 100, { censusType: '' })), 400, /Pick the type of census/);
+  fails(await api('prs', url(), line(0, 100, { censusType: 'Household survey' })), 400);
+  fails(await api('prs', url(), line(1, 100, { censusType: 'NPA' })), 400, /only applies to Conduct annual school census/);
   fails(await api('meDirector', url()), 403);
   fails(await api('ec', url(), line(1, 100)), 403);
   const empty = ok(await api('prs', url()));

@@ -39,7 +39,7 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   quality: { ...activityColumns, equipment: 'Equipment', ...activityTail },
   ict: { ...activityColumns, details: 'Details', schools: 'Schools', documents: 'Documents', ...activityTail },
   teachers: { activity: 'Allowable activity', code: 'Code', provider: 'Training provider', participants: 'Target participants', levels: 'School level', days: 'Training days', venue: 'Venue', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' },
-  planning: { ...activityColumns, ...activityTail },
+  planning: { ...activityColumns, census: 'Census type', ...activityTail },
 };
 
 /**

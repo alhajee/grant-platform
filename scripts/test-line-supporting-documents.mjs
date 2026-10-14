@@ -39,7 +39,7 @@ async function user(key, role, departments, chair = false, stateCode = state) {
   return id;
 }
 const url = workstream => `/api/activities?plan=${planId}&workstream=${workstream}`;
-const line = (workstream, activity, unitCost, extra = {}) => ({ workstream, entity: 'line', action: 'create', activity, description: `LD ${workstream} ${activity}`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...(workstream === 'gscci' ? { item: 'Tree seedlings' } : {}), ...extra });
+const line = (workstream, activity, unitCost, extra = {}) => ({ workstream, entity: 'line', action: 'create', activity, description: `LD ${workstream} ${activity}`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...(workstream === 'gscci' ? { item: 'Tree seedlings' } : {}), ...(workstream === 'planning' && activity === 0 ? { censusType: 'NPA' } : {}), ...extra });
 const create = async (who, workstream, activity, unitCost, extra) => ok(await api(who, url(workstream), line(workstream, activity, unitCost, extra))).id;
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
 const upload = async (who, workstream, lineId, name, bytes) => { const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); form.set('file', new Blob([bytes]), name); return api(who, `/api/activities/line-documents?plan=${planId}`, form); };

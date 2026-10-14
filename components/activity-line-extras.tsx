@@ -12,7 +12,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isSupportingDocumentLine, lineDocumentAcceptFor, lineDocumentLabel, isQualityEquipmentActivity, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isSupportingDocumentLine, lineDocumentAcceptFor, lineDocumentLabel, isQualityEquipmentActivity, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
@@ -22,7 +22,7 @@ import { teacherDocumentHint } from '@/lib/teacher-development';
 const count = new Intl.NumberFormat('en-NG');
 const pickerLimit = 200;
 const required = <span className="text-destructive" aria-label="required">*</span>;
-export type ExtraDraft = { activity: string; equipmentCategory: '' | typeof equipmentCategories[number]; equipmentType: string; subscriptionTypes: string[]; websiteType: string; item: string; schoolIds: number[] };
+export type ExtraDraft = { activity: string; equipmentCategory: '' | typeof equipmentCategories[number]; equipmentType: string; subscriptionTypes: string[]; websiteType: string; item: string; censusType: string; schoolIds: number[] };
 
 /** The "Required" badge for a compulsory activity. */
 export function RequiredBadge({ workstream, activity }: { workstream: ActivityWorkstream; activity: number }) {
@@ -109,6 +109,11 @@ function ItemField({ activity, value, onChange }: { activity: number; value: str
 export function LineExtraFields({ workstream, draft, onChange }: { workstream: ActivityWorkstream; draft: ExtraDraft; onChange: (next: Partial<ExtraDraft>) => void }) {
   const activity = Number(draft.activity);
   if (isQualityEquipmentActivity(workstream, activity)) return <EquipmentFields draft={draft} onChange={onChange} />;
+  if (needsCensusType(workstream, activity)) return <Field><FieldLabel htmlFor="censusType">Type of census {required}</FieldLabel>
+    <NativeSelect id="censusType" required value={draft.censusType} onChange={e => onChange({ censusType: e.target.value })}>
+      <NativeSelectOption value="">Pick the type of census…</NativeSelectOption>{censusTypes.map(t => <NativeSelectOption key={t} value={t}>{t}</NativeSelectOption>)}
+    </NativeSelect>
+  </Field>;
   if (lineHasItem(workstream)) return <ItemField activity={activity} value={draft.item} onChange={item => onChange({ item })} />;
   if (workstream === 'ict' && activity === ictWebsiteActivity) return <TypeSelect id="websiteType" label="Website type" options={websiteTypes} value={draft.websiteType} onChange={websiteType => onChange({ websiteType })} />;
   if (workstream === 'ict' && activity === ictSubscriptionActivity) return <SubscriptionFields value={draft.subscriptionTypes} onChange={subscriptionTypes => onChange({ subscriptionTypes })} />;

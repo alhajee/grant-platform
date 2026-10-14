@@ -45,6 +45,11 @@ export const gscciItemsByActivity: Partial<Record<number, readonly string[]>> = 
 };
 export const lineHasItem = (workstream: string) => workstream === 'gscci';
 
+/** Planning "Conduct annual school census" (activity 0) lines name the type of census (migration 064). */
+export const censusTypes = ['Annual School Census', 'NPA'] as const;
+export const censusActivity = 0;
+export const needsCensusType = (workstream: string, activity: number) => workstream === 'planning' && activity === censusActivity;
+
 /** QA activities whose items record an equipment category and type: Mobility and office equipment, and its maintenance. */
 export const qualityEquipmentActivities = [0, 1] as const;
 export const isQualityEquipmentActivity = (workstream: string, activity: number) => workstream === 'quality' && (qualityEquipmentActivities as readonly number[]).includes(activity);

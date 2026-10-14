@@ -72,6 +72,7 @@ function activityExtras(key: ActivitySheetKey): WorkbookColumn[] {
   if (key === 'sbmc') return [text('rationale', 'Rationale', 260), text('approach', 'Implementation approach', 260)];
   if (key === 'quality') return [text('equipment', 'Equipment', 220, true)];
   if (key === 'gscci') return [text('item', 'Item', 200, true)];
+  if (key === 'planning') return [text('census', 'Census type', 170, true)];
   if (key === 'ict') return [text('details', 'Details', 200), qty('schools', 'Schools', true), qty('documents', 'Documents')];
   return key === 'curriculum' ? [text('share', 'Activity share', 120, true)] : [];
 }
@@ -80,6 +81,7 @@ function activityExtraValues(key: ActivitySheetKey, line: NonNullable<Snapshot['
   if (key === 'sbmc') return { rationale: line.rationale || '', approach: line.implementation_approach || '' };
   if (key === 'quality') return { equipment: [line.equipment_category, line.equipment_type].filter(Boolean).join(' · ') };
   if (key === 'gscci') return { item: line.item ?? '' };
+  if (key === 'planning') return { census: line.census_type ?? '' };
   if (key === 'ict') return { details: line.subscription_types?.length ? line.subscription_types.join(', ') : line.website_type || '', schools: line.schools?.length || '', documents: line.documents?.length || '' };
   // Others (specify) has no share of its own; it only counts toward the Curriculum allocation.
   const share = (curriculumActivityShares as readonly number[])[line.activity];
