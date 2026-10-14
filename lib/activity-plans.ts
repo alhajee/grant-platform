@@ -16,7 +16,8 @@ export const activityNames = {
   monitoring: ['Monitoring tools and supervision visit equipment', 'Procurement/maintenance of monitoring vehicles or other means of transportation to sites', 'Allowances for monitoring officers', 'Digital monitoring system/dashboard', 'Training', othersActivityName],
   // UBEC's new GSCCI allowable activities (Oct 2026); the earlier safeguarding list was retired and its lines cleared (migration 039).
   gscci: ['GSCCI Pillar 1: Greening schools/planting of trees', 'GSCCI Pillar 2: Promoting entrepreneurial greening curricula', 'GSCCI Pillar 3: Teacher training and education system capacity', 'GSCCI Pillar 4: Greening communities', 'GSCCI Pillar 5: National greening competitions', 'GSCCI Pillar 6: Establishment of Green Clubs (climate change clubs)', 'Rearing of small animals/aquatic farming', 'Safeguards and waste management initiatives', 'Supervision and monitoring of GSCCI initiatives', othersActivityName],
-  curriculum: ['Purchase and distribution of copies of the revised NERDC curriculum to schools', 'Capacity building of teachers on the implementation of the revised curriculum', 'Distribution of curriculum to schools', 'Monitoring of implementation of the revised curriculum', othersActivityName],
+  // Renamed to the client's list (October 2026); same order, so the 60/20/10/10 shares are unchanged.
+  curriculum: ['Curriculum Procurement (Acquisition)', 'Training of teachers', 'Distribution of the Curriculum & Access', 'Monitoring & Accountability (Verification)', othersActivityName],
   // Quality Assurance and ICT (DDPA) activity forms (migration 038); compulsory ones are in lib/activity-extras.ts.
   quality: qualityActivityNames,
   ict: ictActivityNames,
@@ -36,7 +37,13 @@ export const activityInfo: Partial<Record<ActivityWorkstream, Record<number, str
     8: 'Follow-up by UBEC, SUBEB and LGEAs for evaluation of 162 schools',
   },
   ict: { 2: 'All Model Smart Schools & DLC lines together may use up to ₦30,000,000' },
-  curriculum: { 4: 'Not part of the 60/20/10/10 activity split; it counts toward the Curriculum allocation' },
+  curriculum: {
+    0: 'Procurement of the New Revised Basic Curriculum (ECCDE, Primary 1–6, JSS 1–3)',
+    1: 'Capacity building of Education Secretaries, teachers, supervisors, LGEA and curriculum officers',
+    2: 'State → LGEA → school → teacher distribution',
+    3: 'School monitoring, tracking, verification and utilisation checks by SUBEB and UBEC',
+    4: 'Not part of the 60/20/10/10 activity split; it counts toward the Curriculum allocation',
+  },
   teachers: teacherActivityInfo,
   planning: {
     0: 'Conduct annual school census and regular data updates to improve accuracy of planning and reporting, uploaded to DNEMIS.',

@@ -67,7 +67,7 @@ try {
 
   // Without a key (old clients) a second create is checked as a new line, with the clearer cap message.
   fails(await api('academic', activities('curriculum'), curriculumLine(2, 168, 166666)), 400,
-    /^‘Distribution of curriculum to schools’ can use up to ₦28,000,000\.00 \(10% of the Curriculum allocation\)\. With this item it would come to ₦55,999,776\.00, which is ₦27,999,776\.00 over\.$/);
+    /^‘Distribution of the Curriculum & Access’ can use up to ₦28,000,000\.00 \(10% of the Curriculum allocation\)\. With this item it would come to ₦55,999,776\.00, which is ₦27,999,776\.00 over\.$/);
   step('without a key the old behaviour stays; the cap message names the cap, the total with this item and the excess');
 
   const concurrentKey = randomUUID();
