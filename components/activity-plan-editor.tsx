@@ -19,7 +19,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, useComboboxAnchor } from '@/components/ui/combobox';
-import { activityHints, activityInfo, activityNames, activityLineSchema, activityTitles, allocateByEnrolment, capActivities, hasDistribution, isOtherActivity, maxActivityNameLength, selectableActivityIndexes, textbookActivityIndex, textbookClasses, textbookSubjects, implementationStrategies, targetGroups, type ActivityLine, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
+import { activityHints, activityInfo, strategyLabel, activityNames, activityLineSchema, activityTitles, allocateByEnrolment, capActivities, hasDistribution, isOtherActivity, maxActivityNameLength, selectableActivityIndexes, textbookActivityIndex, textbookClasses, textbookSubjects, implementationStrategies, targetGroups, type ActivityLine, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
 import { activityBudgetProblem, componentEnvelopeKobo, activityCap, activityCapKobo, activityPercent, activityFixedCaps, isCapped, isCappedFor, type BudgetLine } from '@/lib/activity-budget';
 import { budgetPairs, pairOf, sideSplits, storedAllocation } from '@/lib/budget-pairs';
 import { isSplitMode } from '@/lib/funding-policy';
@@ -172,7 +172,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
   if(saved){const d=toDraft(saved),was=JSON.stringify(before);setBaseline(b=>b.id===id?d:b);setDraft(current=>current.id===id&&JSON.stringify(current)===was?d:current);}
   return null;
  }
- function select(key:'strategy'|'targetGroup'|'textbookSubject',label:string,options:readonly string[]){return <Field><FieldLabel htmlFor={key}>{label} {required}</FieldLabel><NativeSelect id={key} required value={draft[key]} onChange={e=>setDraft({...draft,[key]:e.target.value})}><NativeSelectOption value="">Choose…</NativeSelectOption>{options.map(o=><NativeSelectOption key={o} value={o}>{o}</NativeSelectOption>)}</NativeSelect></Field>;}
+ function select(key:'strategy'|'targetGroup'|'textbookSubject',label:string,options:readonly string[]){const name=key==='strategy'?strategyLabel:(o:string)=>o,retired=!!draft[key]&&!options.includes(draft[key]);return <Field><FieldLabel htmlFor={key}>{label} {required}</FieldLabel><NativeSelect id={key} required value={draft[key]} onChange={e=>setDraft({...draft,[key]:e.target.value})}><NativeSelectOption value="">Choose…</NativeSelectOption>{retired&&<NativeSelectOption value={draft[key]} disabled>{name(draft[key])} (no longer offered)</NativeSelectOption>}{options.map(o=><NativeSelectOption key={o} value={o}>{name(o)}</NativeSelectOption>)}</NativeSelect></Field>;}
  const filtered=data?.lines.filter(l=>lineSearchText(workstream,l).includes(query.trim().toLowerCase()))??[];
  // TLM has a long checklist, so only activities with saved items get a section.
  const displayActivityIndexes=[...new Set([...(workstream==='tlm'?[]:offered),...(data?.lines.map(line=>line.activity)??[])])].sort((a,b)=>a-b);

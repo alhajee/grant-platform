@@ -167,6 +167,10 @@ Every component line has a **Timeline**: the quarters it is implemented in. `qua
 - Changing a plan's implementation year moves every line's dates by whole years (`app/api/plans/setup/route.ts`).
 - Tests: `node --env-file=.env scripts/test-line-dates.mjs [baseUrl]` and `scripts/test-line-quarters.mjs` (gaps refused everywhere).
 
+## Implementation strategies (activity components)
+
+The activity components' strategy list (client, October 2026; Infrastructure keeps its own three): `implementationStrategies` in `lib/activity-plans.ts` = NCB, Request for quotation, Market survey, Single source/Direct contracting, Prequalification, Quality and cost based, Consultant Qualification, Least cost. Stored values stay short; `strategyLabel` shows "NCB (National Competitive Bidding)", "Request for Quotation", "Market Survey (Shopping)", "Single Source/Direct Contracting" (editor select, saved panel, workbook). `retiredStrategies` (E-payment/Cash transfer, Credit School account, Credit SBMC school account, Credit staff concern account, Direct payment to vendor) stay valid on lines that already have them (the select shows "(no longer offered)"); `POST /api/activities` refuses choosing one on a new line or changing a line to one (400 "Choose a listed implementation strategy"). No migration.
+
 ## Others (specify) activities (migration 047)
 
 Every activity-line component ends its list with an Others activity whose lines name their own activity (`activity_plan_lines.custom_activity`, field "Activity name"): SBMC 16, Supervision & Monitoring 5 (4 until migration 063 added "Training" as activity 4), GSCCI 9, Curriculum 4, Quality Assurance 12 (11 until migration 060; retired with the client's list, no new lines), ICT 9, Planning 6 (`othersActivityName`), plus the existing TLM 22 "Other TLMs" and Teacher Development 18. TLM 2, the retired "Distribution of TLMs to Schools", is offered again as "Distribution of TLMs" (October 2026), listed just before Other TLMs; saved-line groups follow the list's order. Always appended last, so earlier indexes keep their meaning.

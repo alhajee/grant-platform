@@ -1,7 +1,7 @@
 import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap, BadgeCheck, Laptop, Presentation, ChartColumn } from 'lucide-react';
 import { LineExtrasDetail } from './line-extras-detail';
 import type { Snapshot } from '@/lib/plan-review';
-import { activityLabel, activityTitles, allocateByEnrolment, curriculumActivityShares, distributionNames, distributionSnapshotKeys, type DistributionWorkstream } from '@/lib/activity-plans';
+import { activityLabel, activityTitles, strategyLabel, allocateByEnrolment, curriculumActivityShares, distributionNames, distributionSnapshotKeys, type DistributionWorkstream } from '@/lib/activity-plans';
 import { kindNames } from '@/lib/infrastructure-model';
 import { sportsSections } from '@/lib/sports';
 import { formatQuarters } from '@/lib/line-quarters';
@@ -98,7 +98,7 @@ function activitySheet(key: ActivitySheetKey, lines: NonNullable<Snapshot['sbmc'
     rows: lines.map(line => row(String(line.id), {
       activity: activityLabel(key, line.activity, line.custom_activity), code: line.code ?? '', description: line.description,
       ...activityExtraValues(key, line),
-      strategy: line.strategy, target: line.target_group, timeline: quarters(line), quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
+      strategy: strategyLabel(line.strategy), target: line.target_group, timeline: quarters(line), quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
     }, expandable(line))),
     ...(key !== 'gscci' ? { detail: (id: string) => { const line = byId.get(id); return line ? <LineExtrasDetail workstream={key} line={line} /> : null; } } : {}),
   };

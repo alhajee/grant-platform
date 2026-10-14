@@ -8,7 +8,7 @@ import { getPostgres } from '@/lib/postgres';
 import { cachedSchoolList } from '@/lib/school-cache';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { mayEditPillar, readPillarReviews } from '@/lib/pillar-review';
-import { activityLineSchema, activityWorkstreams, capActivities, hasDistribution, activityShareCaps, activityShareGroups } from '@/lib/activity-plans';
+import { activityLineSchema, activityWorkstreams, capActivities, hasDistribution, activityShareCaps, activityShareGroups, isRetiredStrategy } from '@/lib/activity-plans';
 import { activityBudgetProblem, isCapped } from '@/lib/activity-budget';
 import { isSplitMode } from '@/lib/funding-policy';
 import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
@@ -94,6 +94,8 @@ export async function POST(req:NextRequest){
      const timeline=resolveLineQuarters(line.data.quarters,await readPlanQuarterSetup(db,plan.id)); if(timeline.problem)return error(timeline.problem);
      // Expected start and due dates: inside the timeline in the implementation year (migration 059).
      const dated=await resolveSavedLineDates(db,'activity_plan_lines',plan.id,action==='update'?id!:null,line.data,timeline.quarters); if(dated.problem)return error(dated.problem);
+     // Retired strategies stay on the lines that have them but cannot be chosen again.
+     if(isRetiredStrategy(line.data.strategy)&&(action!=='update'||(await db.query('SELECT strategy FROM activity_plan_lines WHERE id=$1 AND plan_id=$2',[id,plan.id])).rows[0]?.strategy!==line.data.strategy))return error('Choose a listed implementation strategy');
      const v=line.data, values=[v.activity,v.customActivity,v.description,v.quantity,v.unitCost.toFixed(2),v.strategy,v.targetGroup,v.location,v.equipment,v.rationale,v.implementationApproach,v.textbookClasses,v.textbookSubject,v.equipmentType,v.subscriptionTypes,v.websiteType,v.trainingProvider,v.targetParticipants,v.schoolLevels,v.trainingDays,v.venueType,timeline.quarters,dated.dates.startDate,dated.dates.dueDate,v.equipmentCategory,v.item,v.censusType];
      if(workstream==='sbmc') {
       const existing=(await db.query("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='sbmc' AND ($2::bigint IS NULL OR id<>$2)",[plan.id,action==='update'?id:null])).rows[0].total;

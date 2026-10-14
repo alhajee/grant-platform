@@ -35,6 +35,12 @@ try{
  const under=await api('social',`/api/plans/review?plan=${plan}`,{action:'submit',pillar:'sbmc',version:underReview.plan.version});ok(under,400);assert.match(under.data.error,/₦125.25/);
  ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:4}),400);
  ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3}));
+ // Implementation strategies (October 2026): retired ones cannot be chosen, but a line that already has one keeps it.
+ ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Direct payment to vendor'}),400);
+ await db.query("UPDATE activity_plan_lines SET strategy='Direct payment to vendor' WHERE id=$1",[saved.lines[0].id]);
+ ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Direct payment to vendor'}));
+ ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Credit SBMC school account'}),400);
+ ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Least cost'}));
  const tlmUrl=`/api/activities?plan=${plan}&workstream=tlm`;
  const tlm={...line,workstream:'tlm',activity:5,description:'Textbooks',textbookClasses:['Primary 1','Primary 2'],textbookSubject:'English/literacy (Core)'};
  for(const [field,value] of [['description',''],['quantity',0],['unitCost',0],['strategy',''],['targetGroup',''],['activity',0],['activity',23],['equipment','Textbooks']]) ok(await api('academic',tlmUrl,{...tlm,[field]:value}),400);
