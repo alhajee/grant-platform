@@ -162,7 +162,7 @@ try {
   step('SBMC Director comments on their own component and requests changes without a note');
 
   // GSCCI distribution list (migration 039): its own commentable sheet, owned by the GSCCI component.
-  ok(await api('des', `/api/activities${q}`, { workstream: 'gscci', entity: 'line', action: 'create', activity: 8, description: 'Monitor school gardens', quantity: 1, unitCost: 10000, strategy: 'Request for quotation', targetGroup: 'Schools' }));
+  ok(await api('des', `/api/activities${q}`, { workstream: 'gscci', entity: 'line', action: 'create', activity: 8, description: 'Monitor school gardens', item: 'Monitoring visits', quantity: 1, unitCost: 10000, strategy: 'Request for quotation', targetGroup: 'Schools' }));
   expect(await review('des', 'submit', 'gscci'), 400, /Greening distribution list/);
   ok(await api('des', `/api/activities${q}`, { workstream: 'gscci', entity: 'school', action: 'create', schoolIds: [schoolId] }));
   ok(await review('des', 'submit', 'gscci'));

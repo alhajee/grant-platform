@@ -33,7 +33,7 @@ async function user(key, role, departments, chair = false, stateCode = state) {
   ok(await api(key, '/api/auth/login', { email, password }));
 }
 const url = workstream => `/api/activities?plan=${planId}&workstream=${workstream}`;
-const line = (workstream, activity, unitCost, extra = {}) => ({ workstream, entity: 'line', action: 'create', activity, description: `QA ${workstream} item`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...extra });
+const line = (workstream, activity, unitCost, extra = {}) => ({ workstream, entity: 'line', action: 'create', activity, description: `QA ${workstream} item`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...(workstream === 'gscci' ? { item: 'Tree seedlings' } : {}), ...extra });
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
 
 await db.connect();
@@ -107,6 +107,15 @@ try {
   fails(await api('academic', url('gscci'), line('gscci', 10, 100)), 400, /valid allowable activity/);
   await assert.rejects(db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,'gscci',10,'QA',1,1,'NCB','Schools')", [planId]), /activity_plan_lines_activity_check/);
   for (const activity of [0, 1, 2, 3, 4, 5, 6, 7, 8]) ok(await api('academic', url('gscci'), line('gscci', activity, 100)));
+  step('Greening items (migration 062): required, listed or typed; only on Greening lines');
+  fails(await api('academic', url('gscci'), line('gscci', 0, 100, { item: '' })), 400, /Choose or enter the item/);
+  fails(await api('academic', url('gscci'), line('gscci', 0, 100, { item: 'x'.repeat(101) })), 400, /up to 100 characters/);
+  fails(await api('physical', url('monitoring'), line('monitoring', 0, 100, { item: 'Tree seedlings' })), 400, /Items only apply/);
+  const typedItem = ok(await api('academic', url('gscci'), line('gscci', 7, 100, { item: '  Recycling cages ' }))).id;
+  const savedItems = ok(await api('academic', url('gscci'))).lines;
+  assert.equal(savedItems.find(l => l.id === typedItem).item, 'Recycling cages'); assert.equal(savedItems[0].item, 'Tree seedlings');
+  ok(await api('academic', url('gscci'), { workstream: 'gscci', entity: 'line', action: 'delete', id: typedItem }));
+  await assert.rejects(db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group,item) VALUES($1,'monitoring',0,'QA',1,1,'NCB','Schools','Bins')", [planId]), /activity_plan_lines_item_check/);
   const gscci = ok(await api('academic', url('gscci')));
   assert.equal(gscci.lines.length, 9); assert.deepEqual(gscci.documents, []); assert.equal(gscci.schools.length, 2); assert.deepEqual(gscci.distribution, []);
   ok(await api('academic', url('gscci'), { ...line('gscci', 8, 250, { quantity: 3 }), action: 'update', id: gscci.lines[8].id }));

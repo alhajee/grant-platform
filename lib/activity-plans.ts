@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, equipmentCategories, isQualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
+import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, lineHasItem, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, equipmentCategories, isQualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
 import { maxActivityNameLength, othersActivityName, teacherActivityInfo, teacherActivityNames } from './teacher-development.ts';
 import { teacherTrainingIssues, teacherTrainingShape } from './teacher-training-schema.ts';
 import { lineQuartersSchema } from './line-quarters.ts';
@@ -106,6 +106,8 @@ export const activityLineSchema = z.object({
   equipmentType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters`).default(''),
   subscriptionTypes: z.array(z.string().trim().min(1, 'Enter the subscription name').max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters`)).max(subscriptionTypes.length + 1).default([]),
   websiteType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters`).default(''),
+  /** Greening item (migration 062): listed for the activity or typed. */
+  item: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters for the item`).default(''),
   schoolIds: z.array(z.number().int().positive()).max(maxLineSchools, `Choose up to ${maxLineSchools.toLocaleString()} schools`).default([]),
   ...teacherTrainingShape,
   /** Timeline: implementation quarters within the plan's quarters (migration 050); omitted = the plan's quarters. */
@@ -131,6 +133,8 @@ export const activityLineSchema = z.object({
   const needsWebsite=v.workstream==='ict'&&v.activity===ictWebsiteActivity;
   if(needsWebsite&&!v.websiteType)ctx.addIssue({code:'custom',path:['websiteType'],message:'Choose or enter the website type'});
   if(!needsWebsite&&v.websiteType)ctx.addIssue({code:'custom',path:['websiteType'],message:'Website type only applies to the website activity'});
+  if(lineHasItem(v.workstream)&&!v.item)ctx.addIssue({code:'custom',path:['item'],message:'Choose or enter the item'});
+  if(!lineHasItem(v.workstream)&&v.item)ctx.addIssue({code:'custom',path:['item'],message:'Items only apply to Greening Schools, Climate Change & Safeguards'});
   const needsSchools=hasLineSchools(v.workstream,v.activity);
   if(needsSchools&&!v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose at least one school'});
   if(!needsSchools&&v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Schools only apply to activities that target schools'});
@@ -148,7 +152,7 @@ export const activityLineSchema = z.object({
   if(!Number.isSafeInteger(Math.round(v.unitCost*100)*v.quantity))ctx.addIssue({code:'custom',path:['unitCost'],message:'Line total is too large'});
 });
 export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number;/** Reference code set by the database (migration 053), e.g. UBEC/SUBEB/SBMC/012/2026 · Q1–Q4. */code?:string;/** The client key the line was created with (migration 058), null for older lines. */clientKey?:string|null;schools?:LineSchool[];documents?:LineDocument[]};
-export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'|'equipmentCategory'|'equipmentType'|'subscriptionTypes'|'websiteType'|'schoolIds'|'trainingProvider'|'targetParticipants'|'schoolLevels'|'trainingDays'|'venueType'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string;equipment_category?:string;equipment_type?:string;subscription_types?:string[];website_type?:string;
+export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'|'equipmentCategory'|'equipmentType'|'subscriptionTypes'|'websiteType'|'item'|'schoolIds'|'trainingProvider'|'targetParticipants'|'schoolLevels'|'trainingDays'|'venueType'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string;equipment_category?:string;equipment_type?:string;subscription_types?:string[];website_type?:string;item?:string;
   /** Teacher Development training details (migration 040). */
   training_provider?:string;target_participants?:string;school_levels?:string[];training_days?:number|null;venue_type?:string};
 export type ComponentDocument = {id:string;component:typeof documentWorkstreams[number];name:string;size:number};

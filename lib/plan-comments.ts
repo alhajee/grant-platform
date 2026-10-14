@@ -32,7 +32,7 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   tlm: { ...activityColumns, material: 'Material type', subject: 'Subject', classes: 'Classes', ...activityTail },
   distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
   monitoring: { ...activityColumns, ...activityTail },
-  gscci: { ...activityColumns, ...activityTail },
+  gscci: { ...activityColumns, item: 'Item', ...activityTail },
   gscciDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },
   curriculum: { ...activityColumns, share: 'Activity share', ...activityTail },
   curriculumDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', learners: 'Learners', allocation: 'Allocation' },

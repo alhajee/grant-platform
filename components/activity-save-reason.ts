@@ -5,7 +5,7 @@ const fieldLabels: Record<string, string> = {
   activity: 'Allowable activity', description: 'Description', quantity: 'Quantity', unitCost: 'Unit cost',
   strategy: 'Implementation strategy', targetGroup: 'Target group', rationale: 'Rationale',
   implementationApproach: 'Implementation approach', customActivity: 'Activity name', textbookClasses: 'Classes',
-  textbookSubject: 'Subject', equipmentCategory: 'Category', equipmentType: 'Type', websiteType: 'Website type',
+  textbookSubject: 'Subject', equipmentCategory: 'Category', equipmentType: 'Type', websiteType: 'Website type', item: 'Item',
   subscriptionTypes: 'Subscription types', schoolIds: 'Schools',
   trainingProvider: 'Training provider', targetParticipants: 'Target participants', schoolLevels: 'School level',
   venueType: 'Venue type', quarters: 'Timeline',

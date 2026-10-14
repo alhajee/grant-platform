@@ -12,7 +12,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { compulsoryActivities, equipmentCategories, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isSupportingDocumentLine, lineDocumentAcceptFor, lineDocumentLabel, isQualityEquipmentActivity, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isSupportingDocumentLine, lineDocumentAcceptFor, lineDocumentLabel, isQualityEquipmentActivity, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
@@ -22,7 +22,7 @@ import { teacherDocumentHint } from '@/lib/teacher-development';
 const count = new Intl.NumberFormat('en-NG');
 const pickerLimit = 200;
 const required = <span className="text-destructive" aria-label="required">*</span>;
-export type ExtraDraft = { activity: string; equipmentCategory: '' | typeof equipmentCategories[number]; equipmentType: string; subscriptionTypes: string[]; websiteType: string; schoolIds: number[] };
+export type ExtraDraft = { activity: string; equipmentCategory: '' | typeof equipmentCategories[number]; equipmentType: string; subscriptionTypes: string[]; websiteType: string; item: string; schoolIds: number[] };
 
 /** The "Required" badge for a compulsory activity. */
 export function RequiredBadge({ workstream, activity }: { workstream: ActivityWorkstream; activity: number }) {
@@ -96,10 +96,20 @@ function EquipmentFields({ draft, onChange }: { draft: ExtraDraft; onChange: (ne
   </div>;
 }
 
-/** Equipment category and type, subscription types and website type for the activities that ask for them. */
+/** Greening item: the activity's procurement list plus "Others (specify)", or a typed item where the activity has no list. */
+function ItemField({ activity, value, onChange }: { activity: number; value: string; onChange: (value: string) => void }) {
+  const options = gscciItemsByActivity[activity];
+  if (options) return <TypeSelect key={activity} id="item" label="Item" options={options} value={value} onChange={onChange} />;
+  return <Field><FieldLabel htmlFor="item">Item {required}</FieldLabel>
+    <Input id="item" required maxLength={maxTypeNameLength} placeholder="Enter the item" value={value} onChange={e => onChange(e.target.value)} />
+  </Field>;
+}
+
+/** Equipment category and type, subscription types, website type and Greening items for the activities that ask for them. */
 export function LineExtraFields({ workstream, draft, onChange }: { workstream: ActivityWorkstream; draft: ExtraDraft; onChange: (next: Partial<ExtraDraft>) => void }) {
   const activity = Number(draft.activity);
   if (isQualityEquipmentActivity(workstream, activity)) return <EquipmentFields draft={draft} onChange={onChange} />;
+  if (lineHasItem(workstream)) return <ItemField activity={activity} value={draft.item} onChange={item => onChange({ item })} />;
   if (workstream === 'ict' && activity === ictWebsiteActivity) return <TypeSelect id="websiteType" label="Website type" options={websiteTypes} value={draft.websiteType} onChange={websiteType => onChange({ websiteType })} />;
   if (workstream === 'ict' && activity === ictSubscriptionActivity) return <SubscriptionFields value={draft.subscriptionTypes} onChange={subscriptionTypes => onChange({ subscriptionTypes })} />;
   return null;

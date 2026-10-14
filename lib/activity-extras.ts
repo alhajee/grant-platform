@@ -29,6 +29,22 @@ export const websiteTypes = ['Maintenance – renewal', 'Maintenance – redesig
 /** Equipment, website and subscription types are suggestions: "Others (specify)" lets the user type one that is not listed. */
 export const maxTypeNameLength = 100;
 
+/**
+ * Greening (GSCCI) items: every line names its item (migration 062). The activities with a SUBEB procurement list
+ * (client's "New Improvement", October 2026) offer it plus "Others (specify)"; the rest (rearing of small animals,
+ * supervision and monitoring, Others) take a typed item. Activity 7 is the client's "Environmental & Social Safeguard".
+ */
+export const gscciItemsByActivity: Partial<Record<number, readonly string[]>> = {
+  0: ['Tree seedlings', 'Tree guards', 'Nursery polybags', 'Garden tool set', 'Rainwater harvesting kit', 'Handwashing station'],
+  1: ['Vegetable seeds', 'Livestock production', 'Organic manure', 'Manual sewing machine', 'Weighing scale', 'Enterprise record kit'],
+  2: ['Teacher green-skills manual', 'Wall chart and poster set', 'Activity card pack', 'Flipchart stand and paper', 'Tablet with power bank'],
+  3: ['Community tree seedlings', 'Sanitation kit', 'Megaphone', 'IEC materials', 'Improved cookstove demo units'],
+  4: ['Trophies and plaques', 'Certificates', 'Prize items', 'Art materials kit', 'Exhibition banners and canopies'],
+  5: ['Club T-shirts and caps', 'Eco-patrol reflective vests and badges', 'Club logbooks', 'Seedling trays', 'Club banner'],
+  7: ['Waste bins', 'Protective gear (PPE)', 'First aid kit', 'Covered waste drums', 'Fire extinguisher', 'Safety signage'],
+};
+export const lineHasItem = (workstream: string) => workstream === 'gscci';
+
 /** QA activities whose items record an equipment category and type: Mobility and office equipment, and its maintenance. */
 export const qualityEquipmentActivities = [0, 1] as const;
 export const isQualityEquipmentActivity = (workstream: string, activity: number) => workstream === 'quality' && (qualityEquipmentActivities as readonly number[]).includes(activity);

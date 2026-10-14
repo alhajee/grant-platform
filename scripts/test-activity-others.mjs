@@ -47,7 +47,7 @@ const url = workstream => `/api/activities?plan=${planId}&workstream=${workstrea
 const line = (workstream, activity, unitCost, extra = {}) => ({
   workstream, entity: 'line', action: 'create', activity, description: `OT ${workstream} ${activity}`, quantity: 1, unitCost,
   strategy: 'Request for quotation', targetGroup: 'State level', schoolIds: [],
-  ...(workstream === 'sbmc' ? { rationale: 'Reach more families', implementationApproach: 'Community meetings' } : {}), ...extra,
+  ...(workstream === 'sbmc' ? { rationale: 'Reach more families', implementationApproach: 'Community meetings' } : {}), ...(workstream === 'gscci' ? { item: 'Tree seedlings' } : {}), ...extra,
 });
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
 

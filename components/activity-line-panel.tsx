@@ -52,7 +52,7 @@ type ActivityLinePanelProps = {
 
 function details(workstream: ActivityWorkstream, l: ActivityLine): string {
   const training = workstream === 'teachers';
-  return [l.equipment, l.textbookSubject, l.textbookClasses.join(', '), (l.equipmentType ? [l.equipmentCategory, l.equipmentType].filter(Boolean).join(' · ') : '') || l.websiteType, (l.subscriptionTypes ?? []).join(', '),
+  return [l.item, l.equipment, l.textbookSubject, l.textbookClasses.join(', '), (l.equipmentType ? [l.equipmentCategory, l.equipmentType].filter(Boolean).join(' · ') : '') || l.websiteType, (l.subscriptionTypes ?? []).join(', '),
     l.schools?.length ? plural(l.schools.length, 'school') : '',
     training ? trainingSummary(l) : [l.strategy, l.targetGroup].filter(Boolean).join(' · ')].filter(Boolean).join(' · ');
 }
