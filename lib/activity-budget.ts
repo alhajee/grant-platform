@@ -46,7 +46,7 @@ export const activityPercent = (workstream: ActivityWorkstream, activity: number
 };
 export const curriculumCapKobo = (envelope: bigint, activity: number) => activityCapKobo('curriculum', envelope, activity);
 
-/** Fixed naira caps on one activity's lines together, in kobo: ICT Maintenance of Model Smart Schools (₦30,000,000). */
+/** Fixed naira caps on one activity's lines together, in kobo: ICT Maintenance of Model Smart Schools & DLC (₦30,000,000). */
 export const activityFixedCaps: Partial<Record<ActivityWorkstream, Record<number, bigint>>> = { ict: { [ictModelSchoolsActivity]: ictModelSchoolsCapKobo } };
 export const ictAllocationNeeded = 'Set how much of the shared Teacher Development & ICT budget ICT will use before adding ICT items';
 export const teachersSplitNeeded = 'Set how much of the shared Teacher Development & ICT budget Teacher Development will use before adding Teacher Development items';

@@ -35,7 +35,7 @@ export const activityInfo: Partial<Record<ActivityWorkstream, Record<number, str
     6: 'Conduct of CSM&E for 9 weeks to visit schools by UBEC, SUBEBs and LGEAs for evaluation of 324 schools over 3 terms (108 schools per term)',
     8: 'Follow-up by UBEC, SUBEB and LGEAs for evaluation of 162 schools',
   },
-  ict: { 2: 'All Model Smart Schools lines together may use up to ₦30,000,000' },
+  ict: { 2: 'All Model Smart Schools & DLC lines together may use up to ₦30,000,000' },
   curriculum: { 4: 'Not part of the 60/20/10/10 activity split; it counts toward the Curriculum allocation' },
   teachers: teacherActivityInfo,
   planning: {

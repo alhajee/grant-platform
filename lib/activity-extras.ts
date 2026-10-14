@@ -6,7 +6,7 @@ import { othersActivityName, teacherActivityNames, teacherDocumentLabel } from '
 /** Activity lists from the client's Quality Assurance and ICT (DDPA) activity forms, stored by index; the last is Others (specify), migration 047. */
 /** Quality Assurance activities, renamed from the client's observations (October 2026, migration 060); 11 was added then and Others moved to 12. */
 export const qualityActivityNames = ['Mobility and office equipment', 'Maintenance of motorcycles, vehicles and office equipment', 'Capacity strengthening for principals and headteachers', 'Capacity building of M&E officers on school-based monitoring and evaluation procedures and data entry', 'Literacy and Numeracy Assessment at LGEAs (aligned with HOPE-EDU)', 'Maintenance of E-Quality Assurance platform / M&E', 'Conduct of Continuous School-based Monitoring and Evaluation (CSM&E) for 9 weeks to visit schools for evaluation', 'Transportation and fueling for CSM&E', 'Follow-up evaluation (by UBEC, SUBEB and LGEAs)', 'Daily school monitoring by SUBEB and LGEAs', 'Production of instruments, report writing and harmonization', 'Server renewal and dashboard', othersActivityName] as const;
-export const ictActivityNames = ['Procurement of Digital/STEM Equipment', 'Compliance with Data Protection & Cybersecurity Policy (NDPA)', 'Maintenance of Model Smart Schools', 'Maintenance of UBEC-SUBEB Connect', 'Establishment of DLC (Digital Literacy Centre)/Smart Classrooms', 'Acquisition/Renewal of Internet Subscriptions', 'Development/maintenance of website', 'Provision of digital teaching & learning resources', 'Monitoring and verification', othersActivityName] as const;
+export const ictActivityNames = ['Procurement of Digital/STEM Equipment', 'Compliance with Data Protection & Cybersecurity Policy (NDPA)', 'Maintenance of Model Smart Schools & DLC', 'Maintenance of UBEC-SUBEB Connect', 'Establishment of DLC (Digital Literacy Centre)/Smart Classrooms', 'Acquisition/Renewal of Internet Subscriptions', 'Development/maintenance of website', 'Provision of digital teaching & learning resources', 'Monitoring and verification', othersActivityName] as const;
 /** Planning, EMIS & Data Platform activities (migration 041), stored by index. */
 export const planningActivityNames = ['Conduct annual school census', 'Develop State Medium-Term Basic Education Strategic Plans (SMTBESP)', 'Review and track the implementation of SMTBESP', 'Capacity building of EMIS, ICT and PRS Officers at SUBEB & LGEA', 'Procure working tools and ICT resources for PRS Officers', 'Provide technical assistance for planning activities', othersActivityName] as const;
 export const qualityIctActivityNames: Record<string, readonly string[]> = { quality: qualityActivityNames, ict: ictActivityNames, teachers: teacherActivityNames, planning: planningActivityNames };
@@ -51,7 +51,7 @@ export const isQualityEquipmentActivity = (workstream: string, activity: number)
 /** ICT activities whose lines record their subscription types and website type. */
 export const ictSubscriptionActivity = 5;
 export const ictWebsiteActivity = 6;
-/** ICT Maintenance of Model Smart Schools: all its lines together are capped at ₦30,000,000. */
+/** ICT Maintenance of Model Smart Schools & DLC: all its lines together are capped at ₦30,000,000. */
 export const ictModelSchoolsActivity = 2;
 export const ictModelSchoolsCapKobo = BigInt(3_000_000_000);
 
