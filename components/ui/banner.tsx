@@ -1,49 +1,62 @@
 'use client';
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { XIcon } from 'lucide-react';
+import { CircleAlertIcon, CircleCheckIcon, InfoIcon, SparklesIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
- * Solid coloured page banners. Tones by use case: info (how something works), success (done), warning (needs
- * attention), danger (blocked or failing), brand (announcements). `Banner` is one banner; `BannerStack` shows several
- * as a stack (the first in front, the rest peeking behind) that fans out on hover or keyboard focus. A banner with a
- * `dismissKey` remembers its × in this browser; without one it returns on the next visit.
+ * Page banners: a white card with a tinted grid wash in the corner, a round icon badge, title and description, and an
+ * optional grey ×. Tones by use case: info (how something works), success (done), warning (needs attention), danger
+ * (blocked or failing), brand (announcements). `Banner` is one banner; `BannerStack` shows several as a stack (the
+ * first in front, the rest peeking behind) that fans out on hover or keyboard focus. A banner with a `dismissKey`
+ * remembers its × in this browser; without one it returns on the next visit.
  */
-const bannerVariants = cva('relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm shadow-sm [&_[data-slot=banner-icon]>svg]:size-4', {
+const bannerVariants = cva('relative isolate flex items-start gap-3.5 overflow-hidden rounded-2xl border bg-card p-3.5 pr-11 text-card-foreground shadow-[0_1px_2px_rgb(0_0_0/.04),0_8px_24px_-12px_rgb(0_0_0/.12)]', {
   variants: {
     tone: {
-      info: 'bg-sky-700 text-white [--banner-muted:rgb(255_255_255/.82)] [--banner-hover:rgb(255_255_255/.16)]',
-      success: 'bg-emerald-700 text-white [--banner-muted:rgb(255_255_255/.82)] [--banner-hover:rgb(255_255_255/.16)]',
-      warning: 'bg-amber-400 text-amber-950 [--banner-muted:rgb(69_26_3/.78)] [--banner-hover:rgb(69_26_3/.1)]',
-      danger: 'bg-rose-600 text-white [--banner-muted:rgb(255_255_255/.85)] [--banner-hover:rgb(255_255_255/.16)]',
-      brand: 'bg-primary text-primary-foreground [--banner-muted:color-mix(in_srgb,var(--primary-foreground)_80%,transparent)] [--banner-hover:color-mix(in_srgb,var(--primary-foreground)_14%,transparent)]',
+      info: '[--banner-accent:#6d4aff]',
+      success: '[--banner-accent:#16a34a]',
+      warning: '[--banner-accent:#d97706]',
+      danger: '[--banner-accent:#e11d48]',
+      brand: '[--banner-accent:var(--primary)]',
     },
   },
   defaultVariants: { tone: 'info' },
 });
+const toneIcons = { info: InfoIcon, success: CircleCheckIcon, warning: CircleAlertIcon, danger: TriangleAlertIcon, brand: SparklesIcon };
 
 type BannerContent = VariantProps<typeof bannerVariants> & {
+  /** Replaces the tone's icon. */
   icon?: React.ReactNode;
   title: React.ReactNode;
   /** The description. */
   children?: React.ReactNode;
-  /** A button or link after the text. */
+  /** A button or link under the text. */
   action?: React.ReactNode;
 };
 type BannerCardProps = Omit<React.ComponentProps<'div'>, 'title'> & BannerContent & { onDismiss?: () => void };
 
-/** The banner itself; `onDismiss` shows the small ×. */
+/** The banner itself; `onDismiss` shows the ×. */
 function BannerCard({ tone, icon, title, action, onDismiss, className, children, ...props }: BannerCardProps) {
-  return <div role="note" data-slot="banner" data-tone={tone ?? 'info'} className={cn(bannerVariants({ tone }), className)} {...props}>
-    {icon && <span aria-hidden="true" data-slot="banner-icon" className="flex shrink-0 self-start pt-0.5 sm:self-center sm:pt-0">{icon}</span>}
-    <p className="min-w-0 flex-1 leading-snug">
-      <span className="font-semibold">{title}</span>
-      {children && <span className="text-(--banner-muted)"><span aria-hidden="true" className="mx-2 hidden opacity-60 sm:inline">·</span><span className="block sm:inline">{children}</span></span>}
-    </p>
-    {action && <span className="shrink-0">{action}</span>}
-    {onDismiss && <Button type="button" variant="ghost" size="icon" className="-mr-1.5 size-6 shrink-0 self-start rounded-full text-current hover:bg-(--banner-hover) hover:text-current sm:self-center [&_svg]:size-3.5" aria-label="Dismiss" onClick={onDismiss}><XIcon /></Button>}
+  const ToneIcon = toneIcons[tone ?? 'info'];
+  return <div role="note" data-slot="banner" data-tone={tone ?? 'info'} className={cn(bannerVariants({ tone }), !onDismiss && 'pr-3.5', className)} {...props}>
+    {/* Tinted wash with a faint grid, fading out from the top-left corner. */}
+    <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 -z-10 w-80 max-w-full" style={{
+      backgroundImage: 'linear-gradient(to right, color-mix(in srgb, var(--banner-accent) 30%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--banner-accent) 30%, transparent) 1px, transparent 1px), radial-gradient(120% 110% at 0% 0%, color-mix(in srgb, var(--banner-accent) 24%, transparent), transparent 75%)',
+      backgroundSize: '22px 22px, 22px 22px, 100% 100%',
+      maskImage: 'radial-gradient(100% 130% at 0% 0%, #000 10%, transparent 80%)',
+      WebkitMaskImage: 'radial-gradient(100% 130% at 0% 0%, #000 10%, transparent 80%)',
+    }} />
+    <span aria-hidden="true" data-slot="banner-icon" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-card text-(--banner-accent) shadow-[0_1px_3px_rgb(0_0_0/.08),0_4px_12px_-4px_rgb(0_0_0/.12)] ring-1 ring-black/5 [&>svg]:size-5">
+      {icon ?? <ToneIcon fill="currentColor" stroke="white" strokeWidth={2.25} className="size-6!" />}
+    </span>
+    <div className="min-w-0 flex-1 self-center">
+      <p className="text-sm font-semibold leading-snug">{title}</p>
+      {children && <div className="mt-0.5 text-sm leading-snug text-muted-foreground">{children}</div>}
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+    {onDismiss && <Button type="button" variant="ghost" size="icon" className="absolute top-2.5 right-2.5 size-7 rounded-full text-muted-foreground hover:text-foreground [&_svg]:size-4" aria-label="Dismiss" onClick={onDismiss}><XIcon /></Button>}
   </div>;
 }
 
@@ -67,7 +80,7 @@ function Banner({ dismissible = false, dismissKey, onDismiss, ...props }: Banner
 
 export type StackedBanner = BannerContent & { id: string; dismissible?: boolean; dismissKey?: string };
 
-const peek = 9; // px each banner behind shows above the one in front
+const peek = 10; // px each banner behind shows above the one in front
 const maxPeeks = 2;
 
 /** Several banners as a stack; hover or focus fans them out, and closing the front one brings the next forward. */
@@ -79,17 +92,17 @@ function BannerStack({ banners, className, label = 'Notices' }: { banners: reado
   const close = (b: StackedBanner) => { remember(b.dismissKey); setClosed(prev => new Set([...prev, b.id])); };
   const behind = Math.min(shown.length - 1, maxPeeks);
   return <section aria-label={label} data-slot="banner-stack" data-open={open || undefined}
-    className={cn('grid transition-[padding] duration-300 ease-out motion-reduce:transition-none', open && 'gap-2', className)}
+    className={cn('grid transition-[padding] duration-300 ease-out motion-reduce:transition-none', open && 'gap-2.5', className)}
     style={{ paddingTop: open ? 0 : behind * peek }}
     onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}
     onFocus={() => setOpen(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
     {shown.map((b, i) => {
-      const back = !open && i > 0;
+      const back = !open && i > 0, depth = Math.min(i, maxPeeks);
       return <div key={b.id} inert={back || undefined} aria-hidden={back || undefined}
         className="transition-[transform,opacity] duration-300 ease-out motion-reduce:transition-none"
-        style={open ? { zIndex: shown.length - i } : { gridArea: '1 / 1', zIndex: shown.length - i, transformOrigin: 'top center', transform: `translateY(${-Math.min(i, maxPeeks) * peek}px) scale(${1 - Math.min(i, maxPeeks) * 0.04})`, opacity: i > maxPeeks ? 0 : 1 }}>
+        style={open ? { zIndex: shown.length - i } : { gridArea: '1 / 1', zIndex: shown.length - i, transformOrigin: 'top center', transform: `translateY(${-depth * peek}px) scale(${1 - depth * 0.035})`, opacity: i > maxPeeks ? 0 : 1 - depth * 0.15 }}>
         <BannerCard tone={b.tone} icon={b.icon} title={b.title} action={b.action} onDismiss={b.dismissible === false ? undefined : () => close(b)}
-          className={cn(back && 'shadow-md [&>*]:opacity-0')}>{b.children}</BannerCard>
+          className={cn('h-full', back && '[&>*]:opacity-0')}>{b.children}</BannerCard>
       </div>;
     })}
     {!open && shown.length > 1 && <span className="sr-only">{shown.length} notices. Hover or focus to see them all.</span>}
