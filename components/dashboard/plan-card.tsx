@@ -43,7 +43,7 @@ export function PlanCard({ plan, isOfficer, canEdit, onEdit }: PlanCardProps) {
     <PlanCardGuilloche seed={plan.startYear} />
     <CardHeader className="plan-card-header">
       <div className="min-w-0"><CardTitle><h3>{planPeriod(plan)} BEAP</h3></CardTitle>{plan.endYear > plan.startYear && <CardDescription>{plan.endYear - plan.startYear + 1}-year plan</CardDescription>}</div>
-      <PlanStatusBadge status={plan.status} reviews={plan.pillarReviews} compact />
+      <PlanStatusBadge status={plan.status} reviews={plan.pillarReviews} />
     </CardHeader>
     <CardContent>
       <p className="plan-funding-label">Available funding</p>
