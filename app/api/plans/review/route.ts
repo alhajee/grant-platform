@@ -19,7 +19,7 @@ import { componentReadinessProblem, hasReadinessRules, splitReadinessProblem } f
 import { sportsSnapshotProblem } from '@/lib/sports';
 import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
-import { aggregateReviewStatus, readPillarReviews, readyForExecutiveChairman, readyForUbecSubmission, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
+import { aggregateReviewStatus, executiveChairmanProblem, readPillarReviews, readyForExecutiveChairman, readyForUbecSubmission, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
 import { readBeapChairSubmissionMode, readWorkflowSettings } from '@/lib/workflow-settings';
 import { userDepartmentsSql } from '@/lib/user-departments';
 import { holdsComponent } from '@/lib/component-access';
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       const bySubmission = await readSubmissionVisibility(db, workspace, plan.id, submissions.map(submission => submission.number));
       const visibleSubmissions = submissions.filter(submission => (canViewWholeStatePlan(workspace) || visibleEvents.some(event => event.submissionNumber === submission.number)) && (bySubmission.get(submission.number)?.length ?? 0) > 0);
       if (requested && !visibleSubmissions.some(submission => submission.number === Number(requested))) return error('Submission not found', 404);
-      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => ceiling.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot, { documentsRequired }), readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot, { documentsRequired }), plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, documentsRequired, snapshot: visibleSnapshot(snapshot, visiblePillars), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => ceiling.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot, { documentsRequired }), executiveChairmanProblem: workspace.isBeapChair ? executiveChairmanProblem(pillarReviews, snapshot, { documentsRequired }) : null, readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot, { documentsRequired }), plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, documentsRequired, snapshot: visibleSnapshot(snapshot, visiblePillars), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       if (input.action === 'forward' && beapChairSubmissionMode === 'complete_plan') {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send the plan to the SUBEB Executive Chairman', 403);
         if (input.pillar) return error('This state sends the complete BEAP to the Executive Chairman at once', 409);
-        if (!readyForExecutiveChairman(reviews,snapshot,readiness)) return error('Every implemented component must reach the BEAP Chair before all components can be sent together to the Executive Chairman', 409);
+        { const problem = executiveChairmanProblem(reviews,snapshot,readiness); if (problem) return error(problem, 409); }
         const recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Executive Chairman'", [workspace.stateCode])).rows;
         if (!recipients.length) return error('No active SUBEB Executive Chairman is configured for this state',409);
         await db.query("UPDATE plan_pillar_reviews SET status='chairman_ready',updated_at=NOW() WHERE plan_id=$1 AND status='beap_review'",[plan.id]);

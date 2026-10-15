@@ -105,6 +105,8 @@
 .workflow-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-top: 12px; padding: 10px 10px 10px 16px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 60%, transparent); }
 .workflow-bar p { display: flex; flex-wrap: wrap; gap: 2px 6px; font-size: 13px; color: var(--muted-foreground); }
 .workflow-bar p strong { font-weight: 550; color: var(--foreground); }
+.workflow-bar:has(.workflow-blocked) { border-radius: 18px; }
+.workflow-bar p.workflow-blocked { flex-basis: 100%; flex-wrap: nowrap; color: var(--destructive); }
 @media (max-width: 600px) { .workflow-bar { border-radius: 18px; } }
 
 /* Funding summary with the status panel beside it. */

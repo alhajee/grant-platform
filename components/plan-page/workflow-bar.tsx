@@ -1,4 +1,4 @@
-import { SendIcon } from 'lucide-react';
+import { CircleAlertIcon, SendIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { statePlanOpen } from '@/lib/pillar-review';
@@ -13,10 +13,13 @@ export function WorkflowBar({ data, available, onForward, onSendToUbec }: { data
   const count = (statuses: string[]) => data.pillarReviews.filter(review => statuses.includes(review.status)).length;
   const of = `of ${implementedPillars.length} components`;
   if (data.role === 'Director' && data.isBeapChair) {
+    // Why the button is disabled (any send rule the plan fails), so the BEAP Chair knows what to fix or return.
+    const blocked = !data.readyForExecutiveChairman ? data.executiveChairmanProblem : null;
     if (data.beapChairSubmissionMode !== 'complete_plan') return <div className="workflow-bar"><p><strong>Send reviewed components individually</strong>{count(['chairman_ready'])} {of} sent to the Executive Chairman.</p></div>;
     return <div className="workflow-bar">
       <p><strong>Collate all department components into the complete SUBEB BEAP.</strong>{count(['beap_review', 'chairman_ready'])} {of} reviewed by Directors. All components are sent together in one submission.</p>
-      <Button className="rounded-full" disabled={!data.readyForExecutiveChairman || !available} onClick={onForward}><SendIcon data-icon="inline-start" />Send to Executive Chairman</Button>
+      <Button className="rounded-full" disabled={!data.readyForExecutiveChairman || !available} aria-describedby={blocked ? 'workflow-blocked' : undefined} onClick={onForward}><SendIcon data-icon="inline-start" />Send to Executive Chairman</Button>
+      {blocked && <p id="workflow-blocked" role="status" className="workflow-blocked flex items-start gap-1.5 text-sm text-destructive"><CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{blocked}</p>}
     </div>;
   }
   if (data.role !== 'Executive Chairman') return null;

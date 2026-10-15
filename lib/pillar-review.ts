@@ -59,9 +59,27 @@ export function ubecSubmissionSnapshot(snapshot: Snapshot, reviews: PillarReview
   };
 }
 export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Snapshot, options: ReadinessOptions) {
-  return implementedPillars.every(p => reviews.some(r => r.pillar === p && ['beap_review','chairman_ready'].includes(r.status))) &&
-    reviews.some(r => r.status === 'beap_review') && planIsComplete(snapshot, options);
+  return !executiveChairmanProblem(reviews, snapshot, options);
 }
+/**
+ * Why the BEAP Chair cannot send the complete plan to the Executive Chairman yet, or null: every component must have
+ * reached them, and the plan must pass every send rule (the same checks as planIsComplete), named per component.
+ */
+export function executiveChairmanProblem(reviews: PillarReview[], snapshot: Snapshot, options: ReadinessOptions): string | null {
+  const waiting = implementedPillars.filter(p => !reviews.some(r => r.pillar === p && ['beap_review','chairman_ready'].includes(r.status)));
+  if (waiting.length) return `${waiting.length} component${waiting.length === 1 ? ' has' : 's have'} not reached the BEAP Chair yet: ${waiting.map(p => componentNames[p]).join(', ')}`;
+  if (!reviews.some(r => r.status === 'beap_review')) return 'Every component has already been sent to the Executive Chairman';
+  if (planIsComplete(snapshot, options)) return null;
+  const empty = implementedPillars.filter(p => !(snapshot[p]?.length ?? 0));
+  if (empty.length) return `Nothing has been budgeted yet for ${empty.map(p => componentNames[p]).join(', ')}`;
+  const noList = distributionWorkstreams.find(w => !(snapshot[distributionSnapshotKeys[w]]?.length ?? 0));
+  if (noList) return `${componentNames[noList]}: add at least one school to its distribution list`;
+  const infrastructure = infrastructureDocumentProblem(snapshot, options);
+  if (infrastructure) return `Infrastructure: ${infrastructure}`;
+  for (const p of implementedPillars) { const problem = componentSendProblem(p, snapshot, options); if (problem) return `${componentNames[p]}: ${problem}`; }
+  return 'The plan is not complete yet';
+}
+const componentNames: Record<ImplementedPillar, string> = { infrastructure: 'Infrastructure', tlm: 'TLM', sports: 'Sports', sbmc: 'SBMC', monitoring: 'Supervision & Monitoring', gscci: 'Greening', curriculum: 'Curriculum', quality: 'Quality Assurance', teachers: 'Teacher Development', ict: 'ICT', planning: 'Planning' };
 function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
   return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot, options)
     && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup, options)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup)
