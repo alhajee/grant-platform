@@ -48,3 +48,6 @@ next-env.d.ts
 /outputs/
 /work/
 .gstack/
+
+# Local screenshots of changes (taken for every change; not committed)
+screenshots/

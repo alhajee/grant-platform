@@ -23,6 +23,7 @@ import { currentPlanHref, planHref, planPeriod, ubecStageLabels } from '@/lib/ac
 import type { PlanReview } from '@/lib/plan-review';
 import { componentSections, implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, hasDistribution } from '@/lib/activity-plans';
+import { emptyDistributionMessage } from '@/lib/distribution-lists';
 import { componentSendProblem, mayEditPillar, statePlanOpen, type PillarReview } from '@/lib/pillar-review';
 import { summarizeSnapshot } from '@/lib/plan-summary';
 import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
@@ -34,9 +35,11 @@ const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 
 const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
 // Compulsory activities, line schools and documents, and the Sports caps must be in place before any send step.
 // The same checks the server runs on every send step, so a holder sees the problem on the card before sending.
-const readiness = (data: PlanReview, pillar: ImplementedPillar) => (pillar === 'infrastructure' && data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot, { documentsRequired: data.documentsRequired }) : null)
+const readiness = (data: PlanReview, pillar: ImplementedPillar) => (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length ? emptyDistributionMessage(pillar) : null)
+  ?? (pillar === 'infrastructure' && data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot, { documentsRequired: data.documentsRequired }) : null)
   ?? componentSendProblem(pillar, data.snapshot, { documentsRequired: data.documentsRequired });
-const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length || (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length);
+// Budget lines saved but no distribution list: the send step shows, disabled, with the reason (from `readiness`).
+const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length;
 
 /** The plan page: summary, components, workflow steps, the plan workbook and its review history. */
 export default function PlanPage() {
@@ -117,7 +120,7 @@ export default function PlanPage() {
     <main className="beap-main review-main plan-page" id="main-content">
       <div className="review-page-summary">
         <Button asChild variant="ghost" size="sm" className="review-back"><a href="/dashboard"><ArrowLeftIcon data-icon="inline-start" />Dashboard</a></Button>
-        <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{plan && <PlanStatusBadge status={plan.status} />}</div><div className="review-actions">
+        <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{plan && <PlanStatusBadge status={plan.status} reviews={data?.pillarReviews} />}</div><div className="review-actions">
           {data && !error && <div className="review-version"><Select value={selected} onValueChange={value => void load(value)} disabled={loading}><SelectTrigger id="submission-version" aria-label="Plan version" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">Current working plan</SelectItem>{data.submissions.map(s => <SelectItem key={s.number} value={String(s.number)}>Submission {s.number} · {date.format(new Date(s.createdAt))}</SelectItem>)}</SelectGroup></SelectContent></Select></div>}
           {data && !error && canEditSetup && <Button variant="outline" className="rounded-full" onClick={() => setEditing(true)}><PencilIcon data-icon="inline-start" />Edit plan</Button>}
           {data && !error && canEditSetup && selected === 'current' && <DeletePlanButton planId={data.plan.id} version={data.plan.version} title={`${planPeriod(data.plan).replace(' · ', ' ')} BEAP`} blockedReason={deleteBlocked} />}

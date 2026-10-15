@@ -50,7 +50,7 @@ try {
   const q = `?plan=${planId}`, reviewPath = `/api/plans/review${q}`, comments = `/api/plans/comments${q}`;
   const review = async (who, action, pillar, comment = '') => api(who, reviewPath, { action, pillar, version: ok(await api(who, reviewPath)).plan.version, comment });
   const balls = ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 10, unitCost: 15000 }), 201).id;
-  ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'competitions', activityType: 'Inter School Competition', description: 'Inter-school finals', quantity: 1, unitCost: 900000 }), 201);
+  ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'competitions', activityType: 'State Finals Competition', description: 'State finals', quantity: 1, unitCost: 900000 }), 201);
   ok(await api('desPhysical', `/api/activities${q}&workstream=monitoring`, { workstream: 'monitoring', entity: 'line', action: 'create', activity: 0, description: 'QA monitoring visit', quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'Schools' }));
   const form = new FormData(); form.set('workstream', 'monitoring'); form.set('file', new Blob([Buffer.from('%PDF-1.4 QA proforma')]), 'proforma.pdf');
   const documentId = ok(await api('desPhysical', `/api/activities/documents${q}`, form)).id;
