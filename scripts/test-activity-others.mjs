@@ -67,6 +67,9 @@ try {
   planId = (await db.query("INSERT INTO action_plans(state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,ict_allocation,tlm_allocation,funding_policy_id) VALUES($1,2033,2033,2033,'{1}',400000000,0,10000000,100000000,(SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1)) RETURNING id", [state])).rows[0].id;
   await db.query('INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,2033,1)', [planId, state]);
 
+  // Required activities first: ICT and Planning take Others items only once each compulsory activity has one (seeded directly).
+  for (const [workstream, activities] of [['ict', [1, 2, 3, 5, 6]], ['planning', [0, 2, 3, 5]]]) for (const activity of activities)
+    await db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,$2,$3,'Required item',1,1,'NCB','State level')", [planId, workstream, activity]);
   const saved = {};
   for (const { workstream, who, others, plain } of components) {
     fails(await api(who, url(workstream), line(workstream, others + 1, 100)), 400, /valid allowable activity/);
@@ -104,6 +107,7 @@ try {
   step('Curriculum Others counts toward the component ceiling without an activity cap');
 
   // Others never counts toward compulsory activities.
+  await db.query("DELETE FROM activity_plan_lines WHERE plan_id=$1 AND workstream='planning' AND activity=0", [planId]);
   fails(await review('prs', { action: 'submit', pillar: 'planning' }), 409, /Conduct annual school census/);
   step('Others lines do not satisfy compulsory activities');
 

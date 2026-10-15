@@ -12,7 +12,8 @@ import { activityLineSchema, activityWorkstreams, capActivities, hasDistribution
 import { activityBudgetProblem, isCapped } from '@/lib/activity-budget';
 import { isSplitMode } from '@/lib/funding-policy';
 import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
-import { lineSchoolActivities } from '@/lib/activity-extras';
+import { compulsoryActivities, lineSchoolActivities } from '@/lib/activity-extras';
+import { requiredFirstProblem } from '@/lib/component-readiness';
 import { readLineExtras, saveLineSchools } from '@/lib/activity-line-extras';
 import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
 import { readPoolState } from '@/lib/infrastructure-pool-db';
@@ -113,6 +114,13 @@ export async function POST(req:NextRequest){
        const problem=isSplitMode(pool.plan)?activityBudgetProblem('tlm',[{activity:v.activity,kobo:pool.proposed.tlm+cost}],pool.plan,{pending:true}):infrastructurePoolProblem(pool.plan,{...pool.proposed,tlm:pool.proposed.tlm+cost});
        if(problem)return error(problem,409);
       }
+     }
+     // Required activities first (ICT, Planning; QA keeps per-activity shares): optional items wait until each compulsory activity has one.
+     if(compulsoryActivities[workstream]?.length){
+      const siblings=(await db.query<{activity:number}>('SELECT activity FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 AND ($3::bigint IS NULL OR id<>$3)',[plan.id,workstream,action==='update'?id:null])).rows;
+      const previousActivity=action==='update'?(await db.query<{activity:number}>('SELECT activity FROM activity_plan_lines WHERE id=$1',[id])).rows[0]?.activity:undefined;
+      const problem=requiredFirstProblem(workstream,siblings,v.activity,previousActivity);
+      if(problem)return error(problem,409);
      }
      // Caps: only the cap of this item's activity (plus the envelope) is checked, and a change that does not raise what
      // that cap covers is always allowed, so a plan already over a share can still be brought back down.

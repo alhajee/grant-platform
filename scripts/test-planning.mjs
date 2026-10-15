@@ -71,29 +71,34 @@ try {
 
   // Line form: description, quantity, implementation strategy, target group, unit cost; six activities.
   fails(await api('prs', url(), line(7, 100)), 400, /valid allowable activity/);
-  fails(await api('prs', url(), line(1, 100, { description: '' })), 400, /description/);
-  fails(await api('prs', url(), line(1, 100, { strategy: '' })), 400, /implementation strategy/);
-  fails(await api('prs', url(), line(1, 100, { targetGroup: '' })), 400, /target group/);
-  fails(await api('prs', url(), line(1, 100, { equipmentType: 'Vehicles' })), 400, /only apply/);
-  const plan = ok(await api('prs', url(), line(1, 2500000, { quantity: 2 })));
+  fails(await api('prs', url(), line(2, 100, { description: '' })), 400, /description/);
+  fails(await api('prs', url(), line(2, 100, { strategy: '' })), 400, /implementation strategy/);
+  fails(await api('prs', url(), line(2, 100, { targetGroup: '' })), 400, /target group/);
+  fails(await api('prs', url(), line(2, 100, { equipmentType: 'Vehicles' })), 400, /only apply/);
+  const plan = ok(await api('prs', url(), line(2, 2500000, { quantity: 2 })));
   assert.ok(Number.isInteger(plan.id));
-  ok(await api('prs', url(), { ...line(1, 3000000, { quantity: 2, description: 'SMTBESP 2032-2035' }), action: 'update', id: plan.id }));
-  const extra = ok(await api('prs', url(), line(4, 50000)));
+  ok(await api('prs', url(), { ...line(2, 3000000, { quantity: 2, description: 'SMTBESP 2032-2035' }), action: 'update', id: plan.id }));
+  const extra = ok(await api('prs', url(), line(3, 50000)));
   ok(await api('prs', url(), { workstream: 'planning', entity: 'line', action: 'delete', id: extra.id }));
   // ₦16,000,000 ceiling: ₦6,000,000 used, so ₦10,000,000.01 more is refused.
-  fails(await api('prs', url(), line(4, 10000000.01)), 400, /exceeded the Planning, EMIS & Data Platform allocation \(₦16,000,000\.00\) by ₦0\.01/);
+  fails(await api('prs', url(), line(3, 10000000.01)), 400, /exceeded the Planning, EMIS & Data Platform allocation \(₦16,000,000\.00\) by ₦0\.01/);
   let lines = ok(await api('prs', url())).lines;
   assert.equal(lines.length, 1); assert.equal(lines[0].description, 'SMTBESP 2032-2035'); assert.equal(lines[0].unitCost, 3000000);
   step('Planning lines: create, update, delete, six activities, required fields and the ₦16M ceiling');
 
   // Compulsory activities (0, 2, 3, 5) block sending, with the missing list.
   const missing = fails(await review('prs', { action: 'submit', pillar: 'planning' }), 409, /compulsory activity/);
-  assert.match(missing.error, /Conduct annual school census; Review and track the implementation of SMTBESP; Capacity building of EMIS, ICT and PRS Officers at SUBEB & LGEA; Provide technical assistance for planning activities/);
+  assert.match(missing.error, /Conduct annual school census; Capacity building of EMIS, ICT and PRS Officers at SUBEB & LGEA; Provide technical assistance for planning activities/);
   assert.doesNotMatch(missing.error, /Develop State Medium-Term/);
-  for (const activity of [0, 2, 3]) ok(await api('prs', url(), line(activity, 1000000)));
+  // Required activities first: optional activities (1, 4, Others) get no item until each compulsory one has one.
+  const early = fails(await api('prs', url(), line(1, 1000000)), 409, /Budget the required activities first/);
+  assert.match(early.error, /Conduct annual school census; Capacity building of EMIS, ICT and PRS Officers at SUBEB & LGEA; Provide technical assistance for planning activities/);
+  fails(await api('prs', url(), { ...line(1, 3000000, { quantity: 2 }), action: 'update', id: plan.id }), 409, /Budget the required activities first/);
+  for (const activity of [0, 3]) ok(await api('prs', url(), line(activity, 1000000)));
   fails(await review('prs', { action: 'submit', pillar: 'planning' }), 409, /Provide technical assistance for planning activities/);
   ok(await api('prs', url(), line(5, 500000)));
-  step('Compulsory Planning activities block Send to Director until each has a line');
+  ok(await api('prs', url(), line(1, 1000000)));
+  step('Compulsory Planning activities come first and block Send to Director until each has a line');
 
   // Visibility, snapshot and dashboard totals.
   const qaView = ok(await api('qa', `/api/plans/review?plan=${planId}`));

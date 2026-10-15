@@ -80,12 +80,12 @@ try {
   const url = `/api/activities?plan=${planId}&workstream=planning`;
   const line = (activity, extra = {}) => ({ workstream: 'planning', entity: 'line', action: 'create', activity, description: `LQ activity ${activity}`, quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'State level', schoolIds: [], ...(activity === 0 ? { censusType: 'Annual School Census' } : {}), ...extra });
   const legacy = ok(await api('prs', url, line(0)));
-  fails(await api('prs', url, line(1, { quarters: [] })), 400, /at least one quarter/);
-  fails(await api('prs', url, line(1, { quarters: [4] })), 400, /Q4 is not in this plan \(Q1–Q3\)/);
-  fails(await api('prs', url, line(1, { quarters: [2, 2] })), 400, /each quarter once/);
-  fails(await api('prs', url, line(1, { quarters: [0] })), 400);
-  fails(await api('prs', url, line(1, { quarters: [1, 3] })), 400, /next to each other/);
-  const narrowed = ok(await api('prs', url, line(1, { quarters: [3, 2] })));
+  fails(await api('prs', url, line(3, { quarters: [] })), 400, /at least one quarter/);
+  fails(await api('prs', url, line(3, { quarters: [4] })), 400, /Q4 is not in this plan \(Q1–Q3\)/);
+  fails(await api('prs', url, line(3, { quarters: [2, 2] })), 400, /each quarter once/);
+  fails(await api('prs', url, line(3, { quarters: [0] })), 400);
+  fails(await api('prs', url, line(3, { quarters: [1, 3] })), 400, /next to each other/);
+  const narrowed = ok(await api('prs', url, line(3, { quarters: [3, 2] })));
   ok(await api('prs', url, { ...line(2, { quarters: [2] }), action: 'update', id: legacy.id }));
   fails(await api('prs', url, { ...line(2, { quarters: [3, 4] }), action: 'update', id: legacy.id }), 400, /Q4 is not in this plan/);
   let lines = ok(await api('prs', url)).lines;
@@ -142,7 +142,7 @@ try {
   fails(await api('ec', '/api/plans/setup', { ...edit, quarters: [2, 3] }, { method: 'PATCH' }), 409, /lines use Q1/);
   const widened = ok(await api('ec', '/api/plans/setup', { ...edit, quarters: [1, 2, 3, 4] }, { method: 'PATCH' }));
   assert.deepEqual(widened.plan.fundingQuarters, [1, 2, 3, 4]);
-  const q4 = ok(await api('prs', url, line(4, { quarters: [4] })));
+  const q4 = ok(await api('prs', url, line(2, { quarters: [4] })));
   step('plan edits refuse removing a quarter lines use (409, with the line count); adding a quarter opens it to lines');
 
   // Snapshots (plan page, UBEC submission and workbook all read lib/plan-snapshot.ts) carry the timeline.

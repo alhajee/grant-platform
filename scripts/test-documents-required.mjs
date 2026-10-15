@@ -128,7 +128,8 @@ try {
   // Lines save without documents (they never needed them to save), and the editors are told documents are optional.
   ok(await api('tpd', `/api/activities/ict-allocation?plan=${planId}`, { amount: '30000000', side: 'teachers' }, { method: 'PATCH' }));
   ok(await api('tpd', url('teachers'), training(0, 100000)));
-  for (const [activity, extra] of [[0, {}], [1, {}], [2, { schoolIds: [school] }], [3, {}], [4, { schoolIds: [school] }], [5, { subscriptionTypes: ['Starlink'] }], [6, { websiteType: 'Hosting only' }]]) ok(await api('ict', url('ict'), ictLine(activity, 100000, extra)));
+  // Required activities first (1, 2, 3, 5, 6), then the optional 0 and 4.
+  for (const [activity, extra] of [[1, {}], [2, { schoolIds: [school] }], [3, {}], [5, { subscriptionTypes: ['Starlink'] }], [6, { websiteType: 'Hosting only' }], [0, {}], [4, { schoolIds: [school] }]]) ok(await api('ict', url('ict'), ictLine(activity, 100000, extra)));
   assert.equal(ok(await api('ict', url('ict'))).documentsRequired, false);
   assert.equal(ok(await api('tpd', url('teachers'))).documentsRequired, false);
   assert.equal(ok(await api('chair', `/api/plans/review?plan=${planId}`)).documentsRequired, false);

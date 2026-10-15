@@ -178,11 +178,14 @@ try {
   ok(await api('ict', url('ict'), line('ict', 5, 500000, { subscriptionTypes: ['Starlink', 'MTN', 'Fibre', 'Smile'] })));
   fails(await api('ict', url('ict'), line('ict', 6, 100)), 400, /website type/);
   ok(await api('ict', url('ict'), line('ict', 6, 400000, { websiteType: 'Hosting only' })));
-  const spec = ok(await api('ict', url('ict'), line('ict', 0, 1000000)));
+  // Required activities first: optional ICT activities (0, 4, 7, 8, Others) wait until 1, 2, 3, 5 and 6 each have an item.
+  const early = fails(await api('ict', url('ict'), line('ict', 0, 1000000)), 409, /Budget the required activities first/);
+  assert.match(early.error, /Compliance with Data Protection & Cybersecurity Policy \(NDPA\); Maintenance of UBEC-SUBEB Connect/);
   const connect = ok(await api('ict', url('ict'), line('ict', 3, 300000)));
+  ok(await api('ict', url('ict'), line('ict', 1, 100000)));
+  const spec = ok(await api('ict', url('ict'), line('ict', 0, 1000000)));
   const dlc = ok(await api('ict', url('ict'), line('ict', 4, 2000000, { schoolIds: [schoolB] })));
   ok(await api('ict', url('ict'), line('ict', 8, 100000, { schoolIds: [schoolA, schoolB] })));
-  ok(await api('ict', url('ict'), line('ict', 1, 100000)));
   fails(await api('ict', url('ict'), line('ict', 7, 6000000)), 400, /exceeded the ICT allocation \(₦35,000,000\.00\)/);
   let ict = ok(await api('ict', url('ict')));
   assert.equal(ict.lines.length, 9);

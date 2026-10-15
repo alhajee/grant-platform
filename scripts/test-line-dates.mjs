@@ -79,13 +79,13 @@ try {
   fails(await api('prs', url, line(0, { quarters: [1], startDate: '2039-02-01' })), 400, /due date/);
   fails(await api('prs', url, line(0, { quarters: [1], startDate: '1 Feb 2039', dueDate: '2039-02-02' })), 400, /YYYY-MM-DD/);
   const dated = ok(await api('prs', url, line(0, { quarters: [1, 2], startDate: '2039-02-03', dueDate: '2039-06-28' })));
-  const plain = ok(await api('prs', url, line(1, { quarters: [2] })));
+  const plain = ok(await api('prs', url, line(2, { quarters: [2] })));
   let lines = ok(await api('prs', url)).lines;
   assert.deepEqual([lines.find(l => l.id === dated.id).startDate, lines.find(l => l.id === dated.id).dueDate], ['2039-02-03', '2039-06-28']);
   assert.deepEqual([lines.find(l => l.id === plain.id).startDate, lines.find(l => l.id === plain.id).dueDate], ['2039-04-01', '2039-06-30'], 'none sent: the whole timeline');
   // An update without dates (inline cell edit, older client) keeps dates that still fit; a narrower timeline resets them.
   ok(await api('prs', url, { ...line(0, { quarters: [1, 2], quantity: 3 }), action: 'update', id: dated.id }));
-  ok(await api('prs', url, { ...line(1, { quarters: [3] }), action: 'update', id: plain.id }));
+  ok(await api('prs', url, { ...line(2, { quarters: [3] }), action: 'update', id: plain.id }));
   lines = ok(await api('prs', url)).lines;
   assert.deepEqual([lines.find(l => l.id === dated.id).startDate, lines.find(l => l.id === dated.id).dueDate], ['2039-02-03', '2039-06-28']);
   assert.deepEqual([lines.find(l => l.id === plain.id).startDate, lines.find(l => l.id === plain.id).dueDate], ['2039-07-01', '2039-09-30']);

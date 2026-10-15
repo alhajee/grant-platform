@@ -1,5 +1,6 @@
 import { compulsoryActivities, hasLineSchools, isRetiredActivity, qualityIctActivityNames, missingLineDocument } from './activity-extras';
 import { activityBudgetProblem, lineKobo } from './activity-budget';
+import { activityShareCaps, type ActivityWorkstream } from './activity-plans';
 import { infrastructureSplitProblem } from './budget-pairs';
 import { isSplitMode, type EnvelopePlan } from './funding-policy';
 import type { Snapshot } from './plan-review';
@@ -25,6 +26,20 @@ export function missingCompulsory(workstream: string, lines: readonly { activity
 }
 export const compulsoryNames = (workstream: string, activities: readonly number[]) =>
   activities.map(activity => qualityIctActivityNames[workstream]?.[activity] ?? `Activity ${activity + 1}`);
+/**
+ * Required activities first: while a compulsory activity has no item, a new item on an optional activity (or an item moved
+ * onto one) is refused, so optional items cannot use up the envelope the required ones need (ICT, Planning). Components
+ * whose every activity has its own share cap (Quality Assurance) already keep each required activity's share, so they
+ * are exempt. `others` = the component's other lines (without the one being saved); `previousActivity` = the saved
+ * line's activity when it is an edit.
+ */
+export function requiredFirstProblem(workstream: string, others: readonly { activity: number }[], activity: number, previousActivity?: number): string | null {
+  const required = compulsoryActivities[workstream] ?? [];
+  if (!required.length || activityShareCaps[workstream as ActivityWorkstream] || required.includes(activity) || previousActivity === activity) return null;
+  const missing = missingCompulsory(workstream, others);
+  if (!missing.length) return null;
+  return `Budget the required activities first: ${compulsoryNames(workstream, missing).join('; ')}. Optional activities can be added once each required activity has an item`;
+}
 /** How a line is named in messages: its description, else its own activity name (Others), else the activity. */
 const lineName = (workstream: string, line: ReadinessLine) =>
   line.description || line.custom_activity || line.customActivity || qualityIctActivityNames[workstream]?.[line.activity] || `Activity ${line.activity + 1}`;
