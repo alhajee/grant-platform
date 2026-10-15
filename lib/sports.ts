@@ -28,7 +28,7 @@ export const sportsCatalog: readonly SportCatalogEntry[] = [
   { name: "Gymnastics", items: ["Gymnastic mats", "Balance beam", "Vaulting box", "Ribbons/hoops"] },
   { name: "Board Games", items: ["Chess sets", "Ludo sets", "Draughts/Checkers sets", "Scrabble sets"] },
 ];
-/** Sub-activities per section. `share` is UBEC's suggested % of the competitions share (guidance note, not a cap). */
+/** Sub-activities per section. `share` is a cap: the sub-activity's % of its section's cap (competitions only). */
 export const sportsSubActivities: Record<"competitions" | "publicity", readonly { name: string; share?: number }[]> = {
   competitions: [{ name: "Inter School Competition", share: 5 }, { name: "Inter Local Government Competition", share: 10 }, { name: "State Finals Competition", share: 40 }, { name: "Geo-Political (Zonal) Finals", share: 25 }, { name: "National Finals", share: 10 }, { name: "Other Competitions", share: 10 }],
   publicity: [{ name: "Sensitization of Key Stakeholders" }, { name: "Electronic Media" }, { name: "Print Media" }, { name: "Social Media" }, { name: "Others" }],
@@ -122,7 +122,22 @@ export function sportsEnvelopeKobo(plan: EnvelopePlan) {
 /** A section's cap: its share of the sports envelope, rounded to the kobo. */
 export const sportsSectionCapKobo = (envelope: bigint, share: number) => (envelope * BigInt(Math.round(share * 100)) + BigInt(5000)) / BigInt(10000);
 
-export type SportsBudgetLine = { section: string; kobo: bigint };
+export type SportsBudgetLine = { section: string; kobo: bigint; activityType?: string };
+/** A sub-activity's share of its section's cap, or null when it has none (publicity, equipment, supervision). */
+export function subActivityShare(section: string, activityType: string | undefined): number | null {
+  const list = (sportsSubActivities as Record<string, readonly { name: string; share?: number }[]>)[section];
+  return list?.find((item) => item.name === activityType)?.share ?? null;
+}
+/** A sub-activity's cap: its share of the section's cap, rounded to the kobo. */
+export const subActivityCapKobo = (sectionCap: bigint, share: number) => sportsSectionCapKobo(sectionCap, share);
+/** The cap, proposed total and share of one sub-activity (null when it has no share or the plan has no funding). */
+export function subActivityBudget(lines: readonly SportsBudgetLine[], envelope: bigint | null, section: string, activityType: string | undefined) {
+  const share = subActivityShare(section, activityType), sectionShare = sportsSections.find((item) => item.id === section)?.share;
+  if (share == null || sectionShare == null || envelope == null) return null;
+  const cap = subActivityCapKobo(sportsSectionCapKobo(envelope, sectionShare), share);
+  const proposed = lines.filter((line) => line.section === section && line.activityType === activityType).reduce((sum, line) => sum + line.kobo, BigInt(0));
+  return { share, cap, proposed };
+}
 export type SportsSectionBudget = { section: typeof sportsSections[number]; proposed: bigint; cap: bigint | null };
 /** Proposed total and cap of every section (cap null until the plan has funding). */
 export function sportsSectionBudgets(lines: readonly SportsBudgetLine[], envelope: bigint | null): SportsSectionBudget[] {
@@ -136,11 +151,11 @@ export function sportsSectionBudgets(lines: readonly SportsBudgetLine[], envelop
  * Why these sports lines break the budget, or null: the whole sports envelope first, then each section's cap
  * (share × envelope). No limit until the plan has funding. `only` limits the section check to one section.
  */
-export function sportsBudgetProblem(lines: readonly SportsBudgetLine[], plan: EnvelopePlan, only?: string): string | null {
-  return sportsCapProblem(lines, sportsEnvelopeKobo(plan), only);
+export function sportsBudgetProblem(lines: readonly SportsBudgetLine[], plan: EnvelopePlan, only?: string, onlyActivity?: string): string | null {
+  return sportsCapProblem(lines, sportsEnvelopeKobo(plan), only, onlyActivity);
 }
 /** sportsBudgetProblem with the envelope already known (kobo, null = no funding yet), as the editor has it. */
-export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: bigint | null, only?: string): string | null {
+export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: bigint | null, only?: string, onlyActivity?: string): string | null {
   if (envelope == null) return null;
   const total = lines.reduce((sum, line) => sum + line.kobo, BigInt(0));
   if (total > envelope) return `You have exceeded the Sports allocation (${formatKobo(envelope)}) by ${formatKobo(total - envelope)}. Reduce the budget to continue.`;
@@ -149,9 +164,15 @@ export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: b
     // `only` is set when the lines include an item being added or changed (the editor and the save API).
     const pending = Boolean(only);
     if (cap != null && proposed > cap) return `‘${section.label}’ can use up to ${formatKobo(cap)} (${section.share}% of the Sports allocation). ${pending ? "With this item it would come to" : "Its items come to"} ${formatKobo(proposed)}, which is ${formatKobo(proposed - cap)} over.${pending ? "" : " Reduce them to continue."}`;
+    // Each sub-activity with a share (Sports Competitions) is capped at that share of the section's cap.
+    const activities = only ? [onlyActivity] : [...new Set(lines.filter((line) => line.section === section.id).map((line) => line.activityType))];
+    for (const activity of activities) {
+      const budget = subActivityBudget(lines, envelope, section.id, activity);
+      if (budget && budget.proposed > budget.cap) return `‘${activity}’ can use up to ${formatKobo(budget.cap)} (${budget.share}% of ${section.label}). ${pending ? "With this item it would come to" : "Its items come to"} ${formatKobo(budget.proposed)}, which is ${formatKobo(budget.proposed - budget.cap)} over.${pending ? "" : " Reduce them to continue."}`;
+    }
   }
   return null;
 }
 /** sportsBudgetProblem for snapshot lines (unit_cost strings), used by every send step. */
-export const sportsSnapshotProblem = (lines: readonly { section: string; unit_cost: string | number; quantity: number }[] | undefined, plan: EnvelopePlan | null | undefined) =>
-  plan ? sportsBudgetProblem((lines ?? []).map((line) => ({ section: line.section, kobo: sportsLineKobo(line) })), plan) : null;
+export const sportsSnapshotProblem = (lines: readonly { section: string; unit_cost: string | number; quantity: number; activity_type?: string }[] | undefined, plan: EnvelopePlan | null | undefined) =>
+  plan ? sportsBudgetProblem((lines ?? []).map((line) => ({ section: line.section, kobo: sportsLineKobo(line), activityType: line.activity_type })), plan) : null;

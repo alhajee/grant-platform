@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { SchoolLevelFilter, allLevels, filterByLevel, type SchoolLevelChoice } from "@/components/school-level-filter";
 import { CurrencyInput } from "@/components/currency-input";
 import { SportsSectionSelect } from "@/components/sports-section-select";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
@@ -78,7 +80,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
           {subActivities.map((item) => <SelectItem key={item.name} value={item.name} textValue={item.name}>{item.name}{item.share !== undefined && <span className="ml-auto text-muted-foreground tabular-nums">{item.share}%</span>}</SelectItem>)}
         </SelectGroup></SelectContent>
       </Select>
-      {draft.section === "competitions" && <FieldDescription>{section.label} may use up to {section.share}% of the sports budget. The shares beside each sub-activity are UBEC&apos;s suggested split of that amount.</FieldDescription>}
+      {draft.section === "competitions" && <FieldDescription>{section.label} may use up to {section.share}% of the sports budget. Each sub-activity may use up to the share beside it of that amount.</FieldDescription>}
       {isOtherSubActivity(draft.activityType) && <FieldDescription>For an activity that is not in the list. Name it in the description below.</FieldDescription>}
       {errors.activityType && <FieldError id="sports-type-error">{errors.activityType}</FieldError>}
     </Field>}
@@ -118,13 +120,15 @@ export function SportsAllocationFields({ draft, onChange, plan, errors, disabled
   draft: AllocationDraft; onChange: (value: AllocationDraft) => void; plan: SportsPlan; errors: FormErrors; disabled: boolean;
 }) {
   const equipment = plan.lines.filter((line) => line.section === "equipment");
+  const [schoolLevel, setSchoolLevel] = useState<SchoolLevelChoice>(allLevels);
   const school = plan.schools.find((item) => item.id === draft.schoolId) ?? null;
   const selectedItem = equipment.find((item) => item.id === draft.lineId) ?? null;
   const remaining = (line: SportsLine) => line.quantity - plan.allocations.filter((item) => item.lineId === line.id && item.id !== draft.id).reduce((sum, item) => sum + item.quantity, 0);
   return equipment.length ? <FieldGroup className="gap-6">
     <Field data-invalid={Boolean(errors.schoolId)}>
       <FieldLabel htmlFor="sports-school">School name</FieldLabel>
-      <Combobox items={plan.schools} value={school} disabled={disabled} onValueChange={(value) => onChange({ ...draft, schoolId: value?.id ?? null })} itemToStringLabel={(value: SportsSchool) => value.name} itemToStringValue={(value: SportsSchool) => String(value.id)} isItemEqualToValue={(a, b) => a.id === b.id}>
+      <SchoolLevelFilter schools={plan.schools} value={schoolLevel} disabled={disabled} onChange={setSchoolLevel} />
+      <Combobox items={filterByLevel(plan.schools, schoolLevel)} value={school} disabled={disabled} onValueChange={(value) => onChange({ ...draft, schoolId: value?.id ?? null })} itemToStringLabel={(value: SportsSchool) => value.name} itemToStringValue={(value: SportsSchool) => String(value.id)} isItemEqualToValue={(a, b) => a.id === b.id}>
         <ComboboxInput id="sports-school" className="w-full" placeholder="Search by school name…" disabled={disabled} showClear aria-invalid={Boolean(errors.schoolId)} aria-describedby={errors.schoolId ? "sports-school-error" : undefined} />
         <ComboboxContent><ComboboxEmpty>No schools match your search</ComboboxEmpty><ComboboxList>{(item: SportsSchool) => <ComboboxItem key={item.id} value={item}><span className="school-option"><span>{item.name}</span><small>{item.lga} · {item.level}</small></span></ComboboxItem>}</ComboboxList></ComboboxContent>
       </Combobox>

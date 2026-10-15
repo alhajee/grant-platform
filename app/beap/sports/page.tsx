@@ -78,13 +78,13 @@ export default function SportsPage() {
   // The sports envelope and each section's share of it are caps (same rule as the API): a draft that raises
   // its section's cost may not take the section or the whole budget past them. Lowering is always allowed.
   const envelopeKobo = envelope == null ? null : toKobo(envelope);
-  const savedLines = plan.lines.map((line) => ({ id: line.id, section: line.section, kobo: sportsLineKobo(line) }));
+  const savedLines = plan.lines.map((line) => ({ id: line.id, section: line.section, kobo: sportsLineKobo(line), activityType: line.activityType }));
   const sectionBudgets = sportsSectionBudgets(savedLines, envelopeKobo);
   const draftQuantity = Number(budget.quantity), draftUnitCost = Number(budget.unitCost);
   const draftKobo = Number.isSafeInteger(draftQuantity) && draftQuantity >= 0 && draftQuantity <= 1000000 && draftUnitCost >= 0 && draftUnitCost <= 999999999999.99 ? sportsLineKobo({ unitCost: draftUnitCost, quantity: draftQuantity }) : BigInt(0);
   const savedDraft = budget.id ? savedLines.find((line) => line.id === budget.id) : undefined;
-  const beforeKobo = savedDraft && savedDraft.section === budget.section ? savedDraft.kobo : BigInt(0);
-  const budgetProblem = view === "budget" && draftKobo > beforeKobo ? sportsCapProblem([...savedLines.filter((line) => line.id !== budget.id), { section: budget.section, kobo: draftKobo }], envelopeKobo, budget.section) : null;
+  const beforeKobo = savedDraft && savedDraft.section === budget.section && savedDraft.activityType === budget.activityType.trim() ? savedDraft.kobo : BigInt(0);
+  const budgetProblem = view === "budget" && draftKobo > beforeKobo ? sportsCapProblem([...savedLines.filter((line) => line.id !== budget.id), { section: budget.section, kobo: draftKobo, activityType: budget.activityType.trim() }], envelopeKobo, budget.section, budget.activityType.trim()) : null;
   // Timeline: a new line starts with all of the plan's quarters (migration 050).
   const availableQuarters = actionPlan ? planQuarters(actionPlan) : [];
 

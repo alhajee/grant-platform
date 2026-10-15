@@ -17,6 +17,7 @@ import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
 import { teacherDocumentHint } from '@/lib/teacher-development';
+import { SchoolLevelFilter, allLevels, filterByLevel, type SchoolLevelChoice } from '@/components/school-level-filter';
 
 // Quality Assurance and ICT pieces of the activity editor (migration 038), kept out of activity-plan-editor.tsx.
 const count = new Intl.NumberFormat('en-NG');
@@ -122,14 +123,15 @@ export function LineExtraFields({ workstream, draft, onChange }: { workstream: A
 
 /** Multi-select of schools from the state's School list for one line. */
 export function LineSchoolPicker({ workstream, draft, schools, onChange, disabled }: { workstream: ActivityWorkstream; draft: ExtraDraft; schools: DistributionSchool[]; onChange: (schoolIds: number[]) => void; disabled: boolean }) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(''), [level, setLevel] = useState<SchoolLevelChoice>(allLevels);
   if (!hasLineSchools(workstream, Number(draft.activity))) return null;
   const chosen = new Set(draft.schoolIds), needle = query.trim().toLowerCase();
   // Chosen schools first so they stay visible; then the rest of the list.
-  const matches = schools.filter(s => !needle || `${s.name} ${s.lga} ${s.level}`.toLowerCase().includes(needle)).sort((a, b) => Number(chosen.has(b.id)) - Number(chosen.has(a.id)));
+  const matches = filterByLevel(schools, level).filter(s => !needle || `${s.name} ${s.lga} ${s.level}`.toLowerCase().includes(needle)).sort((a, b) => Number(chosen.has(b.id)) - Number(chosen.has(a.id)));
   const toggle = (id: number, on: boolean) => onChange(on ? [...new Set([...draft.schoolIds, id])] : draft.schoolIds.filter(s => s !== id));
   return <Field><FieldLabel htmlFor="line-school-search">Schools {required}</FieldLabel>
     <Input id="line-school-search" type="search" placeholder="Search by school, LGA or level…" value={query} onChange={e => setQuery(e.target.value)} />
+    <SchoolLevelFilter schools={schools} value={level} disabled={disabled} onChange={setLevel} />
     <FieldDescription>Tick every school this item covers. Schools come from your School list.</FieldDescription>
     <div className="school-picker" role="group" aria-label="Schools for this item">
       <div className="school-pick school-pick-all"><span>{count.format(chosen.size)} selected</span>{chosen.size > 0 && <Button type="button" variant="ghost" size="sm" className="ml-auto" disabled={disabled} onClick={() => onChange([])}>Clear</Button>}</div>

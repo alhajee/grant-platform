@@ -58,11 +58,13 @@ try{
  ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'create',schoolId:school}));
  // Adding a listed school again is a no-op, not an error (retries after a dropped connection, migration 058).
  assert.equal(ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'create',schoolId:school})).added,0);
- // Bulk add skips schools already listed; renovated whole-school packages are reported for the distribution list.
+ // Bulk add skips schools already listed; schools with Infrastructure packages are reported for the distribution list.
  ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'create',schoolIds:[school,999999999]}),404);
  const bulk=ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'create',schoolIds:[school,school2,school2]}));assert.equal(bulk.added,1);assert.equal(bulk.skipped,1);
  await db.query("INSERT INTO infrastructure_packages(plan_id,school_id,kind,input,result,total_cost) VALUES($1,$2,'whole','{}','{}',0)",[plan,school2]);
- const listed=ok(await api('academic',tlmUrl));assert.deepEqual(listed.renovated,[school2]);assert.equal(listed.distribution.length,2);assert.equal(listed.distribution.find(s=>s.id===school).enrolment,100);
+ // Every Infrastructure package kind suggests its school, not only Whole School.
+ await db.query("INSERT INTO infrastructure_packages(plan_id,school_id,kind,input,result,total_cost) VALUES($1,$2,'furniture','{}','{}',0)",[plan,school]);
+ const listed=ok(await api('academic',tlmUrl));assert.deepEqual([...listed.renovated].sort((a,b)=>a-b),[school,school2].sort((a,b)=>a-b));assert.equal(listed.distribution.length,2);assert.equal(listed.distribution.find(s=>s.id===school).enrolment,100);
  await db.query('DELETE FROM infrastructure_packages WHERE plan_id=$1',[plan]);
  ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'delete',id:school2}));
  review=ok(await api('academic',`/api/plans/review?plan=${plan}`));assert.equal(review.snapshot.tlmDistribution.length,1);assert.equal(review.snapshot.sbmc,undefined);

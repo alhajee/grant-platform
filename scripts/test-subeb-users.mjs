@@ -31,7 +31,8 @@ try {
   }
   assert.equal((await api('anonymous', '/api/users')).status, 401);
   assert.equal((await api('physical', '/api/users')).status, 403);
-  assert.equal(ok(await api('director', '/api/users')).users.length, 4);
+  assert.equal(ok(await api('chair', '/api/users')).users.length, 4);
+  assert.deepEqual(ok(await api('director', '/api/users')).users.map(user => user.id).sort((a, b) => a - b), [ids.director, ids.academic].sort((a, b) => a - b), 'A Director sees only themselves and staff within their departments');
   assert.equal(ok(await api('foreign', '/api/users')).users.length, 1);
   const profile = { name: 'QA new staff', email: `new.${marker}@subeb-users.test`.toLowerCase(), role: 'Data Entry Staff', departments: ['academic'], active: true };
   assert.equal((await api('director', '/api/users', { ...profile, stateCode: states[1] })).status, 400, 'The state comes from the session');

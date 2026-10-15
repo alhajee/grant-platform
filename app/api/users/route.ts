@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
     const actor = await getWorkspaceState(request);
     if (!actor) return fail('Sign in to manage users', 401);
     if (!canManageStateUsers(actor.role)) return fail('Only your state Director and Executive Chairman can manage users', 403);
-    const users = (await getPostgres().query(`SELECT ${fields} FROM users WHERE state_code=$1 AND role=ANY($2::text[]) ORDER BY active DESC, full_name, id`, [actor.stateCode, subebRoles])).rows;
+    const all = (await getPostgres().query(`SELECT ${fields} FROM users WHERE state_code=$1 AND role=ANY($2::text[]) ORDER BY active DESC, full_name, id`, [actor.stateCode, subebRoles])).rows;
+    // A Director sees only themselves and the staff they manage (Data Entry Staff within their departments)
+    const users = actor.role === 'Director' ? all.filter(user => user.id === actor.userId || (user.role === 'Data Entry Staff' && departmentsContain(actor.departments, user.departments))) : all;
     return NextResponse.json({ users, actorId: actor.userId, role: actor.role, department: actor.department, departments: actor.departments, stateName: stateDisplayName(actor.stateCode) }, { headers: noStore });
   } catch { return fail('Unable to load users. Please try again.', 503); }
 }

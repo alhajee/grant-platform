@@ -90,13 +90,13 @@ export async function POST(request: NextRequest) {
         const others = (await db.query(`SELECT id, section, activity_type AS "activityType", quantity, unit_cost::text AS unit_cost FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id}`)).rows;
         const rule = sportsCatalogError(line, others, id);
         if (rule && !(unchanged && rule.field === "activityType")) return error(rule.message, rule.field === "activityType" && line.section === "equipment" ? 409 : 400);
-        // The sports envelope and each section's share of it are caps. A change that raises the cost of
-        // its section is refused while it would pass either; lowering is always allowed, so plans that are
-        // already over can be brought back down.
-        const cost = sportsLineKobo(line), before = existing && existing.section === line.section ? sportsLineKobo(existing) : BigInt(0);
+        // The sports envelope, each section's share of it and each competition sub-activity's share of its
+        // section are caps. A change that raises the cost of its section or sub-activity is refused while it
+        // would pass any of them; lowering is always allowed, so plans that are already over can be brought back down.
+        const cost = sportsLineKobo(line), before = existing && existing.section === line.section && existing.activity_type === line.activityType ? sportsLineKobo(existing) : BigInt(0);
         if (cost > before) {
-          const lines = [...others.filter((other) => other.id !== id).map((other) => ({ section: other.section, kobo: sportsLineKobo(other) })), { section: line.section, kobo: cost }];
-          const problem = sportsBudgetProblem(lines, plan, line.section);
+          const lines = [...others.filter((other) => other.id !== id).map((other) => ({ section: other.section, kobo: sportsLineKobo(other), activityType: other.activityType })), { section: line.section, kobo: cost, activityType: line.activityType }];
+          const problem = sportsBudgetProblem(lines, plan, line.section, line.activityType);
           if (problem) return error(problem, 409);
         }
         if (line.quantity < allocated) return error(`${allocated} items are already allocated to schools. Reduce those allocations first.`, 409);

@@ -114,10 +114,13 @@ try {
   const overSection = await api({ ...volleyball, description: "Net", unitCost: 0.01 });
   assert.equal(overSection.status, 409, "A line that takes a section past its share must be refused.");
   assert.match(overSection.body.error, /can use up to ₦[\d,.]+ \(\d+% of the Sports allocation\)\. With this item it would come to/);
-  const competitionsLeft = capKobo("competitions") - 20020;
+  // Each competition sub-activity is capped at its share of the Sports Competitions cap (State Finals 40%).
+  const finalsCap = Math.round(capKobo("competitions") * 40 / 100);
   const finals = { ...budget, section: "competitions", activityType: "State Finals Competition", description: "Finals", quantity: 1 };
-  assert.equal((await api({ ...finals, unitCost: naira(competitionsLeft + 1) })).status, 409);
-  const finalsLine = await api({ ...finals, unitCost: naira(competitionsLeft) });
+  const overFinals = await api({ ...finals, unitCost: naira(finalsCap + 1) });
+  assert.equal(overFinals.status, 409, "A sub-activity past its share of the section must be refused.");
+  assert.match(overFinals.body.error, /‘State Finals Competition’ can use up to ₦[\d,.]+ \(40% of Sports Competitions\)/);
+  const finalsLine = await api({ ...finals, unitCost: naira(finalsCap) });
   assert.equal(finalsLine.status, 201, JSON.stringify(finalsLine.body));
   const update = { ...volleyball, action: "update", id: atCap.body.id };
   assert.equal((await api({ ...update, quantity: 2, unitCost: naira(capKobo("equipment")) })).status, 409, "Raising a line past the cap must be refused.");
@@ -136,7 +139,7 @@ try {
   assert.equal(send.status, 409, `Sending an over-budget Sports component must be refused: ${JSON.stringify(send.body)}`);
   assert.match(send.body.error, /exceeded the Sports allocation/);
   for (const id of [atCap.body.id, finalsLine.body.id]) assert.equal((await api({ entity: "budget", action: "delete", id })).status, 200);
-  console.log("PASS: four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, sports envelope and section caps (save and send; lowering allowed), concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
+  console.log("PASS: four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, sports envelope, section and competition sub-activity caps (save and send; lowering allowed), concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
 } finally {
   await db.query("DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code = ANY($1::text[]))", [[marker, foreignMarker]]);
   await db.query("DELETE FROM sports_budget_lines WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);
