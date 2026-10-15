@@ -226,7 +226,7 @@ try {
 
   // complete_plan: the BEAP Chair cannot send the whole plan while the new components are not all reviewed.
   await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode='complete_plan' WHERE state_code='GLOBAL'");
-  fails(await review('chair', { action: 'forward' }), 409, /Every implemented component/);
+  fails(await review('chair', { action: 'forward' }), 409, /not reached the BEAP Chair yet: /);
   const pending = ok(await api('academic', '/api/plans')).plans.find(p => p.id === planId);
   assert.ok(pending, 'plan listed on the dashboard');
   step('complete_plan blocks the collated send until every implemented component is reviewed');
