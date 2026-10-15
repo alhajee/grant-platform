@@ -97,6 +97,9 @@ try {
   const returned = ok(await api('des', path));
   assert.equal(returned.plan.status, 'changes_requested');
   assert.equal(returned.pillarReviews.find(r => r.pillar === 'sports').status, 'changes_requested');
+  // The dashboard card names the returned component the same way (component statuses under the viewer's ceiling).
+  const card = ok(await api('des', '/api/plans')).plans.find(p => p.id === plan.id);
+  assert.equal(card.pillarReviews.find(r => r.pillar === 'sports').status, 'changes_requested', 'The dashboard lists the returned component');
   assert.equal(ok(await api('des', sports)).canEdit, true);
   assert.ok(ok(await api('des', '/api/notifications')).notifications.some(n => n.planId === plan.id && n.action === 'request_changes'));
   ok(await api('des', sports, { ...budgetBody, action: 'update', id: budgetId, description: 'QA balls (revised)', quantity: 6 }));
