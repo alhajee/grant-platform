@@ -712,7 +712,8 @@
 .login-ambient { position:absolute; border-radius:50%; filter:blur(2px); pointer-events:none; animation:login-float 9s ease-in-out infinite alternate; }
 .login-ambient-one { top:-110px; right:-90px; width:300px; aspect-ratio:1; background:radial-gradient(circle,rgb(244 200 95 / 26%),transparent 68%); }
 .login-ambient-two { bottom:-130px; left:-100px; width:340px; aspect-ratio:1; background:radial-gradient(circle,rgb(0 82 72 / 14%),transparent 68%); animation-delay:-4s; }
-.signin-card { position:relative; width:100%; max-width:460px; border-color:rgb(0 70 61 / 12%); border-radius:24px; background:rgb(255 255 255 / 82%); box-shadow:0 28px 80px -36px rgb(6 55 48 / 48%),inset 0 1px 0 rgb(255 255 255 / 80%); backdrop-filter:blur(18px); animation:login-card-in .72s .12s cubic-bezier(.22,1,.36,1) both; }
+/* No backdrop-filter: with the scale-in animation Chromium on some Windows GPUs painted the blur layer as a grey box over the card (October 2026). */
+.signin-card { position:relative; width:100%; max-width:460px; border-color:rgb(0 70 61 / 12%); border-radius:24px; background:rgb(255 255 255 / 90%); box-shadow:0 28px 80px -36px rgb(6 55 48 / 48%),inset 0 1px 0 rgb(255 255 255 / 80%); animation:login-card-in .72s .12s cubic-bezier(.22,1,.36,1) both; }
 .signin-heading { gap:8px; padding-inline:clamp(24px,4vw,38px); }
 .signin-heading [data-slot=card-title] { font-size:clamp(29px,3vw,38px); font-weight:600; line-height:1.1; letter-spacing:-.045em; }
 .signin-card [data-slot=card-content] { padding-inline:clamp(24px,4vw,38px); }
