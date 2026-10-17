@@ -7,7 +7,7 @@ import { infrastructureDocumentProblem } from './infrastructure-documents';
 import { componentReadinessProblem, readinessWorkstreams, hasReadinessRules, splitReadinessPillars, splitReadinessProblem, type ReadinessOptions } from './component-readiness';
 import type { DepartmentAccess } from './user-departments';
 import type { UbecSubmissionMode } from './workflow-settings';
-import { distributionSnapshotKeys, distributionWorkstreams } from './distribution-lists';
+import { distributionSnapshotKeys, distributionWorkstreams, emptyDistributionMessage, hasDistribution } from './distribution-lists';
 import { sportsSnapshotProblem } from './sports';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'beap_review' | 'chairman_ready';
@@ -90,11 +90,13 @@ function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
  * or (split mode, migration 051) Infrastructure/TLM without their split or over their own part. The mode comes from the snapshot's setup.
  */
 export function componentSendProblem(pillar: ImplementedPillar, snapshot: Snapshot, options: ReadinessOptions): string | null {
+  // TLM, Greening and Curriculum need at least one school on their distribution list, as at every state send step.
+  if (hasDistribution(pillar) && !(snapshot[distributionSnapshotKeys[pillar]]?.length ?? 0)) return emptyDistributionMessage(pillar);
   if (hasReadinessRules(pillar)) return componentReadinessProblem(pillar, snapshot[pillar] ?? [], snapshot.setup, options) ?? splitReadinessProblem(pillar, snapshot);
   if (pillar === 'sports') return sportsSnapshotProblem(snapshot.sports, snapshot.setup);
   return splitReadinessProblem(pillar, snapshot);
 }
-/** Components with the Executive Chairman that are not ready to reach UBEC (compulsory activities, line schools and documents, the Teacher Development and Infrastructure & TLM splits, Sports caps). */
+/** Components with the Executive Chairman that are not ready to reach UBEC (distribution lists, compulsory activities, line schools and documents, the Teacher Development and Infrastructure & TLM splits, Sports caps). */
 export function unreadySentComponents(snapshot: Snapshot, reviews: PillarReview[], options: ReadinessOptions) {
   return componentsWithExecutiveChairman(reviews).flatMap(p => componentSendProblem(p, snapshot, options) ? [p] : []);
 }

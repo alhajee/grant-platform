@@ -109,6 +109,12 @@ assert.equal(readyForUbecSubmission('complete_plan',reviews('chairman_ready','dr
 assert.equal(readyForUbecSubmission('complete_plan',reviews('chairman_ready','chairman_ready'),completeSnapshot),true);
 assert.equal(readyForUbecSubmission('reviewed_components',reviews('chairman_ready','draft'),{infrastructure:[{}],sports:[]}),true);
 assert.equal(readyForUbecSubmission('reviewed_components',reviews('beap_review','draft'),completeSnapshot),false);
+// Reviewed-components mode: a TLM, Greening or Curriculum component with an empty distribution list never reaches UBEC.
+assert.equal(readyForUbecSubmission('reviewed_components',reviews('draft','draft','draft','chairman_ready','draft'),completeSnapshot),true);
+assert.equal(readyForUbecSubmission('reviewed_components',reviews('draft','draft','draft','chairman_ready','draft'),{...completeSnapshot,tlmDistribution:[]}),false,'TLM without a distribution list');
+assert.equal(readyForUbecSubmission('reviewed_components',reviews('draft','draft','draft','draft','chairman_ready'),{...completeSnapshot,gscciDistribution:[]}),false,'Greening without a distribution list');
+assert.equal(readyForUbecSubmission('reviewed_components',reviews('draft','draft','draft','draft','chairman_ready'),{...completeSnapshot,curriculumDistribution:[]}),false,'Curriculum without a distribution list');
+assert.match(rules.componentSendProblem('tlm',{...completeSnapshot,tlmDistribution:[]},required) ?? '',/distribution list/);
 const partialSnapshot = ubecSubmissionSnapshot({...completeSnapshot,setup:{id:1},componentDocuments:[{id:'a',component:'monitoring'}]},reviews('draft','chairman_ready','director_review','draft','draft'));
 assert.deepEqual(partialSnapshot.setup,{id:1});
 assert.equal(partialSnapshot.sports.length,1);
