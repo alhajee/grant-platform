@@ -12,6 +12,7 @@ import { NationalMap, stageOf } from '@/components/ubec/dashboard/national-map';
 import { planPeriod } from '@/lib/action-plans';
 import { normalizeStateCode, summarizePlans } from '@/lib/national-analytics';
 import { componentDepartments, departmentName, departmentPillars, nationalStatusLabels, type UbecDashboard } from '@/lib/ubec';
+import { nairaFormat } from '@/lib/money-format';
 import './national-hero.css';
 
 // The UBEC Overview for the ES and BEAP Chair: Nigeria as the centrepiece (no card; it blends into the page) beside
@@ -32,7 +33,7 @@ export function NationalHero({ data, controls }: { data: UbecDashboard; /** The 
         {controls && <div className="nh-controls">{controls}</div>}
       <div className="nh-stats">
         <article className="nh-stat" data-tone="ivory"><span className="nh-stat-art"><PlansArtwork /></span><span>Action plans</span><strong>{count.format(s.plans)}</strong></article>
-        <article className="nh-stat" data-tone="teal"><span className="nh-stat-art"><BudgetArtwork /></span><span>Proposed budget</span><strong title={s.budget.toLocaleString('en-NG', { style: 'currency', currency: 'NGN' })}>{money.format(s.budget)}</strong></article>
+        <article className="nh-stat" data-tone="teal"><span className="nh-stat-art"><BudgetArtwork /></span><span>Proposed budget</span><strong title={nairaFormat.format(s.budget)}>{money.format(s.budget)}</strong></article>
         <article className="nh-stat" data-tone="sage"><span className="nh-stat-art"><SchoolsArtwork /></span><span>Targeted schools</span><strong>{count.format(s.schools)}</strong></article>
         <article className="nh-stat" data-tone="sky"><span className="nh-stat-art"><StatesArtwork /></span><span>States represented</span><strong>{represented}<small> of 37</small></strong></article>
         <article className="nh-stat nh-stat-wide" data-tone="lilac">

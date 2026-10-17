@@ -79,14 +79,14 @@ try {
   // The split comes first; either side sets it and the other keeps the rest.
   fails(await api('tpd', url('teachers'), training(0, 100)), 400, /Teacher Development will use before adding Teacher Development items/);
   fails(await split('tpd', 'teachers', '0'), 409, /greater than zero/);
-  fails(await split('tpd', 'teachers', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.00/);
+  fails(await split('tpd', 'teachers', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.0000/);
   assert.equal(ok(await split('tpd', 'teachers', '30000000')).ictAllocation, '10000000.00');
   assert.equal(ok(await api('ict', url('ict'))).plan.ictAllocation, '10000000.00');
   ok(await split('ict', 'ict', '12000000'));
   assert.equal(await allocation(), '12000000.00');
   // Teacher Development may take everything while ICT has no lines; ICT is then left ₦0.
   assert.equal(ok(await split('tpd', 'teachers', '40000000')).ictAllocation, '0.00');
-  fails(await api('ict', url('ict'), ictLine(1, 100)), 400, /exceeded the ICT allocation \(₦0\.00\)/);
+  fails(await api('ict', url('ict'), ictLine(1, 100)), 400, /exceeded the ICT allocation \(₦0\.0000\)/);
   ok(await split('ict', 'ict', '10000000'));
   step('Split from the Teacher Development side updates ICT and vice versa; ICT may be left ₦0 only without lines');
 
@@ -117,14 +117,14 @@ try {
     [10, 'International Development Partners', 'Teachers', ['Primary', 'JSS'], 4, 'Hall', 'TD training', '', '']);
   assert.equal(tpd.lines.find(l => l.id === others.id).customActivity, 'Peer coaching circles');
   // Teacher Development keeps ₦30,000,000 (₦40M shared − ₦10M ICT); 50 × ₦100,000 + 50 × ₦200,000 = ₦15M is used.
-  fails(await api('tpd', url('teachers'), training(3, 300000.01)), 400, /exceeded the Teacher Development allocation \(₦30,000,000\.00\) by ₦0\.50/);
+  fails(await api('tpd', url('teachers'), training(3, 300000.01)), 400, /exceeded the Teacher Development allocation \(₦30,000,000\.0000\) by ₦0\.5000/);
   step('Line validation: provider, participants, school levels, days ≥ 3, venue, Others needs a name; ceiling from the split');
 
   // Bounds: neither side may drop below what its own lines, or the other side's lines, propose.
   ok(await api('ict', url('ict'), ictLine(1, 5000000)));
-  fails(await split('tpd', 'teachers', '14999999'), 409, /Teacher Development lines already propose ₦15,000,000\.00/);
-  fails(await split('tpd', 'teachers', '36000000'), 409, /ICT lines already propose ₦5,000,000\.00, so Teacher Development can use up to ₦35,000,000\.00/);
-  fails(await split('ict', 'ict', '25000001'), 409, /Teacher Development lines already propose ₦15,000,000\.00, so ICT can use up to ₦25,000,000\.00/);
+  fails(await split('tpd', 'teachers', '14999999'), 409, /Teacher Development lines already propose ₦15,000,000\.0000/);
+  fails(await split('tpd', 'teachers', '36000000'), 409, /ICT lines already propose ₦5,000,000\.0000, so Teacher Development can use up to ₦35,000,000\.0000/);
+  fails(await split('ict', 'ict', '25000001'), 409, /Teacher Development lines already propose ₦15,000,000\.0000, so ICT can use up to ₦25,000,000\.0000/);
   fails(await split('ict', 'ict', '4999999'), 409, /ICT lines already propose/);
   assert.equal(ok(await split('tpd', 'teachers', '35000000')).ictAllocation, '5000000.00');
   assert.equal(Number(ok(await api('tpd', url('teachers'))).partnerProposed), 5000000);

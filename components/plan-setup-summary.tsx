@@ -6,8 +6,9 @@ import { PlansArtwork } from '@/components/metric-artwork';
 import { formatQuarters } from '@/lib/format-quarters';
 import { OtherFundingInfo } from '@/components/funding-sources-field';
 import { otherFundingTotal, type PlanSetup } from '@/lib/plan-setup';
+import { nairaFormat } from '@/lib/money-format';
 
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' });
+const money = nairaFormat;
 export function PlanSetupSummary({ setup, compact = false }: { setup: Partial<PlanSetup>; compact?: boolean }) {
   if (!setup.beapName) return null;
   const documents = (setup.documents??[]).map(document=>({...document,url:`/api/plans/documents?id=${document.id}`}));

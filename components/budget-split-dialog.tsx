@@ -13,11 +13,12 @@ import { fromKobo, percent, policyShare, toKobo, type EnvelopePlan } from '@/lib
 import { budgetPairs, pairOf, sideItems, sideNames, storedAllocation, type SplitSide } from '@/lib/budget-pairs';
 import { currentPlanHref } from '@/lib/action-plans';
 import './budget-split-dialog.css';
+import { nairaFormat } from '@/lib/money-format';
 
 // The split of a shared envelope as one bar (lib/budget-pairs.ts): the pair's keeper on the left (Infrastructure,
 // Teacher Development), the stored side on the right (TLM, ICT). Amounts are whole kobo numbers here; the server
 // re-checks every rule (PATCH /api/activities/budget-split with the viewer's own side).
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+const money = nairaFormat;
 const compact = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
 const naira = (kobo: number) => kobo / 100;
 const share = (part: number, whole: number) => whole > 0 ? Math.round(part / whole * 1000) / 10 : 0;
@@ -65,13 +66,17 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
     setKeeperK(k); setServerError('');
     setInputs(current => ({ keeper: from === 'keeper' ? current.keeper : fromKobo(BigInt(Math.max(k, 0))), stored: from === 'stored' ? current.stored : fromKobo(BigInt(Math.max(sharedK - k, 0))) }));
   }
-  function slide([value]: number[]) {
-    const wanted = Math.round(value) * 100, next = clamp(wanted);
+  /** Moves the split to `wanted` (the first side's kobo), stopping at either side's floor and saying why. */
+  function applyKeeper(wanted: number) {
+    const next = clamp(wanted);
     // Explain why the thumb stopped: the side it would squeeze already has lines (or packages), or must keep more than ₦0.
     const squeezed = wanted < lo ? { name: names.keeper, floor: keeperFloor } : wanted > hi ? { name: names.stored, floor: storedFloor } : null;
     setClamped(!squeezed ? '' : squeezed.floor > 0 ? `${squeezed.name} already has ${money.format(naira(squeezed.floor))} planned.` : `${squeezed.name} needs more than ₦0.`);
     setKeeper(next);
   }
+  const slide = ([value]: number[]) => applyKeeper(Math.round(value) * 100);
+  /** A percentage typed on the bar: that side's share of the pool, to the kobo. */
+  const setPercent = (which: 'keeper' | 'stored', pct: number) => { const k = Math.round(sharedK * pct / 100); applyKeeper(which === 'keeper' ? k : sharedK - k); };
   function type(which: 'keeper' | 'stored', value: string) {
     setInputs(current => ({ ...current, [which]: value })); setClamped('');
     const k = koboOf(value);
@@ -107,7 +112,8 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
   </div>;
 
   return <Dialog open={open} onOpenChange={next => { if (!busy) onOpenChange(next); }}>
-    <DialogContent className="budget-split-dialog sm:max-w-2xl" style={colours}>
+    {/* Esc in a percentage box cancels the edit, not the dialog. */}
+    <DialogContent className="budget-split-dialog sm:max-w-2xl" style={colours} onEscapeKeyDown={event => { if ((event.target as HTMLElement | null)?.closest?.('.split-pct-edit')) event.preventDefault(); }}>
       <form onSubmit={save} className="flex flex-col gap-5">
         <DialogHeader>
           <DialogTitle>Share the {money.format(naira(sharedK))}</DialogTitle>
@@ -115,9 +121,9 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
         </DialogHeader>
 
         <div className="split-hero">
-          <div className="split-bar" role="img" aria-label={`${names.keeper} ${keeperPct}%, ${names.stored} ${storedPct}%`}>
-            <div className="split-segment" data-side="keeper" style={{ width: `${keeperPct}%` }}>{keeperPct >= 12 && <span>{keeperPct}%</span>}</div>
-            <div className="split-segment" data-side="stored" style={{ width: `${storedPct}%` }}>{storedPct >= 12 && <span>{storedPct}%</span>}</div>
+          <div className="split-bar" role="group" aria-label={`${names.keeper} ${keeperPct}%, ${names.stored} ${storedPct}%`}>
+            <div className="split-segment" data-side="keeper" style={{ width: `${keeperPct}%` }}>{keeperPct >= 12 && <SplitPercent value={keeperPct} name={names.keeper} onCommit={pct => setPercent('keeper', pct)} />}</div>
+            <div className="split-segment" data-side="stored" style={{ width: `${storedPct}%` }}>{storedPct >= 12 && <SplitPercent value={storedPct} name={names.stored} onCommit={pct => setPercent('stored', pct)} />}</div>
             {keeperFloor > 0 && <div className="split-floor" data-side="keeper" style={{ width: `${share(keeperFloor, sharedK)}%` }} title={`${money.format(naira(keeperFloor))} already planned`} />}
             {storedFloor > 0 && <div className="split-floor" data-side="stored" style={{ width: `${share(storedFloor, sharedK)}%` }} title={`${money.format(naira(storedFloor))} already planned`} />}
           </div>
@@ -126,8 +132,6 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
           {clamped && <p className="split-clamped" role="status">{clamped} The slider stops there.</p>}
         </div>
 
-        {presets.length > 0 && <div className="flex flex-wrap gap-2" aria-label="Quick splits">{presets.map(p => <Button key={p.label} type="button" size="sm" variant="outline" className="rounded-full" onClick={() => { setClamped(''); setKeeper(p.k); }}>{p.label}</Button>)}</div>}
-
         <div className="split-inputs">
           <Field><FieldLabel htmlFor="split-keeper">{names.keeper} (₦)</FieldLabel><CurrencyInput id="split-keeper" value={inputs.keeper} maxIntegerDigits={12} onValueChange={value => type('keeper', value)} aria-invalid={!!problem} /></Field>
           <Field><FieldLabel htmlFor="split-stored">{names.stored} (₦)</FieldLabel><CurrencyInput id="split-stored" value={inputs.stored} maxIntegerDigits={12} onValueChange={value => type('stored', value)} aria-invalid={!!problem} /></Field>
@@ -135,9 +139,13 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
         {problem ? <FieldDescription className="text-destructive" role="alert">{problem}</FieldDescription> : <FieldDescription>{names.keeper} {money.format(naira(keeperK))} + {names.stored} {money.format(naira(storedK))} = {money.format(naira(sharedK))}</FieldDescription>}
         {serverError && <Alert variant="destructive"><AlertDescription>{serverError}</AlertDescription></Alert>}
 
-        <DialogFooter>
-          {storedNow != null && <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button>}
-          <Button type="submit" disabled={busy || !!problem}>{busy && <Spinner data-icon="inline-start" />}Save split</Button>
+        {/* Quick splits share the footer row with Save split; their light hover keeps Save split the primary action. */}
+        <DialogFooter className="sm:items-center sm:justify-between">
+          {presets.length > 0 ? <div className="flex flex-wrap gap-2" aria-label="Quick splits">{presets.map(p => <Button key={p.label} type="button" size="sm" variant="outline" className="rounded-full hover:border-primary/30 hover:bg-accent hover:text-accent-foreground" onClick={() => { setClamped(''); setKeeper(p.k); }}>{p.label}</Button>)}</div> : <span aria-hidden="true" />}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            {storedNow != null && <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button>}
+            <Button type="submit" disabled={busy || !!problem}>{busy && <Spinner data-icon="inline-start" />}Save split</Button>
+          </div>
         </DialogFooter>
       </form>
     </DialogContent>
@@ -154,4 +162,15 @@ export function BudgetSplitBar({ side, plan }: { side: SplitSide; plan: Envelope
     <div className="split-bar split-bar-mini" aria-hidden="true"><div className="split-segment" data-side="keeper" style={{ width: `${keeperPct}%` }} /><div className="split-segment" data-side="stored" style={{ width: `${100 - keeperPct}%` }} /></div>
     <div className="split-mini-legend"><span><i data-side="keeper" />{sideNames[pair.keeper]} <b>{compact.format(naira(keeperK))}</b></span><span><i data-side="stored" />{sideNames[pair.stored]} <b>{compact.format(naira(storedK))}</b></span></div>
   </div>;
+}
+
+/** A segment's percentage. Clicking it opens a box to type that side's share: Enter or leaving the box applies it, Esc cancels. */
+function SplitPercent({ value, name, onCommit }: { value: number; name: string; onCommit: (pct: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  if (draft == null) return <button type="button" className="split-pct" onClick={() => setDraft(String(value))} aria-label={`${name} ${value}%. Type a percentage`} title="Click to type a percentage">{value}%</button>;
+  const commit = () => { const n = Number(draft); setDraft(null); if (draft.trim() && Number.isFinite(n)) onCommit(Math.min(Math.max(n, 0), 100)); };
+  return <span className="split-pct-edit">
+    <input autoFocus inputMode="decimal" value={draft} aria-label={`${name} percentage`} onFocus={event => event.currentTarget.select()} onChange={event => setDraft(event.target.value.replace(/[^\d.]/g, ''))} onBlur={commit}
+      onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); commit(); } else if (event.key === 'Escape') { event.preventDefault(); setDraft(null); } }} />%
+  </span>;
 }

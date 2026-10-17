@@ -3,6 +3,7 @@ import { z } from "zod";
 import { componentEnvelope, toKobo, type EnvelopePlan } from "./funding-policy.ts";
 import { lineQuartersSchema } from "./line-quarters.ts";
 import { lineDatesShape } from "./line-dates.ts";
+import { formatKobo, nairaFormat } from "./money-format.ts";
 
 // The four UBEC sports budget sections (QA UBEC18) with their share of the sports
 // allocation. Each share is a cap: a section's lines may not exceed share × the sports envelope.
@@ -102,12 +103,7 @@ export function sportsBudget(lines: SportsLine[]) {
   return lines.reduce((sum, line) => sum + Math.round(line.unitCost * 100) * line.quantity, 0) / 100;
 }
 
-export const sportsMoney = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const formatKobo = (kobo: bigint) => {
-  const absolute = kobo < 0 ? -kobo : kobo;
-  return `₦${(absolute / BigInt(100)).toLocaleString("en-NG")}.${String(absolute % BigInt(100)).padStart(2, "0")}`;
-};
+export const sportsMoney = nairaFormat;
 /** A sports line's cost in kobo (editor lines carry unitCost, snapshot lines unit_cost). */
 // Snapshot lines come from to_jsonb, so their numeric unit_cost may arrive as a JSON number.
 export const sportsLineKobo = (line: { unitCost?: number; unit_cost?: string | number; quantity: number }) => {

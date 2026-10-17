@@ -26,8 +26,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { planPeriod, type PlanOverview } from "@/lib/action-plans";
 import { subebDisplayName } from '@/lib/state-names';
 import type { LocalUser } from "@/lib/local-session";
+import { nairaFormat } from '@/lib/money-format';
 
-const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 2 });
+const money = nairaFormat;
 const compactMoney = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", notation: "compact", maximumFractionDigits: 2 });
 
 export default function DashboardPage() {

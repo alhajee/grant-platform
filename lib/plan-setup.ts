@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { formatQuarters } from './format-quarters';
 import { contiguousMessage, isContiguous } from './line-quarters.ts';
 import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabels, fundingSourceTargets, isSplitMode, toKobo, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
+import { nairaFormat } from './money-format';
 export { sharedBelowAllocationProblem } from './budget-pairs';
 
 const year = z.number().int().min(2004).max(2100);
@@ -58,7 +59,7 @@ export function envelopeShortfalls(before: EnvelopePlan, after: EnvelopePlan, pr
     return [{ component, ceiling: next, proposed: fromKobo(used), pooled: combined }];
   });
 }
-const naira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+const naira = nairaFormat;
 export const shortfallMessage = (s: EnvelopeShortfall) => s.pooled
   ? `Infrastructure and TLM would share ${naira.format(Number(s.ceiling))}, but ${naira.format(Number(s.proposed))} is already proposed. Reduce their budgets first or keep this funding.`
   : `${fundingComponentLabels[s.component]} would have ${naira.format(Number(s.ceiling))} available, but ${naira.format(Number(s.proposed))} is already proposed. Reduce its lines first or keep its funding.`;

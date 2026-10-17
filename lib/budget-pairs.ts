@@ -1,5 +1,6 @@
 import { componentEnvelope, fromKobo, infrastructurePoolEnvelope, isSplitMode, teachersSharedEnvelope, toKobo, type EnvelopePlan } from './funding-policy';
 import { formatKobo } from './activity-budget';
+import { nairaFormat } from './money-format';
 
 /**
  * Two components that share one envelope and split it with one stored figure:
@@ -76,7 +77,7 @@ export function infrastructureSplitProblem(plan: EnvelopePlan, total: bigint): s
  * (ICT's allocation; in split mode, TLM's allocation of the Infrastructure & TLM pool).
  */
 export function sharedBelowAllocationProblem(after: EnvelopePlan) {
-  const naira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+  const naira = nairaFormat;
   return (['teachers-ict', 'infrastructure-tlm'] as const).flatMap(id => {
     const pair = budgetPairs[id], stored = after[pair.field], shared = pair.envelope(after);
     if (id === 'infrastructure-tlm' && !isSplitMode(after)) return [];

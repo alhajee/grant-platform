@@ -5,10 +5,10 @@ import { useState } from 'react';
 import type { InvestmentArea } from '@/components/investment-filter';
 import { componentPalette } from '@/components/dashboard/component-budgets';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { nairaFormat } from '@/lib/money-format';
 
 /** Shared figures of the dashboard plan card and the plan page: the large amount, the tick gauge and the pills. */
-export const amountFormat = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const wholeAmountFormat = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+export const amountFormat = nairaFormat;
 export const compactNaira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 2 });
 
 const TICKS = 32;
@@ -16,10 +16,9 @@ const TICKS = 32;
 export const mixOrder = ['infrastructure', 'tlm', 'quality', 'sbmc', 'teachers', 'ict', 'sports', 'curriculum', 'monitoring', 'gscci', 'planning'] as const satisfies readonly InvestmentArea[];
 export type ComponentAmounts = Partial<Record<InvestmentArea, number>>;
 
-/** The amount with a quieter naira sign and kobo (always two digits, left out for whole naira), so the figure itself carries the weight. */
+/** The amount with a quieter naira sign and decimals (always four), so the figure itself carries the weight. */
 export function Amount({ value }: { value: number }) {
-  const format = Math.round(value * 100) % 100 === 0 ? wholeAmountFormat : amountFormat;
-  return <>{format.formatToParts(value).map((part, index) => part.type === 'currency' ? <span key={index} className="plan-amount-sign">{part.value}</span>
+  return <>{amountFormat.formatToParts(value).map((part, index) => part.type === 'currency' ? <span key={index} className="plan-amount-sign">{part.value}</span>
     : part.type === 'decimal' || part.type === 'fraction' ? <span key={index} className="plan-amount-minor">{part.value}</span> : part.value)}</>;
 }
 

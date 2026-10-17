@@ -36,7 +36,7 @@ export const activityInfo: Partial<Record<ActivityWorkstream, Record<number, str
     6: 'Conduct of CSM&E for 9 weeks to visit schools by UBEC, SUBEBs and LGEAs for evaluation of 324 schools over 3 terms (108 schools per term)',
     8: 'Follow-up by UBEC, SUBEB and LGEAs for evaluation of 162 schools',
   },
-  ict: { 2: 'All Model Smart Schools & DLC lines together may use up to ₦30,000,000' },
+  ict: { 2: 'All Model Smart Schools & DLC lines together may use up to ₦30,000,000.0000' },
   curriculum: {
     0: 'Procurement of the New Revised Basic Curriculum (ECCDE, Primary 1–6, JSS 1–3)',
     1: 'Capacity building of Education Secretaries, teachers, supervisors, LGEA and curriculum officers',

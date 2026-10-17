@@ -13,9 +13,10 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { constructionTypeName, constructionTypeSchema, matchesRoomCounts, roomFields, type ConstructionType, type RoomCounts, type RoomKey } from "@/lib/construction-types";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { nairaFormat } from "@/lib/money-format";
 
 const initialCounts: Record<RoomKey, string> = { classrooms: "0", playroomsLabs: "0", libraries: "0", toilets: "0", officesStores: "0" };
-const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" });
+const money = nairaFormat;
 
 export function ConstructionTypePicker({ types, value, onSelect, onCreated, disabled, error }: {
   types: ConstructionType[];

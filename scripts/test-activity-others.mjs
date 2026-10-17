@@ -103,7 +103,7 @@ try {
 
   // Curriculum: Others has no share of the 60/20/10/10 split, only the ₦16,000,000 component ceiling.
   ok(await api('academic', url('curriculum'), { ...line('curriculum', 4, 15000000, { customActivity: `Renamed curriculum ${tag}` }), action: 'update', id: saved.curriculum }));
-  fails(await api('academic', url('curriculum'), line('curriculum', 1, 1000000.01)), 400, /exceeded the Curriculum allocation \(₦16,000,000\.00\) by ₦0\.01/);
+  fails(await api('academic', url('curriculum'), line('curriculum', 1, 1000000.01)), 400, /exceeded the Curriculum allocation \(₦16,000,000\.0000\) by ₦0\.0100/);
   step('Curriculum Others counts toward the component ceiling without an activity cap');
 
   // Others never counts toward compulsory activities.

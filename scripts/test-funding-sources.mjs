@@ -138,7 +138,7 @@ try {
   const raised = ok(await api('chair', '/api/plans/setup', { ...wideEdit, fundingSources: wideEdit.fundingSources.map(s => s.component === 'all' ? { ...s, amount: '6000' } : s) }, 'PATCH'));
   assert.equal(raised.plan.fundingTotal, '27000.00');
   const wideReview = ok(await api('chair', `/api/plans/review?plan=${wide.id}`));
-  assert.match(wideReview.events.find(e => e.action === 'edit').comment, /All components · European Union · ₦6,000\.00/);
+  assert.match(wideReview.events.find(e => e.action === 'edit').comment, /All components · European Union · ₦6,000\.0000/);
   assert.equal(wideReview.snapshot.setup.fundingSources.find(s => s.component === 'all').amount, '6000.00');
 
   step('locked while the plan is with UBEC');

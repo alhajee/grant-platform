@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
+import { nairaFormat } from '@/lib/money-format';
 
 export type SheetKey = import('@/lib/plan-comments').CommentSheet;
 export type CellValue = string | number;
@@ -13,7 +14,7 @@ export type WorkbookSheet = {
   detail?: (rowId: string) => ReactNode; editHref?: string; editLabel?: string;
 };
 
-export const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' });
+export const money = nairaFormat;
 const count = new Intl.NumberFormat('en-NG', { maximumFractionDigits: 2 });
 export const formatCell = (kind: ColumnKind, value: CellValue | undefined) => value === undefined || value === '' ? '' : kind === 'money' ? money.format(Number(value)) : kind === 'number' ? count.format(Number(value)) : String(value);
 export const isNumeric = (kind: ColumnKind) => kind !== 'text';

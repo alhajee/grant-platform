@@ -67,7 +67,7 @@ try {
 
   // Without a key (old clients) a second create is checked as a new line, with the clearer cap message.
   fails(await api('academic', activities('curriculum'), curriculumLine(2, 168, 166666)), 400,
-    /^‘Distribution of the Curriculum & Access’ can use up to ₦28,000,000\.00 \(10% of the Curriculum allocation\)\. With this item it would come to ₦55,999,776\.00, which is ₦27,999,776\.00 over\.$/);
+    /^‘Distribution of the Curriculum & Access’ can use up to ₦28,000,000\.0000 \(10% of the Curriculum allocation\)\. With this item it would come to ₦55,999,776\.0000, which is ₦27,999,776\.0000 over\.$/);
   step('without a key the old behaviour stays; the cap message names the cap, the total with this item and the excess');
 
   const concurrentKey = randomUUID();
@@ -126,7 +126,7 @@ try {
 
   // Sports section cap message: Procurement & Training of PHE Officers may use 60% of ₦1,000,000; ₦30,000 is used, so ₦600,000 more is ₦30,000 over.
   fails(await api('academic', sportsUrl(), { ...sportsLine(randomUUID()), quantity: 1, unitCost: 600000 }), 409,
-    /^‘Procurement & Training of PHE Officers’ can use up to ₦600,000\.00 \(60% of the Sports allocation\)\. With this item it would come to ₦630,000\.00, which is ₦30,000\.00 over\.$/);
+    /^‘Procurement & Training of PHE Officers’ can use up to ₦600,000\.0000 \(60% of the Sports allocation\)\. With this item it would come to ₦630,000\.0000, which is ₦30,000\.0000 over\.$/);
   step('sports: the section cap message says what the section may use and how far this item takes it over');
 
   // Infrastructure packages.

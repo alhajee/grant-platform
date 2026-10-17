@@ -67,7 +67,7 @@ try {
   ok(await api('physical', url('monitoring'), line('monitoring', 2, 500)));
   let monitoring = ok(await api('physical', url('monitoring')));
   assert.equal(monitoring.lines.length, 2); assert.deepEqual(monitoring.documents, []); assert.deepEqual(monitoring.schools, []);
-  fails(await api('physical', url('monitoring'), line('monitoring', 3, 500.01)), 400, /exceeded the Supervision & Monitoring allocation \(₦4,000\.00\) by ₦0\.01/);
+  fails(await api('physical', url('monitoring'), line('monitoring', 3, 500.01)), 400, /exceeded the Supervision & Monitoring allocation \(₦4,000\.0000\) by ₦0\.0100/);
   const first = monitoring.lines.find(l => l.activity === 0);
   fails(await api('physical', url('monitoring'), { ...line('monitoring', 0, 1750.01, { quantity: 2 }), action: 'update', id: first.id }), 400, /exceeded/);
   ok(await api('physical', url('monitoring'), { ...line('monitoring', 1, 1700, { quantity: 2 }), action: 'update', id: first.id }));
@@ -128,7 +128,7 @@ try {
 
   // Curriculum: each activity limited to its share (60/20/10/10%) of the ₦4,000.00 envelope.
   ok(await api('academic', url('curriculum'), line('curriculum', 1, 800)));
-  fails(await api('academic', url('curriculum'), line('curriculum', 1, 0.01)), 400, /‘[^’]+’ can use up to ₦800\.00 \(20% of the Curriculum allocation\)\. With this item it would come to ₦800\.01, which is ₦0\.01 over\./);
+  fails(await api('academic', url('curriculum'), line('curriculum', 1, 0.01)), 400, /‘[^’]+’ can use up to ₦800\.0000 \(20% of the Curriculum allocation\)\. With this item it would come to ₦800\.0100, which is ₦0\.0100 over\./);
   ok(await api('academic', url('curriculum'), line('curriculum', 0, 1200, { quantity: 2 })));
   fails(await api('academic', url('curriculum'), line('curriculum', 0, 0.01)), 400, /60%/);
   ok(await api('academic', url('curriculum'), line('curriculum', 3, 400)));
@@ -165,11 +165,11 @@ try {
   ok(await api('academic', split, { amount: '100000', side: 'tlm' }, { method: 'PATCH' }));
   const fullTlm = ok(await api('academic', url('tlm'), tlmLine));
   assert.equal(ok(await api('academic', url('tlm'))).partnerProposed, '0');
-  fails(await api('academic', url('tlm'), line('tlm', 6, 0.01)), 409, /exceeded the Teaching & Learning Materials allocation \(₦100,000\.00\) by ₦0\.01/);
+  fails(await api('academic', url('tlm'), line('tlm', 6, 0.01)), 409, /exceeded the Teaching & Learning Materials allocation \(₦100,000\.0000\) by ₦0\.0100/);
   // Infrastructure's packages protect its part (a package written directly, as the infrastructure API needs documents).
   const packageId = (await db.query("INSERT INTO infrastructure_packages(plan_id,school_id,kind,input,result,total_cost) VALUES($1,$2,'furniture','{}'::jsonb,'{}'::jsonb,1000) RETURNING id", [planId, schoolIds[0]])).rows[0].id;
   assert.equal(Number(ok(await api('academic', url('tlm'))).partnerProposed), 1000);
-  fails(await api('academic', split, { amount: '149000.01', side: 'tlm' }, { method: 'PATCH' }), 409, /Infrastructure packages already propose ₦1,000\.00, so TLM can use up to ₦149,000\.00/);
+  fails(await api('academic', split, { amount: '149000.01', side: 'tlm' }, { method: 'PATCH' }), 409, /Infrastructure packages already propose ₦1,000\.0000, so TLM can use up to ₦149,000\.0000/);
   await db.query('DELETE FROM infrastructure_packages WHERE id=$1', [packageId]);
   ok(await api('academic', url('tlm'), { ...tlmLine, action: 'delete', id: fullTlm.id }));
   step('TLM shares the infrastructure pool: its lines wait for the split and stay within its part (409); Infrastructure keeps its packages');

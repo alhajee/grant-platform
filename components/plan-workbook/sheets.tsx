@@ -2,7 +2,7 @@ import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, Gradu
 import { LineExtrasDetail } from './line-extras-detail';
 import type { Snapshot } from '@/lib/plan-review';
 import { activityLabel, activityTitles, strategyLabel, allocateByEnrolment, curriculumActivityShares, distributionNames, distributionSnapshotKeys, type DistributionWorkstream } from '@/lib/activity-plans';
-import { kindNames } from '@/lib/infrastructure-model';
+import { itemOperation, kindNames } from '@/lib/infrastructure-model';
 import { sportsSections } from '@/lib/sports';
 import { formatQuarters } from '@/lib/line-quarters';
 import { formatLineDates } from '@/lib/line-dates';
@@ -150,7 +150,7 @@ export function buildSheets(snapshot: Snapshot, visiblePillars: readonly string[
 export function detailExportSheets(snapshot: Snapshot, sheets: WorkbookSheet[]): { name: string; columns: WorkbookColumn[]; rows: WorkbookRow[]; totals?: boolean }[] {
   const out = [];
   if (sheets.some(s => s.key === 'infrastructure')) out.push({ name: 'Infrastructure items', columns: [text('school', 'School', 260), text('type', 'Project type', 200), text('item', 'Requirement', 320), text('operation', 'Operation', 140), qty('quantity', 'Quantity'), text('unit', 'Unit', 100), amount('cost', 'Unit cost'), text('strategy', 'Strategy', 140), text('duration', 'Duration', 120), amount('amount', 'Amount', true)],
-    rows: snapshot.infrastructure.flatMap(line => (line.package?.result.items ?? []).map(item => row(`${line.id}-${item.key}`, { school: line.school.name, type: kindNames[line.package!.kind], item: item.label, operation: item.operation ?? '', quantity: item.quantity, unit: item.unit, cost: item.lump ? '' : item.cost, strategy: item.strategy, duration: item.duration, amount: item.total }))) });
+    rows: snapshot.infrastructure.flatMap(line => (line.package?.result.items ?? []).map(item => row(`${line.id}-${item.key}`, { school: line.school.name, type: kindNames[line.package!.kind], item: item.label, operation: itemOperation(item) ?? '', quantity: item.quantity, unit: item.unit, cost: item.lump ? '' : item.cost, strategy: item.strategy, duration: item.duration, amount: item.total }))) });
   if (sheets.some(s => s.key === 'sports')) out.push({ name: 'Sports allocations', columns: [text('item', 'Budget item', 260), text('code', 'Code', 120), text('school', 'School', 280), text('lga', 'LGA', 120), text('level', 'Level', 96), text('location', 'Location', 104), text('latitude', 'Latitude', 100), text('longitude', 'Longitude', 100), qty('quantity', 'Qty.', true)],
     rows: snapshot.sports.flatMap(line => line.allocations.map(a => row(`${line.id}-${a.id}`, { item: line.description, code: line.code, school: a.school.name, lga: a.school.lga, level: a.school.level, location: a.school.location, latitude: a.latitude, longitude: a.longitude, quantity: a.quantity }))) });
   return out;

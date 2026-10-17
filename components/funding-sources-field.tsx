@@ -9,8 +9,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { CurrencyInput } from '@/components/currency-input';
 import { fundingComponentIds, fundingComponentLabels, fundingSourceLabels, planWideFunding, type FundingSource, type FundingSourceTarget } from '@/lib/funding-policy';
 import { fundingSourceSchema, maxFundingSources, otherFundingTotal, type PlanSetup } from '@/lib/plan-setup';
+import { nairaFormat } from '@/lib/money-format';
 
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+const money = nairaFormat;
 export type DraftSource = { key: string; component: FundingSourceTarget | ''; funder: string; amount: string };
 /** The picker's wording for plan-wide funding. */
 const planWideOption = 'All components';

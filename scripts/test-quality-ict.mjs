@@ -96,10 +96,10 @@ try {
   fails(await api('qa', url('quality'), line('quality', 12, 100, { customActivity: 'QA extra' })), 400, /valid allowable activity/);
   fails(await api('qa', url('quality'), line('quality', 4, 100)), 400, /not one of the chosen Quality Assurance activities/);
   // Required 35% + Mobility 48% = 83%, so capacity strengthening's 10% becomes 10/83 = 12.05% of ₦40M.
-  fails(await api('qa', url('quality'), line('quality', 2, 4819277.12)), 400, /₦4,819,277\.11 \(12\.05% of the Quality Assurance allocation\)/);
+  fails(await api('qa', url('quality'), line('quality', 2, 4819277.12)), 400, /₦4,819,277\.1100 \(12\.05% of the Quality Assurance allocation\)/);
   const scaled = ok(await api('qa', url('quality'), line('quality', 2, 4500000)));
   // Adding Literacy and Numeracy (16%) shrinks the other caps (10/99 of ₦40M = ₦4,040,404.04), which this item would exceed.
-  fails(await choose('qa', [0, 4]), 409, /Capacity strengthening.*would be ₦459,595\.96 over.*Reduce those items first/);
+  fails(await choose('qa', [0, 4]), 409, /Capacity strengthening.*would be ₦459,595\.9600 over.*Reduce those items first/);
   ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: scaled.id }));
   ok(await choose('qa', [0, 1, 4, 11]));
   step('Quality Assurance: optional activities chosen up front, caps scaled to the chosen set, retired activities refused');
@@ -118,16 +118,16 @@ try {
   const plain = ok(await api('qa', url('quality'), line('quality', 3, 100, { schoolIds: [], subscriptionTypes: [], equipmentCategory: '', equipmentType: '', websiteType: '' })));
   ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: plain.id }));
   // Activity shares (client observations): Mobility and office equipment and its maintenance share 48% (₦19.2M here); Literacy and Numeracy 16% (₦6.4M).
-  fails(await api('qa', url('quality'), line('quality', 1, 9200000.01, { equipmentCategory: 'Office equipment', equipmentType: 'Printer' })), 400, /together can use up to ₦19,200,000\.00 \(48% of the Quality Assurance allocation\)/);
+  fails(await api('qa', url('quality'), line('quality', 1, 9200000.01, { equipmentCategory: 'Office equipment', equipmentType: 'Printer' })), 400, /together can use up to ₦19,200,000\.0000 \(48% of the Quality Assurance allocation\)/);
   const maintenance = ok(await api('qa', url('quality'), line('quality', 1, 9200000, { equipmentCategory: 'Office equipment', equipmentType: 'Printer' })));
   ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: maintenance.id }));
-  fails(await api('qa', url('quality'), line('quality', 4, 6400000.01)), 400, /‘Literacy and Numeracy Assessment at LGEAs \(aligned with HOPE-EDU\)’ can use up to ₦6,400,000\.00 \(16% of the Quality Assurance allocation\)/);
-  fails(await api('qa', url('quality'), line('quality', 11, 400000.01)), 400, /Server renewal and dashboard.*₦400,000\.00 \(1%/);
+  fails(await api('qa', url('quality'), line('quality', 4, 6400000.01)), 400, /‘Literacy and Numeracy Assessment at LGEAs \(aligned with HOPE-EDU\)’ can use up to ₦6,400,000\.0000 \(16% of the Quality Assurance allocation\)/);
+  fails(await api('qa', url('quality'), line('quality', 11, 400000.01)), 400, /Server renewal and dashboard.*₦400,000\.0000 \(1%/);
   // A plan already over one share can still save other items and bring the over item down, but not raise it.
   const over = (await db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,'quality',6,'Over the share',1,5000000,'Request for quotation','Schools') RETURNING id", [planId])).rows[0].id;
   const beside = ok(await api('qa', url('quality'), line('quality', 4, 100000)));
   ok(await api('qa', url('quality'), { ...line('quality', 6, 4000000), action: 'update', id: over }));
-  fails(await api('qa', url('quality'), { ...line('quality', 6, 4500000), action: 'update', id: over }), 400, /CSM&E.*₦3,200,000\.00 \(8%/);
+  fails(await api('qa', url('quality'), { ...line('quality', 6, 4500000), action: 'update', id: over }), 400, /CSM&E.*₦3,200,000\.0000 \(8%/);
   ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: over }));
   ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: beside.id }));
   // An activity with items cannot be left out.
@@ -158,7 +158,7 @@ try {
   fails(await api('ict', url('ict'), line('ict', 1, 100)), 400, /shared Teacher Development & ICT budget ICT will use/);
   fails(await allocate('qa', '1000'), 403);
   fails(await allocate('ict', '0'), 409, /greater than zero/);
-  fails(await allocate('ict', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.00/);
+  fails(await allocate('ict', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.0000/);
   ok(await allocate('ict', '35000000'));
   assert.equal(ok(await api('ict', url('ict'))).plan.ictAllocation, '35000000.00');
   step('ICT allocation required before lines, within 0 < amount ≤ shared envelope');
@@ -168,9 +168,9 @@ try {
   fails(await api('ict', url('ict'), line('ict', 2, 100, { schoolIds: [schoolA, foreign] })), 404, /not found in your state/);
   fails(await api('ict', url('ict'), line('ict', 1, 100, { schoolIds: [schoolA] })), 400, /Schools only apply/);
   const smart = ok(await api('ict', url('ict'), line('ict', 2, 20000000, { schoolIds: [schoolA, schoolB] })));
-  fails(await api('ict', url('ict'), line('ict', 2, 10000000.01, { schoolIds: [schoolA] })), 400, /can use up to ₦30,000,000\.00 \(for all its items together\)\. With this item it would come to ₦30,000,000\.01, which is ₦0\.01 over\./);
+  fails(await api('ict', url('ict'), line('ict', 2, 10000000.01, { schoolIds: [schoolA] })), 400, /can use up to ₦30,000,000\.0000 \(for all its items together\)\. With this item it would come to ₦30,000,000\.0100, which is ₦0\.0100 over\./);
   ok(await api('ict', url('ict'), line('ict', 2, 10000000, { schoolIds: [schoolB] })));
-  fails(await api('ict', url('ict'), { ...line('ict', 2, 20000000.5, { schoolIds: [schoolA] }), action: 'update', id: smart.id }), 400, /₦30,000,000\.00/);
+  fails(await api('ict', url('ict'), { ...line('ict', 2, 20000000.5, { schoolIds: [schoolA] }), action: 'update', id: smart.id }), 400, /₦30,000,000\.0000/);
   ok(await api('ict', url('ict'), { ...line('ict', 2, 15000000, { schoolIds: [schoolA] }), action: 'update', id: smart.id }));
   fails(await api('ict', url('ict'), line('ict', 5, 100)), 400, /subscription type/);
   fails(await api('ict', url('ict'), line('ict', 5, 100, { subscriptionTypes: ['Starlink', 'Smile', 'Spectranet'] })), 400, /one other subscription/);
@@ -186,7 +186,7 @@ try {
   const spec = ok(await api('ict', url('ict'), line('ict', 0, 1000000)));
   const dlc = ok(await api('ict', url('ict'), line('ict', 4, 2000000, { schoolIds: [schoolB] })));
   ok(await api('ict', url('ict'), line('ict', 8, 100000, { schoolIds: [schoolA, schoolB] })));
-  fails(await api('ict', url('ict'), line('ict', 7, 6000000)), 400, /exceeded the ICT allocation \(₦35,000,000\.00\)/);
+  fails(await api('ict', url('ict'), line('ict', 7, 6000000)), 400, /exceeded the ICT allocation \(₦35,000,000\.0000\)/);
   let ict = ok(await api('ict', url('ict')));
   assert.equal(ict.lines.length, 9);
   assert.deepEqual(ict.lines.find(l => l.id === smart.id).schools.map(s => s.id), [schoolA]);

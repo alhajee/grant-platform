@@ -1,4 +1,5 @@
 import { componentEnvelope, isSplitMode, toKobo, type EnvelopePlan } from './funding-policy';
+import { formatKobo } from './money-format';
 import { activityNames, activityShare, activityShareCaps, activityShareGroups, activityTitles, capActivities, type ActivityWorkstream } from './activity-plans';
 import { ictModelSchoolsActivity, ictModelSchoolsCapKobo, isRetiredActivity } from './activity-extras';
 import { choosesUpFront, isChosen, planSelection, scaledPercent, shareTotal, type ActivitySelection } from './activity-selection';
@@ -14,10 +15,7 @@ export const isCapped = (workstream: string): workstream is CappedWorkstream => 
 export const isCappedFor = (workstream: string, plan: EnvelopePlan): workstream is CappedWorkstream | 'tlm' => isCapped(workstream) || (workstream === 'tlm' && isSplitMode(plan) && plan.stateLodgment != null);
 export type BudgetLine = { activity: number; kobo: bigint };
 
-export const formatKobo = (kobo: bigint) => {
-  const absolute = kobo < 0 ? -kobo : kobo;
-  return `₦${(absolute / BigInt(100)).toLocaleString('en-NG')}.${String(absolute % BigInt(100)).padStart(2, '0')}`;
-};
+export { formatKobo };
 export const lineKobo = (line: { unit_cost?: string; unitCost?: number; quantity: number }) => toKobo(line.unit_cost ?? Number(line.unitCost ?? 0).toFixed(2)) * BigInt(line.quantity);
 
 /**

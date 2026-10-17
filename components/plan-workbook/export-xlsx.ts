@@ -1,7 +1,7 @@
 import type { WorkbookColumn, WorkbookRow } from './types';
 
 export type ExportSheet = { name: string; columns: WorkbookColumn[]; rows: WorkbookRow[]; totals?: boolean };
-const moneyFormat = '"₦"#,##0.00';
+const moneyFormat = '"₦"#,##0.0000';
 const numberFormat = '#,##0';
 // Worksheet names: max 31 characters, none of []:*?/\
 const sheetName = (name: string, used: Set<string>) => {

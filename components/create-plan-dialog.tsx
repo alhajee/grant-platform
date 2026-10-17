@@ -14,8 +14,9 @@ import { FieldHelp } from '@/components/field-help';
 import { FundingSourcesField, fromDraftSources, draftSourceErrors, type DraftSource } from '@/components/funding-sources-field';
 import { planSetupSchema, implementationYearError, futureYearError, currentPlanYear, fundingTotal, sourcesSum, isRatSpreadsheet, maxRatFileBytes, maxRatTotalBytes, ratFileAccept } from '@/lib/plan-setup';
 import { planHref, type PlanOverview } from '@/lib/action-plans';
+import { nairaFormat } from '@/lib/money-format';
 
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+const money = nairaFormat;
 
 function RequiredMark() {
   return <><span className="text-destructive" aria-hidden="true">*</span><span className="sr-only"> (required)</span></>;

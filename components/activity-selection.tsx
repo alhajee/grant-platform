@@ -18,11 +18,12 @@ import { chosenActivities, optionalActivities, scaledPercent, shareTotal } from 
 import { currentPlanHref } from '@/lib/action-plans';
 import type { EnvelopePlan } from '@/lib/funding-policy';
 import './activity-selection.css';
+import { nairaFormat } from '@/lib/money-format';
 
 // Quality Assurance activities chosen up front (migration 061, lib/activity-selection.ts). The compulsory activities
 // are always in; the state ticks the optional ones, and the chosen activities share the whole allocation in proportion
 // to their policy shares. The server re-checks everything (PATCH /api/activities/selection).
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 });
+const money = nairaFormat;
 const naira = (kobo: bigint) => money.format(Number(kobo) / 100);
 
 type Props = { workstream: ActivityWorkstream; plan: EnvelopePlan & { id?: number }; lines: readonly BudgetLine[]; canEdit: boolean; onSaved: () => Promise<void> };

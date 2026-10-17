@@ -1,4 +1,5 @@
 import { infrastructurePoolEnvelope, toKobo, type EnvelopePlan } from './funding-policy';
+import { formatKobo } from './money-format';
 
 /**
  * Shared-pool mode (state_workflow_settings.infrastructure_tlm_mode, migration 051; split mode is lib/budget-pairs.ts).
@@ -12,7 +13,7 @@ export const poolPartner = (component: PoolComponent): PoolComponent => componen
 export const poolLabels: Record<PoolComponent, string> = { infrastructure: 'Infrastructure', tlm: 'TLM' };
 export type PoolProposed = Record<PoolComponent, bigint>;
 
-const naira = (kobo: bigint) => `₦${(kobo / BigInt(100)).toLocaleString('en-NG')}.${String(kobo % BigInt(100)).padStart(2, '0')}`;
+const naira = formatKobo;
 
 /** What is left of the pool (kobo, may be negative) after both sides' proposals, or null until the plan funding is set. */
 export function poolRemainingKobo(plan: EnvelopePlan, proposed: PoolProposed): bigint | null {

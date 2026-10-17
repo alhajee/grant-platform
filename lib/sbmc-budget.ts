@@ -1,7 +1,8 @@
 import { componentEnvelope, fundingComponentLabels, toKobo, type EnvelopePlan, type FundingComponent } from './funding-policy';
+import { formatKobo } from './money-format';
 
 export const budgetKobo = toKobo;
-const naira = (kobo: bigint) => `₦${(kobo / BigInt(100)).toLocaleString('en-NG')}.${String(kobo % BigInt(100)).padStart(2, '0')}`;
+const naira = formatKobo;
 /** Checks a component's proposed total (kobo) against its ceiling (policy share + its own funding sources). */
 export function componentBudgetProblem(total: bigint, plan: EnvelopePlan, component: FundingComponent, exact = false) {
   const label = fundingComponentLabels[component];

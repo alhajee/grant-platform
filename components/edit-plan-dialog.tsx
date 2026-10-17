@@ -18,8 +18,9 @@ import { futureYearError, currentPlanYear, envelopeShortfalls, fundingTotal, sha
 import type { FundingComponent, FundingSource } from '@/lib/funding-policy';
 import type { ActionPlan } from '@/lib/action-plans';
 import { quarterRemovalProblem, type QuarterUsage } from '@/lib/line-quarters';
+import { nairaFormat } from '@/lib/money-format';
 
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+const money = nairaFormat;
 type SetupData = { plan: ActionPlan; reserved: { year: number; quarter: number }[]; proposed: Partial<Record<FundingComponent, string>>; quarterUsage?: QuarterUsage; canEdit: boolean; lockedReason: string | null };
 type Props = { planId: number; onClose: () => void; onSaved?: (plan: ActionPlan) => void };
 

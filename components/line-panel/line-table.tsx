@@ -6,8 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { QuarterBadge, LineDatesNote } from '@/components/quarter-timeline';
 import { InlineCell } from './inline-cell';
+import { nairaFormat } from '@/lib/money-format';
 
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' });
+const money = nairaFormat;
 const count = new Intl.NumberFormat('en-NG');
 export const lineAmount = (line: { quantity: number; unitCost: number }) => Math.round(line.unitCost * 100) * line.quantity / 100;
 export const formatMoney = (value: number) => money.format(value);

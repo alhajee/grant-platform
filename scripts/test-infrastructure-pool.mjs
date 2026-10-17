@@ -50,7 +50,7 @@ const legacy = { ...plan, fundingPolicy: { id: 1, allocation: { ...defaultAlloca
 assert.equal(componentEnvelope(legacy, 'tlm'), '15750.00');
 assert.ok(allocationSchema.safeParse(legacy.fundingPolicy.allocation).success, 'stored policies with the retired TLM split still parse');
 assert.equal(infrastructurePoolProblem(plan, { infrastructure: 0n, tlm: 1575000n }), null);
-assert.match(infrastructurePoolProblem(plan, { infrastructure: 1n, tlm: 1575000n }), /exceed it by ₦0\.01/);
+assert.match(infrastructurePoolProblem(plan, { infrastructure: 1n, tlm: 1575000n }), /exceed it by ₦0\.0100/);
 assert.equal(infrastructurePoolProblem({ stateLodgment: null }, { infrastructure: 10n ** 12n, tlm: 0n }), null, 'no ceiling until funding is set');
 const shortfalls = envelopeShortfalls(plan, { ...plan, fundingSources: [] }, { infrastructure: '10000.00', tlm: '5500.00' });
 assert.deepEqual(shortfalls.map(s => [s.component, s.ceiling, s.proposed]), [['infrastructure', '15000.00', '15500.00']]);
@@ -87,14 +87,14 @@ try {
   fails(await api('academic', `/api/activities/budget-split?plan=${planId}`, { amount: '100', side: 'tlm' }, 'PATCH'), 409, /share one budget/);
   const whole = ok(await api('academic', tlmUrl, tlmLine(pool)));
   fails(await api('academic', tlmUrl, tlmLine(0.01)), 409, /Infrastructure and TLM share/);
-  fails(await api('physical', infraUrl, furniture(1)), 409, /Together they would exceed it by ₦1\.00/);
+  fails(await api('physical', infraUrl, furniture(1)), 409, /Together they would exceed it by ₦1\.0000/);
   assert.equal(Number(ok(await api('physical', infraUrl)).tlmProposed), pool);
   step('TLM can use the whole pool while Infrastructure has nothing; then Infrastructure is refused (409)');
 
   ok(await api('academic', tlmUrl, { ...tlmLine(pool - 1000), action: 'update', id: whole.id }));
   ok(await api('physical', infraUrl, furniture(1000)));
-  fails(await api('physical', infraUrl, furniture(0.01)), 409, /exceed it by ₦0\.01/);
-  fails(await api('academic', tlmUrl, { ...tlmLine(pool - 999.99), action: 'update', id: whole.id }), 409, /exceed it by ₦0\.01/);
+  fails(await api('physical', infraUrl, furniture(0.01)), 409, /exceed it by ₦0\.0100/);
+  fails(await api('academic', tlmUrl, { ...tlmLine(pool - 999.99), action: 'update', id: whole.id }), 409, /exceed it by ₦0\.0100/);
   const [saved] = ok(await api('physical', infraUrl)).packages;
   assert.equal(Number(ok(await api('academic', tlmUrl)).partnerProposed), 1000);
   fails(await api('physical', infraUrl, { ...furniture(1000.01), id: saved.id, version: saved.version }), 409);

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {packageSchema,modelFor,auditGaps,calculateInfrastructure,packageProblem,requirements,minimumKeys,strategies,schoolFacts,wholeRequirements,newConstructionRows,photoEvidenceProblem,rowPhotoIds,landDocumentProblem,deliverableDescription} from '../lib/infrastructure-model.ts';
+import {packageSchema,modelFor,auditGaps,calculateInfrastructure,packageProblem,requirements,minimumKeys,strategies,schoolFacts,wholeRequirements,newConstructionRows,photoEvidenceProblem,rowPhotoIds,landDocumentProblem,deliverableDescription,itemOperation} from '../lib/infrastructure-model.ts';
 assert.deepEqual([1,240,241,320,321].map(modelFor),[0,0,1,1,2]);
 const land={available:true,documented:true,unencumbered:true};
 const make=(kind,extra={})=>packageSchema.parse({kind,schoolId:1,components:['Primary'],land,...extra});
@@ -77,7 +77,10 @@ r=calculateInfrastructure(whole,facts);
 assert.equal(r.modelLabel,'','Whole School has no model');assert.deepEqual(r.basis,{eccde:45,primary:230,jss:0,teachers:19});
 assert.equal(r.items.find(i=>i.key==='dualDesk').quantity,55);assert.equal(r.items.find(i=>i.key==='dualDesk').total,550);
 assert.equal(r.items.find(i=>i.key==='classroomEccde-construct').quantity,2,'3 ECCDE classrooms → 2 ECCDE blocks of 2');
-assert.equal(r.items.find(i=>i.key==='classroomPri-renovate').total,10);assert.equal(packageProblem(whole,facts),null);
+assert.equal(r.items.find(i=>i.key==='classroomPri-renovate').total,10);
+const toilet=r.items.find(i=>i.key==='toilet');assert.ok(toilet,'the audit has a toilet gap');assert.equal(toilet.operation,'Supply / New Construction');assert.ok(r.items.filter(i=>i.operation==='Supply / installation').every(i=>i.key!=='toilet'));
+assert.equal(itemOperation({key:'toilet',operation:'Supply / installation'}),'Supply / New Construction','older toilets read the new wording');assert.equal(itemOperation({key:'staffRoom',operation:'Supply / installation'}),'Supply / installation');
+assert.equal(packageProblem(whole,facts),null);
 assert.equal(packageSchema.safeParse({...whole,audit:{classroomPri:{existing:2,functional:3,extra:0}}}).success,false);
 // Other Facilities: optional; a row joins once any figure (also Additional alone) is entered.
 const other=auditGaps({...whole,audit:{...whole.audit,scienceLab:{additional:1,extra:0}}},facts).find(g=>g.key==='scienceLab');

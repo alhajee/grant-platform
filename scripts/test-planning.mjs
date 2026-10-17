@@ -81,7 +81,7 @@ try {
   const extra = ok(await api('prs', url(), line(3, 50000)));
   ok(await api('prs', url(), { workstream: 'planning', entity: 'line', action: 'delete', id: extra.id }));
   // ₦16,000,000 ceiling: ₦6,000,000 used, so ₦10,000,000.01 more is refused.
-  fails(await api('prs', url(), line(3, 10000000.01)), 400, /exceeded the Planning, EMIS & Data Platform allocation \(₦16,000,000\.00\) by ₦0\.01/);
+  fails(await api('prs', url(), line(3, 10000000.01)), 400, /exceeded the Planning, EMIS & Data Platform allocation \(₦16,000,000\.0000\) by ₦0\.0100/);
   let lines = ok(await api('prs', url())).lines;
   assert.equal(lines.length, 1); assert.equal(lines[0].description, 'SMTBESP 2032-2035'); assert.equal(lines[0].unitCost, 3000000);
   step('Planning lines: create, update, delete, six activities, required fields and the ₦16M ceiling');

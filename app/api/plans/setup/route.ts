@@ -16,12 +16,13 @@ import { quarterRemovalProblem } from '@/lib/line-quarters';
 import { readQuarterUsage } from '@/lib/line-quarters-db';
 import { deletePlan, planSentToUbec, sentToUbecMessage } from '@/lib/plan-delete';
 import { z } from 'zod';
+import { nairaFormat } from '@/lib/money-format';
 
 // Edits a plan's period and funding after creation (UBEC33). Anyone who may create plans can edit
 // them while the plan is still at the state; every saved change is written to the review history.
 type Db = { query<R extends QueryResultRow>(sql: string, values?: unknown[]): Promise<QueryResult<R>> };
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } });
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+const money = nairaFormat;
 const lockedMessage = (status: string) => status === 'ubec_approved' ? 'Plan details are locked because UBEC has approved this plan' : 'Plan details are locked while the plan is with UBEC. They can be edited again if UBEC returns it.';
 const notAllowed = 'Only the Executive Chairman, the BEAP Chair or a colleague authorised to create plans can edit plan details';
 

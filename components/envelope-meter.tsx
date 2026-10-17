@@ -3,8 +3,9 @@
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import "./envelope-meter.css";
+import { nairaFormat } from "@/lib/money-format";
 
-const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" });
+const money = nairaFormat;
 
 /** "12%", or "<1%" for a sliver, so a small amount never reads as nothing. */
 function percent(value: number) {

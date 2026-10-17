@@ -139,6 +139,8 @@ const classroomLabel = (facts: SchoolFacts, stream: SchoolStream) => facts.prima
 
 export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'photo'|'supporting';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
 export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string};
+/** The item's operation as shown; toilets saved before October 2026 stored "Supply / installation". */
+export const itemOperation=(item:Pick<PackageItem,'key'|'operation'>)=>item.key==='toilet'&&item.operation==='Supply / installation'?'Supply / New Construction':item.operation;
 export type InfrastructureResult = ReturnType<typeof calculateInfrastructure>;
 export type InfrastructurePackage = {id:number;/** The client key the package was created with (migration 058), null for older packages. */client_key?:string|null;/** Reference code (migration 053), e.g. UBEC/SUBEB/INFRA/007/2026 · Q1–Q4. */code?:string;version:number;kind:InfrastructureInput['kind'];input:InfrastructureInput;result:InfrastructureResult;school:InfrastructureSchool;total_cost:string;
  /** Timeline (infrastructure_packages.quarters, migration 050): authoritative over input.quarters, which packages saved earlier lack. */
@@ -222,8 +224,8 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
  if(input.kind==='whole') for(const gap of auditGaps(input,facts)){
   const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit)=>{const price=input.packageCosts[key];add(key,gap.label,qty,unit,lump,price?.cost??0,price?.strategy??defaultStrategy,price?.duration??'',operation);};
   if(gap.civil&&gap.nonFunctional>0)addGap(gap.key+'-renovate','Renovation',gap.nonFunctional,true);
-  // New ECCDE classrooms are built as ECCDE blocks of 2 classrooms.
-  if(gap.toBuild>0)addGap(gap.civil?gap.key+'-construct':gap.key,gap.civil?'New construction':'Supply / installation',gap.key==='classroomEccde'?Math.ceil(gap.toBuild/2):gap.toBuild,!!(gap.civil||gap.lump),gap.key==='classroomEccde'?'blocks':gap.unit);
+  // New ECCDE classrooms are built as ECCDE blocks of 2 classrooms. Toilets read "Supply / New Construction" (client, October 2026).
+  if(gap.toBuild>0)addGap(gap.civil?gap.key+'-construct':gap.key,gap.civil?'New construction':gap.key==='toilet'?'Supply / New Construction':'Supply / installation',gap.key==='classroomEccde'?Math.ceil(gap.toBuild/2):gap.toBuild,!!(gap.civil||gap.lump),gap.key==='classroomEccde'?'blocks':gap.unit);
  }
  if(input.kind==='new'){
   const price=(key:string)=>input.targeting==='hope'?input.prices[key]??0:0;

@@ -10,6 +10,7 @@ import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/co
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils';
+import { nairaFormat } from '@/lib/money-format';
 
 /** One line of the summary: "Goes to · BEAP Chair". */
 export type ConfirmFact = { label: string; value: ReactNode };
@@ -21,7 +22,7 @@ export type ConfirmStat = { label: string; value: ReactNode; art?: ReactNode; ti
 export type ConfirmTone = 'default' | 'strong' | 'destructive';
 
 /** Exact naira amounts for the summary (the cards use compact figures; a confirmation states the full sum). */
-export const confirmMoney = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 });
+export const confirmMoney = nairaFormat;
 
 const noteIcons = { lock: LockIcon, warning: TriangleAlertIcon, info: InfoIcon } as const;
 
