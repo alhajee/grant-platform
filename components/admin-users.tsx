@@ -67,7 +67,8 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
     pending.current=true; setSaving(true); setFormError('');
     const email = passwordReset ? reset!.email : form.email;
     try {
-      const body = passwordReset ? {id:reset!.id,action:'reset_password'} : {...form,department:form.departments[0] || null,...(editing === 'new' ? {} : {id:(editing as AdminManagedUser).id})};
+      // An edit cannot change the email and the API refuses fields it does not take, so it is left out (undefined is not sent).
+      const body = passwordReset ? {id:reset!.id,action:'reset_password'} : {...form,department:form.departments[0] || null,...(editing === 'new' ? {} : {email:undefined,id:(editing as AdminManagedUser).id})};
       const response = await fetch('/api/admin/users',{method:editing === 'new' && !passwordReset ? 'POST' : 'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const result = await response.json() as {error?:string;password?:string};
       if (!response.ok) throw Error(result.error || 'Unable to save this user');
