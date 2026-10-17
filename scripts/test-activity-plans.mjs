@@ -35,6 +35,13 @@ try{
  const under=await api('social',`/api/plans/review?plan=${plan}`,{action:'submit',pillar:'sbmc',version:underReview.plan.version});ok(under,400);assert.match(under.data.error,/₦125.25/);
  ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:4}),400);
  ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3}));
+ // Target groups (17 October 2026): several may be chosen, as an array or a joined string; stored in list order, each one must be listed.
+ const lineId=saved.lines[0].id,groups=async()=> (await db.query('SELECT target_group FROM activity_plan_lines WHERE id=$1',[lineId])).rows[0].target_group;
+ ok(await api('social',url,{...line,action:'update',id:lineId,quantity:3,activity:3,targetGroup:['Teachers','Schools','Teachers']}));assert.equal(await groups(),'Schools, Teachers');
+ ok(await api('social',url,{...line,action:'update',id:lineId,quantity:3,activity:3,targetGroup:'Teachers, LGA level'}));assert.equal(await groups(),'LGA level, Teachers');
+ ok(await api('social',url,{...line,action:'update',id:lineId,quantity:3,activity:3,targetGroup:['Schools','Aliens']}),400);
+ ok(await api('social',url,{...line,action:'update',id:lineId,quantity:3,activity:3,targetGroup:[]}),400);
+ ok(await api('social',url,{...line,action:'update',id:lineId,quantity:3,activity:3}));assert.equal(await groups(),line.targetGroup,'a single group still works');
  // Implementation strategies (October 2026): retired ones cannot be chosen, but a line that already has one keeps it.
  ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Direct payment to vendor'}),400);
  await db.query("UPDATE activity_plan_lines SET strategy='Direct payment to vendor' WHERE id=$1",[saved.lines[0].id]);

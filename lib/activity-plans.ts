@@ -107,6 +107,16 @@ export const strategyLabels: Record<string, string> = {
 export const strategyLabel = (value: string) => strategyLabels[value] ?? value;
 export const isRetiredStrategy = (value: string) => (retiredStrategies as readonly string[]).includes(value);
 export const targetGroups = ['National level', 'State level', 'LGA level', 'Community level', 'Schools', 'All Learners', 'All Learners and Teachers', 'ECCDE Learners', 'Primary School Learners', 'JSS Learners', 'Teachers', 'ECCDE Learners and Teachers', 'Primary School Learners and Teachers', 'JSS Learners and Teachers'] as const;
+/** Several target groups (17 October 2026) are stored together in the line's one text field, in list order: "Schools, Teachers". */
+export const targetGroupSeparator = ', ';
+export const splitTargetGroups = (value: string) => value.split(targetGroupSeparator).map(group => group.trim()).filter(Boolean);
+export const joinTargetGroups = (groups: readonly string[]) => targetGroups.filter(group => groups.includes(group)).join(targetGroupSeparator);
+const isTargetGroup = (group: string): group is typeof targetGroups[number] => (targetGroups as readonly string[]).includes(group);
+// An array or a joined string (one group for older clients); each must be listed. '' is left to the line rules ("Choose the target group").
+const targetGroupField = z.union([z.array(z.string()), z.string()]).default('')
+  .transform(value => Array.isArray(value) ? value.map(group => group.trim()) : splitTargetGroups(value.trim()))
+  .refine(groups => groups.every(isTargetGroup), 'Choose target groups from the list')
+  .transform(joinTargetGroups);
 export const activityLineSchema = z.object({
   workstream: z.enum(activityWorkstreams), activity: z.number().int().min(0),
   // Description, strategy and target group are required except on Teacher Development lines (checked below).
@@ -115,7 +125,7 @@ export const activityLineSchema = z.object({
   implementationApproach: z.string().trim().max(1000).default(''),
   quantity: z.number().int().min(1).max(1000000),
   unitCost: z.number().positive().max(999999999999.99).refine(n=>Math.abs(n*100-Math.round(n*100))<.001, 'Use at most two decimal places'),
-  strategy: z.union([z.enum(implementationStrategies), z.enum(retiredStrategies), z.literal('')]).default(''), targetGroup: z.union([z.enum(targetGroups), z.literal('')]).default(''), location: z.enum(['','Rural','Urban']).default(''),
+  strategy: z.union([z.enum(implementationStrategies), z.enum(retiredStrategies), z.literal('')]).default(''), targetGroup: targetGroupField, location: z.enum(['','Rural','Urban']).default(''),
   equipment: z.string().max(100).default(''),
   customActivity: z.string().trim().max(maxActivityNameLength, `Use up to ${maxActivityNameLength} characters for the activity name`).default(''),
   textbookClasses: z.array(z.enum(textbookClasses)).max(textbookClasses.length).default([]),
