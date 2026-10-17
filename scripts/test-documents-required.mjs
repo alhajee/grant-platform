@@ -1,7 +1,7 @@
 // The Super Admin "Supporting documents" setting (migration 052): when off (the default), every upload is optional:
 // ICT and Teacher Development lines and Infrastructure packages save, and every send step goes ahead, without their
 // documents (Infrastructure BOQs, surveys, photographic evidence, the updated Whole School BOQ). When on, today's
-// refusals return. Infrastructure plan drawings are no longer collected in either mode (uploads refused, never required). The RAT upload at plan creation and the Infrastructure New Construction land declaration
+// refusals return. Infrastructure drawings are optional in either mode (uploaded per school, never required). The RAT upload at plan creation and the Infrastructure New Construction land declaration
 // & agreement documents stay required either way.
 // Creates a throwaway state with its own users, school and plan, removes them all and restores the GLOBAL settings row.
 // Usage: node --env-file=.env scripts/test-documents-required.mjs [baseUrl]
@@ -175,11 +175,13 @@ try {
   assert.equal(ok(await api('physical', infra)).documentsRequired, true);
   ok(await api('physical', infra, furniture));
   fails(await review('physical', { action: 'submit', pillar: 'infrastructure' }), 400, /Attach a BOQ for DR School/);
-  const drawings = new FormData(); drawings.set('kind', 'drawings'); drawings.set('file', new File(['%PDF-1.4\nDR\n%%EOF'], 'drawings.pdf', { type: 'application/pdf' }));
-  fails(await api('physical', `/api/infrastructure/documents?plan=${planId}`, drawings), 400, /no longer collected/);
+  // Drawings (collected again per school since 17 October 2026) upload, but are never required.
+  const drawing = await infraDoc('drawings', school);
+  assert.ok(ok(await api('physical', infra)).documents.some(d => d.id === drawing && d.kind === 'drawings' && d.schoolId === school), 'drawings upload for a school');
+  ok(await api('physical', `/api/infrastructure/documents?plan=${planId}&id=${drawing}`, undefined, { method: 'DELETE' }));
   fails(await api('physical', infra, { action: 'save', input: whole }), 400, /photographic evidence/);
   fails(await api('physical', infra, { action: 'save', input: newSchool }), 400, /C of O, R of O or Community Agreement/);
-  step('Setting on: Infrastructure send refused without a BOQ (never for drawings, whose uploads are refused); Whole School save refused without photographic evidence');
+  step('Setting on: Infrastructure send refused without a BOQ (never for drawings, which upload per school but are optional); Whole School save refused without photographic evidence');
 
   // Optional: packages save without photos or an updated BOQ, but New Construction still needs its land documents.
   await setRequired(false);

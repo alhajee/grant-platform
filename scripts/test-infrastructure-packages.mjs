@@ -48,9 +48,13 @@ try{
  ok(await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version}),400);
  const docs=[];
  async function upload(kind){const f=new FormData();f.set('kind',kind);f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],kind+'.pdf',{type:'application/pdf'}));const d=ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f));assert.equal(d.schoolId,school);docs.push(d.id);return d;}
- // Plan drawings are no longer collected: new uploads are refused (400).
+ // Drawings are collected per school again (17 October 2026): without a school the upload is refused, with one it is kept.
  const drawings=new FormData();drawings.set('kind','drawings');drawings.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],'drawings.pdf',{type:'application/pdf'}));
- const refusedDrawings=await api('officer',`/api/infrastructure/documents?plan=${plan}`,drawings);ok(refusedDrawings,400);assert.match(refusedDrawings.data.error,/no longer collected/);
+ const noSchool=await api('officer',`/api/infrastructure/documents?plan=${plan}`,drawings);ok(noSchool,400);assert.match(noSchool.data.error,/Select the school/);
+ drawings.set('schoolId',String(school));const drawing=ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,drawings));assert.equal(drawing.kind,'drawings');assert.equal(drawing.schoolId,school);
+ // Drawings are PDF or images only: a spreadsheet is refused.
+ const sheet=new FormData();sheet.set('kind','drawings');sheet.set('schoolId',String(school));sheet.set('file',new File([new Uint8Array([0x50,0x4b,3,4])],'plan.xlsx'));const refusedSheet=await api('officer',`/api/infrastructure/documents?plan=${plan}`,sheet);ok(refusedSheet,400);assert.match(refusedSheet.data.error,/PDF, PNG or JPEG/);
+ await db.query('UPDATE infrastructure_documents SET removed_at=NOW() WHERE id=$1',[drawing.id]); // keep the later document counts as they were
  for(const kind of ['boq','boq','survey'])await upload(kind);
  secondSchool=(await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES($1,'Second school','QA','Primary','Rural') RETURNING id",[marker])).rows[0].id;
  await db.query('UPDATE schools SET enrolment_male=150,enrolment_female=100 WHERE id=$1',[secondSchool]);

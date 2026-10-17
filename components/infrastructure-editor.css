@@ -26,6 +26,13 @@
 .infrastructure-shell [data-slot=field-label]:has(input),.infrastructure-shell [data-slot=field-label]:has(select),.infrastructure-shell [data-slot=field-label]:has(textarea){display:flex;flex-direction:column;align-items:stretch;gap:8px;width:100%}
 .infrastructure-shell .preview-document{min-width:0}
 .infrastructure-shell .preview-document [data-slot=table-container]{background:var(--card);border:1px solid var(--border);border-radius:12px}
+/* Package details tables (preview pane): on wide screens the header row stays pinned to the top of the pane while the
+   rows scroll, like the audit table. overflow:clip keeps the rounded corners without a scroll box of its own. */
+.infrastructure-shell .preview-document [data-slot=table-container] thead th{background:var(--card)}
+@media(min-width:1200px){
+  .infrastructure-shell .preview-document [data-slot=table-container]{overflow:clip}
+  .infrastructure-shell .preview-document [data-slot=table-container] thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -1px 0 var(--border)}
+}
 .infra-cost-row{cursor:pointer}
 .infra-cost-row:focus-visible{outline:2px solid var(--ring);outline-offset:-2px}
 .infra-audit-row{cursor:pointer}
