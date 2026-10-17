@@ -10,7 +10,7 @@ import type { ActivitySnapshotLine } from '@/lib/activity-plans';
  */
 export function LineExtrasDetail({ workstream, line }: { workstream: 'sbmc' | 'tlm' | 'monitoring' | 'curriculum' | 'quality' | 'ict' | 'teachers' | 'planning'; line: ActivitySnapshotLine }) {
   const schools = line.schools ?? [], documents = line.documents ?? [];
-  // One group per upload slot (TLM: BOQ and Sample of the quantity); optional slots only when they hold documents.
+  // One group per upload slot (TLM: BOQ and Sample of the item); optional slots only when they hold documents.
   const slots = lineDocumentSlots(workstream, line.activity);
   const groups = slots.map(slot => ({ label: slot.label, governed: slot.governed, docs: documents.filter(d => (d.kind ?? 'document') === slot.kind) }))
     .filter(group => group.governed || group.docs.length);

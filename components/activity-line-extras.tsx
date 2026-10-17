@@ -159,7 +159,7 @@ export async function uploadLineDocuments(workstream: ActivityWorkstream, lineId
 }
 
 /**
- * Documents for one budget line, one field per upload slot (TLM: BOQ and Sample of the quantity; others: their one
+ * Documents for one budget line, one field per upload slot (TLM: BOQ and Sample of the item; others: their one
  * slot). On a saved line files upload straight away; on a new line they wait in the form (pending) and the editor
  * uploads them right after the item is added. `required` follows the Super Admin setting (migration 052): governed
  * slots are marked required only while it is on. Supporting documents (migration 057) are always optional.

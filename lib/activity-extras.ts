@@ -108,13 +108,13 @@ export const lineDocumentAccept = '.pdf,.xls,.xlsx';
 export const supportingDocumentAccept = '.pdf,.xls,.xlsx,.docx,.png,.jpg,.jpeg';
 export const lineDocumentAcceptFor = (workstream: string, activity: number) => isSupportingDocumentLine(workstream, activity) ? supportingDocumentAccept : lineDocumentAccept;
 /**
- * The upload slots of a line. TLM items (migration 065) take a BOQ and a sample of the quantity, both governed by the
+ * The upload slots of a line. TLM items (migration 065) take a BOQ and a sample of the item, both governed by the
  * Supporting documents setting; every other line has at most one slot, kind 'document' (governed or supporting).
  */
 export type LineDocumentSlot = { kind: 'document' | 'boq' | 'sample'; label: string; governed: boolean; accept: string; hint: string };
 const tlmDocumentSlots: readonly LineDocumentSlot[] = [
   { kind: 'boq', label: 'BOQ', governed: true, accept: lineDocumentAccept, hint: 'The Bill of Quantities for this item. PDF or Excel' },
-  { kind: 'sample', label: 'Sample of the quantity', governed: true, accept: supportingDocumentAccept, hint: 'A sample of what is supplied, such as photos or a specimen. PDF, Excel, Word or images' },
+  { kind: 'sample', label: 'Sample of the item', governed: true, accept: supportingDocumentAccept, hint: 'A sample of what is supplied, such as photos or a specimen. PDF, Excel, Word or images' },
 ];
 export function lineDocumentSlots(workstream: string, activity: number): readonly LineDocumentSlot[] {
   if (workstream === 'tlm') return tlmDocumentSlots;

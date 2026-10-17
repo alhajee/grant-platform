@@ -91,14 +91,14 @@ try {
 
   // Uploads: every listed component's lines, PDF/Excel plus Word and images.
   const sbmcDoc = ok(await upload('social', 'sbmc', sbmc, 'sbmc-quote.pdf', pdf));
-  // TLM items take a BOQ and a sample of the quantity (migration 065): each upload names its slot.
+  // TLM items take a BOQ and a sample of the item (migration 065): each upload names its slot.
   fails(await upload('academic', 'tlm', tlm, 'tlm-quote.xlsx', xlsx), 400, /Choose which document this is/);
   fails(await upload('academic', 'tlm', tlm, 'boq.png', png, 'boq'), 400, /PDF or Excel/);
   const tlmDoc = ok(await upload('academic', 'tlm', tlm, 'tlm-quote.xlsx', xlsx, 'boq'));
   // With the Supporting documents setting on, TLM cannot be sent until the sample is there too.
   const school = (await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,'LD TLM School','Test LGA','Primary','Rural',50,50) RETURNING id", [state])).rows[0].id;
   ok(await api('academic', url('tlm'), { workstream: 'tlm', entity: 'school', action: 'create', schoolId: school }));
-  fails(await review('academic', { action: 'submit', pillar: 'tlm' }), 409, /sample of the quantity/);
+  fails(await review('academic', { action: 'submit', pillar: 'tlm' }), 409, /sample of the item/);
   const tlmSample = ok(await upload('academic', 'tlm', tlm, 'sample.png', png, 'sample'));
   assert.equal(tlmSample.kind, 'sample');
   const qaDoc = ok(await upload('me', 'quality', qaLines[4], 'workshop-plan.docx', docx));
