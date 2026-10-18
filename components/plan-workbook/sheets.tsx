@@ -127,7 +127,7 @@ function distributionSheet(component: DistributionWorkstream, schools: NonNullab
     key: component === 'tlm' ? 'distribution' : distributionSnapshotKeys[component], label: `${name} distribution`, hash: `review-${component}-distribution`, icon: School, itemLabel: 'schools', empty: 'No distribution schools', editHref, editLabel: `${name} distribution list`,
     columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true),
       // Coordinates open the school on a map; blank when the School list has none.
-      { ...text('coordinates', 'Coordinates', 200), cell: r => { const s = byId.get(Number(r.id)); return s?.latitude && s.longitude ? <SchoolMapDialog variant="inline" name={s.name} lga={s.lga} latitude={s.latitude} longitude={s.longitude} /> : null; } },
+      { ...text('coordinates', 'Coordinates', 210), cell: r => { const s = byId.get(Number(r.id)); return s?.latitude && s.longitude ? <SchoolMapDialog variant="inline" name={s.name} lga={s.lga} latitude={s.latitude} longitude={s.longitude} /> : null; } },
       qty('learners', 'Learners', true), amount('allocation', 'Allocation', true)],
     rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, coordinates: s.latitude && s.longitude ? `${s.latitude}, ${s.longitude}` : '', learners: s.enrolment ?? '', allocation: shares.has(s.id) ? shares.get(s.id)! / 100 : '' })),
   };

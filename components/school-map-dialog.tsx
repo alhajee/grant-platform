@@ -52,9 +52,10 @@ export function SchoolMapDialog({ name, lga, latitude, longitude, variant = 'thu
   const google = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
   return <Dialog>
     <DialogTrigger asChild>
-      {variant === 'inline' ? <button type="button" className="inline-flex items-center gap-1 rounded-sm text-left whitespace-nowrap text-primary tabular-nums underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50" aria-label={`Show ${name} on a map`}
+      {variant === 'inline' ? <button type="button" className="group -my-0.5 inline-flex h-6 items-center gap-1.5 rounded-full border border-border bg-background py-0 pr-2 pl-0.5 text-[11px] leading-none whitespace-nowrap text-foreground tabular-nums shadow-xs transition-colors outline-none hover:border-primary/30 hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50" aria-label={`Show ${name} on a map`}
         onMouseDown={event => event.stopPropagation()}>
-        <MapPinIcon className="size-3.5 shrink-0" aria-hidden="true" />{degrees(lat, 'N', 'S')}, {degrees(lon, 'E', 'W')}
+        <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground"><MapPinIcon className="size-3" /></span>
+        <span>{degrees(lat, 'N', 'S')}</span><span aria-hidden="true" className="text-muted-foreground/60">·</span><span>{degrees(lon, 'E', 'W')}</span>
       </button>
       : <button type="button" className="group -my-1 flex items-center gap-2.5 rounded-lg py-1 pr-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" aria-label={`Show ${name} on a map`}>
         <MapThumbnail lat={lat} lon={lon} />
