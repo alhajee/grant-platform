@@ -13,13 +13,13 @@ import { fromKobo, percent, policyShare, toKobo, type EnvelopePlan } from '@/lib
 import { budgetPairs, pairOf, sideItems, sideNames, storedAllocation, type SplitSide } from '@/lib/budget-pairs';
 import { currentPlanHref } from '@/lib/action-plans';
 import './budget-split-dialog.css';
-import { nairaFormat } from '@/lib/money-format';
+import { nairaFormat, compactNairaFormat } from '@/lib/money-format';
 
 // The split of a shared envelope as one bar (lib/budget-pairs.ts): the pair's keeper on the left (Infrastructure,
 // Teacher Development), the stored side on the right (TLM, ICT). Amounts are whole kobo numbers here; the server
 // re-checks every rule (PATCH /api/activities/budget-split with the viewer's own side).
 const money = nairaFormat;
-const compact = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNairaFormat(1);
 const naira = (kobo: number) => kobo / 100;
 const share = (part: number, whole: number) => whole > 0 ? Math.round(part / whole * 1000) / 10 : 0;
 const koboOf = (value: string) => /^\d+(\.\d{0,2})?$/.test(value) ? Number(toKobo(value)) : NaN;

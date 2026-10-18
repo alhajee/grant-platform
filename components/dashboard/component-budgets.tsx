@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { componentEnvelope, isSplitMode } from '@/lib/funding-policy';
 import { isPoolComponent } from '@/lib/infrastructure-pool';
 import type { PlanOverview } from '@/lib/action-plans';
+import { compactNairaFormat } from '@/lib/money-format';
 
 /** One green family for every component, darkest for the largest envelopes; `ink` is the readable text colour on it. */
 export const componentPalette: Record<InvestmentArea, { label: string; fill: string; ink: string }> = {
@@ -23,7 +24,7 @@ export const componentPalette: Record<InvestmentArea, { label: string; fill: str
   planning: { label: 'Planning', fill: '#5aa57a', ink: '#0d3a2b' },
 };
 
-const compact = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 2 });
+const compact = compactNairaFormat(2);
 
 /** Empty state: the tile columns waiting to be filled, in the component greens. */
 function EmptyTiles() {

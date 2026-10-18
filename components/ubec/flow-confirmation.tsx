@@ -3,10 +3,11 @@ import { departmentName, oversightDepartments } from '@/lib/ubec';
 import { componentName, oversightPending, type DecisionCounts, type PipelineComponent, type UbecFlow } from '@/lib/ubec-flow';
 import type { FlowRequest } from './flow-dialog';
 import { ComponentsArt, DirectorsArt, FundsArt } from './stat-art';
+import { compactNairaFormat } from '@/lib/money-format';
 
 export type FlowConfirmation = { title: string; description: string; stats?: ConfirmStat[]; facts: ConfirmFact[]; notes: ConfirmNote[]; confirm: string; tone: ConfirmTone; acknowledge?: string };
 
-const compactMoney = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
+const compactMoney = compactNairaFormat(1);
 const decisions = (c: DecisionCounts) => `${c.accepted} accepted · ${c.rejected} rejected${c.undecided ? ` · ${c.undecided} undecided` : ''}`;
 const oversightNames = (ids: readonly string[]) => ids.map(id => oversightDepartments.find(d => d.id === id)?.name ?? id).join(', ');
 

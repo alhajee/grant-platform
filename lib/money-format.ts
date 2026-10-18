@@ -12,3 +12,9 @@ export const formatKobo = (kobo: bigint) => {
   const absolute = kobo < 0 ? -kobo : kobo;
   return `₦${(absolute / BigInt(100)).toLocaleString('en-NG')}.${String(absolute % BigInt(100)).padStart(2, '0').padEnd(moneyDecimals, '0')}`;
 };
+
+/**
+ * Short amounts (₦1.2M) with up to `digits` decimals, cut off rather than rounded, so a figure just under a
+ * ceiling never reads as the ceiling (₦599,999,999.99 is ₦599.99M, not ₦600M).
+ */
+export const compactNairaFormat = (digits: number) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', minimumFractionDigits: 0, maximumFractionDigits: digits, roundingMode: 'trunc' } as Intl.NumberFormatOptions);

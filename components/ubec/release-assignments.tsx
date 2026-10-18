@@ -6,8 +6,9 @@ import { confirmMoney } from '@/components/confirm-step';
 import { componentDepartments } from '@/lib/ubec';
 import { componentName, type PipelineComponent } from '@/lib/ubec-flow';
 import { DepartmentArt } from './department-art';
+import { compactNairaFormat } from '@/lib/money-format';
 
-const compact = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
+const compact = compactNairaFormat(1);
 
 /**
  * The release as a task list: each UBEC department is an assignee (its Director) with the components it

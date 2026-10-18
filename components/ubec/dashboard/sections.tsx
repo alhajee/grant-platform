@@ -15,9 +15,10 @@ import { planPeriod } from '@/lib/action-plans';
 import { normalizeStateCode } from '@/lib/national-analytics';
 import { departmentLabel, nationalStatusLabels, ubecRoles, type UbecDashboard } from '@/lib/ubec';
 import { componentName } from '@/lib/ubec-flow';
+import { compactNairaFormat } from '@/lib/money-format';
 
 // The parts of the UBEC dashboard, shared by the Overview, Plans, Submissions and Activity pages.
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 2 });
+const money = compactNairaFormat(2);
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
 const actionLabels: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to departments', assign_officer: 'Officers assigned', default_officers: 'Default officers assigned', complete_assessment: 'Assessment completed', send_oversight: 'Sent for oversight', observations_done: 'Observations done', ready_for_chair: 'Ready for BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned', feedback: 'Department review completed' };
 

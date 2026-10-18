@@ -21,8 +21,9 @@ import { componentName, type FlowComponent, type PipelineComponent, type UbecFlo
 import { DecisionBar } from './flow-bits';
 import { flowConfirmation } from './flow-confirmation';
 import { ReleaseAssignments } from './release-assignments';
+import { compactNairaFormat } from '@/lib/money-format';
 
-const confirmMoneyCompact = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
+const confirmMoneyCompact = compactNairaFormat(1);
 
 export type FlowRequest =
   | { kind: 'release' } | { kind: 'approve' } | { kind: 'return' }

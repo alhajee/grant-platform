@@ -10,10 +10,11 @@ import { implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
 import { nationalStatusLabels, type NationalItem, type UbecDashboard } from '@/lib/ubec';
 import { componentName } from '@/lib/ubec-flow';
 import './national-map.css';
+import { compactNairaFormat } from '@/lib/money-format';
 
 // The Nigeria map of the UBEC Overview hero (ES and BEAP Chair): each state with plans is filled in its stage colour.
 // Choosing a state flies the map into that state and opens everything about its plans.
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
+const money = compactNairaFormat(1);
 const count = new Intl.NumberFormat('en-NG');
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
 type Status = 'received' | 'reviewing' | 'returned' | 'approved';

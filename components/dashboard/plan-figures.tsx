@@ -5,11 +5,11 @@ import { useState } from 'react';
 import type { InvestmentArea } from '@/components/investment-filter';
 import { componentPalette } from '@/components/dashboard/component-budgets';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { nairaFormat } from '@/lib/money-format';
+import { nairaFormat, compactNairaFormat } from '@/lib/money-format';
 
 /** Shared figures of the dashboard plan card and the plan page: the large amount, the tick gauge and the pills. */
 export const amountFormat = nairaFormat;
-export const compactNaira = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 2 });
+export const compactNaira = compactNairaFormat(2);
 
 const TICKS = 32;
 /** Gauge order: largest envelopes first, matching the dashboard tiles. */

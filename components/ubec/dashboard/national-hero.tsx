@@ -12,12 +12,12 @@ import { NationalMap, stageOf } from '@/components/ubec/dashboard/national-map';
 import { planPeriod } from '@/lib/action-plans';
 import { normalizeStateCode, summarizePlans } from '@/lib/national-analytics';
 import { componentDepartments, departmentName, departmentPillars, nationalStatusLabels, type UbecDashboard } from '@/lib/ubec';
-import { nairaFormat } from '@/lib/money-format';
+import { nairaFormat, compactNairaFormat } from '@/lib/money-format';
 import './national-hero.css';
 
 // The UBEC Overview for the ES and BEAP Chair: Nigeria as the centrepiece (no card; it blends into the page) beside
 // the headline figures; then the next step, the review pipeline and the latest plans.
-const money = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1 });
+const money = compactNairaFormat(1);
 const count = new Intl.NumberFormat('en-NG');
 const stages = ['received', 'reviewing', 'returned', 'approved'] as const;
 

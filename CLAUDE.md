@@ -154,7 +154,7 @@ Each Sports Competitions sub-activity's share (`sportsSubActivities.competitions
 
 ## Money display: four decimals (no migration)
 
-Client request (17 October 2026, the financial-systems standard): every full naira amount shows four decimals (₦1,250.0000). One formatter, `lib/money-format.ts` (`nairaFormat`, `formatKobo`, `moneyDecimals`); every component, cap/ceiling message (`activity-budget`, `sbmc-budget`, `sports`, `infrastructure-pool`, `budget-pairs`, `plan-setup`), the plan-card `Amount` and the workbook .xlsx money format (`"₦"#,##0.0000`) use it. Display only: amounts are still stored and checked to the kobo (`NUMERIC(…, 2)`, `toKobo`), so the last two digits read 00, and amount inputs keep two decimals. Compact figures (₦1.2M) keep their short form. Tests match the four-decimal messages.
+Client request (17 October 2026, the financial-systems standard): every full naira amount shows four decimals (₦1,250.0000). One formatter, `lib/money-format.ts` (`nairaFormat`, `formatKobo`, `moneyDecimals`); every component, cap/ceiling message (`activity-budget`, `sbmc-budget`, `sports`, `infrastructure-pool`, `budget-pairs`, `plan-setup`), the plan-card `Amount` and the workbook .xlsx money format (`"₦"#,##0.0000`) use it. Display only: amounts are still stored and checked to the kobo (`NUMERIC(…, 2)`, `toKobo`), so the last two digits read 00, and amount inputs keep two decimals. Compact figures (₦1.2M) keep their short form but are cut off, never rounded up (`compactNairaFormat(digits)`, `roundingMode: 'trunc'`), so ₦599,999,999.99 reads ₦599.99M, not the ₦600M ceiling; every compact formatter uses it. Tests match the four-decimal messages; `scripts/test-money-format.mjs` covers both formats.
 
 ## Line timeline (migration 050)
 
