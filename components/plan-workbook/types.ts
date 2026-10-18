@@ -5,7 +5,8 @@ export type SheetKey = import('@/lib/plan-comments').CommentSheet;
 export type CellValue = string | number;
 export type ColumnKind = 'text' | 'number' | 'money';
 /** One spreadsheet column. `value` returns the raw value used for sorting, copying and export. */
-export type WorkbookColumn = { id: string; header: string; kind: ColumnKind; size?: number; filter?: boolean; total?: boolean };
+/** `cell` draws the cell (e.g. a map link) in place of the formatted value, which still serves copying, search and export. */
+export type WorkbookColumn = { id: string; header: string; kind: ColumnKind; size?: number; filter?: boolean; total?: boolean; cell?: (row: WorkbookRow) => ReactNode };
 /** `decision`: the UBEC item decision, on assessed component sheets only (assessment-context.tsx). */
 export type WorkbookRow = { id: string; values: Record<string, CellValue>; search: string; expandable?: boolean; decision?: 'accept' | 'reject' | 'open' };
 export type WorkbookSheet = {

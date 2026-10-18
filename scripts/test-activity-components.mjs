@@ -194,6 +194,11 @@ try {
   assert.equal(academicView.snapshot.curriculum.length, 4); assert.equal(academicView.snapshot.curriculumDistribution.length, 2); assert.equal(academicView.snapshot.tlmDistribution.length, 0);
   assert.equal(academicView.snapshot.gscci.length, 8); assert.deepEqual(academicView.snapshot.gscciDistribution.map(s => s.id), [schoolIds[1]]);
   assert.equal(academicView.snapshot.monitoring, undefined); assert.equal(academicView.snapshot.gscciDistribution.length, 1); assert.deepEqual(academicView.snapshot.componentDocuments, []);
+  // Distribution schools carry their coordinates for the workbook map (17 October 2026); '' when the School list has none.
+  assert.equal(academicView.snapshot.gscciDistribution[0].latitude, '');
+  await db.query("UPDATE schools SET latitude='4.9247', longitude='6.2643' WHERE id=$1", [schoolIds[1]]);
+  const located = ok(await api('academic', `/api/plans/review?plan=${planId}`)).snapshot.gscciDistribution[0];
+  assert.deepEqual([located.latitude, located.longitude], ['4.9247', '6.2643']);
   assert.deepEqual(academicView.visiblePillars, ['sports', 'tlm', 'gscci', 'curriculum']);
   const overview = ok(await api('physical', `/api/beap?plan=${planId}`));
   assert.equal(overview.monitoring.budget, 3900); assert.ok(overview.editablePillars.includes('monitoring'));
@@ -254,6 +259,10 @@ try {
   ok(await api('revPhysical', `/api/activities/documents?id=${kept.id}`));
   const academicReview = ok(await api('revAcademic', ubecPath));
   assert.equal(academicReview.round.snapshot.curriculumDistribution.length, 2); assert.deepEqual(academicReview.round.snapshot.componentDocuments, []);
+  // A round saved before coordinates were kept still shows them, read from the School list.
+  await db.query("UPDATE ubec_rounds SET snapshot=jsonb_set(snapshot,'{curriculumDistribution}',(SELECT jsonb_agg(e - 'latitude' - 'longitude') FROM jsonb_array_elements(snapshot->'curriculumDistribution') e)) WHERE id=$1", [esView.round.id]);
+  await db.query("UPDATE schools SET latitude='5.1', longitude='6.3' WHERE id = ANY($1::int[])", [ok(await api('revAcademic', ubecPath)).round.snapshot.curriculumDistribution.map(s => s.id)]);
+  assert.ok(ok(await api('revAcademic', ubecPath)).round.snapshot.curriculumDistribution.every(s => s.latitude === '5.1' && s.longitude === '6.3'), 'older rounds are filled from the School list');
   fails(await api('revAcademic', `/api/activities/documents?id=${kept.id}`), 404);
   fails(await upload('physical', 'late.pdf', pdf), 409);
   step('UBEC round: Monitoring and Curriculum sent with distribution and proforma; release, officer assignment and officer isolation');

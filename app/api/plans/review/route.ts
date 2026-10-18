@@ -1,3 +1,4 @@
+import { withDistributionCoordinates } from '@/lib/distribution-coordinates';
 import { visibleComponents, visibleSnapshot } from '@/lib/plan-visibility';
 import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
 import { canViewWholeStatePlan } from '@/lib/subeb-access';
@@ -37,8 +38,9 @@ export async function GET(request: NextRequest) {
       const requested = request.nextUrl.searchParams.get('submission');
       if (requested && !/^[1-9]\d*$/.test(requested)) return error('Invalid submission');
       const selectedSubmission = requested ? Number(requested) : !statePlanOpen(plan.status) ? plan.submissionNumber : null;
-      const snapshot = selectedSubmission ? (await db.query('SELECT snapshot FROM plan_submissions WHERE plan_id = $1 AND number = $2', [plan.id, selectedSubmission])).rows[0]?.snapshot : await readPlanSnapshot(db, plan.id);
-      if (!snapshot) return error('Submission not found', 404);
+      const stored = selectedSubmission ? (await db.query('SELECT snapshot FROM plan_submissions WHERE plan_id = $1 AND number = $2', [plan.id, selectedSubmission])).rows[0]?.snapshot : await readPlanSnapshot(db, plan.id);
+      if (!stored) return error('Submission not found', 404);
+      const snapshot = await withDistributionCoordinates(db, stored);
       const submissions = (await db.query('SELECT number, created_at AS "createdAt" FROM plan_submissions WHERE plan_id = $1 ORDER BY number DESC', [plan.id])).rows;
       const events = (await db.query(`SELECT id, action, actor_name AS "actorName", actor_role AS "actorRole", comment, scope, submission_number AS "submissionNumber", created_at AS "createdAt" FROM plan_review_events WHERE plan_id = $1 ORDER BY id DESC`, [plan.id])).rows;
       const pillarReviews = await readPillarReviews(db, plan.id);

@@ -1,3 +1,4 @@
+import { withDistributionCoordinates } from '@/lib/distribution-coordinates';
 import { NextRequest, NextResponse } from 'next/server';
 import { canViewWholeStatePlan } from '@/lib/subeb-access';
 import { z } from 'zod';
@@ -52,7 +53,7 @@ export async function GET(request: NextRequest) {
         pillars = national ? await viewerPillars(db, round, viewer) : activePillars(round.snapshot);
         assignments = (await db.query<UbecAssignment>('SELECT * FROM ubec_assignments WHERE round_id=$1 AND pillar=ANY($2::text[]) ORDER BY pillar,department', [round.id, pillars])).rows;
         if (!national && !['returned', 'approved'].includes(round.status)) assignments = [];
-        snapshot = national ? ubecVisibleSnapshot(round.snapshot, pillars) : round.snapshot;
+        snapshot = await withDistributionCoordinates(db, national ? ubecVisibleSnapshot(round.snapshot, pillars) : round.snapshot);
         if (national) flow = await readFlow(db, round, latest, viewer, pillars);
       }
       const events = round ? (await db.query(`SELECT id,action,actor,comment,created_at,pillar FROM ubec_events WHERE round_id=$1 ${national ? '' : "AND action IN ('submit','return','approve')"} AND (pillar IS NULL OR pillar=ANY($2::text[])) ORDER BY id DESC`, [round.id, pillars])).rows : [];

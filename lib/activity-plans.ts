@@ -190,7 +190,8 @@ export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'i
   /** Teacher Development training details (migration 040). */
   training_provider?:string;target_participants?:string;school_levels?:string[];training_days?:number|null;venue_type?:string};
 export type ComponentDocument = {id:string;component:typeof documentWorkstreams[number];name:string;size:number};
-export type DistributionSchool = {id:number;name:string;lga:string;level:string;location:string;enrolment?:number};
+/** Coordinates since 17 October 2026 ('' when the School list has none); older snapshots are filled in when read (lib/distribution-coordinates.ts). */
+export type DistributionSchool = {id:number;name:string;lga:string;level:string;location:string;enrolment?:number;latitude?:string;longitude?:string};
 /** Splits a budget (kobo) across schools in proportion to enrolment; remainders go to the largest fractions so shares sum exactly. Empty when no school has learners. */
 export function allocateByEnrolment(totalKobo: number, schools: readonly {id:number;enrolment?:number}[]): Map<number, number> {
   const learners = schools.reduce((sum, s) => sum + Math.max(0, s.enrolment ?? 0), 0), shares = new Map<number, number>();

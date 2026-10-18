@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { ExternalLinkIcon } from 'lucide-react';
+import { ExternalLinkIcon, MapPinIcon } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
-export type SchoolMapDialogProps = { name: string; lga: string; latitude: string; longitude: string };
+/** `inline`: a one-line pin and coordinates for compact rows (plan workbook); the default shows a map thumbnail. */
+export type SchoolMapDialogProps = { name: string; lga: string; latitude: string; longitude: string; variant?: 'thumbnail' | 'inline' };
 
 const ZOOM = 15;
 const THUMB_ZOOM = 12, THUMB_TILE = 128, THUMB_SIZE = 44;
@@ -45,19 +46,23 @@ function SchoolMap({ lat, lon, name }: { lat: number; lon: number; name: string 
 }
 
 /** Coordinates as a button that opens the school's location on a map preview. */
-export function SchoolMapDialog({ name, lga, latitude, longitude }: SchoolMapDialogProps) {
+export function SchoolMapDialog({ name, lga, latitude, longitude, variant = 'thumbnail' }: SchoolMapDialogProps) {
   const lat = Number(latitude), lon = Number(longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return <span className="text-muted-foreground">—</span>;
   const google = `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
   return <Dialog>
     <DialogTrigger asChild>
-      <button type="button" className="group -my-1 flex items-center gap-2.5 rounded-lg py-1 pr-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" aria-label={`Show ${name} on a map`}>
+      {variant === 'inline' ? <button type="button" className="inline-flex items-center gap-1 rounded-sm text-left whitespace-nowrap text-primary tabular-nums underline-offset-2 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50" aria-label={`Show ${name} on a map`}
+        onMouseDown={event => event.stopPropagation()}>
+        <MapPinIcon className="size-3.5 shrink-0" aria-hidden="true" />{degrees(lat, 'N', 'S')}, {degrees(lon, 'E', 'W')}
+      </button>
+      : <button type="button" className="group -my-1 flex items-center gap-2.5 rounded-lg py-1 pr-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" aria-label={`Show ${name} on a map`}>
         <MapThumbnail lat={lat} lon={lon} />
         <span className="whitespace-nowrap text-xs leading-5 tabular-nums">
           <span className="block group-hover:underline group-hover:underline-offset-2">{degrees(lat, 'N', 'S')}</span>
           <span className="block text-muted-foreground">{degrees(lon, 'E', 'W')}</span>
         </span>
-      </button>
+      </button>}
     </DialogTrigger>
     <DialogContent variant="inset-footer" className="sm:max-w-2xl">
       <DialogHeader>

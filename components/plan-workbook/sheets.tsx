@@ -8,6 +8,7 @@ import { formatQuarters } from '@/lib/line-quarters';
 import { formatLineDates } from '@/lib/line-dates';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { SchoolMapDialog } from '@/components/school-map-dialog';
 import type { CellValue, WorkbookColumn, WorkbookRow, WorkbookSheet } from './types';
 
 export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string; teachersEditHref?: string; planningEditHref?: string };
@@ -121,11 +122,14 @@ function teacherSheet(lines: NonNullable<Snapshot['teachers']>, editHref?: strin
 /** Allocation = the component budget (TLM, GSCCI or Curriculum) shared across the listed schools by enrolment (snapshots before enrolment was recorded show blanks). */
 function distributionSheet(component: DistributionWorkstream, schools: NonNullable<Snapshot['tlmDistribution']>, lines: NonNullable<Snapshot['tlm']>, editHref?: string): WorkbookSheet {
   const shares = allocateByEnrolment(Math.round(lines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
-  const name = distributionNames[component];
+  const name = distributionNames[component], byId = new Map(schools.map(s => [s.id, s]));
   return {
     key: component === 'tlm' ? 'distribution' : distributionSnapshotKeys[component], label: `${name} distribution`, hash: `review-${component}-distribution`, icon: School, itemLabel: 'schools', empty: 'No distribution schools', editHref, editLabel: `${name} distribution list`,
-    columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true), qty('learners', 'Learners', true), amount('allocation', 'Allocation', true)],
-    rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, learners: s.enrolment ?? '', allocation: shares.has(s.id) ? shares.get(s.id)! / 100 : '' })),
+    columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true),
+      // Coordinates open the school on a map; blank when the School list has none.
+      { ...text('coordinates', 'Coordinates', 200), cell: r => { const s = byId.get(Number(r.id)); return s?.latitude && s.longitude ? <SchoolMapDialog variant="inline" name={s.name} lga={s.lga} latitude={s.latitude} longitude={s.longitude} /> : null; } },
+      qty('learners', 'Learners', true), amount('allocation', 'Allocation', true)],
+    rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, coordinates: s.latitude && s.longitude ? `${s.latitude}, ${s.longitude}` : '', learners: s.enrolment ?? '', allocation: shares.has(s.id) ? shares.get(s.id)! / 100 : '' })),
   };
 }
 

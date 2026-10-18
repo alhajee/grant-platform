@@ -177,7 +177,7 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
                   style={c === 0 ? { left: GUTTER_WIDTH } : undefined} title={spec.kind === 'text' && text.length > 18 ? text : undefined}
                   onMouseDown={event => { if (event.button === 0) cell.getSelectionStartHandler()(event); }} onMouseEnter={cell.getSelectionExtendHandler()}
                   onContextMenu={() => openMenu(row.original, cell.column.id, selected)} onClick={event => { if (thread && !event.shiftKey && !event.ctrlKey && !event.metaKey) openComment(row.id, cell.column.id); }}
-                  onFocus={() => { if (!table.store.state.cellSelection.length) table.setFocusedCell(row.id, cell.column.id); }}>{text || <span className="wb-blank" aria-label="Blank">—</span>}{thread && <span className="sr-only">, has {ubec ? 'UBEC ' : ''}comment</span>}</td>;
+                  onFocus={() => { if (!table.store.state.cellSelection.length) table.setFocusedCell(row.id, cell.column.id); }}>{(text && spec.cell?.(row.original)) || text || <span className="wb-blank" aria-label="Blank">—</span>}{thread && <span className="sr-only">, has {ubec ? 'UBEC ' : ''}comment</span>}</td>;
               })}
             </tr>
             {open && <tr role="row" aria-rowindex={detailIndex.get(row.id)} className="wb-detail" id={`wb-${sheet.key}-${row.id}-details`}><td role="gridcell" aria-colindex={1} colSpan={colCount}><div className="wb-detail-inner review-row-details">{sheet.detail?.(row.id)}</div></td></tr>}
