@@ -729,6 +729,12 @@
   box-shadow:0 0 0 1000px #fff inset;
   transition:background-color 9999s ease-out 0s;
 }
+.signin-forgot { font-size:13px; font-weight:500; color:var(--primary); text-underline-offset:3px; border-radius:4px; outline:none; }
+.signin-forgot:hover { text-decoration:underline; }
+.signin-forgot:focus-visible { box-shadow:0 0 0 3px color-mix(in srgb,var(--ring) 50%,transparent); }
+.signin-intro { margin:0; font-size:14px; line-height:1.5; color:var(--muted-foreground); }
+.signin-back { display:inline-flex; align-items:center; gap:6px; margin-top:20px; font-size:14px; font-weight:500; color:var(--primary); text-underline-offset:3px; }
+.signin-back:hover { text-decoration:underline; }
 .signin-button { position:relative; isolation:isolate; overflow:hidden; width:100%; min-height:50px; margin-top:28px; box-shadow:0 12px 26px -14px color-mix(in srgb,var(--primary) 72%,transparent); transition:transform .2s ease,box-shadow .2s ease,filter .2s ease; }
 .signin-button::before { position:absolute; inset:0; padding:2px; border-radius:inherit; content:""; pointer-events:none; opacity:0; background:conic-gradient(from var(--signin-glow-angle),transparent 0 66%,rgb(244 200 95 / 28%) 76%,#f4c85f 87%,#fff0b0 92%,transparent 100%); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); mask-composite:exclude; transition:opacity .2s ease; }
 .signin-button:focus-visible::before { opacity:1; animation:signin-button-orbit 1.35s linear infinite; }

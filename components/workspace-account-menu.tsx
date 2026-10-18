@@ -1,15 +1,20 @@
 "use client";
 
-import { BadgeCheckIcon, ChevronDownIcon, EyeIcon, LogOutIcon, MailIcon, MoreVerticalIcon } from "lucide-react";
+import { useState } from "react";
+import { BadgeCheckIcon, ChevronDownIcon, EyeIcon, KeyRoundIcon, LogOutIcon, MailIcon, MoreVerticalIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { LocalUser } from "@/lib/local-session";
+import { ChangePasswordDialog } from "@/components/change-password-dialog";
 
 export function AccountMenu({ user, onViewPlan, disabled = false }: { user: LocalUser | null; onViewPlan?: () => void; disabled?: boolean }) {
   const name = user?.name || "Your account";
   const role = user?.role?.replaceAll("_", " ") || "";
+  const [changing, setChanging] = useState(false);
+  // A Super Admin acting as someone else cannot change that person's password.
+  const canChangePassword = !!user && !user.impersonation && !onViewPlan;
   const initials = user?.name?.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join("") || "—";
   async function signOut() {
     try {
@@ -19,7 +24,7 @@ export function AccountMenu({ user, onViewPlan, disabled = false }: { user: Loca
     } catch { toast.error("Unable to sign out. Please try again."); }
   }
 
-  return (
+  return (<>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         {onViewPlan ? <Button variant="outline" size="icon" disabled={disabled} aria-label="More plan options"><MoreVerticalIcon /></Button> : (
@@ -45,8 +50,12 @@ export function AccountMenu({ user, onViewPlan, disabled = false }: { user: Loca
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {onViewPlan && <><DropdownMenuGroup><DropdownMenuItem onSelect={onViewPlan}><EyeIcon />View full plan</DropdownMenuItem></DropdownMenuGroup><DropdownMenuSeparator /></>}
-        <DropdownMenuGroup><DropdownMenuItem onSelect={signOut}><LogOutIcon />Sign out</DropdownMenuItem></DropdownMenuGroup>
+        <DropdownMenuGroup>
+          {canChangePassword && <DropdownMenuItem onSelect={() => setChanging(true)}><KeyRoundIcon />Change password</DropdownMenuItem>}
+          <DropdownMenuItem onSelect={signOut}><LogOutIcon />Sign out</DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
+    {canChangePassword && <ChangePasswordDialog open={changing} onOpenChange={setChanging} />}
+  </>);
 }

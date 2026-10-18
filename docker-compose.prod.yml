@@ -11,6 +11,15 @@ services:
       DATABASE_URL: postgresql://ubec_app:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}@postgres:5432/ubec
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in Dokploy}
       REDIS_URL: redis://redis:6379
+      # Address used in emailed links (password reset); never taken from the request.
+      APP_URL: ${APP_URL:-https://ubec.byteflow.com.ng}
+      # Outgoing email (lib/mailer.ts). Leave SMTP_HOST empty until a mailbox is ready; nothing is sent until then.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     expose:
       - "3000"
     depends_on:
