@@ -77,7 +77,8 @@ export const retiredActivities: Partial<Record<string, readonly number[]>> = { q
 export const isRetiredActivity = (workstream: string, activity: number) => (retiredActivities[workstream] ?? []).includes(activity);
 
 /** Activities whose lines choose schools from the state's School list (at least one per line). */
-export const lineSchoolActivities: Partial<Record<string, readonly number[]>> = { ict: [2, 4, 8] };
+// ICT 0 Procurement of Digital/STEM Equipment joined on 17 October 2026: its items name the schools that receive them.
+export const lineSchoolActivities: Partial<Record<string, readonly number[]>> = { ict: [0, 2, 4, 8] };
 export const hasLineSchools = (workstream: string, activity: number) => (lineSchoolActivities[workstream] ?? []).includes(activity);
 export const maxLineSchools = 2000;
 
