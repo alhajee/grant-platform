@@ -30,6 +30,14 @@ let r=calculateInfrastructure(built,300);
 assert.equal(r.model,0,'The chosen model wins over the enrolment suggestion');assert.equal(r.modelLabel,'Model 1 · Small School');
 assert.equal(r.total,450);assert.equal(r.vat,0);assert.equal(r.items.find(i=>i.key==='fence').quantity,150,'The fence length entered is the fence row quantity');
 assert.equal(r.items.find(i=>i.key==='package').strategy,'Request for quotation');
+// Descriptions (17 October 2026): every row carries one; New Construction defaults to the workbook text, an edit replaces it.
+assert.equal(r.items.find(i=>i.key==='classBlock6').description,deliverableDescription('classBlock6',0));
+const described=make('new',{model:0,fenceLength:150,lumpSum:450,descriptions:{classBlock6:'Two-storey block on the north plot',fence:''}});
+r=calculateInfrastructure(described,300);
+assert.equal(r.items.find(i=>i.key==='classBlock6').description,'Two-storey block on the north plot');
+assert.equal(r.items.find(i=>i.key==='fence').description,'','A cleared description stays blank');
+assert.throws(()=>make('new',{descriptions:{notARow:'x'}}),/Unknown requirement/);
+assert.throws(()=>make('new',{descriptions:{fence:'x'.repeat(501)}}),/500 characters/);
 assert.ok(!calculateInfrastructure({...built,components:['JSS']},300).items.some(i=>i.key==='eccdeBlock'),'A JSS school gets the JSS list');
 assert.equal(packageProblem(built,300),null);
 assert.equal(packageProblem({...built,land:{available:true,documented:false,unencumbered:true}},300),'Tick all three land declarations');
@@ -64,6 +72,7 @@ assert.ok(!jssGaps.some(g=>/general|model/i.test(g.label+g.standard)),'No “gen
 
 const whole=make('whole',{fenceRequired:50});whole.audit=Object.fromEntries(minimumKeys.map(key=>[key,{existing:0,functional:0,extra:0}]));
 whole.audit.classroomPri={existing:4,functional:2,extra:0};whole.audit.dualDesk={existing:100,functional:80,extra:0};whole.audit.fence={existing:20,functional:10,extra:0};
+whole.descriptions={scienceLab:'Physics and chemistry lab',dualDesk:'Replace broken desks in JSS 1'};whole.audit.scienceLab={existing:0,functional:0,additional:1,extra:0};
 let gaps=auditGaps(whole,facts);const gap=key=>gaps.find(g=>g.key===key);
 assert.equal(gap('classroomPri').label,'Classroom · Primary');
 assert.equal(gap('classroomPri').calculated,2,'Civil shortfall: 6 required − 4 existing (no block-of-3 rounding)');assert.equal(gap('classroomPri').nonFunctional,2);
@@ -78,6 +87,9 @@ assert.equal(r.modelLabel,'','Whole School has no model');assert.deepEqual(r.bas
 assert.equal(r.items.find(i=>i.key==='dualDesk').quantity,55);assert.equal(r.items.find(i=>i.key==='dualDesk').total,550);
 assert.equal(r.items.find(i=>i.key==='classroomEccde-construct').quantity,2,'3 ECCDE classrooms → 2 ECCDE blocks of 2');
 assert.equal(r.items.find(i=>i.key==='classroomPri-renovate').total,10);
+assert.equal(r.items.find(i=>i.key==='scienceLab-construct').description,'Physics and chemistry lab','Whole School: an Other Facilities description');
+assert.equal(r.items.find(i=>i.key==='dualDesk').description,'Replace broken desks in JSS 1','Whole School: a Minimum Standard description');
+assert.equal(r.items.find(i=>i.key==='toilet').description,'','No description entered: blank');
 const toilet=r.items.find(i=>i.key==='toilet');assert.ok(toilet,'the audit has a toilet gap');assert.equal(toilet.operation,'Supply / New Construction');assert.ok(r.items.filter(i=>i.operation==='Supply / installation').every(i=>i.key!=='toilet'));
 assert.equal(itemOperation({key:'toilet',operation:'Supply / installation'}),'Supply / New Construction','older toilets read the new wording');assert.equal(itemOperation({key:'staffRoom',operation:'Supply / installation'}),'Supply / installation');
 assert.equal(packageProblem(whole,facts),null);

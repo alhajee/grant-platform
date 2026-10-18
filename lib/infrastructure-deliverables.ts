@@ -131,6 +131,8 @@ const constructionRows: Record<string, { group: number; order: number; descripti
   eccdeBlock: { group: 0, order: 1.5, description: '2 ECCDE classrooms, a nanny station and a sleeping bay.' },
   package: { group: 5, order: 1, description: 'One construction contract covering every item above' },
 };
+/** Rows that may carry an edited description (17 October 2026): every audit deliverable and every New Construction row. */
+export const describableKeys = new Set([...auditKeys, ...Object.keys(constructionRows)]);
 /** Description column of the New Construction table: the workbook specification of a row. */
 export function deliverableDescription(key: string, model = 0): string {
   const base = baseKey(key);

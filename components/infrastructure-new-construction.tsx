@@ -2,11 +2,12 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { FieldHelp } from '@/components/field-help';
 import { GroupedRows } from '@/components/infrastructure-package-details';
-import { deliverableDescription, modelFor, modelNames, modelSummary, newConstructionRows, packageModel, quantityLabel, schoolStream, type InfrastructureInput } from '@/lib/infrastructure-model';
+import { deliverableDescription, maxDescriptionLength, modelFor, modelNames, modelSummary, newConstructionRows, packageModel, quantityLabel, schoolStream, type InfrastructureInput } from '@/lib/infrastructure-model';
 
 interface NewConstructionModelProps {
   input: InfrastructureInput;
@@ -29,6 +30,11 @@ export function NewConstructionModel({ input, enrolment, disabled, onChange }: N
   const suggested = modelFor(enrolment), model = packageModel(input, enrolment), stream = schoolStream(input.components);
   const rows = [...newConstructionRows(model, stream, input.fenceLength), { key: 'package', label: 'Complete construction package', quantity: 1, unit: 'lot', lump: true }];
   const fenceMissing = input.fenceLength <= 0;
+  // Descriptions start as the workbook text; only an edit is stored (17 October 2026).
+  const describe = (key: string, value: string) => {
+    const rest = Object.fromEntries(Object.entries(input.descriptions ?? {}).filter(([k]) => k !== key));
+    onChange({ descriptions: value === deliverableDescription(key, model) ? rest : { ...rest, [key]: value } });
+  };
   return <section className="infra-audit flex flex-col gap-4" aria-labelledby="infra-model-heading">
     <div className="flex flex-col gap-1">
       <h2 id="infra-model-heading" className="text-lg font-semibold">Model and requirements</h2>
@@ -53,7 +59,7 @@ export function NewConstructionModel({ input, enrolment, disabled, onChange }: N
         <TableHeader><TableRow>
           <TableHead>Requirement</TableHead>
           <TableHead><span className="inline-flex items-center gap-1">Quantity<FieldHelp>Quantities come from the chosen model. Enter the perimeter fence length in metres.</FieldHelp></span></TableHead>
-          <TableHead>Description</TableHead>
+          <TableHead><span className="inline-flex items-center gap-1">Description<FieldHelp>Starts with the standard description. Edit it to describe the works at this school.</FieldHelp></span></TableHead>
         </TableRow></TableHeader>
         <TableBody>
           <GroupedRows rows={rows} colSpan={3} render={row => <TableRow key={row.key} data-key={row.key} data-status={row.key === 'fence' && fenceMissing && fenceTouched ? 'invalid' : undefined}>
@@ -63,7 +69,8 @@ export function NewConstructionModel({ input, enrolment, disabled, onChange }: N
                 aria-invalid={fenceMissing && fenceTouched ? true : undefined} disabled={disabled} value={input.fenceLength ? String(input.fenceLength) : ''}
                 onBlur={() => setFenceTouched(true)} onChange={e => { setFenceTouched(true); onChange({ fenceLength: parseMetres(e.target.value) }); }} /><span className="text-xs text-muted-foreground">metres</span></div>
               : quantityLabel(row.quantity, row.unit)}</TableCell>
-            <TableCell className="whitespace-normal text-muted-foreground">{deliverableDescription(row.key, model)}</TableCell>
+            <TableCell className="whitespace-normal"><Textarea rows={1} className="infra-description-input" aria-label={`Description: ${row.label}`} maxLength={maxDescriptionLength} disabled={disabled}
+              value={input.descriptions?.[row.key] ?? deliverableDescription(row.key, model)} onChange={e => describe(row.key, e.target.value)} /></TableCell>
           </TableRow>} />
         </TableBody>
       </Table>

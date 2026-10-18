@@ -4,12 +4,13 @@ import { CircleAlertIcon, CircleCheckIcon, ImagePlusIcon, InfoIcon, XIcon } from
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { FieldHelp } from '@/components/field-help';
 import { DeliverableGroupRow } from '@/components/infrastructure-package-details';
-import { quantityLabel, auditGaps, auditRowProblem, groupDeliverables, rowPhotoIds, type AuditGap, type InfraDocument, type InfrastructureInput, type SchoolFacts } from '@/lib/infrastructure-model';
+import { maxDescriptionLength, quantityLabel, auditGaps, auditRowProblem, groupDeliverables, rowPhotoIds, type AuditGap, type InfraDocument, type InfrastructureInput, type SchoolFacts } from '@/lib/infrastructure-model';
 
 type Filter = 'all' | 'minimum' | 'other';
 type AuditField = 'existing' | 'functional' | 'additional';
@@ -44,6 +45,7 @@ const columnHelp = {
   functional: 'How many of the existing ones are in good, usable condition',
   photos: 'Attach photographs of the non-functional units, one or more for each row that has any',
   additional: 'How many to build or supply. Leave it blank to use the calculated shortfall shown in grey, or type your own figure.',
+  description: 'Optional. Describe the works for this deliverable at this school; it is shown with the costed item.',
 };
 
 /** Minimum Standard completeness by workbook S/N (the two classroom rows make up deliverable 1). */
@@ -91,7 +93,7 @@ export function InfrastructureAuditTable({ input, school, disabled, onChange, ph
   const visible = gaps.filter(g => filter === 'all' || g.category === filter);
   const ordered = groupDeliverables(visible).flatMap(g => g.rows);
   const showRequired = filter !== 'other';
-  const columns = showRequired ? 8 : 7;
+  const columns = showRequired ? 9 : 8;
 
   function setCell(key: string, field: AuditField, value: number | undefined) {
     const stored = input.audit[key] ?? { extra: 0 };
@@ -157,7 +159,7 @@ export function InfrastructureAuditTable({ input, school, disabled, onChange, ph
           {showRequired && <Head label="Required" help={columnHelp.required} />}
           <Head label="Existing" help={columnHelp.existing} /><Head label="Functional" help={columnHelp.functional} /><TableHead>Non-functional</TableHead>
           <Head label="Photos" help={columnHelp.photos + (photos.required ? ' Required for every such row.' : ' Optional.')} />
-          <Head label="Additional" help={columnHelp.additional} /><TableHead>Status</TableHead>
+          <Head label="Additional" help={columnHelp.additional} /><Head label="Description" help={columnHelp.description} /><TableHead>Status</TableHead>
         </TableRow></TableHeader>
         <TableBody onKeyDown={moveFocus}>
           {groupDeliverables(visible).map(group => <Fragment key={group.group}><DeliverableGroupRow group={group.group} colSpan={columns} sticky />
@@ -177,6 +179,8 @@ export function InfrastructureAuditTable({ input, school, disabled, onChange, ph
                 <TableCell className="tabular-nums">{gap.nonFunctional}</TableCell>
                 <TableCell><PhotoCell gap={gap} input={input} photos={photos} disabled={disabled} /></TableCell>
                 <TableCell>{numberCell(gap, index, 'additional', false)}{gap.entered.additional && gap.additional !== gap.calculated && <p className="mt-1 text-xs text-muted-foreground">Calculated: {gap.calculated}</p>}</TableCell>
+                <TableCell className="whitespace-normal"><Textarea rows={1} className="infra-description-input" aria-label={`Description: ${gap.label}`} placeholder="Optional" maxLength={maxDescriptionLength} disabled={disabled}
+                  value={input.descriptions?.[gap.key] ?? ''} onChange={e => { const rest = Object.fromEntries(Object.entries(input.descriptions ?? {}).filter(([k]) => k !== gap.key)); onChange({ descriptions: e.target.value.trim() ? { ...rest, [gap.key]: e.target.value } : rest }); }} /></TableCell>
                 <TableCell className="infra-audit-status whitespace-normal">{status === 'complete' || status === 'added' ? <span className="inline-flex items-center gap-1 text-primary"><CircleCheckIcon aria-hidden="true" />{status === 'added' ? 'Added' : 'Complete'}</span>
                   : status === 'blank' ? <span className="text-muted-foreground">Optional</span>
                   : <span role={status === 'invalid' ? 'alert' : undefined} className="inline-flex items-start gap-1"><CircleAlertIcon aria-hidden="true" />{message}</span>}</TableCell>

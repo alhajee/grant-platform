@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { lineQuartersSchema } from './line-quarters.ts';
 import { lineDatesShape } from './line-dates.ts';
-import { requirements, fenceDeliverable, appliesToStream, auditKeys, solarKva, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
+import { requirements, fenceDeliverable, appliesToStream, auditKeys, describableKeys, deliverableDescription, solarKva, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
 export { quantityLabel, requirements, fenceDeliverable, minimumKeys, appliesToStream, eccdeOnlyKeys, standardText, deliverableGroups, deliverableGroup, deliverableCategory, deliverableInfo, deliverableDescription, groupDeliverables, inDeliverableOrder, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
 
 /** Infrastructure implementation strategies: only these three (client feedback, October 2026); Request for quotation is the default (UBEC10). */
@@ -23,6 +23,7 @@ const amount = z.number().min(0).max(99999999999.99).refine(n => Math.abs(n * 10
 const auditRow = z.object({ existing: quantity.optional(), functional: quantity.optional(), additional: quantity.optional(), extra: quantity.default(0) }).refine(v => (v.functional ?? 0) <= (v.existing ?? 0), 'Functional cannot exceed existing');
 const modelIndex = z.number().int().min(0).max(2);
 export const profileSchema = z.object({male:quantity, female:quantity, latitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=90),'Invalid latitude'),longitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=180),'Invalid longitude')});
+export const maxDescriptionLength = 500;
 export const packageSchema = z.object({
  kind:z.enum(['new','whole','furniture']),schoolId:z.number().int().positive(),
  components:z.array(z.enum(['ECCDE','Primary','JSS'])).min(1).max(3),
@@ -35,6 +36,8 @@ export const packageSchema = z.object({
  /** Whole School photographic evidence: photo document id -> the audit row it shows (client feedback: one upload per row with non-functional units). */
  photoKeys:z.record(z.string().uuid(),z.string().max(40)).default({}).refine(p=>Object.values(p).every(k=>auditKeys.has(k)),'Unknown audit deliverable for a photo'),
  audit:z.record(auditRow).default({}).refine(a=>Object.keys(a).every(k=>auditKeys.has(k)),'Unknown audit deliverable'),
+ /** Edited descriptions by requirement key (17 October 2026): New Construction rows replace the workbook text ('' = blank), Whole School rows add one. */
+ descriptions:z.record(z.string().trim().max(maxDescriptionLength,`Use up to ${maxDescriptionLength} characters for a description`)).default({}).refine(d=>Object.keys(d).every(k=>describableKeys.has(k)),'Unknown requirement for a description'),
  /** New Construction: the chosen model (0-2, Model I-III). Whole School packages saved before October 2026 may carry one; it is ignored. */
  model:modelIndex.optional(),fenceRequired:quantity.default(0),fenceLength:quantity.default(0),
  prices:z.record(amount).default({}),classroomStrategy:strategySchema.default(defaultStrategy),
@@ -138,7 +141,9 @@ export function wholeRequirements(facts: SchoolFacts, stream: SchoolStream): Rec
 const classroomLabel = (facts: SchoolFacts, stream: SchoolStream) => facts.primary > 0 && facts.jss > 0 ? 'Classroom · Primary & JSS' : stream === 'jss' || (facts.jss > 0 && facts.primary === 0) ? 'Classroom · JSS' : 'Classroom · Primary';
 
 export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'photo'|'supporting';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
-export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string};
+export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string;/** Packages calculated since 17 October 2026; older ones fall back to the workbook text. */description?:string};
+/** A row's description: the edited one, else (New Construction) the workbook text; Whole School rows have none until one is entered. */
+export const requirementDescription=(input:Pick<InfrastructureInput,'kind'|'descriptions'>,key:string,model:number)=>input.descriptions?.[key]??(input.kind==='new'?deliverableDescription(key,model):'');
 /** The item's operation as shown; toilets saved before October 2026 stored "Supply / installation". */
 export const itemOperation=(item:Pick<PackageItem,'key'|'operation'>)=>item.key==='toilet'&&item.operation==='Supply / installation'?'Supply / New Construction':item.operation;
 export type InfrastructureResult = ReturnType<typeof calculateInfrastructure>;
@@ -216,13 +221,13 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
  const enrolment=totalOf(school),facts=toFacts(school,input.components),stream=schoolStream(input.components);
  const model=packageModel(input,enrolment),items:PackageItem[]=[];
  let classroomSubtotal=0,otherSubtotal=0,vat=0;
- function add(key:string,label:string,quantity:number,unit:string,lump:boolean,cost:number,strategy:string=defaultStrategy,duration='',operation?:string){
+ function add(key:string,label:string,quantity:number,unit:string,lump:boolean,cost:number,strategy:string=defaultStrategy,duration='',operation?:string,description?:string){
   const total=money(cents(cost)*(lump?1:quantity));
-  items.push({key,label,quantity,unit,lump,cost,total,strategy,duration,operation});return total;
+  items.push({key,label,quantity,unit,lump,cost,total,strategy,duration,operation,description});return total;
  }
  if(input.kind==='furniture') input.furniture.forEach((r,i)=>add('furniture-'+i,r.description,r.quantity,'units',false,r.cost,'',''));
  if(input.kind==='whole') for(const gap of auditGaps(input,facts)){
-  const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit)=>{const price=input.packageCosts[key];add(key,gap.label,qty,unit,lump,price?.cost??0,price?.strategy??defaultStrategy,price?.duration??'',operation);};
+  const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit)=>{const price=input.packageCosts[key];add(key,gap.label,qty,unit,lump,price?.cost??0,price?.strategy??defaultStrategy,price?.duration??'',operation,requirementDescription(input,gap.key,model));};
   if(gap.civil&&gap.nonFunctional>0)addGap(gap.key+'-renovate','Renovation',gap.nonFunctional,true);
   // New ECCDE classrooms are built as ECCDE blocks of 2 classrooms. Toilets read "Supply / New Construction" (client, October 2026).
   if(gap.toBuild>0)addGap(gap.civil?gap.key+'-construct':gap.key,gap.civil?'New construction':gap.key==='toilet'?'Supply / New Construction':'Supply / installation',gap.key==='classroomEccde'?Math.ceil(gap.toBuild/2):gap.toBuild,!!(gap.civil||gap.lump),gap.key==='classroomEccde'?'blocks':gap.unit);
@@ -230,10 +235,10 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
  if(input.kind==='new'){
   const price=(key:string)=>input.targeting==='hope'?input.prices[key]??0:0;
   for(const row of newConstructionRows(model,stream,input.fenceLength)){
-   const total=add(row.key,row.label,row.quantity,row.unit,row.lump,price(row.key),row.key.startsWith('classBlock')?input.classroomStrategy:defaultStrategy);
+   const total=add(row.key,row.label,row.quantity,row.unit,row.lump,price(row.key),row.key.startsWith('classBlock')?input.classroomStrategy:defaultStrategy,'',undefined,requirementDescription(input,row.key,model));
    if(row.key.startsWith('classBlock'))classroomSubtotal+=total;else otherSubtotal+=total;
   }
-  if(input.targeting==='nonhope')add('package','Complete construction package',1,'lot',true,input.lumpSum,input.classroomStrategy,input.duration);
+  if(input.targeting==='nonhope')add('package','Complete construction package',1,'lot',true,input.lumpSum,input.classroomStrategy,input.duration,undefined,requirementDescription(input,'package',model));
   else{
    otherSubtotal+=add('contingency','Contingency',1,'lot',true,input.contingency,'—');
    otherSubtotal+=add('preliminaries','Preliminaries',1,'lot',true,input.preliminaries,'—');

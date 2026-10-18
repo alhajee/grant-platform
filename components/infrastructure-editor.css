@@ -79,7 +79,10 @@
   .infra-audit-card thead th{position:sticky;top:0;z-index:2;box-shadow:inset 0 -1px 0 var(--border)}
   .infra-audit-card thead th.infra-audit-sticky{z-index:3;box-shadow:inset 0 -1px 0 var(--border),1px 0 0 var(--border)}
 }
-.infra-audit-table{min-width:1040px}
+.infra-audit-table{min-width:1280px}
+/* Editable descriptions (New Construction rows, every Whole School audit row): a compact box that grows with the text. */
+.activity-shell .editor-canvas [data-slot=textarea].infra-description-input{min-height:36px;resize:none}
+.infra-description-input{min-width:200px;padding-block:6px;font-size:13px;line-height:1.4;resize:none}
 .infra-audit-table th{white-space:nowrap;background:var(--card)}
 .infra-audit-table td{vertical-align:middle}
 .infra-audit-table .infra-audit-sticky{position:sticky;left:0;z-index:1;background:var(--card);width:260px;min-width:220px;max-width:280px;box-shadow:1px 0 0 var(--border)}
