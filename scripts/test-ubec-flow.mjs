@@ -65,7 +65,8 @@ try {
   ok(await api('desA', sports, { entity: 'allocation', action: 'create', lineId: sportsLine, schoolId: school, quantity: 5 }), 201);
   ok(await api('desP', `/api/activities${q}&workstream=monitoring`, { workstream: 'monitoring', entity: 'line', action: 'create', activity: 0, description: 'QA monitoring visit', quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'Schools' }));
   const monitoringLine = String((await db.query("SELECT id FROM activity_plan_lines WHERE plan_id=$1 AND workstream='monitoring'", [planId])).rows[0].id);
-  const stateStep = async (who, action, pillar, comment = '') => ok(await api(who, statePath, { action, pillar, version: ok(await api('ec', statePath)).plan.version, comment }));
+  // Each send step returns the plan's new version, so several can be sent in a row (BEAP Chair "Send several", V2-04).
+  const stateStep = async (who, action, pillar, comment = '') => { const version = ok(await api('ec', statePath)).plan.version; const result = ok(await api(who, statePath, { action, pillar, version, comment })); assert.equal(result.version, version + 1); assert.equal(ok(await api('ec', statePath)).plan.version, result.version); return result; };
   const throughState = async (pillar, des, dir, comment = '') => { await stateStep(des, 'submit', pillar, comment); await stateStep(dir, 'endorse', pillar); await stateStep('subebChair', 'forward', pillar); };
   const view = async who => ok(await api(who, path));
   const act = async (who, action, extra = {}) => { const v = await view('chair'); return api(who, path, { action, version: v.plan.version, roundId: v.round.id, ...extra }); };

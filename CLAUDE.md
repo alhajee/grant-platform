@@ -65,7 +65,7 @@ The required state flow is:
 The Super Admin configures the BEAP Chair handoff globally:
 
 - `complete_plan`: the BEAP Chair waits for all implemented components and sends one collated submission; while the plan fails any send rule the bar's Send to Executive Chairman stays disabled and shows why (`executiveChairmanProblem` in `lib/pillar-review.ts`, returned by `GET /api/plans/review` and as the 409 message of the collated `forward`);
-- `individual_components`: the BEAP Chair may forward reviewed components separately.
+- `individual_components`: the BEAP Chair may forward reviewed components separately, or several at once with **Send several…** on the bar (V2-04, `components/plan-page/send-several-dialog.tsx`, shown when more than one component is at `beap_review`): tick the ready ones (components with nothing saved or failing readiness are listed with the reason and cannot be ticked), optional comment, confirm; each is sent with the usual `forward` in turn, chaining the `version` that `POST /api/plans/review` now returns (`{ status, version }`). A failure stops the run and says how many were sent before it.
 
 A second global setting controls the Executive Chairman's handoff to UBEC (`ubec_submission_mode`, migration `026-ubec-submission-mode.sql`):
 

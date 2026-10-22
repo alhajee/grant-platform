@@ -219,3 +219,9 @@
 .component-card-funding b { font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; }
 .component-card-funding svg { width: 13px; height: 13px; color: var(--primary); }
 .component-card-funding:focus-visible { box-shadow: 0 0 0 2px var(--ring); }
+
+/* BEAP Chair "Send several" (V2-04): the reviewed components with their checkboxes; components not ready are greyed. */
+.send-several-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow: auto; }
+.send-several-list li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; }
+.send-several-list li[data-disabled] { opacity: .75; background: var(--muted); }
+.send-several-list label { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }

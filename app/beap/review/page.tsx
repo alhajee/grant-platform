@@ -10,6 +10,7 @@ import { DeletePlanButton } from '@/components/plan-page/delete-plan-dialog';
 import { PlanSummary } from '@/components/plan-page/plan-summary';
 import { ComponentCards, type CardActions } from '@/components/plan-page/component-cards';
 import { WorkflowBar } from '@/components/plan-page/workflow-bar';
+import { SendSeveralDialog } from '@/components/plan-page/send-several-dialog';
 import { ReviewHistory } from '@/components/plan-page/review-history';
 import { PlanDocuments } from '@/components/plan-page/plan-documents';
 import { StatusPanel } from '@/components/plan-page/status-panel';
@@ -52,7 +53,7 @@ export default function PlanPage() {
   const [deleteBlocked, setDeleteBlocked] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   // One toggle opens the funding details and the full status panel together, so the two cards stay level.
-  const [detailsOpen, setDetailsOpen] = useState(false), [sendingToUbec, setSendingToUbec] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false), [sendingToUbec, setSendingToUbec] = useState(false), [sendingSeveral, setSendingSeveral] = useState(false);
   const requestId = useRef(0);
   const load = useCallback(async (version = 'current') => {
     const id = ++requestId.current;
@@ -135,7 +136,8 @@ export default function PlanPage() {
           <h2 id="plan-components-title" className="plan-section-title plan-glance-head">Components</h2>
           <section className="plan-components plan-glance-main" id="plan-components" aria-labelledby="plan-components-title">
             <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
-            <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} onSendToUbec={() => setSendingToUbec(true)} />
+            <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} onSendToUbec={() => setSendingToUbec(true)} onSendSeveral={() => setSendingSeveral(true)} />
+            <SendSeveralDialog open={sendingSeveral} onOpenChange={setSendingSeveral} data={data} problemFor={pillar => nothingToSend(data, pillar) ? 'Nothing saved in this component yet' : readiness(data, pillar)} onDone={async () => { await load(); }} />
           </section>
           <aside className="plan-glance-side" aria-label="Plan funding and status">
             <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />

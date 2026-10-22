@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
       await db.query('UPDATE action_plans SET status=$1,submission_number=$2,version=version+1,workflow_updated_at=NOW() WHERE id=$3', [nextStatus,number,plan.id]);
       const event = (await db.query('INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id', [plan.id,number,input.action,workspace.name,workspace.email,actor.role,eventComment,input.pillar])).rows[0];
       for (const recipient of recipients) await db.query('INSERT INTO plan_notifications(plan_id,user_id,event_id) VALUES($1,$2,$3)', [plan.id,recipient.id,event.id]);
-      return NextResponse.json({ status: nextStatus });
+      return NextResponse.json({ status: nextStatus, version: plan.version + 1 });
     });
   } catch (cause) { console.error('Review action failed', cause); return error('Your action could not be saved. Please refresh and try again.', 503); }
 }

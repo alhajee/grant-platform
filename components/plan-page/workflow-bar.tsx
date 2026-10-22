@@ -8,14 +8,17 @@ import type { PlanReview } from '@/lib/plan-review';
  * The whole-plan step for the BEAP Chair (collate and send to the Executive Chairman) and the Executive
  * Chairman (send to UBEC), with how many components have reached them. Nothing for other roles.
  */
-export function WorkflowBar({ data, available, onForward, onSendToUbec }: { data: PlanReview; available: boolean; onForward: () => void; onSendToUbec: () => void }) {
+export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSeveral }: { data: PlanReview; available: boolean; onForward: () => void; onSendToUbec: () => void;
+  /** Individual-components mode: send several reviewed components at once (V2-04). */
+  onSendSeveral?: () => void }) {
   if (!statePlanOpen(data.plan.status)) return null;
   const count = (statuses: string[]) => data.pillarReviews.filter(review => statuses.includes(review.status)).length;
   const of = `of ${implementedPillars.length} components`;
   if (data.role === 'Director' && data.isBeapChair) {
     // Why the button is disabled (any send rule the plan fails), so the BEAP Chair knows what to fix or return.
     const blocked = !data.readyForExecutiveChairman ? data.executiveChairmanProblem : null;
-    if (data.beapChairSubmissionMode !== 'complete_plan') return <div className="workflow-bar"><p><strong>Send reviewed components individually</strong>{count(['chairman_ready'])} {of} sent to the Executive Chairman.</p></div>;
+    if (data.beapChairSubmissionMode !== 'complete_plan') return <div className="workflow-bar"><p><strong>Send reviewed components individually or together</strong>{count(['chairman_ready'])} {of} sent to the Executive Chairman · {count(['beap_review'])} waiting for you.</p>
+      {onSendSeveral && count(['beap_review']) > 1 && <Button className="rounded-full" disabled={!available} onClick={onSendSeveral}><SendIcon data-icon="inline-start" />Send several…</Button>}</div>;
     return <div className="workflow-bar">
       <p><strong>Collate all department components into the complete SUBEB BEAP.</strong>{count(['beap_review', 'chairman_ready'])} {of} reviewed by Directors. All components are sent together in one submission.</p>
       <Button className="rounded-full" disabled={!data.readyForExecutiveChairman || !available} aria-describedby={blocked ? 'workflow-blocked' : undefined} onClick={onForward}><SendIcon data-icon="inline-start" />Send to Executive Chairman</Button>
