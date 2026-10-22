@@ -67,7 +67,12 @@ export const compulsoryActivities: Partial<Record<string, readonly number[]>> = 
   teachers: [],
   planning: [0, 2, 3, 5],
 };
-export const isCompulsory = (workstream: string, activity: number) => (compulsoryActivities[workstream] ?? []).includes(activity);
+/** ICT "Maintenance of UBEC-SUBEB Connect": waived when the state already has Connect (migration 070, UBEC123). */
+export const ictConnectActivity = 3;
+type CompulsorySetup = { ictConnect?: 'has' | 'needs' | null } | null | undefined;
+/** The compulsory activities on this plan: ICT drops Connect maintenance when the state has Connect. */
+export const compulsoryFor = (workstream: string, setup?: CompulsorySetup) => (compulsoryActivities[workstream] ?? []).filter(activity => !(workstream === 'ict' && activity === ictConnectActivity && setup?.ictConnect === 'has'));
+export const isCompulsory = (workstream: string, activity: number, setup?: CompulsorySetup) => compulsoryFor(workstream, setup).includes(activity);
 /**
  * Activities kept only so earlier lines still read: no new lines, and a component with lines on them cannot be sent
  * until they are moved to a listed activity or removed. Quality Assurance follows the client's observations
@@ -80,6 +85,9 @@ export const isRetiredActivity = (workstream: string, activity: number) => (reti
 // ICT 0 Procurement of Digital/STEM Equipment joined on 17 October 2026: its items name the schools that receive them.
 export const lineSchoolActivities: Partial<Record<string, readonly number[]>> = { ict: [0, 2, 4, 8] };
 export const hasLineSchools = (workstream: string, activity: number) => (lineSchoolActivities[workstream] ?? []).includes(activity);
+/** Activities delivered one per school (ICT 4 Establishment of DLC, UBEC89): the quantity is the number of schools chosen. */
+export const quantityFromSchoolsActivities: Partial<Record<string, readonly number[]>> = { ict: [4] };
+export const quantityFromSchools = (workstream: string, activity: number) => (quantityFromSchoolsActivities[workstream] ?? []).includes(activity);
 export const maxLineSchools = 2000;
 
 /** Activities whose lines take uploaded documents (PDF or Excel), and what they are called. Required before sending only while the Super Admin setting is on (migration 052). */

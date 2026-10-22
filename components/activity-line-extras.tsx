@@ -26,8 +26,8 @@ const required = <span className="text-destructive" aria-label="required">*</spa
 export type ExtraDraft = { activity: string; equipmentCategory: '' | typeof equipmentCategories[number]; equipmentType: string; subscriptionTypes: string[]; websiteType: string; item: string; censusType: string; schoolIds: number[] };
 
 /** The "Required" badge for a compulsory activity. */
-export function RequiredBadge({ workstream, activity }: { workstream: ActivityWorkstream; activity: number }) {
-  return isCompulsory(workstream, activity) ? <Badge variant="warning" className="required-badge">Required</Badge> : null;
+export function RequiredBadge({ workstream, activity, setup }: { workstream: ActivityWorkstream; activity: number; setup?: { ictConnect?: 'has' | 'needs' | null } | null }) {
+  return isCompulsory(workstream, activity, setup) ? <Badge variant="warning" className="required-badge">Required</Badge> : null;
 }
 
 /** An info hint beside an activity name, when the activity has an explanation. */
@@ -38,9 +38,9 @@ export function ActivityInfoHint({ workstream, activity }: { workstream: Activit
 }
 
 /** What is still missing before the component can be sent: lines on retired activities, and compulsory activities without a line. */
-export function CompulsoryChecklist({ workstream, lines }: { workstream: ActivityWorkstream; lines: readonly { activity: number }[] }) {
+export function CompulsoryChecklist({ workstream, lines, setup }: { workstream: ActivityWorkstream; lines: readonly { activity: number }[]; setup?: { ictConnect?: 'has' | 'needs' | null } | null }) {
   if (!hasReadinessRules(workstream) || !(compulsoryActivities[workstream]?.length)) return null;
-  const missing = missingCompulsory(workstream, lines);
+  const missing = missingCompulsory(workstream, lines, setup);
   const retired = [...new Set(lines.filter(line => isRetiredActivity(workstream, line.activity)).map(line => line.activity))];
   return <>
     {retired.length > 0 && <Alert variant="destructive" className="activity-compulsory"><CircleAlertIcon /><AlertTitle>No longer allowable · move or remove these items before sending</AlertTitle><AlertDescription><ul>{retired.map(i => <li key={i}>{activityNames[workstream][i]}</li>)}</ul></AlertDescription></Alert>}

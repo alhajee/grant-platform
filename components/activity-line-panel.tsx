@@ -22,6 +22,8 @@ type ActivityLinePanelProps = {
   /** The activities offered (Quality Assurance: those chosen up front); default every selectable one. */
   activities?: readonly number[];
   lines: readonly ActivityLine[] | null;
+  /** The plan, for compulsory activities that depend on it (ICT UBEC-SUBEB Connect). */
+  setup?: { ictConnect?: 'has' | 'needs' | null } | null;
   /** Whether a "documents needed" badge shows on lines without their document. */
   documentsRequired: boolean;
   summary: { label: string; total: ReactNode; meter: ReactNode };
@@ -59,7 +61,7 @@ function details(workstream: ActivityWorkstream, l: ActivityLine): string {
 
 /** The saved lines beside the activity editor: summary, view toggle and one section per activity. */
 export function ActivityLinePanel(props: ActivityLinePanelProps) {
-  const { workstream, activities, lines, documentsRequired, summary, notices, selectedActivity, selectedId, dirtyId, mode, onMode, query, onQuery, flashId, inlineEditable, actionsDisabled, viewOnly, shareNote, onSaveCell, onEdit, onRemove, onStart } = props;
+  const { workstream, activities, lines, setup, documentsRequired, summary, notices, selectedActivity, selectedId, dirtyId, mode, onMode, query, onQuery, flashId, inlineEditable, actionsDisabled, viewOnly, shareNote, onSaveCell, onEdit, onRemove, onStart } = props;
   const { isOpen, toggle } = useCollapsed();
   const all = lines ?? [];
   const needle = query.trim().toLowerCase();
@@ -81,7 +83,7 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
     badges: documentsRequired && missingLineDocument(workstream, l.activity, l.documents) ? <Badge variant="warning">{missingLineDocument(workstream, l.activity, l.documents)!.label} needed</Badge> : undefined,
   });
   const titleOf = (i: number) => <>{nameOf(i)}</>;
-  const badgesOf = (i: number) => <><RequiredBadge workstream={workstream} activity={i} /><ActivityInfoHint workstream={workstream} activity={i} /></>;
+  const badgesOf = (i: number) => <><RequiredBadge workstream={workstream} activity={i} setup={setup} /><ActivityInfoHint workstream={workstream} activity={i} /></>;
   const section = (i: number) => {
     const own = linesOf(i), key = String(i);
     return <LineSection key={key} title={titleOf(i)} badges={badgesOf(i)} note={shareNote(i)} count={own.length} total={own.reduce((sum, l) => sum + lineAmount(l), 0)}
@@ -116,7 +118,7 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
       <PanelToolbar mode={mode} onMode={onMode} focusLabel="This activity" allLabel={`All activities${others > 0 ? ` · ${others} more` : ''}`} query={query} onQuery={onQuery} searchLabel="Search saved items" />
     </PanelSummary>
     {notices}
-    {lines && <CompulsoryChecklist workstream={workstream} lines={lines} />}
+    {lines && <CompulsoryChecklist workstream={workstream} lines={lines} setup={setup} />}
     <div className="line-panel">
       {lines && !lines.length && workstream === 'tlm' && <EditorEmpty art={<EmptyLinesArt />} caption="No saved items yet" />}
       {lines && body}

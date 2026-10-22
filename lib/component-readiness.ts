@@ -1,4 +1,4 @@
-import { compulsoryActivities, hasLineSchools, isRetiredActivity, qualityIctActivityNames, missingLineDocument } from './activity-extras';
+import { compulsoryFor, hasLineSchools, isRetiredActivity, qualityIctActivityNames, missingLineDocument } from './activity-extras';
 import { activityBudgetProblem, lineKobo } from './activity-budget';
 import { activityShareCaps, type ActivityWorkstream } from './activity-plans';
 import { infrastructureSplitProblem } from './budget-pairs';
@@ -12,7 +12,7 @@ import type { Snapshot } from './plan-review';
 // Shared by the editor, the plan page and every send step on the server.
 type ReadinessLine = { id: number; activity: number; description: string; custom_activity?: string; customActivity?: string; schools?: readonly unknown[]; documents?: readonly { kind?: string }[] };
 /** The plan setup fields readiness reads (a snapshot's setup or an ActionPlan). */
-type ReadinessSetup = { ictAllocation?: string | null; qualityActivities?: readonly number[] | null } | null | undefined;
+type ReadinessSetup = { ictAllocation?: string | null; qualityActivities?: readonly number[] | null; ictConnect?: 'has' | 'needs' | null; ictConnectWaivers?: number } | null | undefined;
 /** Platform settings readiness depends on: whether supporting documents (ICT, Teacher Development, Infrastructure except land documents) are required (migration 052). */
 export type ReadinessOptions = { documentsRequired: boolean };
 
@@ -21,8 +21,8 @@ export type ReadinessWorkstream = typeof readinessWorkstreams[number];
 export const hasReadinessRules = (workstream: string): workstream is ReadinessWorkstream => (readinessWorkstreams as readonly string[]).includes(workstream);
 
 /** Compulsory activities of this component with no budget line yet, in activity order. */
-export function missingCompulsory(workstream: string, lines: readonly { activity: number }[]) {
-  return (compulsoryActivities[workstream] ?? []).filter(activity => !lines.some(line => line.activity === activity));
+export function missingCompulsory(workstream: string, lines: readonly { activity: number }[], setup?: ReadinessSetup) {
+  return compulsoryFor(workstream, setup).filter(activity => !lines.some(line => line.activity === activity));
 }
 export const compulsoryNames = (workstream: string, activities: readonly number[]) =>
   activities.map(activity => qualityIctActivityNames[workstream]?.[activity] ?? `Activity ${activity + 1}`);
@@ -33,10 +33,10 @@ export const compulsoryNames = (workstream: string, activities: readonly number[
  * are exempt. `others` = the component's other lines (without the one being saved); `previousActivity` = the saved
  * line's activity when it is an edit.
  */
-export function requiredFirstProblem(workstream: string, others: readonly { activity: number }[], activity: number, previousActivity?: number): string | null {
-  const required = compulsoryActivities[workstream] ?? [];
+export function requiredFirstProblem(workstream: string, others: readonly { activity: number }[], activity: number, previousActivity?: number, setup?: ReadinessSetup): string | null {
+  const required = compulsoryFor(workstream, setup);
   if (!required.length || activityShareCaps[workstream as ActivityWorkstream] || required.includes(activity) || previousActivity === activity) return null;
-  const missing = missingCompulsory(workstream, others);
+  const missing = missingCompulsory(workstream, others, setup);
   if (!missing.length) return null;
   return `Budget the required activities first: ${compulsoryNames(workstream, missing).join('; ')}. Optional activities can be added once each required activity has an item`;
 }
@@ -50,7 +50,10 @@ const retiredName = (workstream: string, activity: number) => qualityIctActivity
 export function componentReadinessProblem(workstream: string, lines: readonly ReadinessLine[], setup: ReadinessSetup, options: ReadinessOptions): string | null {
   const retired = lines.find(line => isRetiredActivity(workstream, line.activity));
   if (retired) return `“${lineName(workstream, retired)}” is under “${retiredName(workstream, retired.activity)}”, which is no longer an allowable activity. Move it to a listed activity or remove it before sending.`;
-  const missing = missingCompulsory(workstream, lines);
+  // ICT: whether the state has UBEC-SUBEB Connect is answered first (migration 070); older snapshots have no answer (undefined).
+  if (workstream === 'ict' && setup && setup.ictConnect === null) return 'Say whether the state already has UBEC-SUBEB Connect before sending';
+  if (workstream === 'ict' && setup?.ictConnect === 'has' && !setup.ictConnectWaivers) return 'Upload the UBEC HQ waiver for UBEC-SUBEB Connect before sending';
+  const missing = missingCompulsory(workstream, lines, setup);
   if (missing.length) return `Add at least one budget line to each compulsory activity before sending: ${compulsoryNames(workstream, missing).join('; ')}.`;
   if (workstream === 'quality' && setup && setup.qualityActivities === null) return 'Choose the Quality Assurance activities before sending';
   if (workstream === 'teachers' && lines.length && setup && setup.ictAllocation == null) return 'Set how much of the shared Teacher Development & ICT budget Teacher Development will use before sending';

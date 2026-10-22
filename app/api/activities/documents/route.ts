@@ -8,9 +8,10 @@ import { mutatePlan } from '@/lib/plan-mutations';
 import { readStageVisibility } from '@/lib/stage-visibility';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
 import { planFormData, PlanInputError } from '@/lib/plan-upload';
-import { documentWorkstreams } from '@/lib/activity-plans';
+import { componentDocumentKinds, documentWorkstreams } from '@/lib/activity-plans';
 
-// Component documents (component_documents, migration 036): the Supervision & Monitoring proforma invoices.
+// Component documents (component_documents, migrations 036 and 070): the Supervision & Monitoring proforma invoices and
+// the ICT UBEC-SUBEB Connect waiver from UBEC HQ.
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 const component=z.enum(documentWorkstreams);
 const perComponentLimit=20;
@@ -33,7 +34,7 @@ export async function POST(req:NextRequest){
    const count=(await db.query('SELECT COUNT(*)::int AS count FROM component_documents WHERE plan_id=$1 AND component=$2 AND removed_at IS NULL',[plan.id,workstream.data])).rows[0].count;
    if(count>=perComponentLimit)return error(`This component has reached its ${perComponentLimit}-document limit`);
    const id=crypto.randomUUID();
-   await db.query("INSERT INTO component_documents(id,plan_id,component,name,media_type,content,size) VALUES($1,$2,$3,$4,$5,decode($6,'hex'),$7)",[id,plan.id,workstream.data,name,types[ext],bytes.toString('hex'),bytes.length]);
+   await db.query("INSERT INTO component_documents(id,plan_id,component,kind,name,media_type,content,size) VALUES($1,$2,$3,$4,$5,$6,decode($7,'hex'),$8)",[id,plan.id,workstream.data,componentDocumentKinds[workstream.data],name,types[ext],bytes.toString('hex'),bytes.length]);
    return NextResponse.json({id,name,size:bytes.length});
   });
  }catch(cause){if(cause instanceof PlanInputError)return error(cause.message,cause.status);console.error(cause);return error('Unable to upload the document',503);}

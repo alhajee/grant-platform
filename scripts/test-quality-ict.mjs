@@ -186,6 +186,8 @@ try {
   // Procurement of Digital/STEM Equipment (activity 0) names the schools that receive the items (17 October 2026).
   fails(await api('ict', url('ict'), line('ict', 0, 1000000)), 400, /at least one school/);
   const spec = ok(await api('ict', url('ict'), line('ict', 0, 1000000, { schoolIds: [schoolA, schoolB] })));
+  // Establishment of DLC (activity 4): one per school, so the quantity is the number of schools chosen (UBEC89).
+  fails(await api('ict', url('ict'), { ...line('ict', 4, 1000000, { schoolIds: [schoolA, schoolB] }), quantity: 3 }), 400, /number of schools chosen \(2\)/);
   const dlc = ok(await api('ict', url('ict'), line('ict', 4, 2000000, { schoolIds: [schoolB] })));
   ok(await api('ict', url('ict'), line('ict', 8, 100000, { schoolIds: [schoolA, schoolB] })));
   fails(await api('ict', url('ict'), line('ict', 7, 6000000)), 400, /exceeded the ICT allocation \(₦35,000,000\.0000\)/);
@@ -216,6 +218,24 @@ try {
   // Stage-gated visibility: the Executive Chairman downloads only once ICT has been sent to them (checked below).
   fails(await api('ec', `/api/activities/line-documents?id=${specDoc.id}`), 404);
   step('ICT line documents: PDF/XLSX accepted; PNG, fake PDF, non-workbook XLSX and DOCX refused; access by component and workflow stage');
+
+  // UBEC-SUBEB Connect (UBEC123): ICT says whether the state already has it; if so a UBEC HQ waiver replaces the
+  // required "Maintenance of UBEC-SUBEB Connect" activity. Unanswered, ICT cannot be sent.
+  const connectUrl = `/api/activities/ict-connect?plan=${planId}`;
+  assert.equal(ok(await api('ict', url('ict'))).plan.ictConnect, null);
+  fails(await review('ict', { action: 'submit', pillar: 'ict' }), 409, /UBEC-SUBEB Connect/);
+  fails(await api('ict', connectUrl, { status: 'maybe' }, { method: 'PATCH' }), 400);
+  fails(await api('qa', connectUrl, { status: 'has' }, { method: 'PATCH' }), 403);
+  ok(await api('ict', connectUrl, { status: 'has' }, { method: 'PATCH' }));
+  fails(await review('ict', { action: 'submit', pillar: 'ict' }), 409, /waiver/);
+  const waiverForm = new FormData(); waiverForm.set('workstream', 'ict'); waiverForm.set('file', new Blob([pdf]), 'waiver.pdf');
+  const waiver = ok(await api('ict', `/api/activities/documents?plan=${planId}`, waiverForm));
+  const withWaiver = ok(await api('ict', url('ict')));
+  assert.equal(withWaiver.plan.ictConnect, 'has'); assert.equal(withWaiver.plan.ictConnectWaivers, 1); assert.deepEqual(withWaiver.documents.map(d => d.id), [waiver.id]);
+  fails(await api('qa', `/api/activities/documents?plan=${planId}&workstream=ict&id=${waiver.id}`, undefined, { method: 'DELETE' }), 403);
+  // Back to "needs" for the rest of the run: Maintenance of UBEC-SUBEB Connect is required again.
+  ok(await api('ict', connectUrl, { status: 'needs' }, { method: 'PATCH' }));
+  step('UBEC-SUBEB Connect: answered before sending; "has" needs the UBEC HQ waiver; ICT editors only');
 
   // Sending ICT: compulsory activities, then their documents, must be in place.
   fails(await review('ict', { action: 'submit', pillar: 'ict' }), 409, /supporting document for “QI ict 3”/);

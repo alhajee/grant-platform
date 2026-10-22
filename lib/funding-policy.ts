@@ -40,6 +40,10 @@ export type EnvelopePlan = {
   infrastructureTlmMode?: InfrastructureTlmMode | null;
   /** The optional Quality Assurance activities chosen up front (migration 061); null until chosen, missing on older snapshots. */
   qualityActivities?: readonly number[] | null;
+  /** ICT: does the state already have UBEC-SUBEB Connect (migration 070)? null = not answered; undefined in older snapshots. */
+  ictConnect?: 'has' | 'needs' | null;
+  /** UBEC HQ waivers attached for UBEC-SUBEB Connect. */
+  ictConnectWaivers?: number;
 };
 /** How Infrastructure and TLM use their shared pool (Super Admin, platform-wide; migration 051). */
 export const infrastructureTlmModes = ['split', 'shared_pool'] as const;

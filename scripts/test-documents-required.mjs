@@ -131,6 +131,8 @@ try {
   ok(await api('tpd', url('teachers'), training(0, 100000)));
   // Required activities first (1, 2, 3, 5, 6), then the optional 0 and 4.
   for (const [activity, extra] of [[1, {}], [2, { schoolIds: [school] }], [3, {}], [5, { subscriptionTypes: ['Starlink'] }], [6, { websiteType: 'Hosting only' }], [0, { schoolIds: [school] }], [4, { schoolIds: [school] }]]) ok(await api('ict', url('ict'), ictLine(activity, 100000, extra)));
+  // UBEC-SUBEB Connect is answered before ICT can be sent (migration 070): this state needs it, so its maintenance stays required.
+  ok(await api('ict', `/api/activities/ict-connect?plan=${planId}`, { status: 'needs' }, { method: 'PATCH' }));
   assert.equal(ok(await api('ict', url('ict'))).documentsRequired, false);
   assert.equal(ok(await api('tpd', url('teachers'))).documentsRequired, false);
   assert.equal(ok(await api('chair', `/api/plans/review?plan=${planId}`)).documentsRequired, false);

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, lineHasItem, needsCensusType, censusTypes, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, equipmentCategories, isQualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
+import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, quantityFromSchools, lineHasItem, needsCensusType, censusTypes, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, equipmentCategories, isQualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
 import { maxActivityNameLength, othersActivityName, teacherActivityInfo, teacherActivityNames } from './teacher-development.ts';
 import { teacherTrainingIssues, teacherTrainingShape } from './teacher-training-schema.ts';
 import { lineQuartersSchema } from './line-quarters.ts';
@@ -67,7 +67,9 @@ export const activityShare = (workstream: ActivityWorkstream, activity: number):
 export const curriculumActivityShares = [6000, 2000, 1000, 1000] as const;
 export { distributionWorkstreams, hasDistribution, distributionSnapshotKeys, distributionNames, emptyDistributionMessage, type DistributionWorkstream } from './distribution-lists.ts';
 /** Workstreams that collect documents in component_documents (the Supervision & Monitoring proforma invoices). */
-export const documentWorkstreams = ['monitoring'] as const;
+export const documentWorkstreams = ['monitoring', 'ict'] as const;
+/** The one kind of component document each workstream collects: Monitoring proforma invoices, the ICT UBEC-SUBEB Connect waiver. */
+export const componentDocumentKinds = { monitoring: 'proforma', ict: 'connect_waiver' } as const;
 export const activityTitles: Record<ActivityWorkstream, string> = { sbmc: 'SBMC', tlm: 'Teaching & Learning Materials', monitoring: 'Supervision & Monitoring', gscci: 'Greening Schools, Climate Change & Safeguards', curriculum: 'Curriculum', quality: 'Quality Assurance', ict: 'ICT', teachers: 'Teacher Development', planning: 'Planning, EMIS & Data Platform' };
 /** Example items shown under each TLM checklist activity. */
 export const activityHints: Partial<Record<ActivityWorkstream, Record<number, string>>> = {
@@ -173,6 +175,7 @@ export const activityLineSchema = z.object({
   if(needsSchools&&!v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose at least one school'});
   if(!needsSchools&&v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Schools only apply to activities that target schools'});
   if(new Set(v.schoolIds).size!==v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose each school once'});
+  if(quantityFromSchools(v.workstream,v.activity)&&v.schoolIds.length&&v.quantity!==v.schoolIds.length)ctx.addIssue({code:'custom',path:['quantity'],message:`One per school: the quantity is the number of schools chosen (${v.schoolIds.length})`});
   if(v.workstream==='sbmc') for(const field of ['rationale','implementationApproach'] as const) if(!v[field])ctx.addIssue({code:'custom',path:[field],message:field==='rationale'?'Enter a rationale':'Enter an implementation approach'});
   if(!(selectableActivityIndexes[v.workstream] as readonly number[]).includes(v.activity))ctx.addIssue({code:'custom',path:['activity'],message:'Choose a valid allowable activity'});
   const isOther=isOtherActivity(v.workstream,v.activity);

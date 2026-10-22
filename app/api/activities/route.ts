@@ -41,7 +41,7 @@ export async function GET(req:NextRequest){
   const listed=hasDistribution(workstream);
   const schools=listed||lineSchoolActivities[workstream]?await cachedSchoolList(user.stateCode,'activities',async()=>(await db.query(`SELECT ${schoolFields} FROM schools s WHERE s.state_code=$1 ORDER BY s.name`,[user.stateCode])).rows):[];
   const distribution=listed?(await db.query(`SELECT ${schoolFields} FROM tlm_distribution d JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.workstream=$3 AND s.state_code=$2 ORDER BY s.name`,[plan.id,user.stateCode,workstream])).rows:[];
-  const documents=workstream==='monitoring'?(await db.query("SELECT id,name,size FROM component_documents WHERE plan_id=$1 AND component=$2 AND removed_at IS NULL ORDER BY created_at,id",[plan.id,workstream])).rows:[];
+  const documents=workstream==='monitoring'||workstream==='ict'?(await db.query("SELECT id,name,size FROM component_documents WHERE plan_id=$1 AND component=$2 AND removed_at IS NULL ORDER BY created_at,id",[plan.id,workstream])).rows:[];
   // Schools with any Infrastructure package in this plan (New Construction, Whole School, Furniture): listed first and suggested for distribution.
   const renovated=listed?(await db.query<{id:number}>("SELECT DISTINCT p.school_id AS id FROM infrastructure_packages p JOIN schools s ON s.id=p.school_id WHERE p.plan_id=$1 AND s.state_code=$2",[plan.id,user.stateCode])).rows.map(r=>r.id):[];
   // ICT and Teacher Development share one envelope: each editor also sees what the other side's lines propose.
@@ -119,7 +119,7 @@ export async function POST(req:NextRequest){
      if(compulsoryActivities[workstream]?.length){
       const siblings=(await db.query<{activity:number}>('SELECT activity FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 AND ($3::bigint IS NULL OR id<>$3)',[plan.id,workstream,action==='update'?id:null])).rows;
       const previousActivity=action==='update'?(await db.query<{activity:number}>('SELECT activity FROM activity_plan_lines WHERE id=$1',[id])).rows[0]?.activity:undefined;
-      const problem=requiredFirstProblem(workstream,siblings,v.activity,previousActivity);
+      const problem=requiredFirstProblem(workstream,siblings,v.activity,previousActivity,plan);
       if(problem)return error(problem,409);
      }
      // Caps: only the cap of this item's activity (plus the envelope) is checked, and a change that does not raise what

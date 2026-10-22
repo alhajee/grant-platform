@@ -82,6 +82,9 @@ export type PlanSetup = {
   infrastructureTlmMode?: import('./funding-policy').InfrastructureTlmMode | null;
   /** The optional Quality Assurance activities chosen up front (migration 061); null until chosen. */
   qualityActivities?: number[] | null;
+  /** ICT: does the state already have UBEC-SUBEB Connect (migration 070)? */
+  ictConnect?: 'has' | 'needs' | null;
+  ictConnectWaivers?: number;
   beapName: string | null; documents: PlanDocument[];
 };
 export const maxRatFileBytes = 5 * 1024 * 1024;
