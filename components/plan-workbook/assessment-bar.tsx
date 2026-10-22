@@ -8,7 +8,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { OversightProgress } from '@/components/ubec/flow-bits';
 import { decisionCounts, type ItemDecisionValue } from '@/lib/ubec-flow';
-import type { SheetAssessment } from './assessment-context';
+import { DocumentFiles, FileUpload } from '@/components/document-files';
+import type { SheetAssessment, ValidationReports } from './assessment-context';
 import type { WorkbookRow } from './types';
 
 /** The row actions of a sheet's assessment, shared by the toolbar and the right-click menu. */
@@ -49,6 +50,7 @@ export type Observations = { open: (rowId: string) => void; count: number };
 export function AssessmentBar({ assessment, rows, selected, actions, observations }: { assessment: SheetAssessment; rows: readonly WorkbookRow[]; selected: string[]; actions: AssessActions; observations: Observations | null }) {
   const counts = decisionCounts(rows.map(row => ({ rowRef: row.id })), [...assessment.decisions(assessment.pillar)].map(([rowRef, d]) => ({ rowRef, decision: d.decision })));
   const can = assessment.canDecide(assessment.pillar), decided = selected.some(id => assessment.decisions(assessment.pillar).has(id));
+  const validation = assessment.validation?.(assessment.pillar) ?? null, missingReport = !!validation && !validation.mine.length;
   return <div className="wb-assessment" data-editable={can || undefined}>
     <div className="wb-assessment-progress" role="group" aria-label={`${counts.total - counts.undecided} of ${counts.total} items decided`}>
       <span className="wb-assessment-meter" aria-hidden="true"><span data-kind="accept" style={{ width: pct(counts.accepted, counts.total) }} /><span data-kind="reject" style={{ width: pct(counts.rejected, counts.total) }} /></span>
@@ -67,6 +69,21 @@ export function AssessmentBar({ assessment, rows, selected, actions, observation
       {observations && <Button size="sm" variant="outline" className="rounded-full" disabled={!selected.length} onClick={() => observations.open(selected[0])}><MessageSquarePlusIcon data-icon="inline-start" />Add observation</Button>}
       <Button size="sm" className="rounded-full" onClick={() => assessment.observe(assessment.pillar)}><ShieldCheckIcon data-icon="inline-start" />Observations done</Button>
     </div>}
-    {assessment.canComplete(assessment.pillar) && <Button size="sm" className="rounded-full" disabled={counts.undecided > 0} title={counts.undecided ? `Decide the remaining ${items(counts.undecided)} first` : undefined} onClick={() => assessment.complete(assessment.pillar)}><ClipboardCheckIcon data-icon="inline-start" />Complete assessment</Button>}
+    {assessment.canComplete(assessment.pillar) && <Button size="sm" className="rounded-full" disabled={counts.undecided > 0 || missingReport} title={counts.undecided ? `Decide the remaining ${items(counts.undecided)} first` : missingReport ? 'Upload your Validation Report first' : undefined} onClick={() => assessment.complete(assessment.pillar)}><ClipboardCheckIcon data-icon="inline-start" />Complete assessment</Button>}
+    {validation && (assessment.canComplete(assessment.pillar) || validation.reports.length > 0) && <ValidationReportPanel validation={validation} editable={assessment.canComplete(assessment.pillar)} />}
+  </div>;
+}
+
+const reportAccept = '.pdf,.xls,.xlsx,.docx,.png,.jpg,.jpeg';
+/**
+ * Infrastructure Validation Reports (migration 069): the assigned officer uploads one or more before Complete assessment;
+ * everyone who sees the sheet can open them.
+ */
+function ValidationReportPanel({ validation, editable }: { validation: ValidationReports; editable: boolean }) {
+  const files = (editable ? validation.mine : validation.reports).map(r => ({ id: r.id, name: r.name, size: r.size, url: validation.href(r.id), description: editable ? undefined : r.officerName }));
+  return <div className="wb-validation" data-missing={editable && !validation.mine.length || undefined}>
+    <div className="wb-validation-head"><strong>Validation report</strong><span>{editable ? (validation.mine.length ? 'Uploaded · required before Complete assessment' : 'Required before Complete assessment') : `${validation.reports.length} uploaded by the Assessment Officers`}</span></div>
+    {editable && <FileUpload label="Validation report" accept={reportAccept} compact multiple busy={validation.busy} onFiles={files => void validation.upload(files)} />}
+    {files.length > 0 && <DocumentFiles compact documents={files} onRemove={editable ? id => void validation.remove(id) : undefined} />}
   </div>;
 }

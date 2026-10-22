@@ -22,14 +22,15 @@ try{
  school=(await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,'Infrastructure QA','QA','Primary','Rural',100,100) RETURNING id",[marker])).rows[0].id;
  const path=`/api/infrastructure/packages?plan=${plan}`,reviewPath=`/api/plans/review?plan=${plan}`;
  ok(await api('anonymous',path),401);ok(await api('social',path),403);
- const landIds=[];for(let i=0;i<1;i++){const f=new FormData();f.set('kind','land');f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],`land-${i}.pdf`,{type:'application/pdf'}));landIds.push(ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f)).id);}
+ const landIds=[];for(const kind of ['land','land_area']){const f=new FormData();f.set('kind',kind);f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],`${kind}.pdf`,{type:'application/pdf'}));landIds.push(ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f)).id);}
  // New Construction (client feedback, October 2026): all three land declarations, the C of O / R of O / Community Agreement document,
  // a chosen model and the perimeter fence length entered in the requirements table.
  const input=packageSchema.parse({kind:'new',schoolId:school,components:['Primary','ECCDE'],targeting:'hope',lumpSum:1000,duration:'6 months',model:0,fenceLength:180,land:{available:true,documented:true,unencumbered:true},documentIds:landIds});
  ok(await api('social',path,{action:'save',input}),403);
  ok(await api('officer',path,{action:'save',input:{...input,land:{available:false,documented:false,unencumbered:false}}}),400);
  const twoTicks=await api('officer',path,{action:'save',input:{...input,land:{available:true,documented:true,unencumbered:false}}});ok(twoTicks,400);assert.match(twoTicks.data.error,/Tick all three land declarations/);
- const noLandDoc=await api('officer',path,{action:'save',input:{...input,documentIds:[]}});ok(noLandDoc,400);assert.match(noLandDoc.data.error,/C of O, R of O or Community Agreement/);
+ const noLandDoc=await api('officer',path,{action:'save',input:{...input,documentIds:[]}});ok(noLandDoc,400);assert.match(noLandDoc.data.error,/land required for this model is available/);
+ const noTitle=await api('officer',path,{action:'save',input:{...input,documentIds:[landIds[1]]}});ok(noTitle,400);assert.match(noTitle.data.error,/C of O, R of O or Community Agreement/);
  const noNewModel=await api("officer",path,{action:"save",input:{...input,model:undefined}});ok(noNewModel,400);assert.match(noNewModel.data.error,/Choose the school model/);
  const noNewFence=await api("officer",path,{action:"save",input:{...input,fenceLength:0}});ok(noNewFence,400);assert.match(noNewFence.data.error,/perimeter fence length/);
  const retiredStrategy=await api('officer',path,{action:'save',input:{...input,classroomStrategy:'Market survey'}});ok(retiredStrategy,400);assert.match(retiredStrategy.data.error,/Request for quotation, NCB or Credit SBMC school account/);

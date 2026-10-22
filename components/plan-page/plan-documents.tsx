@@ -12,7 +12,7 @@ import type { Snapshot } from '@/lib/plan-review';
 
 type PlanDocument = DocumentFile & { url: string; type: string; group: string; school?: string };
 
-const infrastructureTypes = { boq: 'BOQ', drawings: 'Drawings', survey: 'Geophysical survey', land: 'Land documents', photo: 'Photos', supporting: 'Supporting documents' } as const;
+const infrastructureTypes = { boq: 'BOQ', drawings: 'Drawings', survey: 'Geophysical survey', land: 'Land documents', land_area: 'Land availability', photo: 'Photos', supporting: 'Supporting documents' } as const;
 const fileSize = (bytes: number) => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 const ALL = 'all', INITIAL = 8;
 

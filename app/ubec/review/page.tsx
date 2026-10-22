@@ -23,7 +23,7 @@ import { planPeriod, type ActionPlan } from '@/lib/action-plans';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
 import { summarizeSnapshot } from '@/lib/plan-summary';
 import { activePillars, departmentName, isUbec, nationalStatusLabels, pillarDepartments, ubecRoles, type UbecDetail } from '@/lib/ubec';
-import { componentName, defaultAssignerName, superAdminRole, type ItemDecision, type ItemDecisionValue, type PipelineComponent } from '@/lib/ubec-flow';
+import { componentName, defaultAssignerName, needsValidationReport, superAdminRole, type ItemDecision, type ItemDecisionValue, type PipelineComponent } from '@/lib/ubec-flow';
 import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -68,6 +68,7 @@ export default function UbecReviewPage() {
       officers: (c?.officers ?? []).map(o => ({ name: o.officerName, completed: !!o.completedAt, mine: false })), oversightDone: c?.oversight.map(o => o.department) ?? [] };
   }), [pillars, flow, totals]);
   const can = current && flow ? flow.abilities : null;
+  const [reportBusy, setReportBusy] = useState(false);
   // Officers decide items in the workbook: each released component's sheet carries its decisions.
   const assessment = useMemo<WorkbookAssessment | null>(() => {
     if (!round || !flow?.components.length) return null;
@@ -87,8 +88,33 @@ export default function UbecReviewPage() {
     return { pillars: flow.components.map(c => c.pillar), decisions: byPillar(flow.decisions), previous: byPillar(flow.previousDecisions),
       canDecide: pillar => !!can?.assess.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }),
       canObserve: pillar => !!can?.observe.includes(pillar), observe: pillar => setRequest({ kind: 'observe', pillar }),
-      oversightDone: pillar => flow.components.find(c => c.pillar === pillar)?.oversight.map(o => o.department) ?? [] };
-  }, [round, flow, can, data, load]);
+      oversightDone: pillar => flow.components.find(c => c.pillar === pillar)?.oversight.map(o => o.department) ?? [],
+      validation: pillar => {
+        const c = flow.components.find(x => x.pillar === pillar);
+        if (!c || !needsValidationReport(pillar) || !data) return null;
+        const url = `/api/ubec/validation-reports?plan=${data.plan.id}`;
+        return { reports: c.validationReports, mine: c.validationReports.filter(r => r.officerId === flow.viewerId), busy: reportBusy, href: id => `${url}&id=${id}`,
+          upload: async files => {
+            setReportBusy(true);
+            try {
+              for (const file of files) {
+                const form = new FormData(); form.set('roundId', String(round.id)); form.set('pillar', pillar); form.set('file', file);
+                const response = await fetch(url, { method: 'POST', body: form });
+                if (!response.ok) { toast.error(((await response.json().catch(() => ({}))) as { error?: string }).error || `${file.name} could not be uploaded`); break; }
+              }
+            } catch { toast.error('You appear to be offline. The report was not uploaded.'); }
+            finally { setReportBusy(false); await load(); }
+          },
+          remove: async id => {
+            setReportBusy(true);
+            try {
+              const response = await fetch(`${url}&id=${id}`, { method: 'DELETE' });
+              if (!response.ok) toast.error(((await response.json().catch(() => ({}))) as { error?: string }).error || 'The report could not be removed');
+            } catch { toast.error('You appear to be offline. The report was not removed.'); }
+            finally { setReportBusy(false); await load(); }
+          } };
+      } };
+  }, [round, flow, can, data, load, reportBusy]);
   const stepsFor = (pillar: ImplementedPillar): CardStep[] => !can ? [] : [
     ...(can.assign.includes(pillar) ? [{ label: flow?.components.find(c => c.pillar === pillar)?.officers.length ? 'Add officers' : 'Assign staff', kind: 'assign' as const, run: () => setRequest({ kind: 'assign', pillar }) }] : []),
     ...(can.assess.includes(pillar) ? [{ label: 'Assess items', kind: 'assess' as const, run: () => { window.location.hash = `review-${pillar}`; } }] : []),
@@ -111,7 +137,7 @@ export default function UbecReviewPage() {
         <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs ubec-assessment-tabs">{released.map(c => <TabsTrigger key={c.pillar} value={c.pillar}>{componentName(c.pillar)}{c.counts.rejected > 0 && <Badge variant="destructive" className="ml-1">{c.counts.rejected}</Badge>}</TabsTrigger>)}</TabsList></div>
         {released.map(c => <TabsContent key={c.pillar} value={c.pillar} className="ubec-assessment-panel">
           <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} /><Button variant="outline" size="sm" className="rounded-full" onClick={() => { window.location.hash = `review-${c.pillar}`; }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : can?.observe.includes(c.pillar) ? 'Review in the workbook' : 'View in the workbook'}</Button></div>
-          <ComponentPeople component={c} planId={data.plan.id} roundId={round.id} canComplete={!!can?.complete.includes(c.pillar)} canRemove={!!can?.assign.includes(c.pillar)} onComplete={() => setRequest({ kind: 'complete', pillar: c.pillar })} onChanged={() => void load()} />
+          <ComponentPeople component={c} planId={data.plan.id} roundId={round.id} viewerId={flow.viewerId} canComplete={!!can?.complete.includes(c.pillar)} canRemove={!!can?.assign.includes(c.pillar)} onComplete={() => setRequest({ kind: 'complete', pillar: c.pillar })} onChanged={() => void load()} />
         </TabsContent>)}
       </Tabs>}
   </section>
@@ -168,10 +194,11 @@ export default function UbecReviewPage() {
 }
 
 /** Who worked on a component: officers (assignment comment, completion note), the Director's comment and oversight notes. */
-function ComponentPeople({ component, planId, roundId, canComplete, canRemove, onComplete, onChanged }: {
-  component: NonNullable<UbecDetail['flow']>['components'][number]; planId: number; roundId: number; canComplete: boolean; canRemove: boolean; onComplete: () => void; onChanged: () => void;
+function ComponentPeople({ component, planId, roundId, viewerId, canComplete, canRemove, onComplete, onChanged }: {
+  component: NonNullable<UbecDetail['flow']>['components'][number]; planId: number; roundId: number; viewerId: number; canComplete: boolean; canRemove: boolean; onComplete: () => void; onChanged: () => void;
 }) {
   const [removing, setRemoving] = useState<number | null>(null);
+  const missingReport = needsValidationReport(component.pillar) && !component.validationReports.some(r => r.officerId === viewerId);
   // The Director (or the Super Admin) can take an officer off while their assessment is still open.
   async function remove(assignmentId: number, name: string) {
     if (removing) return;
@@ -192,6 +219,6 @@ function ComponentPeople({ component, planId, roundId, canComplete, canRemove, o
   return <div className="ubec-people">
     {notes.length ? <ul>{notes.map(n => <li key={n.key} data-done={n.done || undefined}><strong>{n.who}</strong><small>{n.role}</small><p>{n.text}</p>
       {n.remove && <Button variant="ghost" size="sm" className="ubec-people-remove" disabled={removing !== null} onClick={n.remove} aria-label={`Remove ${n.who} from ${componentName(component.pillar)}`}>{n.busy ? <Spinner data-icon="inline-start" /> : <UserMinusIcon data-icon="inline-start" />}Remove</Button>}</li>)}</ul> : <p className="ubec-people-empty">No Assessment Officer assigned yet</p>}
-    {canComplete && <Button className="rounded-full" disabled={component.counts.undecided > 0} title={component.counts.undecided ? `Decide the remaining ${component.counts.undecided} items in the workbook first` : undefined} onClick={onComplete}><CheckIcon data-icon="inline-start" />Complete assessment</Button>}
+    {canComplete && <Button className="rounded-full" disabled={component.counts.undecided > 0 || missingReport} title={component.counts.undecided ? `Decide the remaining ${component.counts.undecided} items in the workbook first` : missingReport ? 'Upload your Validation Report on the sheet first' : undefined} onClick={onComplete}><CheckIcon data-icon="inline-start" />Complete assessment</Button>}
   </div>;
 }

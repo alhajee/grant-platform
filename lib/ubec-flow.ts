@@ -14,7 +14,13 @@ export type FlowComponent = {
   id: number; pillar: ImplementedPillar; department: string; stage: ComponentStage;
   directorComment: string; directorName: string | null; sentToOversightAt: string | null; arrivedAt: string | null; releasedAt: string;
   officers: OfficerAssignment[]; oversight: OversightReview[]; counts: DecisionCounts; amount: number;
+  /** Assessment Officers' Validation Reports (Infrastructure, migration 069). */
+  validationReports: ValidationReport[];
 };
+export type ValidationReport = { id: string; name: string; size: number; officerId: number; officerName: string; createdAt: string };
+/** Components whose officers must upload a Validation Report before completing their assessment. */
+export const validationReportPillars: readonly ImplementedPillar[] = ['infrastructure'];
+export const needsValidationReport = (pillar: ImplementedPillar) => validationReportPillars.includes(pillar);
 export type ItemDecision = { pillar: ImplementedPillar; rowRef: string; decision: ItemDecisionValue; note: string; officerName: string; decidedAt: string };
 export type FlowAbilities = {
   /** UBEC BEAP Chair: release the round, and approve/return it once every component has arrived. */
@@ -34,6 +40,8 @@ export type UbecFlow = {
   defaultOfficers: Partial<Record<ImplementedPillar, number[]>>;
   /** Every released component has reached the BEAP Chair; approval also needs nothing rejected or undecided. */
   allArrived: boolean; approvable: boolean;
+  /** The signed-in user, so the page can tell their own Validation Reports apart. */
+  viewerId: number;
 };
 /** One component of a plan on the dashboards: where it is in the pipeline. */
 export type PipelineComponent = {

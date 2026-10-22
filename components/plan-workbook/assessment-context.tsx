@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, type ReactNode } from 'react';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
-import type { ItemDecisionValue } from '@/lib/ubec-flow';
+import type { ItemDecisionValue, ValidationReport } from '@/lib/ubec-flow';
 import type { SheetKey, WorkbookColumn, WorkbookSheet } from './types';
 
 export type RowDecision = { decision: ItemDecisionValue; note: string; officerName: string };
@@ -24,6 +24,12 @@ export type WorkbookAssessment = {
   observe: (pillar: ImplementedPillar) => void;
   /** Oversight departments that have finished on the component. */
   oversightDone: (pillar: ImplementedPillar) => readonly string[];
+  /** Validation Reports (Infrastructure, migration 069): null when the component takes none. */
+  validation?: (pillar: ImplementedPillar) => ValidationReports | null;
+};
+export type ValidationReports = {
+  reports: readonly ValidationReport[]; mine: readonly ValidationReport[]; href: (id: string) => string;
+  upload: (files: File[]) => Promise<void>; remove: (id: string) => Promise<void>; busy: boolean;
 };
 export type SheetAssessment = Omit<WorkbookAssessment, 'pillars'> & { pillar: ImplementedPillar };
 

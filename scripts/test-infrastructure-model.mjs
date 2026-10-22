@@ -37,6 +37,12 @@ r=calculateInfrastructure(described,300);
 assert.equal(r.items.find(i=>i.key==='classBlock6').description,'Two-storey block on the north plot');
 assert.equal(r.items.find(i=>i.key==='fence').description,'','A cleared description stays blank');
 assert.throws(()=>make('new',{descriptions:{notARow:'x'}}),/Unknown requirement/);
+// Other facilities on New Construction (October 2026): the figures entered join the package's requirements; blank or 0 leaves a row out.
+const withOthers=make('new',{model:0,fenceLength:150,lumpSum:450,otherFacilities:{scienceLab:2,workshop:0}});
+r=calculateInfrastructure(withOthers,300);
+assert.equal(r.items.find(i=>i.key==='scienceLab').quantity,2);assert.ok(!r.items.some(i=>i.key==='workshop'));
+assert.equal(r.total,450,'still one lump-sum package');
+assert.throws(()=>make('new',{otherFacilities:{classroomPri:3}}),/Other Facilities/,'only Other Facilities rows');
 assert.throws(()=>make('new',{descriptions:{fence:'x'.repeat(501)}}),/500 characters/);
 assert.ok(!calculateInfrastructure({...built,components:['JSS']},300).items.some(i=>i.key==='eccdeBlock'),'A JSS school gets the JSS list');
 assert.equal(packageProblem(built,300),null);
@@ -44,7 +50,10 @@ assert.equal(packageProblem({...built,land:{available:true,documented:false,unen
 assert.equal(packageProblem({...built,land:{available:false,documented:true,unencumbered:false}},300),'Tick all three land declarations','One declaration is no longer enough');
 assert.equal(packageProblem({...built,model:undefined},300),'Choose the school model');
 assert.equal(packageProblem({...built,fenceLength:0},300),'Enter the perimeter fence length (metres)');
-assert.equal(landDocumentProblem(built,0),'Attach the C of O, R of O or Community Agreement document');assert.equal(landDocumentProblem(built,1),null);
+// Two land uploads (October 2026): evidence the land is available, and the C of O / R of O / Community Agreement.
+assert.equal(landDocumentProblem(built,{landArea:0,land:1}),'Attach the document showing the land required for this model is available');
+assert.equal(landDocumentProblem(built,{landArea:1,land:0}),'Attach the C of O, R of O or Community Agreement document');
+assert.equal(landDocumentProblem(built,{landArea:1,land:1}),null);
 // HOPE costing (retired on save, kept for older packages) still prices rows and VAT.
 const hope={...built,targeting:'hope',classroomStrategy:'NCB',prices:{classBlock6:100,eccdeBlock:50,toilet:70,dualDesk:2,fence:3},fenceLength:10,contingency:5,preliminaries:10};
 r=calculateInfrastructure(hope,300);

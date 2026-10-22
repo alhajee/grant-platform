@@ -5,7 +5,7 @@ import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { departmentName, isOversightDepartment, oversightIds, ubecRoles, type UbecRound } from '@/lib/ubec';
-import { componentItems, componentName, superAdminRole } from '@/lib/ubec-flow';
+import { componentItems, componentName, needsValidationReport, superAdminRole } from '@/lib/ubec-flow';
 import { addUbecEvent, notifyUbec, readActor, readDecisions, type Actor, type Db } from '@/lib/ubec-flow-db';
 
 // Component steps of the UBEC review (docs/ubec-flow.md): the Director assigns Assessment Officers and sends the
@@ -85,6 +85,8 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
     const decided = new Set((await readDecisions(db, round.id)).filter(d => d.pillar === component.pillar).map(d => d.rowRef));
     const undecided = componentItems(round.snapshot, component.pillar).filter(item => !decided.has(item.rowRef)).length;
     if (undecided) return error(`Accept or reject every item first (${undecided} still undecided)`, 409);
+    // Infrastructure: the officer's Validation Report comes first (migration 069).
+    if (needsValidationReport(component.pillar) && !(await db.query('SELECT 1 FROM ubec_validation_reports WHERE round_component_id=$1 AND officer_id=$2 AND removed_at IS NULL', [component.id, actor.id])).rowCount) return error(`Upload your Validation Report for ${name} before completing the assessment`, 409);
     await db.query('UPDATE ubec_officer_assignments SET completed_at=NOW(),completion_note=$1 WHERE id=$2', [input.note, mine.id]);
     const id = await event('complete_assessment', input.note);
     await notifyUbec(db, planId, id, actor.id, { role: ubecRoles.director, departments: [component.department] });

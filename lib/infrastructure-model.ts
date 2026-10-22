@@ -24,6 +24,8 @@ const auditRow = z.object({ existing: quantity.optional(), functional: quantity.
 const modelIndex = z.number().int().min(0).max(2);
 export const profileSchema = z.object({male:quantity, female:quantity, latitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=90),'Invalid latitude'),longitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=180),'Invalid longitude')});
 export const maxDescriptionLength = 500;
+/** Other Facilities rows a New Construction package may add (October 2026). */
+export const otherFacilityKeys = new Set(requirements.filter(r => r.category === 'other').map(r => r.key));
 export const packageSchema = z.object({
  kind:z.enum(['new','whole','furniture']),schoolId:z.number().int().positive(),
  components:z.array(z.enum(['ECCDE','Primary','JSS'])).min(1).max(3),
@@ -37,6 +39,8 @@ export const packageSchema = z.object({
  photoKeys:z.record(z.string().uuid(),z.string().max(40)).default({}).refine(p=>Object.values(p).every(k=>auditKeys.has(k)),'Unknown audit deliverable for a photo'),
  audit:z.record(auditRow).default({}).refine(a=>Object.keys(a).every(k=>auditKeys.has(k)),'Unknown audit deliverable'),
  /** Edited descriptions by requirement key (17 October 2026): New Construction rows replace the workbook text ('' = blank), Whole School rows add one. */
+ /** New Construction: Other Facilities to add, by deliverable (how many; 0 or absent = not added). */
+ otherFacilities:z.record(quantity).default({}).refine(o=>Object.keys(o).every(k=>otherFacilityKeys.has(k)),'Only Other Facilities can be added here'),
  descriptions:z.record(z.string().trim().max(maxDescriptionLength,`Use up to ${maxDescriptionLength} characters for a description`)).default({}).refine(d=>Object.keys(d).every(k=>describableKeys.has(k)),'Unknown requirement for a description'),
  /** New Construction: the chosen model (0-2, Model I-III). Whole School packages saved before October 2026 may carry one; it is ignored. */
  model:modelIndex.optional(),fenceRequired:quantity.default(0),fenceLength:quantity.default(0),
@@ -140,7 +144,7 @@ export function wholeRequirements(facts: SchoolFacts, stream: SchoolStream): Rec
 /** The Primary/JSS classroom row is named after the school's learners. */
 const classroomLabel = (facts: SchoolFacts, stream: SchoolStream) => facts.primary > 0 && facts.jss > 0 ? 'Classroom · Primary & JSS' : stream === 'jss' || (facts.jss > 0 && facts.primary === 0) ? 'Classroom · JSS' : 'Classroom · Primary';
 
-export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'photo'|'supporting';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
+export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'land_area'|'photo'|'supporting';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
 export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string;/** Packages calculated since 17 October 2026; older ones fall back to the workbook text. */description?:string};
 /** A row's description: the edited one, else (New Construction) the workbook text; Whole School rows have none until one is entered. */
 export const requirementDescription=(input:Pick<InfrastructureInput,'kind'|'descriptions'>,key:string,model:number)=>input.descriptions?.[key]??(input.kind==='new'?deliverableDescription(key,model):'');
@@ -238,6 +242,8 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
    const total=add(row.key,row.label,row.quantity,row.unit,row.lump,price(row.key),row.key.startsWith('classBlock')?input.classroomStrategy:defaultStrategy,'',undefined,requirementDescription(input,row.key,model));
    if(row.key.startsWith('classBlock'))classroomSubtotal+=total;else otherSubtotal+=total;
   }
+  // Other facilities the package adds (October 2026), listed with the model's rows; HOPE prices them like the others.
+  for(const r of requirements.filter(r=>r.category==='other'&&(input.otherFacilities?.[r.key]??0)>0))otherSubtotal+=add(r.key,r.label,input.otherFacilities[r.key],r.unit,!!(r.civil||r.lump),price(r.key),defaultStrategy,'',undefined,requirementDescription(input,r.key,model));
   if(input.targeting==='nonhope')add('package','Complete construction package',1,'lot',true,input.lumpSum,input.classroomStrategy,input.duration,undefined,requirementDescription(input,'package',model));
   else{
    otherSubtotal+=add('contingency','Contingency',1,'lot',true,input.contingency,'—');
@@ -266,4 +272,5 @@ export function packageProblem(input:InfrastructureInput,school:SchoolBasis){
  return null;
 }
 /** Land documents (C of O, R of O or Community Agreement) a New Construction package needs: at least one, for declaration 2. */
-export const landDocumentProblem=(input:Pick<InfrastructureInput,'kind'|'land'>,attached:number)=>input.kind==='new'&&attached<1?'Attach the C of O, R of O or Community Agreement document':null;
+/** New Construction land uploads, both always required: the evidence that the land is available (`land_area`, October 2026) and the C of O / R of O / Community Agreement (`land`). */
+export const landDocumentProblem=(input:Pick<InfrastructureInput,'kind'|'land'>,attached:{land:number;landArea:number})=>input.kind!=='new'?null:attached.landArea<1?'Attach the document showing the land required for this model is available':attached.land<1?'Attach the C of O, R of O or Community Agreement document':null;

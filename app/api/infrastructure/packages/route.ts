@@ -82,7 +82,7 @@ export async function POST(req:NextRequest){
    if(new Set(draft.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan');
    if(docs.some(d=>d.school_id!==null&&d.school_id!==draft.schoolId))return error('One or more attachments belong to a different school');
    // New Construction: all three land declarations (packageProblem) and the C of O / R of O / Community Agreement document, always required.
-   const landProblem=landDocumentProblem(draft,docs.filter(d=>d.kind==='land').length);if(landProblem)return error(landProblem);
+   const landProblem=landDocumentProblem(draft,{land:docs.filter(d=>d.kind==='land').length,landArea:docs.filter(d=>d.kind==='land_area').length});if(landProblem)return error(landProblem);
    // Per-row photographic evidence: keep only keys that name a photo attached to this package (a removed photo drops out).
    const photoIds=docs.filter(d=>d.kind==='photo').map(d=>String(d.id));
    const input={...draft,photoKeys:Object.fromEntries(Object.entries(draft.photoKeys).filter(([id])=>photoIds.includes(id)))};

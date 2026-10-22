@@ -27,7 +27,7 @@ export async function POST(req:NextRequest){
   const plan=await resolveActionPlan(req,user.stateCode);if(!plan)return error('Plan not found',404);
   const form=await planFormData(req);
   // Drawings are collected again (17 October 2026), per school like every other document; they are optional.
-  const kind=z.enum(['boq','drawings','survey','land','photo','supporting']).safeParse(form.get('kind'));
+  const kind=z.enum(['boq','drawings','survey','land','land_area','photo','supporting']).safeParse(form.get('kind'));
   if(!kind.success)return error('Choose the document type');
   const schoolId=Number(form.get('schoolId'));
   if(!Number.isSafeInteger(schoolId)||!schoolId||schoolId<1)return error('Select the school for this document');

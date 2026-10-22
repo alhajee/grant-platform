@@ -63,6 +63,7 @@ export async function readRoundComponents(db: Db, round: Pick<UbecRound, 'id' | 
   if (!components.length) return [] as FlowComponent[];
   const ids = components.map(c => c.id);
   const officers = (await db.query<{ id: number; round_component_id: number; officer_id: number; officer_name: string; assigned_by_name: string; comment: string; created_at: Date; completed_at: Date | null; completion_note: string }>('SELECT * FROM ubec_officer_assignments WHERE round_component_id=ANY($1::int[]) AND removed_at IS NULL ORDER BY id', [ids])).rows;
+  const reports = (await db.query<{ id: string; round_component_id: number; name: string; size: number; officer_id: number; officer_name: string; created_at: Date }>('SELECT id,round_component_id,name,size,officer_id,officer_name,created_at FROM ubec_validation_reports WHERE round_component_id=ANY($1::int[]) AND removed_at IS NULL ORDER BY created_at', [ids])).rows;
   const oversight = (await db.query<{ round_component_id: number; department: OversightReview['department']; reviewer_name: string; note: string; completed_at: Date }>('SELECT * FROM ubec_oversight_reviews WHERE round_component_id=ANY($1::int[]) ORDER BY id', [ids])).rows;
   return components.map((c): FlowComponent => {
     const items = componentItems(round.snapshot, c.pillar);
@@ -72,6 +73,7 @@ export async function readRoundComponents(db: Db, round: Pick<UbecRound, 'id' | 
       officers: officers.filter(o => o.round_component_id === c.id).map((o): OfficerAssignment => ({ id: o.id, officerId: o.officer_id, officerName: o.officer_name, assignedByName: o.assigned_by_name, comment: o.comment, createdAt: iso(o.created_at)!, completedAt: iso(o.completed_at), completionNote: o.completion_note })),
       oversight: oversight.filter(o => o.round_component_id === c.id).map(o => ({ department: o.department, reviewerName: o.reviewer_name, note: o.note, completedAt: iso(o.completed_at)! })),
       counts: decisionCounts(items, decisions.filter(d => d.pillar === c.pillar)), amount: componentAmount(round.snapshot, c.pillar),
+      validationReports: reports.filter(r => r.round_component_id === c.id).map(r => ({ id: r.id, name: r.name, size: r.size, officerId: r.officer_id, officerName: r.officer_name, createdAt: iso(r.created_at)! })),
     };
   });
 }
@@ -124,7 +126,7 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
     releasedAt: iso(round.released_at ?? null), releasedByName: round.released_by_name ?? null, releaseComment: round.release_comment ?? '',
     components, decisions: allDecisions.filter(d => visible.includes(d.pillar)), previousDecisions,
     abilities: viewer.role === ubecRoles.es ? flowAbilities({ ...viewer, role: '' }, round, latest, components) : flowAbilities(viewer, round, latest, all.filter(c => visible.includes(c.pillar))),
-    officers: departmentOfficers, defaultOfficers,
+    officers: departmentOfficers, defaultOfficers, viewerId: viewer.id,
     allArrived: all.length > 0 && all.every(c => c.stage === 'chair'), approvable: approvableComponents(all),
   };
 }

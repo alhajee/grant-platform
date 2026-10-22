@@ -15,9 +15,10 @@ export function infrastructureDocumentProblem(snapshot: Snapshot, options: Readi
   const id=line.package?.input.schoolId??line.school.id;
   if(!id)return 'Associate supporting documents with each infrastructure school before sending';
   if(line.package?.kind==='new'){
-   const land=line.package.input.land,attached=documents.filter(d=>d.kind==='land'&&line.package?.input.documentIds.includes(d.id)).length;
+   const land=line.package.input.land,attached=(kind:string)=>documents.filter(d=>d.kind===kind&&line.package?.input.documentIds.includes(d.id)).length;
    if(!land?.available||!land.documented||!land.unencumbered)return `Tick all three land declarations for ${line.school.name} before sending Infrastructure`;
-   if(attached<1)return `Attach the C of O, R of O or Community Agreement document for ${line.school.name} before sending Infrastructure`;
+   if(attached('land_area')<1)return `Attach the document showing the land is available for ${line.school.name} before sending Infrastructure`;
+   if(attached('land')<1)return `Attach the C of O, R of O or Community Agreement document for ${line.school.name} before sending Infrastructure`;
   }
   const survey=line.package?.kind!=='furniture';
   schools.set(id,{name:line.school.name,survey:survey||schools.get(id)?.survey===true});

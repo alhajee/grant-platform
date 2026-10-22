@@ -117,4 +117,13 @@
 /* New Construction model step: requirements table (Requirement, Quantity, Description). */
 .infra-new-table td{vertical-align:middle}
 .infra-new-table tr[data-status=invalid]{background:color-mix(in srgb,var(--destructive) 6%,var(--card))}
+.infra-new-table tr[data-status=incomplete]{background:color-mix(in srgb,var(--warning) 7%,var(--card))}
+.infra-new-table tr[data-status=added] td:first-child{box-shadow:inset 3px 0 0 var(--primary)}
+/* Required figures still empty stand out in yellow across the Infrastructure editor (fence length, Minimum Standard audit
+   rows); a figure that is wrong or missing after a try turns red (aria-invalid). */
+.infrastructure-shell input.infra-audit-input[aria-required="true"]:placeholder-shown:not([aria-invalid="true"]):not(:disabled){border-color:color-mix(in srgb,var(--warning) 70%,var(--border));background:color-mix(in srgb,var(--warning) 9%,var(--background))}
 @media(max-width:700px){.infra-new-table{min-width:620px}.land-agreement-upload{margin-left:0}}
+
+/* Package editor: the allocation meter sits beside the package total (UBEC98, October 2026). */
+.infra-package-overview{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px 24px}
+.infra-package-overview .infra-package-meter{flex:1 1 280px;max-width:420px}
