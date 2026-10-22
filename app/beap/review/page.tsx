@@ -1,6 +1,7 @@
 "use client";
 import '@/components/plan-page/plan-page.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { ArrowLeftIcon, HistoryIcon, PencilIcon } from 'lucide-react';
 import { SubebHeader } from '@/components/subeb-header';
 import { PlanStatusBadge } from '@/components/plan-status';
@@ -10,6 +11,7 @@ import { DeletePlanButton } from '@/components/plan-page/delete-plan-dialog';
 import { PlanSummary } from '@/components/plan-page/plan-summary';
 import { ComponentCards, type CardActions } from '@/components/plan-page/component-cards';
 import { WorkflowBar } from '@/components/plan-page/workflow-bar';
+import { DeliverablesCard } from '@/components/plan-page/deliverables-card';
 import { SendSeveralDialog } from '@/components/plan-page/send-several-dialog';
 import { ReviewHistory } from '@/components/plan-page/review-history';
 import { PlanDocuments } from '@/components/plan-page/plan-documents';
@@ -115,6 +117,22 @@ export default function PlanPage() {
     if (data.role === 'Director' && data.isBeapChair && status === 'beap_review' && data.beapChairSubmissionMode === 'individual_components') return { ...actions, step: { label: 'Send to Executive Chairman', run: () => setRequest({ action: 'forward', pillar }), blocked: readiness(data, pillar) } };
     return actions;
   };
+  // UBEC107: the editor's Review & send summary continues here with #send-<component>, which opens that component's send
+  // step (comment, then the "are you sure" confirmation); a blocked step says why on its card, and without a step for
+  // the viewer the component's sheet opens.
+  const sendHashHandled = useRef(false);
+  useEffect(() => {
+    if (!data || sendHashHandled.current) return;
+    const match = /^#send-([a-z]+)$/.exec(window.location.hash);
+    if (!match) return;
+    sendHashHandled.current = true;
+    const review = data.pillarReviews.find(r => r.pillar === match[1]);
+    const step = review && actionsFor(review).step;
+    history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    if (step && !step.blocked) step.run();
+    else if (step?.blocked) toast.error(step.blocked);
+    else window.location.hash = `review-${match[1]}`;
+  });
   const workbookLinks = data ? Object.fromEntries(implementedPillars.map(p => [`${p}EditHref`, editHref(p)])) : {};
 
   return <div className="beap-page beap-review-page"><SubebHeader plan />
@@ -142,6 +160,7 @@ export default function PlanPage() {
           <aside className="plan-glance-side" aria-label="Plan funding and status">
             <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
             <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} ubecStage={plan ? ubecStageLabels[plan.status] : null} />
+            {data.visiblePillars.includes('infrastructure') && data.snapshot.infrastructure.length > 0 && <DeliverablesCard packages={data.snapshot.infrastructure.map(item => item.package)} />}
           </aside>
         </div>
         {selected === 'current' && <UbecResultsCard planId={data.plan.id} reloadKey={data.plan.version} />}

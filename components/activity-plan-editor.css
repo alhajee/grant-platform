@@ -62,3 +62,12 @@
 .activity-cap-card[data-over] { border-color:color-mix(in srgb,var(--destructive) 45%,var(--border)); }
 .activity-cap-card[data-over] > div:last-child strong { color:var(--destructive); }
 .activity-cap-card[data-over] [data-slot=progress-indicator] { background:var(--destructive); }
+
+/* Review & send summary (UBEC107) */
+.component-summary-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .5rem; margin: 0; }
+.component-summary-figures > div { border: 1px solid var(--border); border-radius: .75rem; padding: .5rem .75rem; }
+.component-summary-figures dt { color: var(--muted-foreground); font-size: .75rem; }
+.component-summary-figures dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.component-summary-figures > div[data-over] dd { color: var(--destructive); }
+.component-summary-table { max-height: 45vh; overflow: auto; border: 1px solid var(--border); border-radius: .75rem; }
+.component-summary-missing { border-color: color-mix(in oklab, var(--warning, #d97706) 45%, transparent); }

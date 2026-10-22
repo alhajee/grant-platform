@@ -24,7 +24,7 @@ import { activityHints, activityInfo, strategyLabel, activityNames, activityLine
 import { activityBudgetProblem, componentEnvelopeKobo, activityCap, activityCapKobo, activityPercent, activityFixedCaps, isCapped, isCappedFor, type BudgetLine } from '@/lib/activity-budget';
 import { budgetPairs, pairOf, sideSplits, storedAllocation } from '@/lib/budget-pairs';
 import { isSplitMode } from '@/lib/funding-policy';
-import { isCompulsory, lineDocumentSlots, quantityFromSchools } from '@/lib/activity-extras';
+import { compulsoryFor, isCompulsory, lineDocumentSlots, quantityFromSchools } from '@/lib/activity-extras';
 import { requiredFirstProblem } from '@/lib/component-readiness';
 import { FieldHelp } from '@/components/field-help';
 import { LineDocumentsField, LineExtraFields, LineSchoolPicker, uploadLineDocuments, type PendingDocument } from '@/components/activity-line-extras';
@@ -49,6 +49,7 @@ import { LineDatesField } from '@/components/line-dates';
 import './activity-plan-editor.css';
 import { EnvelopeMeter } from './envelope-meter';
 import { IctConnectPanel } from './ict-connect-panel';
+import { ComponentSummaryDialog } from './component-summary-dialog';
 import { cellMatches, connectionDroppedMessage, isConnectionDropped, newClientKey, postJson } from '@/lib/save-request';
 import { nairaFormat } from '@/lib/money-format';
 const money=nairaFormat;
@@ -69,6 +70,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const empty=blankFor(workstream);
  const [data,setData]=useState<Data|null>(null),[draft,setDraft]=useState<Draft>(empty),[baseline,setBaseline]=useState<Draft>(empty);
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[view,setView]=useState('budget'),[picked,setPicked]=useState<number[]>([]),[pinned,setPinned]=useState<number[]>([]),[schoolQuery,setSchoolQuery]=useState(''),[schoolLevel,setSchoolLevel]=useState<SchoolLevelChoice>(allLevels),[query,setQuery]=useState('');
+ const [summaryOpen,setSummaryOpen]=useState(false);
  const [pending,setPending]=useState<null|(()=>void)>(null),[removal,setRemoval]=useState<{entity:'line'|'school';id:number}|null>(null);
  const classesAnchor=useComboboxAnchor(),targetAnchor=useComboboxAnchor();
  const panel=usePanelMode(),{flashId,flash}=useLineFlash();
@@ -139,7 +141,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
    <div><span>{naira(draftActivityUsed)} used{capPartners.length?` with ${capPartners.join(', ')}`:''}</span><strong>{capLeft<BigInt(0)?`${naira(-capLeft)} over`:`${naira(capLeft)} left`}</strong></div>
   </div>
   :draftShare!==undefined?<FieldDescription>Up to {draftShare} of {title} once the plan funding is set</FieldDescription>:null;
- function review(){if(data){const problem=workstream==='sbmc'?sbmcBudgetProblem(savedKobo,data.plan,true)??activityBudgetProblem(workstream,savedLines,data.plan):pooled?infrastructurePoolProblem(data.plan,{infrastructure:budgetKobo(Number(data.partnerProposed??0).toFixed(2)),tlm:savedKobo}):activityBudgetProblem(workstream,savedLines,data.plan);if(problem){toast.error(problem);return;}if(hasDistribution(workstream)&&savedLines.length&&!data.distribution.length){toast.error(emptyDistributionMessage(workstream));guard(()=>{reset();setView('distribution');});return;}}guard(()=>window.location.assign(currentPlanHref('/beap/review')+'#review-'+workstream));}
+ function review(){if(data){const problem=workstream==='sbmc'?sbmcBudgetProblem(savedKobo,data.plan,true)??activityBudgetProblem(workstream,savedLines,data.plan):pooled?infrastructurePoolProblem(data.plan,{infrastructure:budgetKobo(Number(data.partnerProposed??0).toFixed(2)),tlm:savedKobo}):activityBudgetProblem(workstream,savedLines,data.plan);if(problem){toast.error(problem);return;}if(hasDistribution(workstream)&&savedLines.length&&!data.distribution.length){toast.error(emptyDistributionMessage(workstream));guard(()=>{reset();setView('distribution');});return;}}guard(()=>setSummaryOpen(true));}
  async function upload(files:File[]){if(lock.current)return;lock.current=true;setBusy(true);let added=0;try{for(const file of files){const form=new FormData();form.set('workstream',workstream);form.set('file',file);const r=await fetch(currentPlanHref('/api/activities/documents'),{method:'POST',body:form});const result=await r.json() as {error?:string};if(!r.ok)throw new Error(result.error||'Unable to upload');added++;}toast.success(`Uploaded ${added} proforma invoice${added===1?'':'s'}.`);}catch(e){toast.error(e instanceof Error?e.message:'Unable to upload');}finally{lock.current=false;setBusy(false);await load().catch(()=>undefined);}}
  async function removeDocument(id:string){if(lock.current)return;lock.current=true;setBusy(true);try{const r=await fetch(currentPlanHref('/api/activities/documents')+(currentPlanHref('/api/activities/documents').includes('?')?'&':'?')+`workstream=${workstream}&id=${encodeURIComponent(id)}`,{method:'DELETE'});const result=await r.json() as {error?:string};if(!r.ok)throw new Error(result.error);toast.success('Removed.');await load();}catch(e){toast.error(e instanceof Error?e.message:'Unable to remove');}finally{lock.current=false;setBusy(false);}}
  type MutateBody={entity:'line'|'school';action:'create'|'update'|'delete';id?:number}&Record<string,unknown>;
@@ -275,6 +277,9 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
    </article>}</ScrollArea></section>
   </div>
  </div><AlertDialog open={!!removal} onOpenChange={o=>{if(!o&&!busy)setRemoval(null);}}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Remove this {removal?.entity==='school'?'school':'item'}?</AlertDialogTitle><AlertDialogDescription>This removes it from this plan only</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button variant="destructive" disabled={busy} onClick={()=>removal&&void mutate({...removal,action:'delete'})}>Remove</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
+ {data&&<ComponentSummaryDialog open={summaryOpen} onOpenChange={setSummaryOpen} workstream={workstream} title={title} lines={data.lines} envelope={envelope} distribution={withDistribution?data.distribution.length:null}
+  missing={compulsoryFor(workstream,data.plan).filter(a=>!data.lines.some(l=>l.activity===a)).map(a=>activityNames[workstream][a])}
+  onContinue={()=>window.location.assign(currentPlanHref('/beap/review')+'#send-'+workstream)}/>}
  <DiscardChangesDialog open={!!pending} saved="Your saved items stay as they are" onKeep={()=>setPending(null)} onDiscard={()=>{const run=pending;reset();setPending(null);run?.();}}/>
  </div>;
 }
