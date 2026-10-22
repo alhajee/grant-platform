@@ -162,12 +162,14 @@ const money = (n:number) => Math.round(n)/100;
 export const packageModel=(input:Pick<InfrastructureInput,'kind'|'model'>,enrolment:number)=>input.kind==='new'&&input.model!==undefined?input.model:modelFor(enrolment);
 /** Classroom block rows per model (no block of 3, client feedback October 2026). */
 export const classroomBlocks=(model:number)=>model===0?[{key:'classBlock6',label:'Block of 6 classrooms with office and store',count:1}]:model===1?[{key:'classBlock9',label:'Block of 9 classrooms with 2 offices and 2 stores',count:1}]:[{key:'classBlock6',label:'Block of 6 classrooms with office and store',count:2}];
+/** The ECCDE block a model builds (UBEC67): the Small School model has 1 ECCDE classroom, the others 2. */
+export const eccdeBlockFor=(model:number)=>model===0?{key:'eccdeBlock1',label:'ECCDE block · 1 classroom, nanny station and sleeping bay'}:{key:'eccdeBlock',label:'ECCDE block · 2 classrooms, nanny station and sleeping bay'};
 /** One-line summary of a model's standard, for the model choice. */
 export const modelSummary=(model:number,stream:SchoolStream='primary')=>{const qty=(key:string)=>requirements.find(r=>r.key===key)?.qty[model]??0;return `${qty('classroomPri')+(stream==='primary'?qty('classroomEccde'):0)} classrooms · ${qty('dualDesk')} dual desks · ${qty('toilet')} toilets`;};
 /** New Construction rows a model and list ask for, before costing (classroom blocks, ECCDE block, the Minimum Standard rows and the fence). */
 export function newConstructionRows(model:number,stream:SchoolStream,fenceLength:number){
  const rows:{key:string;label:string;quantity:number;unit:string;lump:boolean}[]=classroomBlocks(model).map(b=>({key:b.key,label:b.label,quantity:b.count,unit:'blocks',lump:true}));
- if(stream==='primary')rows.push({key:'eccdeBlock',label:'ECCDE block · 2 classrooms, nanny station and sleeping bay',quantity:1,unit:'block',lump:true});
+ if(stream==='primary')rows.push({...eccdeBlockFor(model),quantity:1,unit:'block',lump:true});
  for(const r of requirements.filter(r=>r.category==='minimum'&&!['classroomPri','classroomEccde','office','store'].includes(r.key)&&r.qty[model]>0&&appliesToStream(r.key,stream)))rows.push({key:r.key,label:r.label+(r.key==='solarPower'?` · ${solarKva[model]} KVA`:''),quantity:r.qty[model],unit:r.unit,lump:!!r.lump});
  rows.push({key:'fence',label:'Perimeter wall fence with concertina security wire',quantity:fenceLength,unit:'metres',lump:false});
  return rows;

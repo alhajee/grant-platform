@@ -23,43 +23,49 @@ const ok = (r, status = 200) => { assert.equal(r.status, status, JSON.stringify(
 async function login(who, pw = password) { const r = await api(who, '/api/auth/login', { email: emails[who], password: pw }); ok(r); cookies[who] = r.response.headers.get('set-cookie').split(';')[0]; }
 await db.connect();
 try {
-  for (const [who, role, departments, state] of [['chair', 'Executive Chairman', [], marker], ['director', 'Director', ['academic'], marker], ['physical', 'Data Entry Staff', ['physical'], marker], ['academic', 'Data Entry Staff', ['academic'], marker], ['foreign', 'Executive Chairman', [], states[1]]]) {
+  for (const [who, role, departments, state] of [['chair', 'Executive Chairman', [], marker], ['director', 'Director', ['academic'], marker], ['beap', 'Director', ['physical'], marker], ['physical', 'Data Entry Staff', ['physical'], marker], ['academic', 'Data Entry Staff', ['academic'], marker], ['foreign', 'Executive Chairman', [], states[1]]]) {
     emails[who] = `${who}.${marker}@subeb-users.test`.toLowerCase();
     ids[who] = (await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id', ['QA ' + who, emails[who], role, departments[0] ?? null, state, hashSync(password, 4)])).rows[0].id;
     for (const department of departments) await db.query('INSERT INTO user_departments(user_id,department) VALUES($1,$2)', [ids[who], department]);
+    if (who === 'beap') await db.query('UPDATE users SET is_beap_chair=TRUE WHERE id=$1', [ids.beap]);
     await login(who);
   }
   assert.equal((await api('anonymous', '/api/users')).status, 401);
   assert.equal((await api('physical', '/api/users')).status, 403);
-  assert.equal(ok(await api('chair', '/api/users')).users.length, 4);
-  assert.deepEqual(ok(await api('director', '/api/users')).users.map(user => user.id).sort((a, b) => a - b), [ids.director, ids.academic].sort((a, b) => a - b), 'A Director sees only themselves and staff within their departments');
+  assert.equal(ok(await api('chair', '/api/users')).users.length, 5);
+  assert.equal((await api('director', '/api/users')).status, 403, 'UBEC159: a Director who is not the BEAP Chair does not manage users');
+  assert.deepEqual(ok(await api('beap', '/api/users')).users.map(user => user.id).sort((a, b) => a - b), [ids.beap, ids.physical, ids.academic].sort((a, b) => a - b), 'The BEAP Chair sees themselves and every Data Entry officer');
   assert.equal(ok(await api('foreign', '/api/users')).users.length, 1);
   const profile = { name: 'QA new staff', email: `new.${marker}@subeb-users.test`.toLowerCase(), role: 'Data Entry Staff', departments: ['academic'], active: true };
-  assert.equal((await api('director', '/api/users', { ...profile, stateCode: states[1] })).status, 400, 'The state comes from the session');
-  assert.equal((await api('director', '/api/users', { ...profile, departments: ['procurement'] })).status, 400);
-  assert.equal((await api('director', '/api/users', { ...profile, departments: ['physical'] })).status, 403, 'A Director assigns only their own departments');
-  assert.equal((await api('director', '/api/users', { ...profile, role: 'Director' })).status, 403, 'Only the Executive Chairman appoints Directors');
+  assert.equal((await api('beap', '/api/users', { ...profile, stateCode: states[1] })).status, 400, 'The state comes from the session');
+  assert.equal((await api('beap', '/api/users', { ...profile, departments: ['procurement'] })).status, 400);
+  assert.equal((await api('director', '/api/users', profile)).status, 403, 'A Director cannot add users');
+  assert.equal((await api('beap', '/api/users', { ...profile, role: 'Director' })).status, 403, 'Only the Executive Chairman appoints Directors');
   assert.equal((await api('chair', '/api/users', { ...profile, role: 'Director' })).status, 409, 'One active Director per department');
   assert.equal((await api('chair', '/api/users', { ...profile, role: 'Executive Chairman' })).status, 400);
-  assert.equal((await api('director', '/api/users', { ...profile, canCreatePlan: true })).status, 403, 'Only the Executive Chairman delegates plan creation');
-  const created = ok(await api('director', '/api/users', profile), 201);
+  assert.equal((await api('beap', '/api/users', { ...profile, canCreatePlan: true })).status, 403, 'Only the Executive Chairman delegates plan creation');
+  const created = ok(await api('beap', '/api/users', profile), 201);
   assert.ok(created.password.length > 20);
-  assert.equal((await api('director', '/api/users', profile)).status, 409, 'Emails are unique');
+  assert.equal((await api('beap', '/api/users', profile)).status, 409, 'Emails are unique');
   emails.new = profile.email; await login('new', created.password);
   assert.equal((await api('foreign', '/api/users', { id: created.id, action: 'reset_password' }, 'PATCH')).status, 404);
-  assert.equal((await api('director', '/api/users', { id: ids.chair, action: 'reset_password' }, 'PATCH')).status, 403);
-  assert.equal((await api('director', '/api/users', { id: ids.director, action: 'reset_password' }, 'PATCH')).status, 403, 'Nobody changes their own account here');
-  assert.equal((await api('director', '/api/users', { id: ids.physical, name: 'QA physical', role: 'Data Entry Staff', departments: ['physical'], active: true }, 'PATCH')).status, 403, 'A Director manages only staff within their departments');
+  assert.equal((await api('beap', '/api/users', { id: ids.chair, action: 'reset_password' }, 'PATCH')).status, 403);
+  assert.equal((await api('beap', '/api/users', { id: ids.beap, action: 'reset_password' }, 'PATCH')).status, 403, 'Nobody changes their own account here');
+  assert.equal((await api('beap', '/api/users', { id: ids.director, action: 'reset_password' }, 'PATCH')).status, 403, 'The BEAP Chair does not manage Directors');
+  assert.equal((await api('director', '/api/users', { id: ids.physical, name: 'QA physical', role: 'Data Entry Staff', departments: ['physical'], active: true }, 'PATCH')).status, 403, 'A Director cannot edit users');
+  ok(await api('beap', '/api/users', { id: ids.physical, name: 'QA physical', role: 'Data Entry Staff', departments: ['physical', 'academic'], active: true }, 'PATCH'));
+  ok(await api('beap', '/api/users', { id: ids.physical, name: 'QA physical', role: 'Data Entry Staff', departments: ['physical'], active: true }, 'PATCH'));
+  await login('physical');
   const change = { id: created.id, name: 'QA renamed staff', role: profile.role, departments: ['academic'], active: true };
-  ok(await api('director', '/api/users', change, 'PATCH'));
+  ok(await api('beap', '/api/users', change, 'PATCH'));
   assert.equal((await api('new', '/api/auth/session')).status, 401, 'Edits revoke existing sessions');
   await login('new', created.password);
   const session = ok(await api('new', '/api/auth/session')).user;
   assert.equal(session.name, 'QA renamed staff'); assert.deepEqual(session.departments, ['academic']);
-  ok(await api('director', '/api/users', { ...change, active: false }, 'PATCH'));
+  ok(await api('beap', '/api/users', { ...change, active: false }, 'PATCH'));
   assert.equal((await api('new', '/api/auth/login', { email: profile.email, password: created.password })).status, 401);
   assert.equal((await api('new', '/api/auth/session')).status, 401);
-  ok(await api('director', '/api/users', change, 'PATCH'));
+  ok(await api('beap', '/api/users', change, 'PATCH'));
   const reset = ok(await api('chair', '/api/users', { id: created.id, action: 'reset_password' }, 'PATCH'));
   assert.equal((await api('new', '/api/auth/login', { email: profile.email, password: created.password })).status, 401);
   await login('new', reset.password);
@@ -83,8 +89,8 @@ try {
 
   const rows = ok(await api('chair', '/api/users')).users;
   assert.ok(rows.every(u => !('password_hash' in u) && !('session_version' in u) && !('password' in u)));
-  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM user_management_events WHERE state_code=$1', [marker])).rows[0].n, 5);
-  console.log('PASS: state-scoped user management, department limits, one Director per department, protected accounts, session revocation, deactivation, password reset, audit events, department-scoped editing.');
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM user_management_events WHERE state_code=$1', [marker])).rows[0].n, 7);
+  console.log('PASS: state-scoped user management, only the Executive Chairman and BEAP Chair manage users, one Director per department, protected accounts, session revocation, deactivation, password reset, audit events, department-scoped editing.');
 } finally {
   await db.query('DELETE FROM user_management_events WHERE state_code=ANY($1::text[])', [states]);
   const plans = 'SELECT id FROM action_plans WHERE state_code=ANY($1::text[])';

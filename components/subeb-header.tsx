@@ -38,7 +38,7 @@ export function SubebHeader({ user, plan = false, users = false, schools = false
       <nav aria-label="SUBEB navigation">
         <a href="/dashboard#action-plans" aria-current={plansActive ? (plan ? 'page' : 'location') : undefined}>Plans</a>
         {canManageSchoolRegister(current?.role, current?.isBeapChair, current?.canManageSchools) && <a href="/schools" aria-current={schools ? 'page' : undefined}>Schools</a>}
-        {canManageStateUsers(current?.role) && <a href="/users" aria-current={users ? 'page' : undefined}>Users</a>}
+        {canManageStateUsers(current?.role, current?.isBeapChair) && <a href="/users" aria-current={users ? 'page' : undefined}>Users</a>}
       </nav>
     </div>
     <div className="subeb-header-actions">

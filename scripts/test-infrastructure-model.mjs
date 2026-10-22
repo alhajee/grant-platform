@@ -14,11 +14,13 @@ for(const strategy of strategies)assert.ok(packageSchema.safeParse({kind:'new',s
 
 // New Construction: the model decides the list; no block of 3; Primary/ECCDE and JSS lists differ (the document's Model 1 lists).
 const label=rows=>rows.map(r=>`${r.label}=${r.quantity}`);
-const primaryModel1=['Block of 6 classrooms with office and store=1','ECCDE block · 2 classrooms, nanny station and sleeping bay=1','Toilet=16','Staff Room=1','Gate House=1','ECCDE Plastic Furniture (set of 1 table and 5 chairs)=6','Dual-Seater Desk (wood + metal frame)=120','Magnetic Board=7','Teachers’ Furniture=16','HM/Principal Furniture=1','Storage Shelf/Cupboard=9','Play Equipment=1','Kindergarten Bed=1','Solar Borehole (with overhead tank)=1','Handwashing Station=1','Rainwater Harvesting System=1','Playground=1','Soft & Hard Landscaping=1','Football Pitch (with associated facilities)=1','Volleyball Court (with associated facilities)=1','Hybrid Solar Power System · 7.5 KVA=1','All-in-one Standalone Outdoor Solar Light=20','Perimeter wall fence with concertina security wire=150'];
+const primaryModel1=['Block of 6 classrooms with office and store=1','ECCDE block · 1 classroom, nanny station and sleeping bay=1','Toilet=14','Staff Room=1','Gate House=1','ECCDE Plastic Furniture (set of 1 table and 5 chairs)=6','Dual-Seater Desk (wood + metal frame)=120','Magnetic Board=7','Teachers’ Furniture=16','HM/Principal Furniture=1','Storage Shelf/Cupboard=9','Play Equipment=1','Kindergarten Bed=1','Solar Borehole (with overhead tank)=1','Handwashing Station=1','Rainwater Harvesting System=1','Playground=1','Soft & Hard Landscaping=1','Football Pitch (with associated facilities)=1','Volleyball Court (with associated facilities)=1','Hybrid Solar Power System · 7.5 KVA=1','All-in-one Standalone Outdoor Solar Light=20','Perimeter wall fence with concertina security wire=150'];
 assert.deepEqual(label(newConstructionRows(0,'primary',150)),primaryModel1);
 const jssModel1=label(newConstructionRows(0,'jss',150));
 assert.deepEqual(jssModel1,primaryModel1.filter(r=>!/^(ECCDE|Play Equipment|Kindergarten Bed)/.test(r)),'JSS leaves out the ECCDE block, ECCDE furniture, play equipment and kindergarten bed');
 assert.equal(jssModel1.length,19);
+// UBEC67: the Small School model has 1 ECCDE classroom; the others build a 2-classroom block.
+assert.deepEqual([0,1,2].map(m=>newConstructionRows(m,'primary',1).find(r=>/^eccdeBlock/.test(r.key)).key),['eccdeBlock1','eccdeBlock','eccdeBlock']);
 for(const model of [0,1,2])assert.ok(!newConstructionRows(model,'primary',1).some(r=>/block3|block6os/.test(r.key)||/Block of 3/.test(r.label)),'No block of 3 classrooms');
 assert.deepEqual(newConstructionRows(1,'primary',1).filter(r=>r.key.startsWith('classBlock')).map(r=>[r.key,r.quantity]),[['classBlock9',1]]);
 assert.deepEqual(newConstructionRows(2,'primary',1).filter(r=>r.key.startsWith('classBlock')).map(r=>[r.key,r.quantity]),[['classBlock6',2]]);
@@ -55,7 +57,7 @@ assert.equal(landDocumentProblem(built,{landArea:0,land:1}),'Attach the document
 assert.equal(landDocumentProblem(built,{landArea:1,land:0}),'Attach the C of O, R of O or Community Agreement document');
 assert.equal(landDocumentProblem(built,{landArea:1,land:1}),null);
 // HOPE costing (retired on save, kept for older packages) still prices rows and VAT.
-const hope={...built,targeting:'hope',classroomStrategy:'NCB',prices:{classBlock6:100,eccdeBlock:50,toilet:70,dualDesk:2,fence:3},fenceLength:10,contingency:5,preliminaries:10};
+const hope={...built,targeting:'hope',classroomStrategy:'NCB',prices:{classBlock6:100,eccdeBlock1:50,toilet:70,dualDesk:2,fence:3},fenceLength:10,contingency:5,preliminaries:10};
 r=calculateInfrastructure(hope,300);
 assert.equal(r.classroomSubtotal,100,'Block amounts are lump sums');assert.equal(r.otherSubtotal,405);assert.equal(r.vat,37.88,"NCB puts the classroom blocks in the VAT base");assert.equal(r.total,542.88);
 

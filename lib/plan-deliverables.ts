@@ -28,6 +28,7 @@ function classify(item: ResultItem, kind: string | undefined): [DeliverableHeadi
   if (blockClassrooms[key]) return ['classrooms', n * blockClassrooms[key]];
   if (key === 'classroomPri') return ['classrooms', n];
   if (key === 'eccdeBlock') return ['eccde', n * 2];
+  if (key === 'eccdeBlock1') return ['eccde', n];
   // Whole School costs new ECCDE classrooms as blocks of two (unit "block"); renovations stay in classrooms.
   if (key === 'classroomEccde') return ['eccde', item.unit === 'block' ? n * 2 : n];
   if (key === 'toilet') return ['toilets', n];

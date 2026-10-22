@@ -12,7 +12,6 @@ const departments = [...subebDepartments,...ubecDepartments];
 import { canManageRole } from '@/lib/subeb-access';
 import { DataTableColumnHeader as SortHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
-import { departmentsContain } from '@/lib/user-departments';
 import { accessLabel } from '@/lib/component-access';
 
 export type User = { id: number; name: string; email: string; role: string; department: string | null; departments: string[]; active: boolean; canCreatePlan: boolean; canManageSchools: boolean; isBeapChair: boolean };
@@ -76,7 +75,7 @@ export function userColumns(actorId: number, actorRole: string, actorDepartments
       cell: ({ row }) => {
         const user = row.original;
         return <div className="flex justify-end">
-          {user.id !== actorId && canManageRole(actorRole, user.role) && (actorRole !== 'Director' || departmentsContain(actorDepartments, user.departments)) ?
+          {user.id !== actorId && canManageRole(actorRole, user.role, actorRole === 'Director') ?
             <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Actions for ${user.name}`}><MoreHorizontalIcon /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end"><DropdownMenuGroup>

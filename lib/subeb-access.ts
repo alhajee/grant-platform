@@ -6,9 +6,11 @@ import { holdsComponent } from './component-access';
 export const subebRoles = ['Data Entry Staff', 'Director', 'Executive Chairman'] as const;
 export const canCreateStatePlan = (role: string, delegated = false, isBeapChair = false) =>
   role === 'Executive Chairman' || (role === 'Director' && isBeapChair) || (delegated && (role === 'Director' || role === 'Data Entry Staff'));
-export const canManageStateUsers = (role?: string) => role === 'Director' || role === 'Executive Chairman';
-export const canManageRole = (actor: string, target: string) =>
-  target === 'Data Entry Staff' ? canManageStateUsers(actor) : target === 'Director' && actor === 'Executive Chairman';
+/** UBEC159: only the Executive Chairman and the BEAP Chair add or edit state users; other Directors do not. */
+export const canManageStateUsers = (role?: string, isBeapChair?: boolean) => role === 'Executive Chairman' || (role === 'Director' && !!isBeapChair);
+/** The BEAP Chair manages Data Entry Staff across the state; only the Executive Chairman appoints Directors. */
+export const canManageRole = (actor: string, target: string, isBeapChair?: boolean) =>
+  target === 'Data Entry Staff' ? canManageStateUsers(actor, isBeapChair) : target === 'Director' && actor === 'Executive Chairman';
 export const canEditPillar = (role: string, departments: DepartmentAccess, pillar: PillarId) =>
   (role === 'Data Entry Staff' || role === 'Director') && pillar in pillarDepartments && holdsComponent(departments, pillar as ImplementedPillar);
 

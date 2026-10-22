@@ -49,9 +49,9 @@ try {
   for (const id of [mon, infra, both]) await db.query('UPDATE users SET password_hash=$1 WHERE id=$2', [hashSync(password, 4), id]);
   for (const who of ['mon', 'infra', 'both']) await login(who);
 
-  step('the department Director manages a single-component account of their department');
-  ok(await api('director', '/api/users', { id: mon, name: 'QA mon', role: 'Data Entry Staff', departments: ['physical/monitoring'], active: true }, 'PATCH'));
-  ok(await api('director', '/api/users', { id: infra, name: 'QA infra', role: 'Data Entry Staff', departments: ['physical/infrastructure'], active: true }, 'PATCH'), 403);
+  step('only the Executive Chairman (or BEAP Chair) edits single-component accounts; a department Director cannot (UBEC159)');
+  ok(await api('director', '/api/users', { id: mon, name: 'QA mon', role: 'Data Entry Staff', departments: ['physical/monitoring'], active: true }, 'PATCH'), 403);
+  ok(await api('chair', '/api/users', { id: mon, name: 'QA mon', role: 'Data Entry Staff', departments: ['physical/monitoring'], active: true }, 'PATCH'));
   await login('mon');
 
   step('a plan: each account edits and sees only its components');

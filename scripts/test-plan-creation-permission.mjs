@@ -65,7 +65,7 @@ try {
   ok(await api('chair','/api/users',{...profile('officer'),canCreatePlan:true},'PATCH'));
   await login('officer');
   ok(await createPlan('officer',2018),201);
-  ok(await api('director','/api/users',profile('officer'),'PATCH'));
+  ok(await api('chair','/api/users',profile('officer'),'PATCH'));
   assert.equal((await db.query('SELECT can_create_plan FROM users WHERE id=$1',[accounts.officer.id])).rows[0].can_create_plan,true);
   ok(await api('chair','/api/users',{...profile('director'),canCreatePlan:false},'PATCH'));
   ok(await createPlan('director'),401);await login('director');ok(await createPlan('director'),403);
