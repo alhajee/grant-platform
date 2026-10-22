@@ -115,7 +115,7 @@ try {
   fails(await decide('offA', 'monitoring', monitoringLine, 'accept'), 403, /not assigned/);
   fails(await decide('audit', 'monitoring', monitoringLine, 'accept'), 403, /cannot accept or reject/);
   fails(await decide('es', 'monitoring', monitoringLine, 'accept'), 403);
-  fails(await decide('dpp', 'monitoring', monitoringLine, 'accept'), 403);
+  fails(await decide('dacs', 'monitoring', monitoringLine, 'accept'), 403, /another department/);
   fails(await decide('offP1', 'monitoring', '987654321', 'accept'), 400, /not in this submission/);
   fails(await step2('offP1', 'complete_assessment', 'monitoring'), 409, /undecided/);
   ok(await decide('offP1', 'monitoring', monitoringLine, 'reject', 'too costly'));
@@ -124,6 +124,21 @@ try {
   ok(await step2('offP1', 'complete_assessment', 'monitoring', { note: 'All good.' }));
   fails(await step2('offP1', 'complete_assessment', 'monitoring'), 409, /already/);
   fails(await decide('offP1', 'monitoring', monitoringLine, 'reject'), 409, /locked/);
+  // UBEC143: the Director changes a decision, or sends a completed assessment back to its officer.
+  ok(await decide('dpp', 'monitoring', monitoringLine, 'reject', 'Unit cost too high'));
+  assert.match((await view('dpp')).flow.decisions.find(d => d.rowRef === monitoringLine).officerName, /\(Director\)$/);
+  ok(await decide('dpp', 'monitoring', monitoringLine, 'accept'));
+  const offP1Assignment = (await view('dpp')).flow.components[0].officers.find(o => o.officerId === users.offP1).id;
+  const offP2Open = (await view('dpp')).flow.components[0].officers.find(o => o.officerId === users.offP2).id;
+  fails(await step2('dpp', 'reopen_assessment', 'monitoring', { assignmentId: offP1Assignment }), 400, /look at again/);
+  fails(await step2('dacs', 'reopen_assessment', 'monitoring', { assignmentId: offP1Assignment, comment: 'x' }), 403, /another department/);
+  fails(await step2('offP1', 'reopen_assessment', 'monitoring', { assignmentId: offP1Assignment, comment: 'x' }), 403);
+  fails(await step2('dpp', 'reopen_assessment', 'monitoring', { assignmentId: offP2Open, comment: 'x' }), 409, /not completed/);
+  ok(await step2('dpp', 'reopen_assessment', 'monitoring', { assignmentId: offP1Assignment, comment: 'Recheck the unit cost.' }));
+  assert.ok(await notified('offP1', 'reopen_assessment'));
+  ok(await decide('offP1', 'monitoring', monitoringLine, 'accept', 'Rechecked'));
+  ok(await step2('offP1', 'complete_assessment', 'monitoring', { note: 'Rechecked.' }));
+  step('the Director changes a decision (recorded as the Director) and sends a completed assessment back with a comment; the officer is notified and completes again');
   assert.ok(await notified('dpp', 'complete_assessment'));
   fails(await step2('dpp', 'send_oversight', 'monitoring', { comment: 'x' }), 409, /still working/);
   const offP2Assignment = (await view('dpp')).flow.components[0].officers.find(o => o.officerId === users.offP2).id;

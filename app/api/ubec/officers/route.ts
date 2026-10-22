@@ -29,7 +29,12 @@ export async function GET(request: NextRequest) {
       (SELECT COUNT(*)::int FROM ubec_officer_assignments oa JOIN ubec_round_components rc ON rc.id=oa.round_component_id JOIN ubec_rounds r ON r.id=rc.round_id WHERE oa.officer_id=u.id AND oa.removed_at IS NULL AND oa.completed_at IS NULL AND r.status='reviewing') AS open,
       (SELECT COUNT(*)::int FROM ubec_officer_assignments oa WHERE oa.officer_id=u.id AND oa.completed_at IS NOT NULL) AS completed
       FROM users u WHERE u.role=$1 AND u.department=ANY($2::text[]) ORDER BY u.department, u.full_name`, [ubecRoles.officer, departments])).rows;
-    return json({ officers, departments, limits, user: { name: user.name, role: user.role, department: user.department } });
+    // The UBEC BEAP Chair also sees the Directors and Oversight Directors (UBEC133), with the components waiting on them.
+    const directors = user.role === ubecRoles.chair ? (await db.query(`SELECT u.id, u.full_name AS name, u.email, u.role, u.department, u.active,
+      (SELECT COUNT(*)::int FROM ubec_round_components rc JOIN ubec_rounds r ON r.id=rc.round_id WHERE r.status='reviewing'
+        AND ((u.role=$1 AND rc.department=u.department AND rc.stage='director') OR (u.role=$2 AND rc.stage='oversight' AND NOT EXISTS(SELECT 1 FROM ubec_oversight_reviews o WHERE o.round_component_id=rc.id AND o.department=u.department)))) AS waiting
+      FROM users u WHERE u.role IN ($1,$2) ORDER BY u.role, u.department, u.full_name`, [ubecRoles.director, ubecRoles.oversight])).rows : [];
+    return json({ officers, departments, limits, directors, user: { name: user.name, role: user.role, department: user.department } });
   } catch (cause) { console.error(cause); return json({ error: 'Unable to load Assessment Officers' }, 503); }
 }
 

@@ -84,6 +84,10 @@ try {
   const n = await activeOfficers('quality');
   await setLimit('quality', n);
   const team = ok(await api('dme', '/api/ubec/officers'));
+  // UBEC133: the UBEC BEAP Chair also sees the Directors (a Director does not get the list).
+  assert.deepEqual(team.directors, []);
+  const chairTeam = ok(await api('chair', '/api/ubec/officers'));
+  assert.ok(chairTeam.directors.some(d => d.id === users.dpp && d.role === 'UBEC Director' && d.department === 'physical'), 'the BEAP Chair lists the Directors');
   assert.deepEqual(team.limits.map(l => [l.department, l.active, l.limit]), [['quality', n, n]]);
   const add = (who, email, extra = {}) => api(who, '/api/ubec/officers', { name: `QA Officer ${email}`, email: `${email}.${marker}@ubec-officers.test`.toLowerCase(), ...extra });
   fails(await add('dme', 'q1'), 409, /already has \d+ of \d+ Assessment Officer/);

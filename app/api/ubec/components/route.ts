@@ -20,10 +20,11 @@ const command = z.discriminatedUnion('action', [
   z.object({ action: z.literal('complete_assessment'), ...base, note }).strict(),
   z.object({ action: z.literal('send_oversight'), ...base, comment: note }).strict(),
   z.object({ action: z.literal('observations_done'), ...base, note }).strict(),
+  z.object({ action: z.literal('reopen_assessment'), ...base, assignmentId: z.number().int().positive(), comment: note }).strict(),
 ]);
 type Command = z.infer<typeof command>;
 type ComponentRow = { id: number; pillar: (typeof implementedPillars)[number]; department: string; stage: string };
-const roles: Record<Command['action'], string> = { assign_officers: ubecRoles.director, unassign_officer: ubecRoles.director, send_oversight: ubecRoles.director, complete_assessment: ubecRoles.officer, observations_done: ubecRoles.oversight };
+const roles: Record<Command['action'], string> = { assign_officers: ubecRoles.director, unassign_officer: ubecRoles.director, send_oversight: ubecRoles.director, complete_assessment: ubecRoles.officer, observations_done: ubecRoles.oversight, reopen_assessment: ubecRoles.director };
 /** The Super Admin may also assign and remove officers on any component, with the Director's rules (migration 056). */
 const adminActions: readonly Command['action'][] = ['assign_officers', 'unassign_officer'];
 const mayAct = (role: string, action: Command['action']) => role === roles[action] || (role === superAdminRole && adminActions.includes(action));
@@ -95,6 +96,18 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
   // Director steps: only the Director of the component's department (or the Super Admin for assignments).
   const admin = actor.role === superAdminRole;
   if (!admin && actor.department !== component.department) return error('This component belongs to another department', 403);
+  if (input.action === 'reopen_assessment') {
+    // UBEC143: the Director sends a completed assessment back to its officer, who can change decisions and complete again.
+    if (admin) return error('Only the component Director sends an assessment back', 403);
+    if (!input.comment) return error('Say what the officer should look at again');
+    const assignment = (await live()).find(a => a.id === input.assignmentId);
+    if (!assignment) return error('That officer is no longer on this component', 404);
+    if (!assignment.completed_at) return error(`${assignment.officer_name} has not completed the assessment yet`, 409);
+    await db.query("UPDATE ubec_officer_assignments SET completed_at=NULL,completion_note='' WHERE id=$1", [assignment.id]);
+    const id = await event('reopen_assessment', input.comment);
+    await notifyUbec(db, planId, id, actor.id, { userIds: [assignment.officer_id] });
+    return NextResponse.json({ reopened: true });
+  }
   if (input.action === 'assign_officers') {
     if (!input.comment) return error('Add a comment for the Assessment Officer before assigning');
     const officers = (await db.query<{ id: number; full_name: string }>('SELECT id,full_name FROM users WHERE id=ANY($1::int[]) AND role=$2 AND department=$3 AND active', [input.officerIds, ubecRoles.officer, component.department])).rows;

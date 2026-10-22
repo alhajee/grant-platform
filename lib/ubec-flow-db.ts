@@ -101,6 +101,7 @@ export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status
     sendOversight: atDirector.filter(c => ownDepartment(c) && c.officers.length > 0 && c.officers.every(o => o.completedAt)).map(c => c.pillar),
     assess: atDirector.filter(mine).map(c => c.pillar),
     complete: atDirector.filter(mine).map(c => c.pillar),
+    override: atDirector.filter(ownDepartment).map(c => c.pillar),
     observe: components.filter(c => reviewing && c.stage === 'oversight' && viewer.role === ubecRoles.oversight && isOversightDepartment(viewer.department) && !c.oversight.some(o => o.department === viewer.department)).map(c => c.pillar),
   };
 }

@@ -29,6 +29,8 @@ export type FlowAbilities = {
   assign: ImplementedPillar[]; sendOversight: ImplementedPillar[]; assess: ImplementedPillar[]; observe: ImplementedPillar[];
   /** The viewer's own open officer assignments, by component. */
   complete: ImplementedPillar[];
+  /** The Director of the component's department: change item decisions and send assessments back (UBEC143). */
+  override: ImplementedPillar[];
 };
 /** Active Assessment Officers the viewer may assign (a Director's department; every component department for the Super Admin). */
 export type DepartmentOfficer = { id: number; name: string; email: string; open: number; department: string };

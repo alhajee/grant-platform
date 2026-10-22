@@ -1,7 +1,10 @@
 'use client';
 import '@/components/plan-page/plan-page.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftIcon, CheckIcon, CornerDownLeftIcon, HistoryIcon, MegaphoneIcon, SendIcon, UserMinusIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, CornerDownLeftIcon, HistoryIcon, MegaphoneIcon, SendIcon, Undo2Icon, UserMinusIcon } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Textarea } from '@/components/ui/textarea';
 import { UbecShell } from '@/components/ubec-shell';
 import { PlanReviewContent } from '@/components/plan-review-content';
 import { PlanSummary } from '@/components/plan-page/plan-summary';
@@ -28,7 +31,7 @@ import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-const trail: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to the UBEC departments', assign_officer: 'Assessment Officers assigned', default_officers: 'Default Assessment Officers assigned', unassign_officer: 'Assessment Officer removed', complete_assessment: 'Assessment completed', send_oversight: 'Sent for oversight', observations_done: 'Observations done', ready_for_chair: 'Ready for the UBEC BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned (earlier flow)', feedback: 'Department review (earlier flow)' };
+const trail: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to the UBEC departments', assign_officer: 'Assessment Officers assigned', reopen_assessment: 'Assessment sent back to the officer', default_officers: 'Default Assessment Officers assigned', unassign_officer: 'Assessment Officer removed', complete_assessment: 'Assessment completed', send_oversight: 'Sent for oversight', observations_done: 'Observations done', ready_for_chair: 'Ready for the UBEC BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned (earlier flow)', feedback: 'Department review (earlier flow)' };
 
 /** The UBEC plan page: summary, component cards, the BEAP Chair's steps, item assessment, the workbook and the trail. */
 export default function UbecReviewPage() {
@@ -86,7 +89,7 @@ export default function UbecReviewPage() {
       return !problem;
     };
     return { pillars: flow.components.map(c => c.pillar), decisions: byPillar(flow.decisions), previous: byPillar(flow.previousDecisions),
-      canDecide: pillar => !!can?.assess.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }),
+      canDecide: pillar => !!can?.assess.includes(pillar) || !!can?.override?.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }),
       canObserve: pillar => !!can?.observe.includes(pillar), observe: pillar => setRequest({ kind: 'observe', pillar }),
       oversightDone: pillar => flow.components.find(c => c.pillar === pillar)?.oversight.map(o => o.department) ?? [],
       validation: pillar => {
@@ -115,8 +118,14 @@ export default function UbecReviewPage() {
           } };
       } };
   }, [round, flow, can, data, load, reportBusy]);
+  // "Assign staff" first; "Add officers" while someone of the department is free; "Manage officers" once all are on it.
+  const assignLabel = (pillar: ImplementedPillar) => {
+    const c = flow?.components.find(x => x.pillar === pillar);
+    if (!c?.officers.length) return 'Assign staff';
+    return flow!.officers.some(o => o.department === c.department && !c.officers.some(a => a.officerId === o.id)) ? 'Add officers' : 'Manage officers';
+  };
   const stepsFor = (pillar: ImplementedPillar): CardStep[] => !can ? [] : [
-    ...(can.assign.includes(pillar) ? [{ label: flow?.components.find(c => c.pillar === pillar)?.officers.length ? 'Add officers' : 'Assign staff', kind: 'assign' as const, run: () => setRequest({ kind: 'assign', pillar }) }] : []),
+    ...(can.assign.includes(pillar) ? [{ label: assignLabel(pillar), kind: 'assign' as const, run: () => setRequest({ kind: 'assign', pillar }) }] : []),
     ...(can.assess.includes(pillar) ? [{ label: 'Assess items', kind: 'assess' as const, run: () => { window.location.hash = `review-${pillar}`; } }] : []),
     ...(can.sendOversight.includes(pillar) ? [{ label: 'Send for oversight', kind: 'oversight' as const, run: () => setRequest({ kind: 'oversight', pillar }) }] : []),
     ...(can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observe', pillar }) }] : []),
@@ -137,7 +146,7 @@ export default function UbecReviewPage() {
         <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs ubec-assessment-tabs">{released.map(c => <TabsTrigger key={c.pillar} value={c.pillar}>{componentName(c.pillar)}{c.counts.rejected > 0 && <Badge variant="destructive" className="ml-1">{c.counts.rejected}</Badge>}</TabsTrigger>)}</TabsList></div>
         {released.map(c => <TabsContent key={c.pillar} value={c.pillar} className="ubec-assessment-panel">
           <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} /><Button variant="outline" size="sm" className="rounded-full" onClick={() => { window.location.hash = `review-${c.pillar}`; }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : can?.observe.includes(c.pillar) ? 'Review in the workbook' : 'View in the workbook'}</Button></div>
-          <ComponentPeople component={c} planId={data.plan.id} roundId={round.id} viewerId={flow.viewerId} canComplete={!!can?.complete.includes(c.pillar)} canRemove={!!can?.assign.includes(c.pillar)} onComplete={() => setRequest({ kind: 'complete', pillar: c.pillar })} onChanged={() => void load()} />
+          <ComponentPeople component={c} planId={data.plan.id} roundId={round.id} viewerId={flow.viewerId} canSendBack={!!can?.override?.includes(c.pillar)} canComplete={!!can?.complete.includes(c.pillar)} canRemove={!!can?.assign.includes(c.pillar)} onComplete={() => setRequest({ kind: 'complete', pillar: c.pillar })} onChanged={() => void load()} />
         </TabsContent>)}
       </Tabs>}
   </section>
@@ -187,15 +196,17 @@ export default function UbecReviewPage() {
         <PlanReviewContent key={round.id} showPlanReference={false} comments={comments} assessment={assessment} snapshot={round.snapshot} visiblePillars={pillars.length ? pillars : undefined} />
         {data.assignments.length > 0 && <Card className="mt-6"><CardHeader><CardTitle>Earlier department reviews</CardTitle></CardHeader><CardContent><ul className="ubec-legacy-reviews">{data.assignments.map(a => <li key={a.id}><strong>{departmentName(a.department)} · {componentName(a.pillar)}</strong><span>{a.completed_at ? a.recommendation === 'changes' ? 'Changes recommended' : 'Endorsed' : 'Not completed'}</span>{a.feedback && <p className="review-comment">{a.feedback}</p>}</li>)}</ul></CardContent></Card>}
         <Card className="mt-6"><CardHeader><CardTitle>Review trail</CardTitle></CardHeader><CardContent><ol className="national-activity">{data.events.map(e => <li key={e.id}><span className="national-activity-dot" /><div><strong>{trail[e.action] ?? e.action}{e.pillar ? ` · ${componentName(e.pillar)}` : ''}</strong><span>{e.actor} · {date.format(new Date(e.created_at))}</span>{e.comment && <p className="review-comment">{e.comment}</p>}</div></li>)}</ol></CardContent></Card>
-        <FlowDialog admin={admin} request={request} planId={data.plan.id} plan={`${data.plan.stateName ? `${data.plan.stateName} ` : ''}${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP`} version={data.plan.version} roundId={round.id} flow={flow} components={cards} threads={comments?.threads ?? []} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} />
+        <FlowDialog admin={admin} request={request} planId={data.plan.id} plan={`${data.plan.stateName ? `${data.plan.stateName} ` : ''}${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP`} version={data.plan.version} roundId={round.id} flow={flow} components={cards} threads={comments?.threads ?? []} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} onChanged={() => void load()} />
       </>}
     </div>
   </UbecShell>;
 }
 
 /** Who worked on a component: officers (assignment comment, completion note), the Director's comment and oversight notes. */
-function ComponentPeople({ component, planId, roundId, viewerId, canComplete, canRemove, onComplete, onChanged }: {
-  component: NonNullable<UbecDetail['flow']>['components'][number]; planId: number; roundId: number; viewerId: number; canComplete: boolean; canRemove: boolean; onComplete: () => void; onChanged: () => void;
+function ComponentPeople({ component, planId, roundId, viewerId, canComplete, canRemove, canSendBack, onComplete, onChanged }: {
+  component: NonNullable<UbecDetail['flow']>['components'][number]; planId: number; roundId: number; viewerId: number; canComplete: boolean; canRemove: boolean;
+  /** The component's Director: send a completed assessment back to its officer (UBEC143). */
+  canSendBack: boolean; onComplete: () => void; onChanged: () => void;
 }) {
   const [removing, setRemoving] = useState<number | null>(null);
   const missingReport = needsValidationReport(component.pillar) && !component.validationReports.some(r => r.officerId === viewerId);
@@ -211,14 +222,33 @@ function ComponentPeople({ component, planId, roundId, viewerId, canComplete, ca
     } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'The officer could not be removed'); }
     finally { setRemoving(null); }
   }
+  const [sendBack, setSendBack] = useState<{ id: number; name: string } | null>(null), [why, setWhy] = useState(''), [sending, setSending] = useState(false), [sendError, setSendError] = useState('');
+  async function reopen() {
+    if (!sendBack || sending) return;
+    if (!why.trim()) { setSendError('Say what the officer should look at again'); return; }
+    setSending(true); setSendError('');
+    try {
+      const response = await fetch(`/api/ubec/components?plan=${planId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'reopen_assessment', roundId, pillar: component.pillar, assignmentId: sendBack.id, comment: why.trim() }) });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'The assessment could not be sent back');
+      toast.success(`Sent back to ${sendBack.name}`); setSendBack(null); setWhy(''); onChanged();
+    } catch (cause) { setSendError(cause instanceof Error ? cause.message : 'The assessment could not be sent back'); }
+    finally { setSending(false); }
+  }
   const notes = [
-    ...component.officers.map(o => ({ key: `o${o.id}`, who: o.officerName, role: 'Assessment Officer', text: o.completedAt ? o.completionNote || 'Assessment complete' : o.assignedByName === defaultAssignerName ? o.comment : `Assigned by ${o.assignedByName}: ${o.comment}`, done: !!o.completedAt, remove: canRemove && !o.completedAt ? () => void remove(o.id, o.officerName) : null, busy: removing === o.id })),
+    ...component.officers.map(o => ({ key: `o${o.id}`, back: canSendBack && o.completedAt ? () => { setSendError(''); setSendBack({ id: o.id, name: o.officerName }); } : null, who: o.officerName, role: 'Assessment Officer', text: o.completedAt ? o.completionNote || 'Assessment complete' : o.assignedByName === defaultAssignerName ? o.comment : `Assigned by ${o.assignedByName}: ${o.comment}`, done: !!o.completedAt, remove: canRemove && !o.completedAt ? () => void remove(o.id, o.officerName) : null, busy: removing === o.id })),
     ...(component.directorComment ? [{ key: 'd', who: component.directorName ?? 'Director', role: `Director, ${departmentName(component.department)}`, text: component.directorComment, done: true, remove: null, busy: false }] : []),
     ...component.oversight.map(o => ({ key: o.department, who: o.reviewerName, role: `Director ${departmentName(o.department)}`, text: o.note || 'Observations done', done: true, remove: null, busy: false })),
   ];
   return <div className="ubec-people">
     {notes.length ? <ul>{notes.map(n => <li key={n.key} data-done={n.done || undefined}><strong>{n.who}</strong><small>{n.role}</small><p>{n.text}</p>
-      {n.remove && <Button variant="ghost" size="sm" className="ubec-people-remove" disabled={removing !== null} onClick={n.remove} aria-label={`Remove ${n.who} from ${componentName(component.pillar)}`}>{n.busy ? <Spinner data-icon="inline-start" /> : <UserMinusIcon data-icon="inline-start" />}Remove</Button>}</li>)}</ul> : <p className="ubec-people-empty">No Assessment Officer assigned yet</p>}
+      {n.remove && <Button variant="ghost" size="sm" className="ubec-people-remove" disabled={removing !== null} onClick={n.remove} aria-label={`Remove ${n.who} from ${componentName(component.pillar)}`}>{n.busy ? <Spinner data-icon="inline-start" /> : <UserMinusIcon data-icon="inline-start" />}Remove</Button>}
+      {'back' in n && n.back && <Button variant="ghost" size="sm" className="ubec-people-remove" onClick={n.back} aria-label={`Send ${componentName(component.pillar)} back to ${n.who}`}><Undo2Icon data-icon="inline-start" />Send back</Button>}</li>)}</ul> : <p className="ubec-people-empty">No Assessment Officer assigned yet</p>}
     {canComplete && <Button className="rounded-full" disabled={component.counts.undecided > 0 || missingReport} title={component.counts.undecided ? `Decide the remaining ${component.counts.undecided} items in the workbook first` : missingReport ? 'Upload your Validation Report on the sheet first' : undefined} onClick={onComplete}><CheckIcon data-icon="inline-start" />Complete assessment</Button>}
+    <Dialog open={!!sendBack} onOpenChange={open => { if (!open && !sending) setSendBack(null); }}><DialogContent className="national-dialog sm:max-w-lg" showCloseButton={!sending}>
+      <DialogHeader><DialogTitle>Send back to {sendBack?.name}</DialogTitle><DialogDescription>{componentName(component.pillar)} goes back to the officer, who can change decisions and complete the assessment again. You can also change a decision yourself on the sheet</DialogDescription></DialogHeader>
+      <Field data-invalid={!!sendError || undefined}><FieldLabel htmlFor="send-back-why">What should they look at again?</FieldLabel><Textarea id="send-back-why" rows={4} maxLength={5000} value={why} disabled={sending} onChange={e => setWhy(e.target.value)} aria-invalid={!!sendError || undefined} />{sendError && <p className="text-sm text-destructive" role="alert">{sendError}</p>}</Field>
+      <DialogFooter><Button type="button" variant="outline" disabled={sending} onClick={() => setSendBack(null)}>Cancel</Button><Button type="button" disabled={sending} onClick={() => void reopen()}>{sending ? <Spinner data-icon="inline-start" /> : <Undo2Icon data-icon="inline-start" />}Send back</Button></DialogFooter>
+    </DialogContent></Dialog>
   </div>;
 }
