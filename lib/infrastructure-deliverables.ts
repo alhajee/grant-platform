@@ -39,9 +39,9 @@ export const requirements: Requirement[] = [
     remark: 'New Construction builds one ECCDE block with a nanny station and sleeping bay: 1 classroom for the Small School model, 2 for the others' }),
   minimum({ sn: 2, group: 0, key: 'office', label: 'Office', qty: [1, 2, 2], unit: 'offices', civil: true }),
   minimum({ sn: 3, group: 0, key: 'store', label: 'Store', qty: [1, 2, 2], unit: 'stores', civil: true }),
-  minimum({ sn: 4, group: 0, key: 'toilet', label: 'Toilet', qty: [14, 28, 28], unit: 'compartments', lump: true,
-    standard: ['6 compartments × 2 blocks (male & female) + 2 ECCDE toilets = 14', '6 compartments × 4 blocks (male & female) + 4 ECCDE toilets = 28', '6 compartments × 4 blocks (male & female) + 4 ECCDE toilets = 28'],
-    remark: '4 learners, 1 PwD and 1 teacher per block per gender = 6 toilets; 2 toilets per ECCDE classroom (1 ECCDE classroom = 2, 2 = 4).' }),
+  minimum({ sn: 4, group: 0, key: 'toilet', label: 'Toilet', qty: [12, 24, 24], unit: 'compartments', lump: true,
+    standard: ['6 compartments × 2 blocks (male & female) = 12', '6 compartments × 4 blocks (male & female) = 24', '6 compartments × 4 blocks (male & female) = 24'],
+    remark: '4 learners, 1 PwD and 1 teacher per block per gender = 6 toilets; The ECCDE block has its own toilets, so these blocks are for the other levels.' }),
   minimum({ sn: 5, group: 0, key: 'staffroom', label: 'Staff Room', qty: [1, 1, 2], unit: 'rooms', remark: 'One staff room for every 9 teachers' }),
   minimum({ sn: 7, group: 0, key: 'gatehouse', label: 'Gate House', qty: [1, 1, 1], unit: 'units', civil: true, tick: true, description: 'Gate house at the school entrance' }),
   minimum({ sn: 8, group: 1, key: 'eccdeFurniture', label: 'ECCDE Plastic Furniture (set of 1 table and 5 chairs)', qty: [6, 12, 12], unit: 'sets', remark: '6 sets per ECCDE classroom for 30 kids.' }),
@@ -128,8 +128,8 @@ const constructionRows: Record<string, { group: number; order: number; descripti
   block3os: { group: 0, order: 0.3, description: '3 classrooms with an office and a store (earlier package).' },
   block3: { group: 0, order: 0.4, description: '3 classrooms (earlier package).' },
   block6os: { group: 0, order: 0.5, description: 'Storey block of 6 classrooms with 2 offices and 2 stores (earlier package)' },
-  eccdeBlock: { group: 0, order: 1.5, description: '2 ECCDE classrooms, a nanny station and a sleeping bay.' },
-  eccdeBlock1: { group: 0, order: 1.5, description: '1 ECCDE classroom, a nanny station and a sleeping bay (Small School model).' },
+  eccdeBlock: { group: 0, order: 1.5, description: '2 ECCDE classrooms with their own toilets, a nanny station and a sleeping bay.' },
+  eccdeBlock1: { group: 0, order: 1.5, description: '1 ECCDE classroom with its own toilets, a nanny station and a sleeping bay (Small School model).' },
   package: { group: 5, order: 1, description: 'One construction contract covering every item above' },
 };
 /** Rows that may carry an edited description (17 October 2026): every audit deliverable and every New Construction row. */
