@@ -130,7 +130,7 @@ try{
  const item=key=>savedWhole.result.items.find(i=>i.key===key);
  assert.equal(item('classroomPri-construct').quantity,9,'355 Primary learners ÷ 40 → 9 classrooms');assert.equal(item('classroomEccde-construct').quantity,1,'45 ÷ 30 → 2 ECCDE classrooms = 1 block');
  assert.equal(item('office-construct').quantity,4,'11 classrooms ÷ 3 → 4');assert.equal(item('staffroom').quantity,3,'19 teachers ÷ 9 → 3');
- assert.equal(item('toilet').quantity,16,'400 ÷ 20 = 20 compartments − 4 functional');assert.equal(item('toilet-renovate'),undefined,'Toilets are not civil works');
+ assert.equal(item('toilet').quantity,14,'Primary 355 ÷ 20 = 18 compartments (ECCDE learners excluded) − 4 functional');assert.equal(item('toilet-renovate'),undefined,'Toilets are not civil works');
  assert.equal(item('teachersFurniture').quantity,11);assert.equal(item('magneticBoard').quantity,11);assert.equal(item('dualDesk').quantity,150,'The Additional figure entered is costed');
  assert.ok(item('scienceLab-construct'));assert.ok(!savedWhole.result.items.some(i=>i.key.startsWith('workshop')),'Blank Other Facilities are left out');
  current=ok(await api('officer',path));const assessment=current.packages.find(p=>p.kind==='whole');

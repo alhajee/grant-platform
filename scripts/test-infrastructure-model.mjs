@@ -67,7 +67,7 @@ const facts=schoolFacts(school);assert.deepEqual(facts,{total:275,eccde:45,prima
 let need=wholeRequirements(facts,'primary');const qty=key=>need[key].qty;
 assert.equal(qty('classroomPri'),6,'230 ÷ 40 = 5.75 → 6');assert.equal(qty('classroomEccde'),2,'45 ÷ 30 = 1.5 → 2');
 assert.equal(qty('office'),3,'8 classrooms ÷ 3 → 3');assert.equal(qty('store'),3);
-assert.equal(qty('toilet'),14,'275 ÷ 20 = 13.75 → 14');assert.equal(qty('staffroom'),3,'19 teachers ÷ 9 → 3');
+assert.equal(qty('toilet'),12,'ECCDE learners excluded: 230 ÷ 20 = 11.5 → 12');assert.equal(qty('staffroom'),3,'19 teachers ÷ 9 → 3');
 assert.equal(qty('magneticBoard'),8);assert.equal(qty('teachersFurniture'),8,'Boards and teachers’ furniture equal the classrooms');
 assert.equal(qty('dualDesk'),120);assert.equal(qty('eccdeFurniture'),12);assert.equal(qty('storageShelf'),14);
 assert.equal(qty('gatehouse'),1);assert.equal(qty('solarLight'),20);
@@ -110,7 +110,7 @@ const other=auditGaps({...whole,audit:{...whole.audit,scienceLab:{additional:1,e
 assert.equal(other.included,true);assert.equal(other.toBuild,1);assert.equal(other.required,0);
 // Older rows: a retired “Extra beyond standard” figure is added to the calculated Additional, so totals are kept.
 const legacy=auditGaps({...whole,audit:{...whole.audit,toilet:{existing:10,functional:10,extra:2}}},facts).find(g=>g.key==='toilet');
-assert.equal(legacy.calculated,6,'14 − 10 + 2 extra');
+assert.equal(legacy.calculated,4,'12 − 10 + 2 extra');
 // Photographic evidence, per row with non-functional units.
 const photo='11111111-1111-4111-8111-111111111111',other2='22222222-2222-4222-8222-222222222222';
 assert.match(photoEvidenceProblem(whole,gaps,[]),/Classroom · Primary: non-functional units/);

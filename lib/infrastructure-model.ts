@@ -112,7 +112,7 @@ const working = (label: string, n: number, d: number) => { const exact = n / d, 
 export type WholeRequirement = { qty: number; basis: string };
 /**
  * Whole School Minimum Standard quantities from enrolment (client feedback, October 2026), rounded up:
- * classrooms ECCDE ÷ 30, Primary ÷ 40, JSS ÷ 40; office = store = classrooms ÷ 3; toilets = enrolment ÷ 20; staff room = teachers ÷ 9
+ * classrooms ECCDE ÷ 30, Primary ÷ 40, JSS ÷ 40; office = store = classrooms ÷ 3; toilets = (Primary + JSS) ÷ 20 (ECCDE blocks have their own toilets); staff room = teachers ÷ 9
  * (1 when DNEMIS has no teacher figure); magnetic boards = teachers' furniture = classrooms. From the workbook remarks: dual desks 20 per
  * Primary/JSS classroom, ECCDE furniture 6 per ECCDE classroom, storage 1 per classroom, office and staff room. Everything else keeps the
  * workbook's fixed minimum standard. The fence is entered (input.fenceRequired).
@@ -122,7 +122,8 @@ export function wholeRequirements(facts: SchoolFacts, stream: SchoolStream): Rec
   const eccdeRooms = stream === 'primary' ? per(facts.eccde, 30) : 0;
   const classrooms = priRooms + eccdeRooms, offices = per(classrooms, 3);
   const staffrooms = facts.teachers ? per(facts.teachers, 9) : 1;
-  const learners = facts.eccde + facts.primary + facts.jss;
+  // ECCDE learners use the ECCDE block's own toilets, so the toilet blocks serve Primary and JSS only.
+  const toiletLearners = facts.primary + facts.jss;
   const priBasis = facts.primary > 0 && facts.jss > 0 ? `${working('Primary', facts.primary, 40)}; ${working('JSS', facts.jss, 40)}; together ${priRooms}` : facts.jss > 0 ? working('JSS enrolment', facts.jss, 40) : working('Primary enrolment', facts.primary, 40);
   const rooms = `${classrooms} classroom${classrooms === 1 ? '' : 's'}`;
   const need: Record<string, WholeRequirement> = {
@@ -130,7 +131,7 @@ export function wholeRequirements(facts: SchoolFacts, stream: SchoolStream): Rec
     classroomEccde: { qty: eccdeRooms, basis: `${working('ECCDE enrolment', facts.eccde, 30)}. 30 learners per classroom.` },
     office: { qty: offices, basis: `${working('Classrooms', classrooms, 3)}. One office for every 3 classrooms.` },
     store: { qty: offices, basis: `${working('Classrooms', classrooms, 3)}. One store for every 3 classrooms.` },
-    toilet: { qty: per(learners, 20), basis: `${working('Enrolment', learners, 20)}. One compartment for every 20 learners.` },
+    toilet: { qty: per(toiletLearners, 20), basis: `${working('Primary and JSS enrolment', toiletLearners, 20)}. One compartment for every 20 learners; ECCDE learners use the ECCDE block's own toilets.` },
     staffroom: { qty: staffrooms, basis: facts.teachers ? `${working('Teachers', facts.teachers, 9)}. One staff room for every 9 teachers.` : 'DNEMIS has no teacher figure for this school: 1 staff room' },
     eccdeFurniture: { qty: eccdeRooms * 6, basis: `6 sets per ECCDE classroom × ${eccdeRooms}.` },
     dualDesk: { qty: priRooms * 20, basis: `20 sets per Primary/JSS classroom × ${priRooms}.` },
