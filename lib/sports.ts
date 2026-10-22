@@ -36,6 +36,13 @@ export const sportsSubActivities: Record<"competitions" | "publicity", readonly 
 };
 /** The "Other Competitions" and "Others" sub-activities: the description names the activity. */
 export const isOtherSubActivity = (name: string) => /^others?\b/i.test(name.trim());
+/**
+ * Procurement & Training of PHE Officers (UBEC121): a line is either procurement (a sport and an item) or training, which
+ * carries this activity type with a description, quantity and unit cost. Training is not a sport (no limit) and is not an
+ * equipment item allocated to schools.
+ */
+export const pheTrainingActivity = "Training of PHE Officers";
+export const isPheTraining = (line: { section: string; activityType: string }) => line.section === "equipment" && line.activityType.trim().toLowerCase() === pheTrainingActivity.toLowerCase();
 /** Supervision has no sub-activity list; its lines carry the section name as their activity type. */
 export const supervisionActivity = "Supervision, Assessment and Verification";
 
@@ -43,11 +50,12 @@ const key = (value: string) => value.trim().toLowerCase();
 export const findSport = (name: string) => sportsCatalog.find((sport) => key(sport.name) === key(name));
 /** Distinct procurement sports already in the plan, ignoring one line (the one being edited). */
 export function equipmentSports(lines: readonly { id?: number; section: string; activityType: string }[], exceptId?: number) {
-  return [...new Map(lines.filter((line) => line.section === "equipment" && line.id !== exceptId).map((line) => [key(line.activityType), line.activityType.trim()])).values()];
+  return [...new Map(lines.filter((line) => line.section === "equipment" && !isPheTraining(line) && line.id !== exceptId).map((line) => [key(line.activityType), line.activityType.trim()])).values()];
 }
 /** Returns an error for the field that breaks a catalogue rule, or null. */
 export function sportsCatalogError(line: { section: SportsSection; activityType: string; description: string }, others: readonly { id?: number; section: string; activityType: string }[], exceptId?: number): { field: "activityType" | "description"; message: string } | null {
   if (line.section === "equipment") {
+    if (isPheTraining(line)) return null;
     const used = equipmentSports(others, exceptId);
     if (!used.some((sport) => key(sport) === key(line.activityType)) && used.length >= maxEquipmentSports) return { field: "activityType", message: `You can select up to ${maxEquipmentSports} sports (${used.join(", ")}). Add items to one of these sports instead.` };
     return null;

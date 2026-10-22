@@ -9,7 +9,7 @@ import { planPeriod } from "@/lib/action-plans";
 import { getPostgres } from "@/lib/postgres";
 import { cachedSchoolList } from '@/lib/school-cache';
 import { getWorkspaceState, sqlText } from "@/lib/workspace-state";
-import { sportsAllocationSchema, sportsBudgetProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema } from "@/lib/sports";
+import { pheTrainingActivity, sportsAllocationSchema, sportsBudgetProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema } from "@/lib/sports";
 import { componentEnvelope } from "@/lib/funding-policy";
 import { resolveLineQuarters } from "@/lib/line-quarters";
 import { readPlanQuarterSetup } from "@/lib/line-quarters-db";
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       if (!parsed.success) return error(parsed.error.issues[0].message);
       const allocation = parsed.data;
       const equipment = (await db.query(`SELECT b.quantity FROM sports_budget_lines b JOIN schools s ON s.state_code = b.state_code
-        WHERE b.id = ${allocation.lineId} AND b.plan_id = ${plan.id} AND b.section = 'equipment' AND b.state_code = ${state} AND s.id = ${allocation.schoolId}`)).rows[0];
+        WHERE b.id = ${allocation.lineId} AND b.plan_id = ${plan.id} AND b.section = 'equipment' AND lower(b.activity_type) <> lower(${sqlText(pheTrainingActivity)}) AND b.state_code = ${state} AND s.id = ${allocation.schoolId}`)).rows[0];
       if (!equipment) return error("Choose a school and an equipment item from your state plan");
       const duplicate = await db.query(`SELECT id FROM sports_allocations WHERE school_id = ${allocation.schoolId} AND line_id = ${allocation.lineId}${action === "update" ? ` AND id <> ${id}` : ""}`);
       if (duplicate.rowCount) return error("This school already has an allocation for this item. Edit that allocation instead.", 409);

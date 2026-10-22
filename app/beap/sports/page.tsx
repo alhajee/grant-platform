@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supervisionActivity, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsLine, type SportsPlan } from "@/lib/sports";
+import { isPheTraining, supervisionActivity, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsLine, type SportsPlan } from "@/lib/sports";
 import { toKobo } from "@/lib/funding-policy";
 import { EnvelopeMeter } from "@/components/envelope-meter";
 import { PanelSummary, PanelToolbar } from "@/components/line-panel/line-section";
@@ -65,10 +65,11 @@ export default function SportsPage() {
   const dirty = budgetDirty || allocationDirty;
   const disabled = loading || saving || Boolean(loadError);
   const editingId = view === "budget" ? budget.id : allocation.id;
-  const hasEquipment = plan.lines.some((line) => line.section === "equipment");
+  // Equipment items go to schools; Training of PHE Officers lines do not (UBEC121).
+  const hasEquipment = plan.lines.some((line) => line.section === "equipment" && !isPheTraining(line));
   const budgetTotal = sportsBudget(plan.lines);
   const schoolCount = new Set(plan.allocations.map((item) => item.schoolId)).size;
-  const equipmentQuantity = plan.lines.filter((line) => line.section === "equipment").reduce((sum, line) => sum + line.quantity, 0);
+  const equipmentQuantity = plan.lines.filter((line) => line.section === "equipment" && !isPheTraining(line)).reduce((sum, line) => sum + line.quantity, 0);
   const allocatedQuantity = plan.allocations.reduce((sum, item) => sum + item.quantity, 0);
   const lineTotal = sportsLineTotal({ quantity: Number(budget.quantity) || 0, unitCost: Number(budget.unitCost) || 0 });
   const orderedTargets: SportsTarget[] = view === "budget"

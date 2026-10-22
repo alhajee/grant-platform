@@ -61,6 +61,12 @@ try {
   const sportLines = [];
   for (const activityType of ["Basketball", "football"]) { const created = await api({ ...budget, activityType, description: activityType === "Basketball" ? "Shot clock" : "Footballs", quantity: 1, unitCost: 1 }); assert.equal(created.status, 201, JSON.stringify(created.body)); sportLines.push(created.body.id); }
   assert.equal((await api({ ...budget, activityType: "Tennis", description: "Tennis balls", quantity: 1, unitCost: 1 })).status, 409, "A fourth sport must be rejected.");
+  // Training of PHE Officers (UBEC121): a training line in the same section is not a sport, so the limit does not apply,
+  // and it is not an equipment item to allocate to schools.
+  const training = await api({ ...budget, activityType: "Training of PHE Officers", description: "Three-day refresher for 40 PHE officers", quantity: 40, unitCost: 1 });
+  assert.equal(training.status, 201, JSON.stringify(training.body));
+  assert.equal((await api({ ...allocate, lineId: training.body.id, schoolId: schools[0].id })).status, 400, "Training lines are not allocated to schools.");
+  assert.equal((await api({ entity: "budget", action: "delete", id: training.body.id })).status, 200);
   const sameSport = await api({ ...budget, activityType: " CHILDREN'S FOOTBALL ", description: "Bibs", quantity: 1, unitCost: 1 });
   assert.equal(sameSport.status, 201, "An existing sport (any case) is not a new sport.");
   sportLines.push(sameSport.body.id);

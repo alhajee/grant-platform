@@ -150,6 +150,11 @@ Pillar and component `planning` (state department `planning`, UBEC lead departme
 - Migration 041 widens the `activity_plan_lines` workstream/activity, `plan_pillar_reviews`, `plan_comments` pillar/sheet and `plan_funding_sources` component CHECKs (additive, idempotent).
 - Test: `node --env-file=.env scripts/test-planning.mjs [baseUrl]` (throwaway state, users and plan; cleans up).
 
+## Sports: PHE training and Others (no migration, 22 October 2026)
+
+- "Procurement & Training of PHE Officers" lines are either procurement (Sport + Item, at most 3 sports) or **Training of PHE Officers** (UBEC121): a switch on the form; training lines carry `activity_type = pheTrainingActivity` ("Training of PHE Officers") with a description, quantity and unit cost, are not a sport (`isPheTraining`; `equipmentSports` and the sport limit skip them) and are not equipment for schools (the allocation picker, the Beneficiary schools counts and the allocation API refuse them).
+- Sport and Item are dropdowns ending in **Others (specify)** with a text box (`PickOrOther` in `components/sports-plan-forms.tsx`), like the other components (UBEC144/158); the typed name is stored. Others for a sport is hidden once 3 sports are used.
+
 ## Sports sub-activity caps (no migration)
 
 Each Sports Competitions sub-activity's share (`sportsSubActivities.competitions`, e.g. State Finals 40%) is a cap: that share of the section's cap (`subActivityBudget` in `lib/sports.ts`), checked live in the editor, on save (raising only; `sportsBudgetProblem(..., section, activityType)`) and at every send step (`sportsSnapshotProblem`). Publicity sub-activities have no shares. Test: `scripts/test-sports.mjs`.
