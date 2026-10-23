@@ -3,7 +3,7 @@
 .activity-split [data-slot=native-select-wrapper] { width:100%; }
 .activity-split .preview-document { max-width:none; }
 .activity-shell .editor-canvas { padding:18px 22px 20px; }
-.activity-shell .editor-heading { margin-bottom:18px; }
+.activity-shell .editor-heading { margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 .activity-shell .editor-heading h1 { font-size:21px; }
 .activity-shell .editor-canvas [data-slot=field-group] { gap:16px; }
 .activity-shell .editor-canvas [data-slot=field] { gap:6px; min-width:0; }

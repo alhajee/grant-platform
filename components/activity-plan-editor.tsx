@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { ChevronLeftIcon, ChevronRightIcon, LockIcon } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon, LockIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupSeparator } from '@/components/ui/button-group';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -36,6 +36,9 @@ import { LockedOverlay, type LockReason } from '@/components/locked-overlay/lock
 import { ActivitySelectionPanel } from '@/components/activity-selection';
 import { choosesUpFront, chosenActivities, planSelection } from '@/lib/activity-selection';
 import { TeacherTrainingFields } from '@/components/teacher-training-fields';
+
+// UBEC68: the client's training budget guide (Literacy, ECCDE, Curriculum), served from public/templates.
+const trainingBudgetTemplate='/templates/teacher-development-budget-template.xlsx';
 import { FileUpload, DocumentFiles } from '@/components/document-files';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { saveBlockedReason } from '@/components/activity-save-reason';
@@ -222,7 +225,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
   {withDistribution&&<Tabs value={view} onValueChange={v=>guard(()=>{reset();setView(v);})}><TabsList className="m-3"><TabsTrigger value="budget">Budget activities</TabsTrigger><TabsTrigger value="distribution">Distribution list</TabsTrigger></TabsList></Tabs>}
   <div className="activity-split">
    <section className="workspace-pane editor-pane" aria-label={`${title} editor`}><ScrollArea className="pane-scroll"><div className="editor-canvas">
-    <header className="editor-heading"><h1>{view==='distribution'?'Add schools':draft.id?'Edit budget item':'Add a budget item'}</h1></header>
+    <header className="editor-heading"><h1>{view==='distribution'?'Add schools':draft.id?'Edit budget item':'Add a budget item'}</h1>{training&&<Button asChild variant="outline" size="sm" className="rounded-full"><a href={trainingBudgetTemplate} download="BEAPMS Training Budget Template.xlsx" title="Literacy, ECCDE and Curriculum training budget guides"><DownloadIcon data-icon="inline-start"/>Budget template</a></Button>}</header>
     {error&&<Alert variant="destructive"><AlertTitle>Unable to load</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={()=>void load().catch(e=>setError(e.message))}>Retry</Button></AlertDescription></Alert>}
     {splitSide&&data&&!error&&<SharedBudgetPanel key={storedAllocation(data.plan,splitSide)??'unset'} side={splitSide} plan={data.plan} proposed={total} partnerProposed={Number(data.partnerProposed??0)} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
     {workstream==='ict'&&data&&!error&&<IctConnectPanel plan={data.plan} waivers={data.documents} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
