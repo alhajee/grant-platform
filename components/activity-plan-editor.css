@@ -71,3 +71,4 @@
 .component-summary-figures > div[data-over] dd { color: var(--destructive); }
 .component-summary-table { max-height: 45vh; overflow: auto; border: 1px solid var(--border); border-radius: .75rem; }
 .component-summary-missing { border-color: color-mix(in oklab, var(--warning, #d97706) 45%, transparent); }
+.textbook-warning { color: var(--warning-foreground); }

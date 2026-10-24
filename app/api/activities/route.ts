@@ -40,7 +40,7 @@ export async function GET(req:NextRequest){
   const schoolFields='s.id,s.name,s.lga,s.level,s.location,(s.enrolment_male+s.enrolment_female)::int AS enrolment';
   const listed=hasDistribution(workstream);
   const schools=listed||lineSchoolActivities[workstream]?await cachedSchoolList(user.stateCode,'activities',async()=>(await db.query(`SELECT ${schoolFields} FROM schools s WHERE s.state_code=$1 ORDER BY s.name`,[user.stateCode])).rows):[];
-  const distribution=listed?(await db.query(`SELECT ${schoolFields} FROM tlm_distribution d JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.workstream=$3 AND s.state_code=$2 ORDER BY s.name`,[plan.id,user.stateCode,workstream])).rows:[];
+  const distribution=listed?(await db.query(`SELECT ${schoolFields},s.enrolment_by_class AS "enrolmentByClass" FROM tlm_distribution d JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.workstream=$3 AND s.state_code=$2 ORDER BY s.name`,[plan.id,user.stateCode,workstream])).rows:[];
   const documents=workstream==='monitoring'||workstream==='ict'?(await db.query("SELECT id,name,size FROM component_documents WHERE plan_id=$1 AND component=$2 AND removed_at IS NULL ORDER BY created_at,id",[plan.id,workstream])).rows:[];
   // Schools with any Infrastructure package in this plan (New Construction, Whole School, Furniture): listed first and suggested for distribution.
   const renovated=listed?(await db.query<{id:number}>("SELECT DISTINCT p.school_id AS id FROM infrastructure_packages p JOIN schools s ON s.id=p.school_id WHERE p.plan_id=$1 AND s.state_code=$2",[plan.id,user.stateCode])).rows.map(r=>r.id):[];
