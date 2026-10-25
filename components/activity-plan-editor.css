@@ -76,3 +76,9 @@
 .activity-note { display:flex; gap:8px; align-items:flex-start; margin-top:2px; padding:9px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--primary) 22%, transparent); background:color-mix(in srgb, var(--primary) 7%, var(--background)); color:var(--primary); line-height:1.5; }
 .activity-note svg { flex:none; width:15px; height:15px; margin-top:2px; }
 .dark .activity-note { color:var(--foreground); }
+/* UBEC88: textbooks per school (one per learner of the chosen classes) */
+.textbook-allocation { display:flex; flex-direction:column; gap:6px; }
+.textbook-allocation > button { align-self:flex-start; }
+.textbook-allocation[data-state=open] .textbook-allocation-chevron { transform:rotate(90deg); }
+.textbook-allocation-chevron { transition:transform 160ms ease; }
+.textbook-allocation-table { font-size:13px; }

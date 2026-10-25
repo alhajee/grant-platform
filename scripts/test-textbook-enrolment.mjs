@@ -1,8 +1,9 @@
-// UBEC73: TLM offers Verification and Monitoring again, and a textbook quantity above the learners it is for is warned about (unit test, no server).
+// UBEC73: TLM offers Verification and Monitoring again, and a textbook quantity above the learners it is for is warned about.
+// UBEC88: textbooks are one per learner of the chosen classes, allocated per school (unit test, no server).
 // Usage: node scripts/test-textbook-enrolment.mjs
 import assert from 'node:assert/strict';
 import { activityLabel, activityLineSchema, activityShare, selectableActivityIndexes } from '../lib/activity-plans.ts';
-import { textbookLearners, textbookQuantityWarning } from '../lib/textbook-enrolment.ts';
+import { textbookAllocation, textbookLearners, textbookQuantityWarning } from '../lib/textbook-enrolment.ts';
 
 assert.equal(activityLabel('tlm', 3), 'Verification and Monitoring');
 assert.deepEqual(selectableActivityIndexes.tlm.slice(-3), [2, 3, 22], 'Distribution, then Verification and Monitoring, just before Other TLMs');
@@ -22,4 +23,8 @@ assert.equal(textbookQuantityWarning(150, ['Primary 1', 'Primary 2'], schools), 
 assert.match(textbookQuantityWarning(151, ['Primary 1', 'Primary 2'], schools), /^151 textbooks is more than the 150 learners in the chosen classes across the 3 distribution schools/);
 assert.equal(textbookQuantityWarning(999, ['JSS 3'], schools), null, 'no class figures: nothing to compare');
 assert.equal(textbookQuantityWarning(999, ['Primary 1'], []), null, 'empty list: no warning');
+// UBEC88: one textbook per learner of the chosen classes, per school (largest first, schools without figures left out).
+assert.deepEqual(textbookAllocation(['Primary 1', 'Primary 2'], schools).map(r => [r.school.name, r.learners]), [['B', 75], ['A', 75]].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])));
+assert.deepEqual(textbookAllocation(['Primary 1'], schools).map(r => [r.school.name, r.learners]), [['B', 75], ['A', 50]]);
+assert.deepEqual(textbookAllocation(['JSS 3'], schools), []);
 console.log('textbook enrolment: ok');
