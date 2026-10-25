@@ -1,6 +1,7 @@
 import type { ActionPlan } from './action-plans';
-export type ReviewAction = 'submit' | 'request_changes' | 'endorse' | 'forward' | 'approve' | 'edit';
-export const reviewActionLabels: Record<ReviewAction, string> = { submit: 'Sent to department Director', endorse: 'Sent to BEAP Chair', forward: 'Sent to Executive Chairman', request_changes: 'Changes requested', approve: 'Review completed', edit: 'Plan details updated' };
+/** `finance_submit`: the Finance department submitted the plan's Finance documents to the BEAP Chair (migration 073). */
+export type ReviewAction = 'submit' | 'request_changes' | 'endorse' | 'forward' | 'approve' | 'edit' | 'finance_submit';
+export const reviewActionLabels: Record<ReviewAction, string> = { submit: 'Sent to department Director', endorse: 'Sent to BEAP Chair', forward: 'Sent to Executive Chairman', request_changes: 'Changes requested', approve: 'Review completed', edit: 'Plan details updated', finance_submit: 'Finance documents submitted to the BEAP Chair' };
 export type ReviewEvent = { id: number; action: ReviewAction; actorName: string; actorRole: string; comment: string; scope: string; submissionNumber: number; createdAt: string };
 type School = { id?: number; name: string; lga: string; level: string; location: string };
 export type Snapshot = {

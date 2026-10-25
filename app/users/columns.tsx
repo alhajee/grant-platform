@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { departments as ubecDepartments } from '@/lib/ubec';
-import { subebDepartments } from '@/lib/subeb-departments';
+import { subebDepartments, supportDepartments } from '@/lib/subeb-departments';
 const departments = [...subebDepartments,...ubecDepartments];
 import { canManageRole } from '@/lib/subeb-access';
 import { DataTableColumnHeader as SortHeader } from '@/components/data-table-column-header';
@@ -19,7 +19,7 @@ const helper = createColumnHelper<DataTableFeatures, User>();
 export const departmentLabel = (user: User) => {
   if (user.role === 'Executive Chairman') return 'Whole state';
   const assigned = user.departments ?? (user.department ? [user.department] : []);
-  return subebDepartments.every(d => assigned.includes(d.id)) ? 'All departments' : accessLabel(assigned) || assigned.map(value => departments.find(d => d.id === value)?.name ?? value).join(', ');
+  return subebDepartments.every(d => assigned.includes(d.id)) ? ['All departments', ...supportDepartments.filter(d => assigned.includes(d.id)).map(d => d.name)].join(', ') : accessLabel(assigned) || assigned.map(value => departments.find(d => d.id === value)?.name ?? value).join(', ');
 };
 
 export function userColumns(actorId: number, actorRole: string, actorDepartments: string[], onEdit: (user: User) => void, onReset: (user: User) => void) {

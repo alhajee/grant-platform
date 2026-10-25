@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
-import { subebDepartments as departments } from '@/lib/subeb-departments';
+import { subebDepartments as departments, supportDepartments } from '@/lib/subeb-departments';
 import { toast } from 'sonner';
 import { DepartmentCheckboxes } from '@/components/department-checkboxes';
 
@@ -73,7 +73,7 @@ export default function UsersPage() {
       {data?.role==='Executive Chairman' && form.role==='Director' && <Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="user-beap-chair">Appoint as SUBEB BEAP Chair</FieldLabel><Switch id="user-beap-chair" disabled={saving} checked={form.isBeapChair} onCheckedChange={isBeapChair=>setForm({...form,isBeapChair})} /></Field>}
       {formError&&<FieldError role="alert">{formError}</FieldError>}
     </FieldGroup>
-      <DepartmentCheckboxes departments={departments} selected={form.departments} disabled={saving} components={form.role==='Data Entry Staff'} onChange={values=>setForm({...form,departments:values,department:values[0]??''})}/>
+      <DepartmentCheckboxes departments={departments} support={supportDepartments} selected={form.departments} disabled={saving} components={form.role==='Data Entry Staff'} onChange={values=>setForm({...form,departments:values,department:values[0]??''})}/>
       </div><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={()=>setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving||form.departments.length===0}>{saving&&<Spinner data-icon="inline-start" />}Save user</Button></DialogFooter></form></DialogContent></Dialog>
     <Dialog open={Boolean(reset)} onOpenChange={open=>{if(!open&&!saving)setReset(null);}}><DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto" showCloseButton={!saving}><DialogHeader><DialogTitle>Reset password?</DialogTitle><DialogDescription>{reset?.name} will be signed out. A new password will be shown once for you to share securely.</DialogDescription></DialogHeader>{formError&&<FieldError role="alert">{formError}</FieldError>}<DialogFooter><Button variant="outline" disabled={saving} onClick={()=>setReset(null)}>Cancel</Button><Button disabled={saving} onClick={()=>void save(true)}>{saving&&<Spinner data-icon="inline-start" />}Reset password</Button></DialogFooter></DialogContent></Dialog>
     <Dialog open={Boolean(credentials)} onOpenChange={open=>{if(!open)setCredentials(null);}}><DialogContent><DialogHeader><DialogTitle>Login details</DialogTitle><DialogDescription>Copy these details and share them securely. This password will not be shown again.</DialogDescription></DialogHeader><FieldGroup><Field><FieldLabel htmlFor="credential-email">Email</FieldLabel><Input id="credential-email" readOnly value={credentials?.email??''} /></Field><Field><FieldLabel htmlFor="credential-password">Password</FieldLabel><Input id="credential-password" readOnly value={credentials?.password??''} /></Field></FieldGroup><DialogFooter><Button onClick={()=>setCredentials(null)}>Done</Button></DialogFooter></DialogContent></Dialog>

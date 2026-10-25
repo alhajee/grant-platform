@@ -38,7 +38,8 @@ try {
   assert.equal(ok(await api('foreign', '/api/users')).users.length, 1);
   const profile = { name: 'QA new staff', email: `new.${marker}@subeb-users.test`.toLowerCase(), role: 'Data Entry Staff', departments: ['academic'], active: true };
   assert.equal((await api('beap', '/api/users', { ...profile, stateCode: states[1] })).status, 400, 'The state comes from the session');
-  assert.equal((await api('beap', '/api/users', { ...profile, departments: ['procurement'] })).status, 400);
+  // Procurement and Finance are SUBEB departments since UBEC130; an unknown department is still refused.
+  assert.equal((await api('beap', '/api/users', { ...profile, departments: ['catering'] })).status, 400);
   assert.equal((await api('director', '/api/users', profile)).status, 403, 'A Director cannot add users');
   assert.equal((await api('beap', '/api/users', { ...profile, role: 'Director' })).status, 403, 'Only the Executive Chairman appoints Directors');
   assert.equal((await api('chair', '/api/users', { ...profile, role: 'Director' })).status, 409, 'One active Director per department');

@@ -2,7 +2,7 @@
 // department ("academic": every component of it) or one component of a department ("academic/sports"). Only Data
 // Entry Staff take component grants; Directors stay per department (one per department, see migration 024).
 import { implementedPillars, subebComponentDepartments, type ImplementedPillar } from './beap-pillars';
-import { subebDepartmentName, subebDepartments } from './subeb-departments';
+import { isSupportDepartment, stateDepartments, subebDepartmentName, subebDepartments, supportDepartments } from './subeb-departments';
 import { normalizeDepartments, type DepartmentAccess } from './user-departments';
 
 /** The components each SUBEB department edits, in the plan's order. */
@@ -33,6 +33,8 @@ export function normalizeAccess(selection: DepartmentAccess): string[] | null {
   const tokens = normalizeDepartments(selection);
   for (const token of tokens) {
     const department = tokenDepartment(token), component = tokenComponent(token);
+    // Support departments (Procurement, Finance) have no components: held whole only.
+    if (isSupportDepartment(department)) { if (token.includes('/')) return null; continue; }
     if (!departmentComponents[department]) return null;
     if (token.includes('/') && (!component || !departmentComponents[department].includes(component) || token.split('/').length !== 2)) return null;
   }
@@ -40,7 +42,7 @@ export function normalizeAccess(selection: DepartmentAccess): string[] | null {
   for (const [department, components] of Object.entries(departmentComponents))
     if (components.every(c => tokens.includes(`${department}/${c}`))) whole.add(department);
   const parts = tokens.filter(t => t.includes('/') && !whole.has(tokenDepartment(t)));
-  const order = (t: string) => subebDepartments.findIndex(d => d.id === tokenDepartment(t));
+  const order = (t: string) => stateDepartments.findIndex(d => d.id === tokenDepartment(t));
   return [...whole, ...parts].sort((a, b) => order(a) - order(b) || a.localeCompare(b));
 }
 
@@ -53,5 +55,5 @@ export function accessLabel(access: DepartmentAccess): string {
     if (tokens.includes(d.id)) return [d.name];
     const parts = tokens.filter(t => tokenDepartment(t) === d.id && t.includes('/')).map(t => componentAccessNames[tokenComponent(t)!]);
     return parts.length ? [`${subebDepartmentName(d.id)} (${parts.join(', ')})`] : [];
-  }).join(', ');
+  }).concat(supportDepartments.filter(d => tokens.includes(d.id)).map(d => d.name)).join(', ');
 }

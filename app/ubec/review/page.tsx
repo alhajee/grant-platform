@@ -10,6 +10,7 @@ import { PlanReviewContent } from '@/components/plan-review-content';
 import { PlanSummary } from '@/components/plan-page/plan-summary';
 import { UbecComponentCards, type CardStep } from '@/components/ubec/ubec-component-cards';
 import { FlowDialog, type FlowRequest } from '@/components/ubec/flow-dialog';
+import { FinanceDocumentsCard } from '@/components/plan-page/finance-documents-card';
 import { DecisionBar, StagePill } from '@/components/ubec/flow-bits';
 import type { RowDecision, WorkbookAssessment } from '@/components/plan-workbook/assessment-context';
 import { NotReleasedArt, PipelineIdleArt, UbecEmpty } from '@/components/empty-art/ubec-flow';
@@ -190,6 +191,8 @@ export default function UbecReviewPage() {
               <ol className="ubec-pipeline-steps">{(['unreleased', 'director', 'oversight', 'chair'] as const).map(stage => { const n = cards.filter(c => c.stage === stage).length; return <li key={stage} data-active={n > 0 || undefined}><StagePill stage={stage} /><b>{n}</b></li>; })}</ol>
               <p className="ubec-pipeline-meta">Received {date.format(new Date(round.submitted_at))} · Submission {round.number}</p>
             </CardContent></Card>
+            {/* Only UBEC Finance sees the plan's Finance documents (UBEC130); the card renders nothing for anyone else. */}
+            <FinanceDocumentsCard planId={data.plan.id} />
           </aside>
         </div>
 

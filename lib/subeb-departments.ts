@@ -8,4 +8,15 @@ export const subebDepartments = [
   {id:'social',name:'Social Mobilisation'},
   {id:'planning',name:'Planning, EMIS & Data Platform'},
 ] as const;
-export const subebDepartmentName=(id:string)=>subebDepartments.find(d=>d.id===id)?.name ?? id;
+/**
+ * Support departments (UBEC130, October 2026): they own no components. Procurement keeps the state's price list;
+ * Finance uploads the plan's Finance documents. Each has a Director and Data Entry Staff like the others.
+ */
+export const supportDepartments = [
+  {id:'procurement',name:'Procurement'},
+  {id:'finance',name:'Finance'},
+] as const;
+/** Every SUBEB department a user can hold. */
+export const stateDepartments = [...subebDepartments, ...supportDepartments] as const;
+export const isSupportDepartment=(id:string)=>supportDepartments.some(d=>d.id===id);
+export const subebDepartmentName=(id:string)=>stateDepartments.find(d=>d.id===id)?.name ?? id;

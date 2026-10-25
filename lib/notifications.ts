@@ -32,6 +32,7 @@ function stateWording(item: NotificationItem): Wording {
     case 'submit': return { verb: 'Sent you', target, suffix: 'to review', kind: 'sent' };
     case 'endorse': return { verb: 'Sent', target, suffix: 'to the BEAP Chair', kind: 'sent' };
     case 'forward': return { verb: 'Sent', target: component ?? 'the complete BEAP', suffix: 'to the Executive Chairman', kind: 'sent' };
+    case 'finance_submit': return { verb: 'Submitted', target: 'the Finance documents', suffix: 'to you', kind: 'sent' };
     case 'request_changes': return fromUbec ? { verb: 'Returned', target: 'the plan', suffix: 'for changes', kind: 'changes' } : { verb: 'Requested changes on', target, suffix: '', kind: 'changes' };
     case 'approve': return fromUbec ? { verb: 'Approved', target: 'the plan', suffix: '', kind: 'approved' } : { verb: 'Completed the review of', target, suffix: '', kind: 'approved' };
     default: return { verb: 'Updated', target, suffix: '', kind: 'sent' };

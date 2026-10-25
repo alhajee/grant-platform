@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { getAuthenticatedUser } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
-import { subebDepartments } from '@/lib/subeb-departments';
+import { stateDepartments } from '@/lib/subeb-departments';
 import { isComponentDepartment, ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
 import { officerLimitProblem, pruneDefaultOfficers } from '@/lib/ubec-officer-limits';
 import { normalizeDepartments, replaceUserDepartments, userDepartmentsSql } from '@/lib/user-departments';
@@ -40,7 +40,7 @@ function validProfile(input: z.infer<typeof profile>) {
     : input.role === 'Data Entry Staff' || input.role === 'Director' || input.role === 'Executive Chairman';
   if (!roleMatchesWorkspace) return 'Choose a role that belongs to this workspace';
   const needsDepartment = ['Data Entry Staff', 'Director'].includes(input.role) || ubecRoleDepartments(input.role).length > 0;
-  const allowedDepartments = ubec ? ubecRoleDepartments(input.role) : subebDepartments;
+  const allowedDepartments = ubec ? ubecRoleDepartments(input.role) : stateDepartments;
   const raw = input.departments?.length ? input.departments : input.department;
   // SUBEB access may name single components of a department ("academic/sports", lib/component-access.ts).
   const selected = ubec ? normalizeDepartments(raw) : normalizeAccess(raw);

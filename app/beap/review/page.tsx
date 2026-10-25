@@ -12,6 +12,7 @@ import { PlanSummary } from '@/components/plan-page/plan-summary';
 import { ComponentCards, type CardActions } from '@/components/plan-page/component-cards';
 import { WorkflowBar } from '@/components/plan-page/workflow-bar';
 import { DeliverablesCard } from '@/components/plan-page/deliverables-card';
+import { FinanceDocumentsCard } from '@/components/plan-page/finance-documents-card';
 import { SendSeveralDialog } from '@/components/plan-page/send-several-dialog';
 import { ReviewHistory } from '@/components/plan-page/review-history';
 import { PlanDocuments } from '@/components/plan-page/plan-documents';
@@ -151,9 +152,10 @@ export default function PlanPage() {
         {/* Components in the main column; the plan's funding and status sit in a sticky column on the right. */}
         <div className="plan-glance">
           {/* The heading has its own row, so the cards and the right-hand cards start on the same line. */}
-          <h2 id="plan-components-title" className="plan-section-title plan-glance-head">Components</h2>
+          {/* Support departments (Procurement, Finance) hold no components: their work on the plan takes the main column. */}
+          <h2 id="plan-components-title" className="plan-section-title plan-glance-head">{data.pillarReviews.length ? 'Components' : 'Your work on this plan'}</h2>
           <section className="plan-components plan-glance-main" id="plan-components" aria-labelledby="plan-components-title">
-            <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} />
+            {data.pillarReviews.length ? <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} /> : selected === 'current' && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
             <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} onSendToUbec={() => setSendingToUbec(true)} onSendSeveral={() => setSendingSeveral(true)} />
             <SendSeveralDialog open={sendingSeveral} onOpenChange={setSendingSeveral} data={data} problemFor={pillar => nothingToSend(data, pillar) ? 'Nothing saved in this component yet' : readiness(data, pillar)} onDone={async () => { await load(); }} />
           </section>
@@ -161,6 +163,7 @@ export default function PlanPage() {
             <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
             <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} ubecStage={plan ? ubecStageLabels[plan.status] : null} />
             {data.visiblePillars.includes('infrastructure') && data.snapshot.infrastructure.length > 0 && <DeliverablesCard packages={data.snapshot.infrastructure.map(item => item.package)} />}
+            {selected === 'current' && data.pillarReviews.length > 0 && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
           </aside>
         </div>
         {selected === 'current' && <UbecResultsCard planId={data.plan.id} reloadKey={data.plan.version} />}

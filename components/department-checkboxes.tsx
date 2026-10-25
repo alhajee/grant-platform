@@ -11,8 +11,10 @@ type Department = { id: string; name: string };
  * components list them underneath, so access can be limited to single components ("academic/sports"); a department
  * ticked whole covers all of its components.
  */
-export function DepartmentCheckboxes({ departments, selected, onChange, disabled = false, components = false }: {
+export function DepartmentCheckboxes({ departments, support = [], selected, onChange, disabled = false, components = false }: {
   departments: readonly Department[];
+  /** Support departments (Procurement, Finance): no components, listed apart and not part of "All departments". */
+  support?: readonly Department[];
   selected: string[];
   onChange: (departments: string[]) => void;
   disabled?: boolean;
@@ -21,7 +23,8 @@ export function DepartmentCheckboxes({ departments, selected, onChange, disabled
   const allowed = departments.map(department => department.id);
   const allSelected = allowed.length > 0 && allowed.every(department => selected.includes(department));
   const someSelected = selected.length > 0 && !allSelected;
-  const commit = (next: string[]) => onChange((normalizeAccess(next) ?? []).filter(entry => allowed.includes(tokenDepartment(entry))));
+  const commit = (next: string[]) => onChange((normalizeAccess(next) ?? []).filter(entry => allowed.includes(tokenDepartment(entry)) || support.some(d => d.id === entry)));
+  const supportHeld = selected.filter(entry => support.some(d => d.id === entry));
   const partOf = (department: string) => selected.filter(entry => entry.startsWith(`${department}/`));
   const toggleDepartment = (department: string, checked: boolean) => {
     const rest = selected.filter(entry => tokenDepartment(entry) !== department);
@@ -42,7 +45,7 @@ export function DepartmentCheckboxes({ departments, selected, onChange, disabled
     </div>
     <FieldGroup data-slot="checkbox-group" role="group" className="gap-2 rounded-lg border p-3">
       <Field orientation="horizontal" className="border-b pb-3">
-        <Checkbox id="department-all" disabled={disabled} checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={checked => onChange(checked === true ? allowed : [])} />
+        <Checkbox id="department-all" disabled={disabled} checked={allSelected ? true : someSelected ? 'indeterminate' : false} onCheckedChange={checked => onChange(checked === true ? [...allowed, ...supportHeld] : supportHeld)} />
         <FieldLabel htmlFor="department-all" className="font-semibold">All departments</FieldLabel>
       </Field>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -63,6 +66,13 @@ export function DepartmentCheckboxes({ departments, selected, onChange, disabled
           </div>;
         })}
       </div>
+      {support.length > 0 && <div role="group" aria-label="Support departments" className="grid gap-2 border-t pt-3 sm:grid-cols-2">
+        <p className="text-xs font-medium text-muted-foreground sm:col-span-2">Support departments (no components)</p>
+        {support.map(department => <Field key={department.id} orientation="horizontal" className="rounded-md px-1 py-1.5">
+          <Checkbox id={`department-${department.id}`} disabled={disabled} checked={selected.includes(department.id)} onCheckedChange={checked => commit(checked === true ? [...selected, department.id] : selected.filter(entry => entry !== department.id))} />
+          <FieldLabel htmlFor={`department-${department.id}`}>{department.name}</FieldLabel>
+        </Field>)}
+      </div>}
     </FieldGroup>
   </FieldSet>;
 }

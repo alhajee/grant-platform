@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { canManageRole, canManageStateUsers, subebRoles } from '@/lib/subeb-access';
-import { subebDepartments as departments } from '@/lib/subeb-departments';
+import { stateDepartments as departments } from '@/lib/subeb-departments';
 import { stateDisplayName } from '@/lib/state-names';
 import { replaceUserDepartments, userDepartmentsSql } from '@/lib/user-departments';
 import { hasComponentGrants, normalizeAccess, tokenDepartment } from '@/lib/component-access';
