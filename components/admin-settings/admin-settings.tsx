@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils';
 import { DnemisPanel } from './dnemis-panel';
 import { OfficersPanel } from './officers-panel';
 import { sectionGroups, type SettingsSection } from './sections';
-import { BudgetPanel, DocumentsPanel, SchoolSourcePanel, WorkflowPanel } from './simple-panels';
+import { BudgetPanel, DocumentsPanel, PriceListPanel, SchoolSourcePanel, WorkflowPanel } from './simple-panels';
 import './admin-settings.css';
 
 const panels: Record<SettingsSection, ComponentType<{ onDirty?: (dirty: boolean) => void }>> = {
-  workflow: WorkflowPanel, documents: DocumentsPanel, budget: BudgetPanel, officers: OfficersPanel, schools: SchoolSourcePanel, dnemis: DnemisPanel,
+  workflow: WorkflowPanel, documents: DocumentsPanel, budget: BudgetPanel, pricelist: PriceListPanel, officers: OfficersPanel, schools: SchoolSourcePanel, dnemis: DnemisPanel,
 };
 const allItems = sectionGroups.flatMap(group => group.items);
 

@@ -48,6 +48,23 @@ export function WorkflowPanel({ onDirty }: PanelProps) {
 
 const readRequired = (body: unknown) => Boolean((body as { required?: boolean }).required);
 
+/** UBEC130 part 2 (migration 074): whether the activities that buy goods must take their items from the state's price list. */
+export function PriceListPanel({ onDirty }: PanelProps) {
+  const s = useSetting<boolean>({ url: '/api/admin/price-list', read: readRequired, write: required => ({ required }), noun: 'price list setting', saved: required => required ? 'Items to buy must now come from the price list' : 'The price list is now optional', onDirty });
+  return <SettingsPanel title="Procurement price list" description="Whether items to buy must be picked from each state's Procurement price list">
+    {s.error ? <PanelError title="Price list setting unavailable" message={s.error} onRetry={() => void s.load()} />
+      : s.draft === null ? <PanelSkeleton rows={1} /> : <>
+        <SettingsCard>
+          <SettingRow label="Require the price list" htmlFor="price-list-required" description={s.draft ? 'New items to buy must be picked from the approved price list; the price is filled in' : 'Editors can pick from the price list, or type a unit cost as before'}
+            info="Covers the activities that buy goods: Quality Assurance mobility and office equipment, ICT digital/STEM equipment, the TLM materials, Monitoring tools and vehicles, Curriculum procurement, Planning working tools and SBMC working tools. Turn it on once each state's Procurement has approved its list.">
+            <Switch id="price-list-required" checked={s.draft} disabled={s.saving} onCheckedChange={s.setDraft} />
+          </SettingRow>
+        </SettingsCard>
+        <SaveBar dirty={s.dirty} saving={s.saving} onDiscard={s.discard} onSave={() => void s.save()} />
+      </>}
+  </SettingsPanel>;
+}
+
 export function DocumentsPanel({ onDirty }: PanelProps) {
   const s = useSetting<boolean>({ url: '/api/admin/component-documents', read: readRequired, write: required => ({ required }), noun: 'supporting documents setting', saved: required => required ? 'Supporting documents are now required' : 'Supporting documents are now optional', onDirty });
   return <SettingsPanel title="Supporting documents" description="Whether component uploads must be attached before saving or sending">

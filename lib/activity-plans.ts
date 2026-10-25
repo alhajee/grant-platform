@@ -142,6 +142,8 @@ export const activityLineSchema = z.object({
   item: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters for the item`).default(''),
   /** Planning census type (migration 064). */
   censusType: z.enum(['', ...censusTypes]).default(''),
+  /** The Procurement price-list item the line buys (migration 074); the unit cost is its list price. */
+  priceItemId: z.number().int().positive().nullable().default(null),
   schoolIds: z.array(z.number().int().positive()).max(maxLineSchools, `Choose up to ${maxLineSchools.toLocaleString()} schools`).default([]),
   ...teacherTrainingShape,
   /** Timeline: implementation quarters within the plan's quarters (migration 050); omitted = the plan's quarters. */
