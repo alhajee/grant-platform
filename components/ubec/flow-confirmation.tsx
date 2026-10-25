@@ -52,6 +52,10 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
     description: 'They are notified and can start accepting or rejecting its items',
     facts: [...base, { label: 'Assessment Officers', value: <ul>{officerNames.map(n => <li key={n}>{n}</li>)}</ul> }],
     notes: [{ kind: 'info', text: 'You can remove an officer later while their assessment is still open' }] };
+  if (request.kind === 'observers') return { title: `Assign ${officerNames.length === 1 ? officerNames[0] : `${officerNames.length} officers`} to ${name}?`, confirm: officerNames.length === 1 ? 'Yes, assign officer' : 'Yes, assign officers', tone: 'default',
+    description: 'They are notified and can comment on its items. They do not accept or reject.',
+    facts: [...base, { label: 'Assessment Officers', value: <ul>{officerNames.map(n => <li key={n}>{n}</li>)}</ul> }],
+    notes: [{ kind: 'info', text: 'Their open comments must be resolved before the UBEC BEAP Chair can approve the plan' }] };
   if (request.kind === 'complete') return { title: `Submit your assessment of ${name}?`, confirm: 'Yes, submit assessment', tone: 'default',
     description: `Your Director${component ? `, ${departmentName(component.department)},` : ''} is notified and reviews your decisions.`,
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: 'Your Director' }],

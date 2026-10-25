@@ -31,7 +31,7 @@ export function UbecShell({ children, user, review = false, allocations = false,
             {admin ? <a href="/admin?section=officers">Administration</a> : navigation.map(({ label, href }) => (
               <a key={label} href={href} aria-current={active === href ? 'page' : undefined}>{label}</a>
             ))}
-            {!admin && (user?.role === ubecRoles.director || user?.role === ubecRoles.chair) && <a href="/ubec/team" aria-current={team ? 'page' : undefined}>Officers</a>}
+            {!admin && (user?.role === ubecRoles.director || user?.role === ubecRoles.oversight || user?.role === ubecRoles.chair) && <a href="/ubec/team" aria-current={team ? 'page' : undefined}>Officers</a>}
             {user?.role === ubecRoles.es && <a href="/ubec/allocations" aria-current={allocations?'page':undefined}>Allocations</a>}
           </nav>
         </div>

@@ -45,6 +45,7 @@ function ubecWording(item: NotificationItem): Wording {
     case 'release': return { verb: 'Released', target: 'the plan', suffix: 'to the UBEC departments', kind: 'assigned' };
     // The Super Admin's assignments also reach the Director, so the wording fits both readers.
     case 'assign_officer': return item.actorRole === 'Super Admin' ? { verb: 'Assigned Assessment Officers to', target: component, suffix: '', kind: 'assigned' } : { verb: 'Assigned you', target: component, suffix: 'to assess', kind: 'assigned' };
+    case 'assign_observer': return { verb: 'Assigned you to comment on', target: component, suffix: 'for oversight', kind: 'assigned' };
     case 'default_officers': return { verb: 'Assigned', target: component, suffix: 'to its default Assessment Officers', kind: 'assigned' };
     case 'complete_assessment': return { verb: 'Completed the assessment of', target: component, suffix: '', kind: 'feedback' };
     case 'reopen_assessment': return { verb: 'Sent back your assessment of', target: component, suffix: '', kind: 'feedback' };

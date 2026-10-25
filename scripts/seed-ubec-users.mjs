@@ -1,6 +1,7 @@
 // UBEC accounts for the review flow (docs/ubec-flow.md, migration 055): makes the active UBEC side exactly
 //   1 UBEC Executive Secretary (the existing account is kept), 1 UBEC BEAP Chair, 7 component Directors,
-//   3 Oversight Directors (Audit, Procurement, Finance) and 11 Assessment Officers (one per component).
+//   3 Oversight Directors (Audit, Procurement, Finance), 11 Assessment Officers (one per component) and 3 oversight
+//   Assessment Officers (one per Audit, Procurement and Finance, migration 071).
 // Every other UBEC-side account (e.g. the old `UBEC Department Reviewer` accounts) is retired: deleted when nothing
 // references it (every foreign key to users is checked; never TRUNCATE ... CASCADE), otherwise deactivated with its
 // sessions revoked and its history kept. The Super Admin and SUBEB accounts are never touched.
@@ -33,6 +34,7 @@ const targets = [
   ...directors.map(([department, label, key]) => ({ email: `${key}.director@ubec.test`, name: `UBEC Director ${label}`, role: 'UBEC Director', department })),
   ...oversight.map(([department, label]) => ({ email: `${department}.director@ubec.test`, name: `UBEC Director ${label}`, role: 'UBEC Oversight Director', department })),
   ...components.map(([pillar, department, label]) => ({ email: `${pillar}.officer@ubec.test`, name: `UBEC Assessment Officer – ${label}`, role: 'UBEC Assessment Officer', department })),
+  ...oversight.map(([department, label]) => ({ email: `${department}.officer@ubec.test`, name: `UBEC Assessment Officer – ${label}`, role: 'UBEC Assessment Officer', department })),
 ];
 const ubecSide = "(role LIKE 'UBEC %')";
 const show = user => `${user.name} <${user.email}>`;

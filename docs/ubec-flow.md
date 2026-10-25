@@ -9,8 +9,9 @@ Department Reviewers sent one recommendation each). It follows the client's "Rol
 |---|---|---|
 | `UBEC BEAP Chair` | none | Receives submitted plans, comments and releases them to the departments, then approves the plan or returns it to the SUBEB. |
 | `UBEC Director` | one component department | Assigns Assessment Officers per component (with a comment), comments on items, reads officer results, adds their comment and sends each component for oversight. Adds Assessment Officers to their department. |
-| `UBEC Oversight Director` | `audit`, `procurement` or `finance` | "God mode": sees every component once it is sent for oversight, comments on items, clicks **Observations done**. Never accepts or rejects anything. |
+| `UBEC Oversight Director` | `audit`, `procurement` or `finance` | "God mode": sees every component once it is sent for oversight, comments on items, assigns their own Assessment Officers to it (with a comment, migration 071), clicks **Observations done**. Never accepts or rejects anything. Adds officers to their department (no limit). |
 | `UBEC Assessment Officer` | one component department | Accepts or rejects each item (line) of the components assigned to them, comments, then **Complete assessment**. Replaces `UBEC Department Reviewer`. |
+| `UBEC Assessment Officer` | `audit`, `procurement` or `finance` (migration 071) | Comments on the items of the components their Oversight Director assigns them to. Never accepts, rejects, completes or finishes observations. Their open comments block approval. |
 | `UBEC Executive Secretary` | none | Supervisory and read-only: sees every plan, stage and comment (internal ones too). No workflow actions. Still edits funding allocations. |
 | `Super Admin` | | Unchanged; creates and edits every UBEC role. |
 
@@ -83,7 +84,7 @@ the new flow; their old department assignments (`ubec_assignments`) stay readabl
 | ES, BEAP Chair | Every round, every component |
 | Director (dept D) | Components of D once released (plus legacy assignments of D) |
 | Oversight Director | Components once sent for oversight (stay visible after) |
-| Assessment Officer | Components with an assignment to them (not removed) |
+| Assessment Officer | Components with an assignment to them (not removed); oversight officers: components with an oversight assignment to them (`ubec_oversight_assignments`, not removed) |
 | SUBEB | Results and shared threads only after a decision (returned/approved); a state user sees the components their role and stage allow |
 
 A viewer sees a round only if at least one of its components is visible; snapshots are filtered to visible components.
@@ -101,7 +102,8 @@ Document downloads (`componentDocuments`, line documents, infrastructure documen
 | complete_assessment | Assigned officer | stage `director`, not complete, every item decided |
 | send_oversight | Director of the department | stage `director`, at least one officer, all officers complete; comment required (400) |
 | observations_done | Oversight Director (audit/procurement/finance) | stage `oversight`, their department not done yet |
-| approve | UBEC BEAP Chair | round `reviewing`, every component at `chair`, nothing rejected or undecided; comment required |
+| assign_observers / unassign_observer | Oversight Director, their own department's officers | stage `oversight`, their department not done yet; assigning needs a comment (400) and active officers of that department (400) |
+| approve | UBEC BEAP Chair | round `reviewing`, every component at `chair`, nothing rejected or undecided, no open UBEC root comment on the round by an Oversight Director or oversight officer (`openOversightCommentCount`); comment required |
 | return | UBEC BEAP Chair | round `reviewing`, every component at `chair`; comment required; `shareCommentIds` validated |
 | UBEC comments start/reply/resolve/reopen | Chair, Director, Oversight, Officer on visible components | round open (`received` or `reviewing`, latest) |
 | anything above | UBEC Executive Secretary | always 403 (read-only) |
@@ -133,6 +135,7 @@ serialise and stale ones fail with 409. Plan-level steps also check `action_plan
 | assign_officer | the officer | "Assigned you <component> to assess" |
 | complete_assessment | Directors of the department | "Completed the assessment of <component>" |
 | send_oversight | Oversight Directors | "Sent <component> for your observations" |
+| assign_observer | the oversight officers assigned | "Assigned you to comment on <component> for oversight" |
 | observations_done | Directors of the department | "Finished observations on <component>" |
 | ready_for_chair | BEAP Chair | "<component> is ready for your decision" |
 | return / approve | ES, Directors and officers involved; state: Executive Chairman, BEAP Chair, Directors and Data Entry of the round's departments | existing state wording |

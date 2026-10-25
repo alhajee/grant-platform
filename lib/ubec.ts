@@ -25,7 +25,11 @@ export const componentDepartments = [
   { id: 'quality', name: 'Monitoring & Evaluation', short: 'DME' },
   { id: 'social', name: 'Social Mobilisation', short: 'DSM' },
 ] as const;
-/** Oversight ("God mode") departments: they observe every component and comment, but never accept or reject. */
+/**
+ * Oversight ("God mode") departments: they observe every component and comment, but never accept or reject. Each has
+ * an Oversight Director and Assessment Officers the Director assigns to components (migration 071); their open
+ * comments block the UBEC BEAP Chair's approval.
+ */
 export const oversightDepartments = [
   { id: 'audit', name: 'Audit', short: 'Audit' },
   { id: 'procurement', name: 'Procurement', short: 'Procurement' },
@@ -59,7 +63,7 @@ export const departmentShort = (id: string) => allDepartments.find(d => d.id ===
 export const departmentLabel = (id: string) => { const d = allDepartments.find(item => item.id === id); return d ? (d.short && d.short !== d.name ? `${d.name} (${d.short})` : d.name) : id; };
 /** Roles that need a department, and which list it comes from. */
 export const ubecRoleDepartments = (role: string): readonly { id: string; name: string; short: string }[] =>
-  role === ubecRoles.director || role === ubecRoles.officer ? componentDepartments : role === ubecRoles.oversight ? oversightDepartments : [];
+  role === ubecRoles.officer ? departments : role === ubecRoles.director ? componentDepartments : role === ubecRoles.oversight ? oversightDepartments : [];
 /** The account title shown under the name, e.g. "UBEC Director · Physical Planning (DPP)". */
 export function ubecRoleTitle(role: string, department: string | null | undefined) {
   if (role === ubecRoles.director && department) return `UBEC Director · ${departmentLabel(department)}`;

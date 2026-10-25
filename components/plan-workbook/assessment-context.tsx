@@ -22,6 +22,8 @@ export type WorkbookAssessment = {
   /** Oversight Directors: they record observations as row comments, then finish with Observations done. */
   canObserve: (pillar: ImplementedPillar) => boolean;
   observe: (pillar: ImplementedPillar) => void;
+  /** Oversight departments' Assessment Officers: they add observations (row comments) but never decide or finish (migration 071). */
+  canComment?: (pillar: ImplementedPillar) => boolean;
   /** Oversight departments that have finished on the component. */
   oversightDone: (pillar: ImplementedPillar) => readonly string[];
   /** Validation Reports (Infrastructure, migration 069): null when the component takes none. */

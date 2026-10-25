@@ -10,10 +10,14 @@ export type ItemDecisionValue = 'accept' | 'reject';
 export type DecisionCounts = { accepted: number; rejected: number; undecided: number; total: number };
 export type OfficerAssignment = { id: number; officerId: number; officerName: string; assignedByName: string; comment: string; createdAt: string; completedAt: string | null; completionNote: string };
 export type OversightReview = { department: OversightDepartment; reviewerName: string; note: string; completedAt: string };
+/** An oversight department's Assessment Officer on a component (migration 071): comments on items, never decides. */
+export type ObserverAssignment = { id: number; department: OversightDepartment; officerId: number; officerName: string; assignedByName: string; comment: string; createdAt: string };
 export type FlowComponent = {
   id: number; pillar: ImplementedPillar; department: string; stage: ComponentStage;
   directorComment: string; directorName: string | null; sentToOversightAt: string | null; arrivedAt: string | null; releasedAt: string;
   officers: OfficerAssignment[]; oversight: OversightReview[]; counts: DecisionCounts; amount: number;
+  /** Oversight departments' Assessment Officers (migration 071). */
+  observers: ObserverAssignment[];
   /** Assessment Officers' Validation Reports (Infrastructure, migration 069). */
   validationReports: ValidationReport[];
 };
@@ -31,6 +35,10 @@ export type FlowAbilities = {
   complete: ImplementedPillar[];
   /** The Director of the component's department: change item decisions and send assessments back (UBEC143). */
   override: ImplementedPillar[];
+  /** Oversight Director: assign their department's officers to components with oversight (migration 071). */
+  assignObservers: ImplementedPillar[];
+  /** Oversight department officer: comment on the items of the components they are assigned to (no decisions). */
+  comment: ImplementedPillar[];
 };
 /** Active Assessment Officers the viewer may assign (a Director's department; every component department for the Super Admin). */
 export type DepartmentOfficer = { id: number; name: string; email: string; open: number; department: string };
@@ -40,8 +48,10 @@ export type UbecFlow = {
   abilities: FlowAbilities; officers: DepartmentOfficer[];
   /** Admin default officers per component, pre-ticked in the assign step (only for viewers who assign, among `officers`). */
   defaultOfficers: Partial<Record<ImplementedPillar, number[]>>;
-  /** Every released component has reached the BEAP Chair; approval also needs nothing rejected or undecided. */
+  /** Every released component has reached the BEAP Chair; approval also needs nothing rejected or undecided and no open oversight comments. */
   allArrived: boolean; approvable: boolean;
+  /** Open UBEC comments by Audit, Procurement and Finance (Directors and officers) on this round: resolve them before approval. */
+  openOversightComments: number;
   /** The signed-in user, so the page can tell their own Validation Reports apart. */
   viewerId: number;
 };

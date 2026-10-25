@@ -9,7 +9,8 @@ import { componentItems, componentName, needsValidationReport, superAdminRole } 
 import { addUbecEvent, notifyUbec, readActor, readDecisions, type Actor, type Db } from '@/lib/ubec-flow-db';
 
 // Component steps of the UBEC review (docs/ubec-flow.md): the Director assigns Assessment Officers and sends the
-// component for oversight; officers complete their assessment; Audit, Procurement and Finance finish their observations.
+// component for oversight; officers complete their assessment; Audit, Procurement and Finance assign their own officers
+// (who comment, never decide, migration 071) and finish their observations.
 // Locks: the plan row FOR SHARE (serialises with the BEAP Chair's decision), then the round and the component FOR UPDATE.
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const note = z.string().trim().max(5000).default('');
@@ -21,10 +22,12 @@ const command = z.discriminatedUnion('action', [
   z.object({ action: z.literal('send_oversight'), ...base, comment: note }).strict(),
   z.object({ action: z.literal('observations_done'), ...base, note }).strict(),
   z.object({ action: z.literal('reopen_assessment'), ...base, assignmentId: z.number().int().positive(), comment: note }).strict(),
+  z.object({ action: z.literal('assign_observers'), ...base, officerIds: z.array(z.number().int().positive()).min(1).max(20), comment: note }).strict(),
+  z.object({ action: z.literal('unassign_observer'), ...base, assignmentId: z.number().int().positive() }).strict(),
 ]);
 type Command = z.infer<typeof command>;
 type ComponentRow = { id: number; pillar: (typeof implementedPillars)[number]; department: string; stage: string };
-const roles: Record<Command['action'], string> = { assign_officers: ubecRoles.director, unassign_officer: ubecRoles.director, send_oversight: ubecRoles.director, complete_assessment: ubecRoles.officer, observations_done: ubecRoles.oversight, reopen_assessment: ubecRoles.director };
+const roles: Record<Command['action'], string> = { assign_officers: ubecRoles.director, unassign_officer: ubecRoles.director, send_oversight: ubecRoles.director, complete_assessment: ubecRoles.officer, observations_done: ubecRoles.oversight, reopen_assessment: ubecRoles.director, assign_observers: ubecRoles.oversight, unassign_observer: ubecRoles.oversight };
 /** The Super Admin may also assign and remove officers on any component, with the Director's rules (migration 056). */
 const adminActions: readonly Command['action'][] = ['assign_officers', 'unassign_officer'];
 const mayAct = (role: string, action: Command['action']) => role === roles[action] || (role === superAdminRole && adminActions.includes(action));
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
     return await getPostgres().transaction(async db => {
       const actor = await readActor(db, session);
       if (!actor) return error('Session expired', 401);
-      if (!mayAct(actor.role, input.action)) return error(actor.role === ubecRoles.es ? 'The UBEC Executive Secretary oversees the review and does not take workflow actions' : actor.role === ubecRoles.oversight ? 'Oversight Directors comment and record observations; they cannot assign, accept or reject' : 'You do not have permission for this action', 403);
+      if (!mayAct(actor.role, input.action)) return error(actor.role === ubecRoles.es ? 'The UBEC Executive Secretary oversees the review and does not take workflow actions' : actor.role === ubecRoles.oversight ? 'Oversight Directors cannot assign a component’s Assessment Officers, accept or reject; they assign their own officers, comment and record observations' : 'You do not have permission for this action', 403);
       if (!(await db.query('SELECT 1 FROM action_plans WHERE id=$1 FOR SHARE', [planId])).rowCount) return error('Plan not found', 404);
       const round = (await db.query<UbecRound>('SELECT * FROM ubec_rounds WHERE id=$1 AND plan_id=$2 FOR UPDATE', [input.roundId, planId])).rows[0];
       const latest = (await db.query<{ id: number }>('SELECT id FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC LIMIT 1', [planId])).rows[0];
@@ -61,6 +64,7 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
   const name = componentName(component.pillar);
   const event = (action: string, comment = '') => addUbecEvent(db, { roundId: round.id, planId, action, actor, comment, pillar: component.pillar });
   const live = async () => (await db.query<{ id: number; officer_id: number; officer_name: string; completed_at: Date | null }>('SELECT id,officer_id,officer_name,completed_at FROM ubec_officer_assignments WHERE round_component_id=$1 AND removed_at IS NULL ORDER BY id', [component.id])).rows;
+  if (input.action === 'assign_observers' || input.action === 'unassign_observer') return observers(db, input, actor, component, event, name, planId);
   if (input.action === 'observations_done') {
     if (!isOversightDepartment(actor.department)) return error('Your account has no oversight department', 403);
     if (component.stage !== 'oversight') return error(component.stage === 'director' ? `${name} has not been sent for oversight yet.` : `${name} has already reached the UBEC BEAP Chair.`, 409);
@@ -141,4 +145,34 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
   const id = await event('send_oversight', input.comment);
   await notifyUbec(db, planId, id, actor.id, { role: ubecRoles.oversight });
   return NextResponse.json({ stage: 'oversight' });
+}
+
+/**
+ * Oversight Directors put their own Assessment Officers on a component while it is with oversight and their department
+ * has not finished (migration 071). The officers comment on items; they never accept or reject.
+ */
+async function observers(db: Db, input: Extract<Command, { action: 'assign_observers' | 'unassign_observer' }>, actor: Actor, component: ComponentRow, event: (action: string, comment?: string) => Promise<number>, name: string, planId: string) {
+  const department = actor.department;
+  if (!isOversightDepartment(department)) return error('Your account has no oversight department', 403);
+  if (component.stage !== 'oversight') return error(component.stage === 'director' ? `${name} has not been sent for oversight yet.` : `${name} has already reached the UBEC BEAP Chair.`, 409);
+  if ((await db.query('SELECT 1 FROM ubec_oversight_reviews WHERE round_component_id=$1 AND department=$2', [component.id, department])).rowCount) return error('Your department has already finished its observations on this component', 409);
+  const live = (await db.query<{ id: number; officer_id: number; officer_name: string }>('SELECT id,officer_id,officer_name FROM ubec_oversight_assignments WHERE round_component_id=$1 AND department=$2 AND removed_at IS NULL ORDER BY id', [component.id, department])).rows;
+  if (input.action === 'unassign_observer') {
+    const assignment = live.find(a => a.id === input.assignmentId);
+    if (!assignment) return error('Assignment not found', 404);
+    await db.query('UPDATE ubec_oversight_assignments SET removed_at=NOW() WHERE id=$1', [assignment.id]);
+    await event('unassign_observer', assignment.officer_name);
+    return NextResponse.json({ removed: assignment.id });
+  }
+  if (!input.comment) return error('Add a comment for the Assessment Officer before assigning');
+  const officers = (await db.query<{ id: number; full_name: string }>('SELECT id,full_name FROM users WHERE id=ANY($1::int[]) AND role=$2 AND department=$3 AND active', [input.officerIds, ubecRoles.officer, department])).rows;
+  if (officers.length !== new Set(input.officerIds).size) return error(`Choose active Assessment Officers of ${departmentName(department)}`);
+  const fresh = officers.filter(o => !live.some(a => a.officer_id === o.id));
+  if (!fresh.length) return error('These officers are already assigned to this component', 409);
+  for (const officer of fresh) {
+    await db.query('INSERT INTO ubec_oversight_assignments(round_component_id,department,officer_id,officer_name,assigned_by_id,assigned_by_name,comment) VALUES($1,$2,$3,$4,$5,$6,$7)', [component.id, department, officer.id, officer.full_name, actor.id, actor.full_name, input.comment]);
+  }
+  const id = await event('assign_observer', `${fresh.map(o => o.full_name).join(', ')}: ${input.comment}`);
+  await notifyUbec(db, planId, id, actor.id, { userIds: fresh.map(o => o.id) });
+  return NextResponse.json({ assigned: fresh.map(o => o.id) });
 }

@@ -20,7 +20,7 @@ import { compactNairaFormat } from '@/lib/money-format';
 // The parts of the UBEC dashboard, shared by the Overview, Plans, Submissions and Activity pages.
 const money = compactNairaFormat(2);
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
-const actionLabels: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to departments', assign_officer: 'Officers assigned', reopen_assessment: 'Assessment sent back', default_officers: 'Default officers assigned', complete_assessment: 'Assessment completed', send_oversight: 'Sent for oversight', observations_done: 'Observations done', ready_for_chair: 'Ready for BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned', feedback: 'Department review completed' };
+const actionLabels: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to departments', assign_officer: 'Officers assigned', assign_observer: 'Oversight officers assigned', reopen_assessment: 'Assessment sent back', default_officers: 'Default officers assigned', complete_assessment: 'Assessment completed', send_oversight: 'Sent for oversight', observations_done: 'Observations done', ready_for_chair: 'Ready for BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned', feedback: 'Department review completed' };
 
 export const isNational = (role: string) => role === ubecRoles.es || role === ubecRoles.chair;
 export type PlanFilters = { search: string; status: string; state: string };

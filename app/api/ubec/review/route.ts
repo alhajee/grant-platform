@@ -14,7 +14,7 @@ import { readUbecSubmissionMode } from '@/lib/workflow-settings';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { shareCommentIdsSchema } from '@/lib/plan-comments';
 import { shareableThreadIds } from '@/lib/ubec-comments';
-import { addUbecEvent, approvableComponents, notifyUbec, readActor, readDecisions, readFlow, readRoundComponents, readViewerRounds, releaseRows, ubecVisibleSnapshot, viewerPillars } from '@/lib/ubec-flow-db';
+import { addUbecEvent, approvableComponents, notifyUbec, openOversightCommentCount, oversightCommentsMessage, readActor, readDecisions, readFlow, readRoundComponents, readViewerRounds, releaseRows, ubecVisibleSnapshot, viewerPillars } from '@/lib/ubec-flow-db';
 import { superAdminRole } from '@/lib/ubec-flow';
 import { subebComponentDepartments, type ImplementedPillar } from "@/lib/beap-pillars";
 
@@ -126,6 +126,9 @@ export async function POST(request: NextRequest) {
           const waiting = components.filter(c => c.stage !== 'chair');
           if (!components.length || waiting.length) return error(`Every component must finish department assessment and oversight first (${waiting.length} still in progress)`, 409);
           if (input.action === 'approve' && !approvableComponents(components)) return error('The plan cannot be approved while items are rejected. Return it to the SUBEB instead.', 409);
+          // Audit, Procurement and Finance comments must be resolved first (UBEC56, migration 071).
+          const oversightOpen = input.action === 'approve' ? await openOversightCommentCount(db, round.id) : 0;
+          if (oversightOpen) return error(oversightCommentsMessage(oversightOpen), 409);
           // Only the UBEC threads ticked on return reach the state; approval never shares any.
           const share = input.shareCommentIds ?? [];
           if (share.length) {

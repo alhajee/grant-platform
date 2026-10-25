@@ -63,11 +63,11 @@ export function AssessmentBar({ assessment, rows, selected, actions, observation
       <Button size="sm" variant="outline" className="rounded-full" data-kind="reject" disabled={!selected.length || actions.busy} onClick={() => actions.decide(selected, 'reject')}><XIcon data-icon="inline-start" />Reject</Button>
       {decided && <Button size="sm" variant="ghost" className="rounded-full" disabled={actions.busy} onClick={() => actions.decide(selected, null)}><Undo2Icon data-icon="inline-start" />Clear</Button>}
     </div>}
-    {assessment.canObserve(assessment.pillar) && <div className="wb-assessment-actions">
+    {(assessment.canObserve(assessment.pillar) || !!assessment.canComment?.(assessment.pillar)) && <div className="wb-assessment-actions">
       <OversightProgress done={assessment.oversightDone(assessment.pillar)} />
       <span className="wb-assessment-hint">{observations?.count ? `${observations.count} open ${observations.count === 1 ? 'observation' : 'observations'} · ` : ''}{selected.length ? `Row ${rows.findIndex(row => row.id === selected[0]) + 1} selected` : 'Select a row, or right-click a cell'}</span>
       {observations && <Button size="sm" variant="outline" className="rounded-full" disabled={!selected.length} onClick={() => observations.open(selected[0])}><MessageSquarePlusIcon data-icon="inline-start" />Add observation</Button>}
-      <Button size="sm" className="rounded-full" onClick={() => assessment.observe(assessment.pillar)}><ShieldCheckIcon data-icon="inline-start" />Observations done</Button>
+      {assessment.canObserve(assessment.pillar) && <Button size="sm" className="rounded-full" onClick={() => assessment.observe(assessment.pillar)}><ShieldCheckIcon data-icon="inline-start" />Observations done</Button>}
     </div>}
     {assessment.canComplete(assessment.pillar) && <Button size="sm" className="rounded-full" disabled={counts.undecided > 0 || missingReport} title={counts.undecided ? `Decide the remaining ${items(counts.undecided)} first` : missingReport ? 'Upload your Validation Report first' : undefined} onClick={() => assessment.complete(assessment.pillar)}><ClipboardCheckIcon data-icon="inline-start" />Complete assessment</Button>}
     {validation && (assessment.canComplete(assessment.pillar) || validation.reports.length > 0) && <ValidationReportPanel validation={validation} editable={assessment.canComplete(assessment.pillar)} />}

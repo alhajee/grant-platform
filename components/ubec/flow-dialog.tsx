@@ -28,13 +28,16 @@ const confirmMoneyCompact = compactNairaFormat(1);
 export type FlowRequest =
   | { kind: 'release' } | { kind: 'approve' } | { kind: 'return' }
   | { kind: 'assign'; pillar: ImplementedPillar } | { kind: 'complete'; pillar: ImplementedPillar }
-  | { kind: 'oversight'; pillar: ImplementedPillar } | { kind: 'observe'; pillar: ImplementedPillar };
+  | { kind: 'oversight'; pillar: ImplementedPillar } | { kind: 'observe'; pillar: ImplementedPillar }
+  /** An Oversight Director puts their own Assessment Officers on a component (migration 071). */
+  | { kind: 'observers'; pillar: ImplementedPillar };
 
 const copy: Record<FlowRequest['kind'], { title: (name: string) => string; description: string; field: string; required: boolean; confirm: string }> = {
   release: { title: () => 'Release to UBEC departments', description: 'Each Director gets their components and assigns Assessment Officers', field: 'Message to the Directors', required: true, confirm: 'Release to UBEC departments' },
   assign: { title: name => `Assign staff · ${name}`, description: 'Choose one or more Assessment Officers of the component’s department. They accept or reject each item and report back to the Director.', field: 'Comment for the officers', required: true, confirm: 'Assign staff' },
   complete: { title: name => `Complete assessment · ${name}`, description: 'Your decisions are locked and sent to your Director', field: 'Note for your Director (optional)', required: false, confirm: 'Submit assessment' },
   oversight: { title: name => `Complete & send for oversight · ${name}`, description: 'Audit, Procurement and Finance review it next. When all three have finished their observations it goes to the UBEC BEAP Chair.', field: 'Your comment', required: true, confirm: 'Send for oversight' },
+  observers: { title: name => `Assign officers · ${name}`, description: 'Choose one or more Assessment Officers of your department. They comment on the items; they do not accept or reject. Their open comments must be resolved before the plan is approved.', field: 'Comment for the officers', required: true, confirm: 'Assign officers' },
   observe: { title: name => `Observations done · ${name}`, description: 'Add any comments on items in the workbook first. Once Audit, Procurement and Finance are all done, the component goes to the UBEC BEAP Chair.', field: 'Your observations (optional)', required: false, confirm: 'Observations done' },
   approve: { title: () => 'Approve action plan', description: 'Every item has been accepted. Approval locks the plan; it does not disburse funds.', field: 'Decision note', required: true, confirm: 'Approve action plan' },
   return: { title: () => 'Return to SUBEB', description: 'The whole plan goes back to the SUBEB BEAP Chair with every component’s results', field: 'Consolidated changes required', required: true, confirm: 'Return to SUBEB' },
@@ -57,12 +60,16 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   const step = useConfirmStep('ubec-flow-comment');
   const kind = request?.kind, pillar = request && 'pillar' in request ? request.pillar : null;
   const component = pillar ? flow.components.find(c => c.pillar === pillar) : undefined;
+  // The officers this step manages: the component's own (Director) or the Oversight Director's department's.
+  const observing = kind === 'observers', picking = kind === 'assign' || observing;
+  const department = observing ? flow.officers[0]?.department ?? '' : component?.department ?? '';
+  const onComponent: PickedAssignment[] = !component ? [] : observing ? component.observers.filter(o => o.department === department).map(o => ({ id: o.id, officerId: o.officerId, completedAt: null })) : component.officers;
   // Officers already on the component: the step only adds more.
-  const adding = kind === 'assign' && !!component?.officers.length;
-  // Assign step: officers of the component's department not yet on it (none left = only removals remain).
-  const unassigned = kind === 'assign' && component ? flow.officers.filter(o => o.department === component.department && !component.officers.some(a => a.officerId === o.id)) : [];
-  const nothingToAdd = kind === 'assign' && !!component?.officers.length && !unassigned.length;
-  const text = kind ? nothingToAdd ? { ...copy.assign, title: (name: string) => `Manage officers · ${name}`, description: 'Every Assessment Officer of the department is on this component. Remove an officer who has not finished, if needed.', confirm: 'Add officers' } : adding ? { ...copy.assign, title: (name: string) => `Add officers · ${name}`, description: 'Officers already assigned keep their work. Tick another Assessment Officer of the component’s department to share it.', confirm: 'Add officers' } : copy[kind] : null;
+  const adding = picking && onComponent.length > 0;
+  // Assign step: officers of the department not yet on it (none left = only removals remain).
+  const unassigned = picking && component ? flow.officers.filter(o => o.department === department && !onComponent.some(a => a.officerId === o.id)) : [];
+  const nothingToAdd = picking && adding && !unassigned.length;
+  const text = kind ? observing ? (nothingToAdd ? { ...copy.observers, title: (name: string) => `Manage officers · ${name}`, description: 'Every Assessment Officer of your department is on this component. Remove one, if needed.' } : adding ? { ...copy.observers, title: (name: string) => `Add officers · ${name}`, confirm: 'Add officers' } : copy.observers) : nothingToAdd ? { ...copy.assign, title: (name: string) => `Manage officers · ${name}`, description: 'Every Assessment Officer of the department is on this component. Remove an officer who has not finished, if needed.', confirm: 'Add officers' } : adding ? { ...copy.assign, title: (name: string) => `Add officers · ${name}`, description: 'Officers already assigned keep their work. Tick another Assessment Officer of the component’s department to share it.', confirm: 'Add officers' } : copy[kind] : null;
   const openThreads = threads.filter(t => !t.resolvedAt);
   const defaults = pillar ? flow.defaultOfficers?.[pillar] ?? [] : [];
   // The Admin's default officers start ticked on a component nobody is assessing yet; the Director confirms or changes them.
@@ -74,7 +81,7 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
     if (!pillar || removing) return;
     setRemoving(assignmentId); setError('');
     try {
-      const response = await fetch(`/api/ubec/components?plan=${planId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'unassign_officer', roundId, pillar, assignmentId }) });
+      const response = await fetch(`/api/ubec/components?plan=${planId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: observing ? 'unassign_observer' : 'unassign_officer', roundId, pillar, assignmentId }) });
       const result = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(result.error || `${name} could not be removed`);
       toast.success(`${name} removed from ${componentName(pillar)}`);
@@ -89,7 +96,7 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   function toConfirm() {
     if (!request) return;
     if (text?.required && !comment.trim()) { setError(`${text.field} is required.`); return; }
-    if (request.kind === 'assign' && !officers.length) { setError(adding ? `${componentName(request.pillar)} is already assigned; tick another officer to add one` : 'Choose at least one Assessment Officer'); return; }
+    if ((request.kind === 'assign' || request.kind === 'observers') && !officers.length) { setError(adding ? `${componentName(request.pillar)} is already assigned; tick another officer to add one` : 'Choose at least one Assessment Officer'); return; }
     setError(''); step.review();
   }
 
@@ -99,7 +106,7 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
     const plan = `?plan=${planId}`;
     const [url, body] = request.kind === 'release' || request.kind === 'approve' || request.kind === 'return'
       ? [`/api/ubec/review${plan}`, { action: request.kind, version, roundId, comment, ...(request.kind === 'return' && shareIds.length ? { shareCommentIds: shareIds } : {}) }]
-      : [`/api/ubec/components${plan}`, { roundId, pillar: request.pillar, ...(request.kind === 'assign' ? { action: 'assign_officers', officerIds: officers, comment }
+      : [`/api/ubec/components${plan}`, { roundId, pillar: request.pillar, ...(request.kind === 'assign' ? { action: 'assign_officers', officerIds: officers, comment } : request.kind === 'observers' ? { action: 'assign_observers', officerIds: officers, comment }
         : request.kind === 'complete' ? { action: 'complete_assessment', note: comment } : request.kind === 'oversight' ? { action: 'send_oversight', comment } : { action: 'observations_done', note: comment }) }];
     try {
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -118,8 +125,8 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
       {text && !step.confirming && <>
         <DialogHeader className={step.commentStepClass}><p className="release-breadcrumb">{plan}</p><DialogTitle>{text.title(pillar ? componentName(pillar) : '')}</DialogTitle><DialogDescription>{text.description}</DialogDescription></DialogHeader>
         <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}><FieldGroup>
-          {kind === 'assign' && <OfficerPicker flow={flow} component={component} defaults={adding ? [] : defaults} value={officers} onChange={setOfficers} disabled={saving || removing !== null} admin={admin} removing={removing} onRemove={(id, name) => void unassign(id, name)} />}
-          {nothingToAdd && <Alert><AlertDescription><span>Every Assessment Officer of {departmentName(component!.department)} is already on this component. Remove one above, or {admin ? 'add an officer on Users' : <><a href="/ubec/team" className="underline underline-offset-2">add an officer</a> to your team</>} first</span></AlertDescription></Alert>}
+          {picking && <OfficerPicker flow={flow} department={department} assigned={onComponent} observing={observing} defaults={adding ? [] : defaults} value={officers} onChange={setOfficers} disabled={saving || removing !== null} admin={admin} removing={removing} onRemove={(id, name) => void unassign(id, name)} />}
+          {nothingToAdd && <Alert><AlertDescription><span>Every Assessment Officer of {departmentName(department)} is already on this component. Remove one above, or {admin ? 'add an officer on Users' : <><a href="/ubec/team" className="underline underline-offset-2">add an officer</a> to your team</>} first</span></AlertDescription></Alert>}
           {(kind === 'complete' || kind === 'oversight' || kind === 'observe') && component && <ComponentSummary component={component} threads={openThreads.filter(t => t.pillar === pillar).length} showOfficers={kind !== 'complete'} />}
           {kind === 'release' && <ReleaseAssignments components={components} />}
           {(kind === 'approve' || kind === 'return') && <PlanSummary flow={flow} />}
@@ -134,21 +141,24 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   </Dialog>;
 }
 
-function OfficerPicker({ flow, component, defaults, value, onChange, disabled, admin, removing, onRemove }: { flow: UbecFlow; component?: FlowComponent; defaults: readonly number[]; value: number[]; onChange: (ids: number[]) => void; disabled: boolean; admin: boolean; removing: number | null; onRemove: (assignmentId: number, name: string) => void }) {
-  const assigned = new Set(component?.officers.map(o => o.officerId));
+/** An officer already on the component (component officers, or an oversight department's officers with no completion). */
+type PickedAssignment = { id: number; officerId: number; completedAt: string | null };
+
+function OfficerPicker({ flow, department, assigned: onComponent, observing, defaults, value, onChange, disabled, admin, removing, onRemove }: { flow: UbecFlow; department: string; assigned: readonly PickedAssignment[]; observing: boolean; defaults: readonly number[]; value: number[]; onChange: (ids: number[]) => void; disabled: boolean; admin: boolean; removing: number | null; onRemove: (assignmentId: number, name: string) => void }) {
+  const assigned = new Set(onComponent.map(o => o.officerId));
   // The Super Admin's list holds every department's officers; only the component's department can take it.
-  const officers = flow.officers.filter(o => !component || o.department === component.department);
-  if (!officers.length) return <UbecEmpty art={<NoOfficersArt />} title={admin ? `No Assessment Officers in ${departmentName(component?.department ?? '')} yet` : 'No Assessment Officers in your department yet'} compact><a href={admin ? '/admin/users' : '/ubec/team'}>Add an Assessment Officer</a> first, then assign them here</UbecEmpty>;
+  const officers = flow.officers.filter(o => !department || o.department === department);
+  if (!officers.length) return <UbecEmpty art={<NoOfficersArt />} title={admin ? `No Assessment Officers in ${departmentName(department)} yet` : 'No Assessment Officers in your department yet'} compact><a href={admin ? '/admin/users' : '/ubec/team'}>Add an Assessment Officer</a> first, then assign them here</UbecEmpty>;
   return <FieldSet>
     <FieldLegend variant="label">Assessment Officers</FieldLegend>
-    <FieldDescription>One officer per component by default; add more when the work needs it. {admin ? <>Officers of {departmentName(component?.department ?? '')}.</> : <a href="/ubec/team">Manage officers</a>}</FieldDescription>
+    <FieldDescription>{observing ? 'They comment on the items of this component.' : 'One officer per component by default; add more when the work needs it.'} {admin ? <>Officers of {departmentName(department)}.</> : <a href="/ubec/team">Manage officers</a>}</FieldDescription>
     <ul className="ubec-officer-options">{officers.map(officer => {
       const id = `officer-${officer.id}`, already = assigned.has(officer.id);
       return <li key={officer.id} data-checked={value.includes(officer.id) || already || undefined}>
         <Checkbox id={id} disabled={disabled || already} checked={already || value.includes(officer.id)} onCheckedChange={checked => onChange(checked ? [...value, officer.id] : value.filter(v => v !== officer.id))} />
         <FieldLabel htmlFor={id} className="ubec-officer-option"><strong>{officer.name}</strong><span>{already ? 'Already assigned' : defaults.includes(officer.id) ? `Default for this component${officer.open ? ` · ${officer.open} open ${officer.open === 1 ? 'assessment' : 'assessments'}` : ''}` : officer.open ? `${officer.open} open ${officer.open === 1 ? 'assessment' : 'assessments'}` : 'Available'}</span></FieldLabel>
         {/* An officer still assessing can be taken off the component (their decisions so far stay on it). */}
-        {already && (() => { const a = component?.officers.find(o => o.officerId === officer.id); return a && !a.completedAt ? <Button type="button" size="sm" variant="ghost" className="ubec-officer-remove" disabled={disabled} onClick={() => onRemove(a.id, officer.name)}>{removing === a.id ? <Spinner data-icon="inline-start" /> : <UserMinusIcon data-icon="inline-start" />}Remove</Button> : a?.completedAt ? <Badge variant="secondary">Completed</Badge> : null; })()}
+        {already && (() => { const a = onComponent.find(o => o.officerId === officer.id); return a && !a.completedAt ? <Button type="button" size="sm" variant="ghost" className="ubec-officer-remove" disabled={disabled} onClick={() => onRemove(a.id, officer.name)}>{removing === a.id ? <Spinner data-icon="inline-start" /> : <UserMinusIcon data-icon="inline-start" />}Remove</Button> : a?.completedAt ? <Badge variant="secondary">Completed</Badge> : null; })()}
       </li>;
     })}</ul>
   </FieldSet>;

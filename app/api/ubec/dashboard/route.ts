@@ -30,13 +30,15 @@ export async function GET(request: NextRequest) {
     const years = [...new Set(all.flatMap(r => Array.from({ length: r.end_year - r.start_year + 1 }, (_, i) => r.start_year + i)))].sort((a, b) => b - a);
     const rounds = all.filter(r => coversPlanningYear(r.start_year, r.end_year, year));
     const roundIds = rounds.map(r => r.id), planIds = rounds.map(r => r.plan_id);
-    const [components, officers, oversight, decisions, legacy] = await Promise.all([
+    const [components, officers, oversight, decisions, legacy, observers] = await Promise.all([
       db.query<ComponentRow>('SELECT id,round_id,pillar,department,stage FROM ubec_round_components WHERE round_id=ANY($1::int[])', [roundIds]),
       db.query<OfficerRow>('SELECT oa.round_component_id,oa.officer_id,oa.officer_name,oa.completed_at FROM ubec_officer_assignments oa JOIN ubec_round_components rc ON rc.id=oa.round_component_id WHERE rc.round_id=ANY($1::int[]) AND oa.removed_at IS NULL', [roundIds]),
       db.query<{ round_component_id: number; department: string }>('SELECT o.round_component_id,o.department FROM ubec_oversight_reviews o JOIN ubec_round_components rc ON rc.id=o.round_component_id WHERE rc.round_id=ANY($1::int[])', [roundIds]),
       db.query<{ round_id: number; pillar: ImplementedPillar; row_ref: string; decision: ItemDecisionValue }>('SELECT round_id,pillar,row_ref,decision FROM ubec_item_decisions WHERE round_id=ANY($1::int[])', [roundIds]),
       db.query<{ round_id: number; pillar: ImplementedPillar; department: string }>('SELECT round_id,pillar,department FROM ubec_assignments WHERE round_id=ANY($1::int[])', [roundIds]),
-    ]).then(results => results.map(r => r.rows)) as [ComponentRow[], OfficerRow[], { round_component_id: number; department: string }[], { round_id: number; pillar: ImplementedPillar; row_ref: string; decision: ItemDecisionValue }[], { round_id: number; pillar: ImplementedPillar; department: string }[]];
+      // Oversight departments' officers on components (migration 071).
+      db.query<{ round_component_id: number; officer_id: number }>('SELECT xa.round_component_id,xa.officer_id FROM ubec_oversight_assignments xa JOIN ubec_round_components rc ON rc.id=xa.round_component_id WHERE rc.round_id=ANY($1::int[]) AND xa.removed_at IS NULL', [roundIds]),
+    ]).then(results => results.map(r => r.rows)) as [ComponentRow[], OfficerRow[], { round_component_id: number; department: string }[], { round_id: number; pillar: ImplementedPillar; row_ref: string; decision: ItemDecisionValue }[], { round_id: number; pillar: ImplementedPillar; department: string }[], { round_component_id: number; officer_id: number }[]];
 
     // Same rule as ubecSeesPillarSql, applied to the loaded rows.
     const visibleIn = (round: RoundRow) => activePillars(round.snapshot).filter(pillar => {
@@ -44,7 +46,7 @@ export async function GET(request: NextRequest) {
       const c = components.find(x => x.round_id === round.id && x.pillar === pillar);
       if (viewer.role === ubecRoles.director) return c?.department === viewer.department || legacy.some(l => l.round_id === round.id && l.pillar === pillar && l.department === viewer.department);
       if (viewer.role === ubecRoles.oversight) return !!c && c.stage !== 'director';
-      if (viewer.role === ubecRoles.officer) return !!c && officers.some(o => o.round_component_id === c.id && o.officer_id === viewer.id);
+      if (viewer.role === ubecRoles.officer) return !!c && [...officers, ...observers].some(o => o.round_component_id === c.id && o.officer_id === viewer.id);
       return false;
     });
     const queue: UbecQueueItem[] = [];
@@ -70,6 +72,8 @@ export async function GET(request: NextRequest) {
         }
         if (viewer.role === ubecRoles.officer && p.stage === 'director' && p.officers.some(o => o.mine && !o.completed)) push('assess', `Assess ${name}`, `${p.counts.undecided} of ${p.counts.total} items to decide`, anchor);
         if (viewer.role === ubecRoles.oversight && p.stage === 'oversight' && !p.oversightDone.includes(viewer.department as PipelineComponent['oversightDone'][number])) push('observe', `Observations on ${name}`, '', anchor);
+        const c = components.find(x => x.round_id === r.id && x.pillar === p.pillar);
+        if (viewer.role === ubecRoles.officer && c && p.stage === 'oversight' && !p.oversightDone.includes(viewer.department as PipelineComponent['oversightDone'][number]) && observers.some(o => o.round_component_id === c.id && o.officer_id === viewer.id)) push('observe', `Comment on ${name}`, 'oversight', anchor);
       }
       const schoolKey = (s: { name: string; lga: string; level: string }) => JSON.stringify([r.state_code, s.name, s.lga, s.level]);
       const can = (p: ImplementedPillar) => pillars.includes(p);

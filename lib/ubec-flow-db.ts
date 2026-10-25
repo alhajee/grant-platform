@@ -2,7 +2,7 @@ import type { QueryResult, QueryResultRow } from 'pg';
 import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
 import { activePillars, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound } from './ubec';
-import { componentAmount, componentItems, decisionCounts, superAdminRole, type FlowAbilities, type FlowComponent, type ItemDecision, type OfficerAssignment, type OversightReview, type UbecFlow } from './ubec-flow';
+import { componentAmount, componentItems, decisionCounts, superAdminRole, type FlowAbilities, type FlowComponent, type ItemDecision, type ObserverAssignment, type OfficerAssignment, type OversightReview, type UbecFlow } from './ubec-flow';
 import { readDefaultOfficers } from './ubec-officer-limits';
 
 // Server-side reads and helpers for the UBEC review flow (docs/ubec-flow.md, migration 055).
@@ -24,7 +24,8 @@ export function ubecSeesPillarSql(round: string, pillar: string, role: string, u
     OR (${role}='${ubecRoles.director}' AND (EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match} AND rc.department=${department})
       OR EXISTS(SELECT 1 FROM ubec_assignments la WHERE la.round_id=${round}.id AND (${pillar} IS NULL OR la.pillar=${pillar}) AND la.department=${department})))
     OR (${role}='${ubecRoles.oversight}' AND EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match} AND rc.sent_to_oversight_at IS NOT NULL))
-    OR (${role}='${ubecRoles.officer}' AND EXISTS(SELECT 1 FROM ubec_round_components rc JOIN ubec_officer_assignments oa ON oa.round_component_id=rc.id AND oa.removed_at IS NULL WHERE rc.round_id=${round}.id AND ${match} AND oa.officer_id=${userId})))`;
+    OR (${role}='${ubecRoles.officer}' AND EXISTS(SELECT 1 FROM ubec_round_components rc JOIN ubec_officer_assignments oa ON oa.round_component_id=rc.id AND oa.removed_at IS NULL WHERE rc.round_id=${round}.id AND ${match} AND oa.officer_id=${userId}))
+    OR (${role}='${ubecRoles.officer}' AND EXISTS(SELECT 1 FROM ubec_round_components rc JOIN ubec_oversight_assignments xa ON xa.round_component_id=rc.id AND xa.removed_at IS NULL WHERE rc.round_id=${round}.id AND ${match} AND xa.officer_id=${userId})))`;
 }
 
 /** Rounds of a plan the viewer can open (at least one visible component), newest first. */
@@ -65,6 +66,7 @@ export async function readRoundComponents(db: Db, round: Pick<UbecRound, 'id' | 
   const officers = (await db.query<{ id: number; round_component_id: number; officer_id: number; officer_name: string; assigned_by_name: string; comment: string; created_at: Date; completed_at: Date | null; completion_note: string }>('SELECT * FROM ubec_officer_assignments WHERE round_component_id=ANY($1::int[]) AND removed_at IS NULL ORDER BY id', [ids])).rows;
   const reports = (await db.query<{ id: string; round_component_id: number; name: string; size: number; officer_id: number; officer_name: string; created_at: Date }>('SELECT id,round_component_id,name,size,officer_id,officer_name,created_at FROM ubec_validation_reports WHERE round_component_id=ANY($1::int[]) AND removed_at IS NULL ORDER BY created_at', [ids])).rows;
   const oversight = (await db.query<{ round_component_id: number; department: OversightReview['department']; reviewer_name: string; note: string; completed_at: Date }>('SELECT * FROM ubec_oversight_reviews WHERE round_component_id=ANY($1::int[]) ORDER BY id', [ids])).rows;
+  const observers = (await db.query<{ id: number; round_component_id: number; department: ObserverAssignment['department']; officer_id: number; officer_name: string; assigned_by_name: string; comment: string; created_at: Date }>('SELECT * FROM ubec_oversight_assignments WHERE round_component_id=ANY($1::int[]) AND removed_at IS NULL ORDER BY id', [ids])).rows;
   return components.map((c): FlowComponent => {
     const items = componentItems(round.snapshot, c.pillar);
     return {
@@ -74,6 +76,7 @@ export async function readRoundComponents(db: Db, round: Pick<UbecRound, 'id' | 
       oversight: oversight.filter(o => o.round_component_id === c.id).map(o => ({ department: o.department, reviewerName: o.reviewer_name, note: o.note, completedAt: iso(o.completed_at)! })),
       counts: decisionCounts(items, decisions.filter(d => d.pillar === c.pillar)), amount: componentAmount(round.snapshot, c.pillar),
       validationReports: reports.filter(r => r.round_component_id === c.id).map(r => ({ id: r.id, name: r.name, size: r.size, officerId: r.officer_id, officerName: r.officer_name, createdAt: iso(r.created_at)! })),
+      observers: observers.filter(o => o.round_component_id === c.id).map(o => ({ id: o.id, department: o.department, officerId: o.officer_id, officerName: o.officer_name, assignedByName: o.assigned_by_name, comment: o.comment, createdAt: iso(o.created_at)! })),
     };
   });
 }
@@ -82,6 +85,17 @@ export async function readDecisions(db: Db, roundId: number): Promise<ItemDecisi
   return (await db.query<{ pillar: ImplementedPillar; row_ref: string; decision: ItemDecision['decision']; note: string; officer_name: string; decided_at: Date }>('SELECT pillar,row_ref,decision,note,officer_name,decided_at FROM ubec_item_decisions WHERE round_id=$1 ORDER BY id', [roundId])).rows
     .map(d => ({ pillar: d.pillar, rowRef: d.row_ref, decision: d.decision, note: d.note, officerName: d.officer_name, decidedAt: iso(d.decided_at)! }));
 }
+
+/**
+ * Open UBEC root comments on this round by Audit, Procurement and Finance (their Oversight Directors and Assessment
+ * Officers, migration 071). The UBEC BEAP Chair cannot approve until they are resolved.
+ */
+export async function openOversightCommentCount(db: Db, roundId: number): Promise<number> {
+  return (await db.query<{ n: number }>(`SELECT COUNT(*)::int AS n FROM plan_comments c JOIN users u ON u.id=c.author_id
+    WHERE c.scope='ubec' AND c.ubec_round_id=$1 AND c.parent_id IS NULL AND c.resolved_at IS NULL AND u.role=ANY($2::text[]) AND u.department=ANY($3::text[])`,
+    [roundId, [ubecRoles.oversight, ubecRoles.officer], oversightIds])).rows[0]?.n ?? 0;
+}
+export const oversightCommentsMessage = (n: number) => `Resolve the ${n} open ${n === 1 ? 'comment' : 'comments'} from Audit, Procurement and Finance before approving`;
 
 /** Every item of every released component is decided and none is rejected. */
 export const approvableComponents = (components: readonly FlowComponent[]) => components.length > 0 && components.every(c => c.stage === 'chair' && c.counts.rejected === 0 && c.counts.undecided === 0);
@@ -94,6 +108,8 @@ export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status
   const ownDepartment = (c: FlowComponent) => viewer.role === ubecRoles.director && c.department === viewer.department;
   const mine = (c: FlowComponent) => viewer.role === ubecRoles.officer && c.officers.some(o => o.officerId === viewer.id && !o.completedAt);
   const atDirector = components.filter(c => reviewing && c.stage === 'director');
+  // Oversight: components with oversight that the viewer's department has not finished yet.
+  const withOversight = components.filter(c => reviewing && c.stage === 'oversight' && isOversightDepartment(viewer.department) && !c.oversight.some(o => o.department === viewer.department));
   return {
     release: chair && latest && round.status === 'received',
     decide: chair && reviewing && components.length > 0 && components.every(c => c.stage === 'chair'),
@@ -102,7 +118,9 @@ export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status
     assess: atDirector.filter(mine).map(c => c.pillar),
     complete: atDirector.filter(mine).map(c => c.pillar),
     override: atDirector.filter(ownDepartment).map(c => c.pillar),
-    observe: components.filter(c => reviewing && c.stage === 'oversight' && viewer.role === ubecRoles.oversight && isOversightDepartment(viewer.department) && !c.oversight.some(o => o.department === viewer.department)).map(c => c.pillar),
+    observe: withOversight.filter(() => viewer.role === ubecRoles.oversight).map(c => c.pillar),
+    assignObservers: withOversight.filter(() => viewer.role === ubecRoles.oversight).map(c => c.pillar),
+    comment: withOversight.filter(c => viewer.role === ubecRoles.officer && c.observers.some(o => o.officerId === viewer.id)).map(c => c.pillar),
   };
 }
 
@@ -113,22 +131,30 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
   const components = all.filter(c => visible.includes(c.pillar));
   const previous = (await db.query<{ id: number }>('SELECT id FROM ubec_rounds WHERE plan_id=$1 AND number<$2 ORDER BY number DESC LIMIT 1', [round.plan_id, round.number])).rows[0];
   const previousDecisions = previous ? (await readDecisions(db, previous.id)).filter(d => visible.includes(d.pillar)) : [];
-  const officerDepartments = viewer.role === superAdminRole ? [...new Set(components.map(c => c.department))] : viewer.role === ubecRoles.director && isComponentDepartment(viewer.department) ? [viewer.department] : [];
+  const overseer = viewer.role === ubecRoles.oversight && isOversightDepartment(viewer.department);
+  const officerDepartments = viewer.role === superAdminRole ? [...new Set(components.map(c => c.department))] : (viewer.role === ubecRoles.director && isComponentDepartment(viewer.department)) || overseer ? [viewer.department!] : [];
+  // Open work: component assessments for component officers, live components with oversight for oversight officers.
   const departmentOfficers = officerDepartments.length
     ? (await db.query<{ id: number; name: string; email: string; open: number; department: string }>(`SELECT u.id, u.full_name AS name, u.email, u.department,
         (SELECT COUNT(*)::int FROM ubec_officer_assignments oa JOIN ubec_round_components rc ON rc.id=oa.round_component_id JOIN ubec_rounds r ON r.id=rc.round_id
-          WHERE oa.officer_id=u.id AND oa.removed_at IS NULL AND oa.completed_at IS NULL AND r.status='reviewing') AS open
+          WHERE oa.officer_id=u.id AND oa.removed_at IS NULL AND oa.completed_at IS NULL AND r.status='reviewing')
+        + (SELECT COUNT(*)::int FROM ubec_oversight_assignments xa JOIN ubec_round_components rc ON rc.id=xa.round_component_id JOIN ubec_rounds r ON r.id=rc.round_id
+          WHERE xa.officer_id=u.id AND xa.removed_at IS NULL AND rc.stage='oversight' AND r.status='reviewing') AS open
         FROM users u WHERE u.role=$1 AND u.department=ANY($2::text[]) AND u.active ORDER BY u.full_name`, [ubecRoles.officer, officerDepartments])).rows
     : [];
   const available = new Set(departmentOfficers.map(o => o.id));
-  const defaults = available.size ? await readDefaultOfficers(db) : new Map<ImplementedPillar, { id: number }[]>();
-  const defaultOfficers = Object.fromEntries(components.map(c => [c.pillar, (defaults.get(c.pillar) ?? []).map(o => o.id).filter(officerId => available.has(officerId))]).filter(([, ids]) => ids.length));
+  const defaults = available.size && !overseer ? await readDefaultOfficers(db) : new Map<ImplementedPillar, { id: number }[]>();
+  // An oversight department with a single officer has them ticked by default ("one per unit", UBEC56).
+  const defaultOfficers = overseer
+    ? Object.fromEntries(departmentOfficers.length === 1 ? components.map(c => [c.pillar, [departmentOfficers[0].id]]) : [])
+    : Object.fromEntries(components.map(c => [c.pillar, (defaults.get(c.pillar) ?? []).map(o => o.id).filter(officerId => available.has(officerId))]).filter(([, ids]) => ids.length));
+  const openOversightComments = await openOversightCommentCount(db, round.id);
   return {
     releasedAt: iso(round.released_at ?? null), releasedByName: round.released_by_name ?? null, releaseComment: round.release_comment ?? '',
     components, decisions: allDecisions.filter(d => visible.includes(d.pillar)), previousDecisions,
     abilities: viewer.role === ubecRoles.es ? flowAbilities({ ...viewer, role: '' }, round, latest, components) : flowAbilities(viewer, round, latest, all.filter(c => visible.includes(c.pillar))),
     officers: departmentOfficers, defaultOfficers, viewerId: viewer.id,
-    allArrived: all.length > 0 && all.every(c => c.stage === 'chair'), approvable: approvableComponents(all),
+    allArrived: all.length > 0 && all.every(c => c.stage === 'chair'), approvable: approvableComponents(all) && !openOversightComments, openOversightComments,
   };
 }
 
