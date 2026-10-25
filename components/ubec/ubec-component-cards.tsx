@@ -2,7 +2,7 @@
 import '@/components/plan-page/plan-page.css';
 
 import type { CSSProperties } from 'react';
-import { EyeIcon, MessageSquareTextIcon, SendHorizontalIcon, UserRoundPlusIcon, ClipboardCheckIcon, ShieldCheckIcon } from 'lucide-react';
+import { ChevronDownIcon, EyeIcon, MessageSquareTextIcon, SendHorizontalIcon, UserRoundPlusIcon, ClipboardCheckIcon, ShieldCheckIcon } from 'lucide-react';
 import { InfrastructureIllustration } from '@/components/infrastructure-illustration';
 import { PillarIllustration } from '@/components/pillar-illustration';
 import { componentPalette } from '@/components/dashboard/component-budgets';
@@ -10,6 +10,8 @@ import { compactNaira } from '@/components/dashboard/plan-figures';
 import type { CommentsController } from '@/components/plan-workbook/comments-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { groupByStrategicPillar, type ImplementedPillar } from '@/lib/beap-pillars';
 import { departmentLabel, pillarDepartments } from '@/lib/ubec';
@@ -17,7 +19,8 @@ import { componentName, type PipelineComponent } from '@/lib/ubec-flow';
 import { DecisionBar, OfficerStack, OversightProgress, StagePill, percentOf } from './flow-bits';
 import { DepartmentArt } from './department-art';
 
-export type CardStep = { label: string; run: () => void; kind: 'assign' | 'assess' | 'oversight' | 'observe' };
+/** `secondary`: managing what is already in place (e.g. Manage officers); it goes in the menu unless it is the only step. */
+export type CardStep = { label: string; run: () => void; kind: 'assign' | 'assess' | 'oversight' | 'observe'; secondary?: boolean };
 const stepIcons = { assign: UserRoundPlusIcon, assess: ClipboardCheckIcon, oversight: SendHorizontalIcon, observe: ShieldCheckIcon };
 
 /**
@@ -56,7 +59,26 @@ function Card({ component: c, planTotal, comments, steps, onView }: { component:
       <OfficerStack officers={c.officers} />
       {open > 0 && <span className="review-open-comments review-ubec-comments card-pill" title={`${open} open UBEC comments`}><MessageSquareTextIcon aria-hidden="true" /><span className="card-pill-count" aria-hidden="true">{open}</span><span className="card-pill-label">{open} open</span></span>}
       <Button size="sm" variant="ghost" className="card-pill rounded-full ubec-card-view" onClick={onView}><EyeIcon aria-hidden="true" /><span className="card-pill-label">View</span></Button>
-      {steps.map(step => { const Icon = stepIcons[step.kind]; return <Button key={step.label} size="sm" className="component-card-step card-pill card-pill-step rounded-full" onClick={step.run}><Icon aria-hidden="true" /><span className="card-pill-label">{step.label}</span></Button>; })}
+      <CardSteps steps={steps} name={componentName(c.pillar)} />
     </div>
   </li>;
+}
+
+/**
+ * The viewer's steps on a card: one main action, the rest in a menu beside it (a split button), so the footer stays on
+ * one line however many steps the viewer holds. The main action is the first step that is not `secondary`.
+ */
+function CardSteps({ steps, name }: { steps: readonly CardStep[]; name: string }) {
+  if (!steps.length) return null;
+  const main = steps.find(step => !step.secondary) ?? steps[0], more = steps.filter(step => step !== main);
+  const MainIcon = stepIcons[main.kind];
+  const mainButton = <Button size="sm" className="component-card-step card-pill card-pill-step rounded-full" onClick={main.run}><MainIcon aria-hidden="true" /><span className="card-pill-label">{main.label}</span></Button>;
+  if (!more.length) return <span className="ubec-card-steps">{mainButton}</span>;
+  return <ButtonGroup className="ubec-card-steps" aria-label={`Steps for ${name}`}>
+    {mainButton}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild><Button size="sm" className="component-card-step ubec-card-more rounded-full" aria-label={`More steps for ${name}`}><ChevronDownIcon aria-hidden="true" /></Button></DropdownMenuTrigger>
+      <DropdownMenuContent align="end">{more.map(step => { const Icon = stepIcons[step.kind]; return <DropdownMenuItem key={step.label} onSelect={step.run}><Icon aria-hidden="true" />{step.label}</DropdownMenuItem>; })}</DropdownMenuContent>
+    </DropdownMenu>
+  </ButtonGroup>;
 }

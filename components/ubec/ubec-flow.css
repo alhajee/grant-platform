@@ -30,7 +30,13 @@
 .ubec-officer[data-done] { background: #dff3e7; color: #1f6b43; }
 .ubec-card-meta { margin-top: 4px; font-size: 11.5px; color: var(--muted-foreground); }
 .ubec-card-link { all: unset; cursor: pointer; }
-.ubec-component-card .component-card-foot { flex-wrap: wrap; }
+.ubec-component-card .component-card-foot { flex-wrap: nowrap; }
+/* One main step on the right, with any other steps in a menu joined to it (a split pill). */
+.ubec-card-steps { margin-left: auto; display: inline-flex; min-width: 0; }
+.ubec-card-steps .card-pill-step { min-width: 0; }
+.ubec-card-steps .card-pill-step .card-pill-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ubec-card-steps[data-slot=button-group] > .card-pill-step { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+.ubec-card-steps .ubec-card-more { width: 30px; height: 30px; padding: 0; border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; border-left: 1px solid color-mix(in srgb, var(--primary-foreground) 28%, transparent); }
 /* Workflow steps on UBEC cards always show their label. */
 .ubec-component-card .card-pill-step { grid-template-columns: auto 1fr !important; gap: 6px !important; padding: 0 12px !important; }
 .ubec-component-card .card-pill-step > svg { width: 15px !important; opacity: 1 !important; }

@@ -125,10 +125,10 @@ export default function UbecReviewPage() {
     return flow!.officers.some(o => o.department === c.department && !c.officers.some(a => a.officerId === o.id)) ? 'Add officers' : 'Manage officers';
   };
   const stepsFor = (pillar: ImplementedPillar): CardStep[] => !can ? [] : [
-    ...(can.assign.includes(pillar) ? [{ label: assignLabel(pillar), kind: 'assign' as const, run: () => setRequest({ kind: 'assign', pillar }) }] : []),
+    ...(can.assign.includes(pillar) ? [{ label: assignLabel(pillar), kind: 'assign' as const, secondary: assignLabel(pillar) !== 'Assign staff', run: () => setRequest({ kind: 'assign', pillar }) }] : []),
     ...(can.assess.includes(pillar) ? [{ label: 'Assess items', kind: 'assess' as const, run: () => { window.location.hash = `review-${pillar}`; } }] : []),
     ...(can.sendOversight.includes(pillar) ? [{ label: 'Send for oversight', kind: 'oversight' as const, run: () => setRequest({ kind: 'oversight', pillar }) }] : []),
-    ...(can.assignObservers?.includes(pillar) ? [{ label: flow?.components.find(x => x.pillar === pillar)?.observers.some(o => o.department === data?.department) ? 'Manage officers' : 'Assign officers', kind: 'assign' as const, run: () => setRequest({ kind: 'observers', pillar }) }] : []),
+    ...(can.assignObservers?.includes(pillar) ? (() => { const has = !!flow?.components.find(x => x.pillar === pillar)?.observers.some(o => o.department === data?.department); return [{ label: has ? 'Manage officers' : 'Assign officers', kind: 'assign' as const, secondary: has, run: () => setRequest({ kind: 'observers', pillar }) }]; })() : []),
     ...(can.comment?.includes(pillar) ? [{ label: 'Comment on items', kind: 'assess' as const, run: () => { window.location.hash = `review-${pillar}`; } }] : []),
     ...(can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observe', pillar }) }] : []),
   ];
