@@ -21,8 +21,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "The email address or password is incorrect" }, { status: 401 });
     }
     const adminSessionId=user.role==='Super Admin'?crypto.randomUUID():undefined;
+    // One device per account (UBEC115): this sign-in becomes the only accepted one; other devices are signed out.
+    const sessionId=crypto.randomUUID();
+    await getPostgres().query('UPDATE users SET current_session_id=$1 WHERE id=$2',[sessionId,user.id]);
     if(adminSessionId)await getPostgres().query("INSERT INTO sessions(token,user_id,expires_at) VALUES($1,$2,NOW()+INTERVAL '12 hours')",[adminSessionId,user.id]);
-    const token = await createLocalSession({ name: user.full_name, role: user.role, email, sessionVersion: user.session_version, adminSessionId });
+    const token = await createLocalSession({ name: user.full_name, role: user.role, email, sessionVersion: user.session_version, adminSessionId, sessionId });
     const response = NextResponse.json({ user: { name: user.full_name, role: user.role }, destination: user.role==='Super Admin'?'/admin':isUbec(user.role) ? '/ubec' : '/dashboard' });
     response.cookies.set(sessionCookieName, token, sessionCookieOptions(sessionIdleSeconds));
     response.cookies.delete('ubec_impersonation');

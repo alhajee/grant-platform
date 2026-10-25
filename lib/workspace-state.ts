@@ -13,10 +13,22 @@ export async function getAuthenticatedUser(request: NextRequest) {
   try { user = await getLocalSessionUser(request); } catch { return null; }
   if (!user) return null;
   const { rows } = await getPostgres().query<{ stateCode: string; role: string; name: string; userId: number; department: string | null; departments: string[]; canCreatePlan: boolean; canManageSchools: boolean; isBeapChair: boolean }>(
-    `SELECT id AS "userId", full_name AS name, role, department, ${userDepartmentsSql('users')} AS departments, can_create_plan AS "canCreatePlan", can_manage_schools AS "canManageSchools", is_beap_chair AS "isBeapChair", state_code AS "stateCode" FROM users WHERE email = $1 AND active AND session_version = $2`, [user.email, user.sessionVersion ?? 0],
+    `SELECT id AS "userId", full_name AS name, role, department, ${userDepartmentsSql('users')} AS departments, can_create_plan AS "canCreatePlan", can_manage_schools AS "canManageSchools", is_beap_chair AS "isBeapChair", state_code AS "stateCode" FROM users WHERE email = $1 AND active AND session_version = $2 AND (current_session_id IS NULL OR current_session_id::text = $3)`, [user.email, user.sessionVersion ?? 0, user.sessionId ?? ''],
   );
   if(rows[0]?.role==='Super Admin'&&(!user.adminSessionId||!(await getPostgres().query('SELECT 1 FROM sessions WHERE token=$1 AND user_id=$2 AND expires_at>NOW()',[user.adminSessionId,rows[0].userId])).rowCount))return null;
   return rows[0] ? { ...rows[0], email: user.email, sessionVersion: user.sessionVersion ?? 0, adminSessionId:user.adminSessionId } : null;
+}
+
+/**
+ * Why a signed cookie is no longer accepted: 'superseded' when the account has signed in on another device since
+ * (one device per account, migration 072), else 'expired' (no cookie, expired, password or account changes).
+ */
+export async function sessionEndReason(request: NextRequest): Promise<'superseded' | 'expired'> {
+  let user;
+  try { user = await getLocalSessionUser(request); } catch { return 'expired'; }
+  if (!user) return 'expired';
+  const { rowCount } = await getPostgres().query('SELECT 1 FROM users WHERE email = $1 AND active AND session_version = $2 AND current_session_id IS NOT NULL AND current_session_id::text <> $3', [user.email, user.sessionVersion ?? 0, user.sessionId ?? '']);
+  return rowCount ? 'superseded' : 'expired';
 }
 
 export async function sessionBinding(request: NextRequest) {

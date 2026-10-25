@@ -45,7 +45,9 @@ try {
   step('renewal: same origin only, fresh 12-hour cookie that still signs in; signed-out callers get 401');
 
   // A session signed in almost 7 days ago is renewed only up to the absolute limit, then refused.
-  const tokenAt = async issuedAt => session.createLocalSession({ name: 'SR officer', role: 'Data Entry Staff', email: users.officer.email, sessionVersion: 0 }, issuedAt);
+  // The forged cookies carry the officer's current sign-in id: only the newest sign-in is accepted (migration 072).
+  const sessionId = (await db.query('SELECT current_session_id::text AS id FROM users WHERE id=$1', [users.officer.id])).rows[0].id;
+  const tokenAt = async issuedAt => session.createLocalSession({ name: 'SR officer', role: 'Data Entry Staff', email: users.officer.email, sessionVersion: 0, sessionId }, issuedAt);
   const week = session.sessionMaxSeconds * 1000;
   jars.late = { ubec_session: await tokenAt(Date.now() - week + 30 * 60 * 1000) };
   const late = expect(await renew('late'));

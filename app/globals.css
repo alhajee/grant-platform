@@ -801,3 +801,6 @@
 .department-art-xs { width: 16px; height: 16px; flex: none; }
 .department-art-sm { width: 22px; height: 22px; flex: none; }
 .department-art-md { width: 30px; height: 30px; flex: none; }
+/* "Signed in on another device" dialog (components/session-guard.tsx) */
+.session-guard-icon { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 4px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 9%, var(--background)); color: var(--primary); }
+.session-guard-icon svg { width: 20px; height: 20px; }

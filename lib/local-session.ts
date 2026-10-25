@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 
-export type LocalUser = { name: string; role: string; email: string; department?: string | null; departments?: string[]; isBeapChair?: boolean; sessionVersion?: number; adminSessionId?:string; impersonation?: { id:string; adminName:string; expiresAt:string } };
+export type LocalUser = { name: string; role: string; email: string; department?: string | null; departments?: string[]; isBeapChair?: boolean; sessionVersion?: number; adminSessionId?:string;
+  /** This sign-in's id (migration 072): only the account's newest sign-in is accepted (users.current_session_id). */
+  sessionId?: string; impersonation?: { id:string; adminName:string; expiresAt:string } };
 
 type SessionPayload = LocalUser & { expiresAt: number; issuedAt?: number };
 
@@ -46,7 +48,7 @@ export async function createLocalSession(user: LocalUser, issuedAt = Date.now())
 
 export async function getLocalSessionUser(request: NextRequest): Promise<LocalUser | null> {
   const payload = await readLocalSession(request);
-  return payload ? { name: payload.name, role: payload.role, email: payload.email, sessionVersion: payload.sessionVersion ?? 0, adminSessionId: payload.adminSessionId } : null;
+  return payload ? { name: payload.name, role: payload.role, email: payload.email, sessionVersion: payload.sessionVersion ?? 0, adminSessionId: payload.adminSessionId, sessionId: payload.sessionId } : null;
 }
 
 /** The verified, unexpired session payload, or null. Sessions signed before issuedAt existed count from their expiry. */
@@ -60,7 +62,7 @@ export async function readLocalSession(request: NextRequest): Promise<(LocalUser
   try {
     const payload = JSON.parse(decoder.decode(decode(encodedPayload))) as SessionPayload;
     if (!(payload.expiresAt > Date.now())) return null;
-    return { name: payload.name, role: payload.role, email: payload.email, sessionVersion: payload.sessionVersion ?? 0, adminSessionId: payload.adminSessionId, issuedAt: payload.issuedAt ?? payload.expiresAt - sessionIdleSeconds * 1000 };
+    return { name: payload.name, role: payload.role, email: payload.email, sessionVersion: payload.sessionVersion ?? 0, adminSessionId: payload.adminSessionId, sessionId: payload.sessionId, issuedAt: payload.issuedAt ?? payload.expiresAt - sessionIdleSeconds * 1000 };
   } catch {
     return null;
   }

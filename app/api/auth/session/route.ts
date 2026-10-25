@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { createLocalSession, readLocalSession, sessionCookieName, sessionCookieOptions, sessionLifetime } from "@/lib/local-session";
 import { getPostgres } from "@/lib/postgres";
 import { isSameRequestOrigin } from "@/lib/request-origin";
-import { getAuthenticatedUser, getWorkspaceState, sessionBinding } from "@/lib/workspace-state";
+import { getAuthenticatedUser, getWorkspaceState, sessionBinding, sessionEndReason } from "@/lib/workspace-state";
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getWorkspaceState(request);
-    if(!user)return NextResponse.json({error:'Session expired'},{status:401,headers:{'Cache-Control':'no-store'}});
+    // `reason` tells the page whether this device was signed out by a newer sign-in elsewhere (components/session-guard.tsx).
+    if(!user)return NextResponse.json({error:'Session expired',reason:await sessionEndReason(request)},{status:401,headers:{'Cache-Control':'no-store'}});
     const {adminSessionId: _privateSession,...publicUser}=user;
     return NextResponse.json({user:publicUser},{headers:{'Cache-Control':'no-store'}});
   } catch (cause) {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     const lifetime = sessionLifetime(session.issuedAt);
     if (lifetime < 60) return NextResponse.json({ error: 'Session expired' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     const oldBinding = await sessionBinding(request);
-    const token = await createLocalSession({ name: session.name, role: session.role, email: session.email, sessionVersion: session.sessionVersion, adminSessionId: session.adminSessionId }, session.issuedAt);
+    const token = await createLocalSession({ name: session.name, role: session.role, email: session.email, sessionVersion: session.sessionVersion, adminSessionId: session.adminSessionId, sessionId: session.sessionId }, session.issuedAt);
     const newBinding = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))), b => b.toString(16).padStart(2, '0')).join('');
     const db = getPostgres();
     if (session.adminSessionId) await db.query('UPDATE sessions SET expires_at=NOW()+make_interval(secs=>$3) WHERE token=$1 AND user_id=$2', [session.adminSessionId, actor.userId, Math.round(lifetime)]);

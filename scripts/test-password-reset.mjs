@@ -61,7 +61,8 @@ try {
   step('reset link: checked first, password rules, signs out everywhere, works once, expired links refused');
 
   // Change password: current password required, new rules, this browser stays signed in, others are signed out.
-  const here = (await login('Brand-new-pass-456')).cookie, elsewhere = (await login('Brand-new-pass-456')).cookie;
+  // One device per account (migration 072): the later sign-in is the one that stays, so sign in elsewhere first.
+  const elsewhere = (await login('Brand-new-pass-456')).cookie, here = (await login('Brand-new-pass-456')).cookie;
   ok(await api('/api/auth/password/change', { currentPassword: 'Brand-new-pass-456', newPassword: 'Changed-pass-321' }), 401);
   ok(await api('/api/auth/password/change', { currentPassword: 'Brand-new-pass-456', newPassword: 'Changed-pass-321' }, { cookie: here, origin: 'https://evil.example' }), 403);
   assert.equal(ok(await api('/api/auth/password/change', { currentPassword: 'wrong-pass-000', newPassword: 'Changed-pass-321' }, { cookie: here }), 400).field, 'currentPassword');

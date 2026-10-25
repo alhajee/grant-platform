@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       await db.query('UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL', [actor.userId]);
       if (session.adminSessionId) await db.query('DELETE FROM sessions WHERE user_id = $1 AND token <> $2', [actor.userId, session.adminSessionId]);
       const lifetime = sessionLifetime(session.issuedAt);
-      const token = await createLocalSession({ name: session.name, role: session.role, email: session.email, sessionVersion: version, adminSessionId: session.adminSessionId }, session.issuedAt);
+      const token = await createLocalSession({ name: session.name, role: session.role, email: session.email, sessionVersion: version, adminSessionId: session.adminSessionId, sessionId: session.sessionId }, session.issuedAt);
       const response = json({ ok: true });
       response.cookies.set(sessionCookieName, token, sessionCookieOptions(Math.max(60, Math.floor(lifetime))));
       return response;

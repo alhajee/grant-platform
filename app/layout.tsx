@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ImpersonationBanner } from '@/components/impersonation-banner';
 import { SessionKeepalive } from '@/components/session-keepalive';
+import { SessionGuard } from '@/components/session-guard';
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,6 +26,7 @@ export default function RootLayout({
         <TooltipProvider delayDuration={350} skipDelayDuration={100}>
           <ImpersonationBanner />
           <SessionKeepalive />
+          <SessionGuard />
           {children}
           <Toaster theme="light" position="top-right" />
         </TooltipProvider>
