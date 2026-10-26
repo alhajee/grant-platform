@@ -9,10 +9,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import { FieldHelp } from '@/components/field-help';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isQualityEquipmentActivity, lineDocumentSlots, type LineDocumentSlot, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isQualityEquipmentActivity, ictSupportingDocumentHelp, lineDocumentSlots, type LineDocumentSlot, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
@@ -192,7 +193,7 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, pe
     {slots.map(slot => {
       const mandatory = isRequired && slot.governed, id = `line-document-${slot.kind}`;
       const saved = documents.filter(d => (d.kind ?? 'document') === slot.kind), waiting = pending.map((p, index) => ({ ...p, index })).filter(p => p.kind === slot.kind);
-      return <Field key={slot.kind}><FieldLabel htmlFor={id}>{slot.label} {mandatory ? required : <span className="font-normal text-muted-foreground">(optional)</span>}</FieldLabel>
+      return <Field key={slot.kind}><FieldLabel htmlFor={id}>{slot.label} {mandatory ? required : <span className="font-normal text-muted-foreground">(optional)</span>}{/* UBEC75: what ICT's supporting documents are for. */}{workstream === 'ict' && slot.kind === 'document' && !slot.governed && <FieldHelp>{ictSupportingDocumentHelp}</FieldHelp>}</FieldLabel>
         <FileUpload compact id={id} label={slot.label} multiple accept={slot.accept} disabled={disabled} busy={busy} onFiles={files => void upload(slot.kind, files)} />
         {lineId
           ? saved.length > 0 && <DocumentFiles compact documents={saved.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: slot.label }))} disabled={disabled || busy} onRemove={disabled ? undefined : docId => void remove(docId)} />

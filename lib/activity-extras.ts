@@ -104,6 +104,8 @@ export const requiredLineDocumentLabel = (workstream: string, activity: number) 
  */
 export const supportingDocumentWorkstreams = ['sbmc', 'monitoring', 'curriculum', 'quality', 'ict', 'planning'] as const;
 export const supportingDocumentLabel = 'Supporting documents';
+/** What ICT's supporting documents are for (UBEC75): shown when hovering the field's info icon. */
+export const ictSupportingDocumentHelp = 'Attach Previous School Year, Attach Smart Schools Maintenance and other supporting document';
 const takesSupportingDocuments = (workstream: string) => (supportingDocumentWorkstreams as readonly string[]).includes(workstream);
 /** True when this line's documents are the optional supporting documents rather than ones the setting governs. */
 export const isSupportingDocumentLine = (workstream: string, activity: number) => !requiredLineDocumentLabel(workstream, activity) && takesSupportingDocuments(workstream);
