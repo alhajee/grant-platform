@@ -5,6 +5,8 @@ import { UbecPageFrame, YearControls } from '@/components/ubec/dashboard/page-fr
 import { ActivityCard, PlansSection, WorkloadCard, isNational } from '@/components/ubec/dashboard/sections';
 import { useUbecDashboard } from '@/components/ubec/dashboard/use-dashboard';
 import { RatToolsCard } from '@/components/ubec/dashboard/rat-tools';
+import { ObservationPlansCard } from '@/components/ubec/dashboard/observation-plans';
+import { observationViewer } from '@/lib/observation-requests';
 import { departmentLabel, downloadsRatTools, ubecRoleTitle, ubecRoles } from '@/lib/ubec';
 
 /** UBEC Overview: the national picture (ES and BEAP Chair), a preview of plans, workload and activity. */
@@ -21,10 +23,12 @@ export default function Dashboard() {
       {isNational(d.user.role) ? <>
         <NationalHero data={d} controls={<YearControls years={d.years} year={year} onYear={setYear} onRefresh={load} loading={loading} />} />
         {/* The rest slides up over the map as the page scrolls */}
-        <div className="nh-sheet"><NationalGlance data={d} /><div className="national-lower-grid"><WorkloadCard data={d} /><ActivityCard data={d} limit={6} moreHref="/ubec/activity" /></div></div>
+        <div className="nh-sheet"><NationalGlance data={d} />{/* Observations asked before sending to UBEC (row 156): the UBEC BEAP Chair follows them. */}{observationViewer(d.user.role, d.user.department) && <ObservationPlansCard hideEmpty />}<div className="national-lower-grid"><WorkloadCard data={d} /><ActivityCard data={d} limit={6} moreHref="/ubec/activity" /></div></div>
       </> : <>
         {/* UBEC Planning (DPRS) downloads each submitted plan's RAT tool (UBEC139). */}
         {downloadsRatTools(d.user.role, d.user.department) && <RatToolsCard />}
+        {/* Audit, Procurement and Finance: observations an Executive Chairman asked for before sending (row 156). */}
+        {observationViewer(d.user.role, d.user.department) && <ObservationPlansCard />}
         <PlansSection data={d} items={d.items} limit={6} moreHref="/ubec/plans" />
         <div className="national-lower-grid"><WorkloadCard data={d} /><ActivityCard data={d} limit={6} moreHref="/ubec/activity" /></div>
       </>}

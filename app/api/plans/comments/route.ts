@@ -11,7 +11,7 @@ import { readStageVisibility } from '@/lib/stage-visibility';
 import { subebRoles } from '@/lib/subeb-access';
 import { userDepartmentsSql } from '@/lib/user-departments';
 import { commentAbilities, commentColumns, createCommentSchema, displayRole, sharedUbecAbilities, sheetPillar, sheetRows, targetLabel, updateCommentSchema, type PlanCommentThread } from '@/lib/plan-comments';
-import { commentFields, readStateVisibleRows, toThreads, type CommentRow as Row } from '@/lib/ubec-comments';
+import { commentFields, observationSentSql, readStateVisibleRows, toThreads, type CommentRow as Row } from '@/lib/ubec-comments';
 
 type Db = { query<R extends QueryResultRow = QueryResultRow>(sql: string, values?: unknown[]): Promise<QueryResult<R>> };
 type Actor = { id: number; role: string; department: string | null; departments: string[]; isBeapChair: boolean };
@@ -24,11 +24,11 @@ const columns = commentFields('plan_comments');
 async function readActor(db: Db, userId: number, sessionVersion: number) {
   return (await db.query<Actor>(`SELECT id, role, department, ${userDepartmentsSql('users')} AS departments, is_beap_chair AS "isBeapChair" FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE`, [userId, sessionVersion])).rows[0];
 }
-/** Abilities on a thread: state threads follow the review chain, shared UBEC threads the rules in sharedUbecAbilities. */
-const threadAbilities = (actor: Actor, root: Row, status: string) => root.scope === 'ubec' ? sharedUbecAbilities(actor, root.pillar, status) : commentAbilities(actor, root.pillar, status);
-/** A root comment the state may act on: any state thread, or a UBEC thread only once the UBEC ES shared it. */
+/** Abilities on a thread: state threads follow the review chain, shared UBEC threads and UBEC observations the rules in sharedUbecAbilities. */
+const threadAbilities = (actor: Actor, root: Row, status: string) => root.scope !== 'state' ? sharedUbecAbilities(actor, root.pillar, status) : commentAbilities(actor, root.pillar, status);
+/** A root comment the state may act on: any state thread, a UBEC thread once shared, an observation once its department sent it back. */
 async function readRoot(db: Db, planId: number, id: number) {
-  return (await db.query<Row>(`SELECT ${columns} FROM plan_comments WHERE id=$1 AND plan_id=$2 AND parent_id IS NULL AND (scope='state' OR shared_at IS NOT NULL) FOR UPDATE`, [id, planId])).rows[0];
+  return (await db.query<Row>(`SELECT ${columns} FROM plan_comments WHERE id=$1 AND plan_id=$2 AND parent_id IS NULL AND (scope='state' OR shared_at IS NOT NULL OR (scope='observation' AND ${observationSentSql('plan_comments')})) FOR UPDATE`, [id, planId])).rows[0];
 }
 
 export async function GET(request: NextRequest) {
@@ -82,9 +82,9 @@ export async function POST(request: NextRequest) {
       if ('parentId' in input) {
         const parent = await readRoot(db, plan.id, input.parentId);
         if (!parent || !visible.includes(parent.pillar) || !threadAbilities(actor, parent, status(parent.pillar)).reply) return error('Comment not found', 404);
-        if (parent.resolved_at) return error(parent.scope === 'ubec' ? 'This UBEC comment is resolved. Only UBEC can reopen it.' : 'This comment is resolved. Reopen it before replying.', 409);
-        const id = (await db.query('INSERT INTO plan_comments(plan_id,pillar,sheet,row_ref,column_id,parent_id,body,author_id,author_name,author_role,submission_number,target_label,scope,ubec_round_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id',
-          [plan.id, parent.pillar, parent.sheet, parent.row_ref, parent.column_id, parent.id, input.body, actor.id, name, role, plan.submissionNumber, parent.target_label, parent.scope, parent.ubec_round_id])).rows[0].id;
+        if (parent.resolved_at) return error(parent.scope !== 'state' ? 'This UBEC comment is resolved. Only UBEC can reopen it.' : 'This comment is resolved. Reopen it before replying.', 409);
+        const id = (await db.query('INSERT INTO plan_comments(plan_id,pillar,sheet,row_ref,column_id,parent_id,body,author_id,author_name,author_role,submission_number,target_label,scope,ubec_round_id,observation_department) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id',
+          [plan.id, parent.pillar, parent.sheet, parent.row_ref, parent.column_id, parent.id, input.body, actor.id, name, role, plan.submissionNumber, parent.target_label, parent.scope, parent.ubec_round_id, parent.observation_department])).rows[0].id;
         return NextResponse.json({ id: Number(id) }, { status: 201 });
       }
       const pillar = sheetPillar[input.sheet];
@@ -117,12 +117,12 @@ export async function PATCH(request: NextRequest) {
       if (!root || !visible.includes(root.pillar) || !can?.reply) return error('Comment not found', 404);
       if (input.action === 'resolve') {
         if (root.resolved_at) return error('This comment is already resolved', 409);
-        if (root.scope === 'ubec' && !can.resolveAny) return error('Only this department’s Data Entry Staff or the reviewer holding the component can resolve a UBEC comment', 403);
+        if (root.scope !== 'state' && !can.resolveAny) return error('Only this department’s Data Entry Staff or the reviewer holding the component can resolve a UBEC comment', 403);
         if (!can.resolveAny && root.author_id !== actor.id) return error('Only this department’s Data Entry Staff, the comment author or the reviewer holding the component can resolve it', 403);
         await db.query('UPDATE plan_comments SET resolved_at=NOW(), resolved_by_name=$1 WHERE id=$2', [name, root.id]);
       } else {
         if (!root.resolved_at) return error('This comment is already open', 409);
-        if (root.scope === 'ubec') return error('Only UBEC can reopen a UBEC comment', 403);
+        if (root.scope !== 'state') return error('Only UBEC can reopen a UBEC comment', 403);
         if (!can.reopen) return error('Only a Director, the BEAP Chair or the Executive Chairman can reopen a comment', 403);
         const clash = await db.query("SELECT 1 FROM plan_comments WHERE plan_id=$1 AND scope='state' AND sheet=$2 AND row_ref=$3 AND column_id IS NOT DISTINCT FROM $4 AND parent_id IS NULL AND resolved_at IS NULL", [plan.id, root.sheet, root.row_ref, root.column_id]);
         if (clash.rowCount) return error('Another open comment already covers this cell. Reply there instead.', 409);

@@ -104,7 +104,7 @@ export function ReviewActionDialog({ request, data, comments, onClose, onDone }:
   const resubmit = action === 'submit' && reviewStatus === 'changes_requested';
   const open = comments?.threads.filter(t => !t.resolvedAt && (scope === 'general' || t.pillar === scope)) ?? [];
   // State comments travel with a change request; shared UBEC comments are only mentioned.
-  const stateThreads = open.filter(t => t.scope === 'state'), ubecThreads = open.filter(t => t.scope === 'ubec');
+  const stateThreads = open.filter(t => t.scope === 'state'), ubecThreads = open.filter(t => t.scope !== 'state');
   const noteOptional = action === 'request_changes' && stateThreads.length > 0;
   const where = scope === 'general' ? 'this plan' : 'this component';
   const summary = useMemo(() => confirmation(action, pillar, data, reviewStatus, stateThreads.length, ubecThreads.length), [action, pillar, data, reviewStatus, stateThreads.length, ubecThreads.length]);

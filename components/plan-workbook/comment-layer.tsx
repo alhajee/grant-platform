@@ -68,7 +68,7 @@ export function CommentLayer({ sheet, comments, scrollRef, labelFor }: { sheet: 
       </PopoverContent>}
     </Popover>
     {previewThread && preview && typeof document !== 'undefined' && createPortal(<div role="tooltip" className="wb-comment-preview" style={{ top: Math.max(8, preview.rect.top), left: Math.min(window.innerWidth - 288, preview.rect.right + 6) }}>
-      <strong>{previewThread.scope === 'ubec' && controller.scope === 'state' ? `UBEC · ${previewThread.authorName}` : previewThread.authorName}</strong><span>{previewThread.body.length > 140 ? `${previewThread.body.slice(0, 139)}…` : previewThread.body}</span>
+      <strong>{previewThread.scope !== 'state' && controller.scope === 'state' ? `UBEC · ${previewThread.authorName}` : previewThread.authorName}</strong><span>{previewThread.body.length > 140 ? `${previewThread.body.slice(0, 139)}…` : previewThread.body}</span>
       {previewThread.replies.length > 0 && <em>{previewThread.replies.length} {previewThread.replies.length === 1 ? 'reply' : 'replies'}</em>}
     </div>, document.body)}
   </>;

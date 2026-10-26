@@ -10,14 +10,15 @@ import { qualityIctActivityNames } from './activity-extras';
 // A thread is a root comment on one cell (column_id set) or a whole row (column_id NULL);
 // replies share the root's target. scope 'state' threads belong to the SUBEB review chain; scope 'ubec'
 // threads are written at UBEC on a submitted round and reach the state only when the UBEC ES shares them
-// on return (migration 029, lib/ubec-comments.ts).
+// on return (migration 029, lib/ubec-comments.ts). scope 'observation' threads are written by UBEC Audit, Procurement and
+// Finance on the working plan when the Executive Chairman asks for observations before sending it (migration 075).
 
 export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution', 'monitoring', 'gscci', 'gscciDistribution', 'curriculum', 'curriculumDistribution', 'quality', 'ict', 'teachers', 'planning'] as const;
 export type CommentSheet = typeof commentSheets[number];
 /** The component each sheet belongs to; each distribution list is part of its component (TLM, GSCCI, Curriculum). */
 export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm', monitoring: 'monitoring', gscci: 'gscci', gscciDistribution: 'gscci', curriculum: 'curriculum', curriculumDistribution: 'curriculum', quality: 'quality', ict: 'ict', teachers: 'teachers', planning: 'planning' };
 export const commentBodyLimit = 2000;
-export const commentScopes = ['state', 'ubec'] as const;
+export const commentScopes = ['state', 'ubec', 'observation'] as const;
 export type CommentScope = typeof commentScopes[number];
 /** Authors of UBEC comments; everyone else writing on a UBEC thread is a SUBEB user replying to it. */
 export const ubecAuthorRoles = ['UBEC Executive Secretary', 'UBEC BEAP Chair', 'UBEC Director', 'UBEC Oversight Director', 'UBEC Assessment Officer', 'UBEC Department Reviewer'] as const;
@@ -115,6 +116,8 @@ export type PlanCommentThread = PlanCommentReply & {
   scope: CommentScope;
   /** UBEC threads only: whether (and by whom) the ES shared it with the SUBEB, and the UBEC submission it was written on. */
   sharedAt?: string | null; sharedByName?: string | null; roundNumber?: number;
+  /** Observation threads only (migration 075): the UBEC department (audit, procurement, finance) that wrote it. */
+  department?: string;
 };
 export type PlanCommentsResponse = {
   threads: PlanCommentThread[]; locked: boolean; abilities: Partial<Record<ImplementedPillar, CommentAbilities>>;

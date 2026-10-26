@@ -57,7 +57,7 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
     comments.controller.setActive({ sheet: sheet.key, rowRef: rowId, columnId, threadId: null });
   }
   /** On the SUBEB workbook, cells whose open thread came from UBEC get their own marker colour. */
-  const fromUbec = (key: string) => comments?.controller.scope === 'state' && !!comments.open.get(key)?.some(t => t.scope === 'ubec');
+  const fromUbec = (key: string) => comments?.controller.scope === 'state' && !!comments.open.get(key)?.some(t => t.scope !== 'state');
 
   // Keep the viewport width available to full-width detail rows inside the horizontally scrolling grid.
   useLayoutEffect(() => {

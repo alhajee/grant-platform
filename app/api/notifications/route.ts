@@ -13,8 +13,8 @@ const noStore = { 'Cache-Control': 'no-store' };
 const markRead = z.union([z.object({ ids: z.array(z.number().int().positive()).min(1).max(100) }).strict(), z.object({ all: z.literal(true) }).strict()]);
 
 // State notifications only count while they belong to the viewer's own state;
-// UBEC notifications are addressed to national users and span every state.
-const visible = `n.user_id = $1 AND (n.ubec_event_id IS NOT NULL OR p.state_code = $2)`;
+// UBEC notifications (and the observation requests that state events send to UBEC users) span every state.
+const visible = `n.user_id = $1 AND (n.ubec_event_id IS NOT NULL OR p.state_code = $2 OR $2 = 'UBEC')`;
 
 async function readTodos(workspace: { stateCode: string; role: string; departments: string[]; isBeapChair: boolean }): Promise<NotificationTodo[]> {
   if (!(subebRoles as readonly string[]).includes(workspace.role)) return [];

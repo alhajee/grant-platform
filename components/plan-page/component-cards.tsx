@@ -78,7 +78,7 @@ function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, 
   // In split mode each shows its own part of the pool (null until the split is set).
   const pooled = isPoolComponent(pillar) && !isSplitMode(envelopePlan);
   const partner = pooled ? totals[poolPartner(pillar)].budget : 0, used = summary.budget + partner;
-  const sheet = `#review-${pillar}`, own = comments?.openCount(pillar) ?? 0, ubec = comments?.openCount(pillar, 'ubec') ?? 0;
+  const sheet = `#review-${pillar}`, own = comments?.openCount(pillar) ?? 0, ubec = (comments?.openCount(pillar, 'ubec') ?? 0) + (comments?.openCount(pillar, 'observation') ?? 0);
   const palette = componentPalette[pillar];
   if (!detail) return <li className="component-card" data-component={pillar} data-pending style={{ '--component-fill': palette.fill, '--component-ink': palette.ink } as CSSProperties}>
     <span className="component-card-art" aria-hidden="true">{pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={pillar} standalone />}</span>

@@ -27,6 +27,7 @@ const none: CommentAbilities = { start: false, reply: false, resolveAny: false, 
 
 const endpoint = (source: CommentsSource, read = false) => {
   if (source.scope === 'state') return currentPlanHref('/api/plans/comments');
+  if (source.scope === 'observation') return currentPlanHref('/api/ubec/observations/comments');
   const url = currentPlanHref('/api/ubec/comments');
   return read && source.roundId ? `${url}&round=${encodeURIComponent(source.roundId)}` : url;
 };
@@ -74,7 +75,7 @@ export function usePlanComments(planId: number | undefined, enabled: boolean, re
   const controller = useMemo<CommentsController>(() => ({
     threads, readOnly: !data || data.locked, loaded: !!data, active, setActive, create, reply, setResolved, scope,
     abilities: (pillar, of = scope) => !data || data.locked ? none : (of === scope ? data.abilities : data.otherAbilities ?? {})[pillar] ?? none,
-    startHint: data?.locked ? 'Comments are read-only for this plan' : scope === 'ubec' ? 'Only the UBEC ES and the reviewers assigned to this component can comment on it' : 'Only the reviewer currently holding this component can start comments',
+    startHint: data?.locked ? 'Comments are read-only for this plan' : scope === 'ubec' ? 'Only the UBEC ES and the reviewers assigned to this component can comment on it' : scope === 'observation' ? 'Only a department asked for observations can comment, until it sends them back' : 'Only the reviewer currently holding this component can start comments',
     openCount: (pillar, of = scope) => threads.filter(t => t.pillar === pillar && !t.resolvedAt && t.scope === of).length,
   }), [threads, data, active, create, reply, setResolved, scope]);
   return enabled && planId ? controller : null;

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/spinner';
 import { commentBodyLimit, sheetPillar, type PlanCommentReply, type PlanCommentThread } from '@/lib/plan-comments';
+import { observationDepartmentName } from '@/lib/observation-requests';
 import type { CommentsController, CommentTarget } from './comments-context';
 
 const units: [Intl.RelativeTimeFormatUnit, number][] = [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]];
@@ -33,6 +34,8 @@ function Entry({ comment }: { comment: PlanCommentReply }) {
  * ES shared the thread with the SUBEB or it is still internal to UBEC.
  */
 export function ScopeBadge({ thread, viewer }: { thread: PlanCommentThread; viewer: CommentsController['scope'] }) {
+  // Observations asked for before sending to UBEC (row 156) carry the UBEC department that wrote them.
+  if (thread.scope === 'observation') return <Badge className={viewer === 'state' ? 'wb-scope-badge wb-ubec-badge' : 'wb-scope-badge'} variant={viewer === 'state' ? 'default' : 'outline'} title="Observation before sending to UBEC">{observationDepartmentName(thread.department ?? '')}</Badge>;
   if (thread.scope !== 'ubec') return null;
   if (viewer === 'state') return <Badge className="wb-scope-badge wb-ubec-badge" title={thread.roundNumber ? `From the UBEC review of submission ${thread.roundNumber}` : 'From the UBEC review'}>UBEC</Badge>;
   return thread.sharedAt ? <Badge variant="secondary" className="wb-scope-badge wb-shared-badge" title={`Shared with the SUBEB${thread.sharedByName ? ` by ${thread.sharedByName}` : ''}`}>Shared</Badge> : <Badge variant="outline" className="wb-scope-badge" title="Only UBEC can see this comment">Internal</Badge>;
@@ -63,7 +66,7 @@ export function CommentThread({ controller, thread, target, label, onClose, auto
     if (ok && !resolved) onClose?.();
   }
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void submit(); } };
-  return <div className="wb-thread" data-resolved={resolved || undefined} data-ubec={(thread?.scope === 'ubec' && controller.scope === 'state') || undefined}>
+  return <div className="wb-thread" data-resolved={resolved || undefined} data-ubec={(!!thread && thread.scope !== 'state' && controller.scope === 'state') || undefined}>
     <div className="wb-thread-head">
       <p className="wb-thread-target" title={label}>{label}</p>
       {thread && <ScopeBadge thread={thread} viewer={controller.scope} />}
@@ -82,6 +85,6 @@ export function CommentThread({ controller, thread, target, label, onClose, auto
       </div>
     </form>}
     {!thread && !can.start && <p className="wb-thread-note">{controller.startHint}</p>}
-    {thread?.scope === 'ubec' && controller.scope === 'state' && !controller.readOnly && resolved && <p className="wb-thread-note">Only UBEC can reopen a UBEC comment</p>}
+    {!!thread && thread.scope !== 'state' && controller.scope === 'state' && !controller.readOnly && resolved && <p className="wb-thread-note">Only UBEC can reopen a UBEC comment</p>}
   </div>;
 }

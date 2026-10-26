@@ -1,4 +1,4 @@
-import { CircleAlertIcon, SendIcon } from 'lucide-react';
+import { CircleAlertIcon, ScanEyeIcon, SendIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { statePlanOpen } from '@/lib/pillar-review';
@@ -8,9 +8,11 @@ import type { PlanReview } from '@/lib/plan-review';
  * The whole-plan step for the BEAP Chair (collate and send to the Executive Chairman) and the Executive
  * Chairman (send to UBEC), with how many components have reached them. Nothing for other roles.
  */
-export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSeveral }: { data: PlanReview; available: boolean; onForward: () => void; onSendToUbec: () => void;
+export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSeveral, onRequestObservations }: { data: PlanReview; available: boolean; onForward: () => void; onSendToUbec: () => void;
   /** Individual-components mode: send several reviewed components at once (V2-04). */
-  onSendSeveral?: () => void }) {
+  onSendSeveral?: () => void;
+  /** The Executive Chairman's optional request for observations from UBEC Audit, Procurement and Finance (row 156); omitted while one is open. */
+  onRequestObservations?: () => void }) {
   if (!statePlanOpen(data.plan.status)) return null;
   const count = (statuses: string[]) => data.pillarReviews.filter(review => statuses.includes(review.status)).length;
   const of = `of ${implementedPillars.length} components`;
@@ -26,10 +28,16 @@ export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSe
     </div>;
   }
   if (data.role !== 'Executive Chairman') return null;
+  // Observations asked of UBEC Audit, Procurement or Finance hold the send until they are in and resolved.
+  const observations = data.observationProblem ?? null;
   return <div className="workflow-bar">
     <p>{count(['chairman_ready'])} {of} ready{data.ubecSubmissionMode === 'reviewed_components' ? '. Only ready components are sent to UBEC.' : ''}</p>
-    {data.readyForUbec && available
-      ? <Button className="rounded-full" onClick={onSendToUbec}><SendIcon data-icon="inline-start" />Send to UBEC</Button>
-      : <Button className="rounded-full" disabled><SendIcon data-icon="inline-start" />Send to UBEC</Button>}
+    <div className="flex flex-wrap gap-2">
+      {onRequestObservations && <Button variant="outline" className="rounded-full" disabled={!available} onClick={onRequestObservations}><ScanEyeIcon data-icon="inline-start" />Ask UBEC for observations</Button>}
+      {data.readyForUbec && available && !observations
+        ? <Button className="rounded-full" onClick={onSendToUbec}><SendIcon data-icon="inline-start" />Send to UBEC</Button>
+        : <Button className="rounded-full" disabled aria-describedby={observations ? 'workflow-observations' : undefined}><SendIcon data-icon="inline-start" />Send to UBEC</Button>}
+    </div>
+    {observations && <p id="workflow-observations" role="status" className="workflow-blocked flex items-start gap-1.5 text-sm text-destructive"><CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{observations}</p>}
   </div>;
 }

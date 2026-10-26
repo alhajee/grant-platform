@@ -16,6 +16,7 @@ import { shareCommentIdsSchema } from '@/lib/plan-comments';
 import { shareableThreadIds } from '@/lib/ubec-comments';
 import { addUbecEvent, approvableComponents, notifyUbec, openOversightCommentCount, oversightCommentsMessage, readActor, readDecisions, readFlow, readRoundComponents, readViewerRounds, releaseRows, ubecVisibleSnapshot, viewerPillars } from '@/lib/ubec-flow-db';
 import { superAdminRole } from '@/lib/ubec-flow';
+import { readObservationStatus } from '@/lib/observation-requests-db';
 import { subebComponentDepartments, type ImplementedPillar } from "@/lib/beap-pillars";
 
 // Plan-level UBEC steps (docs/ubec-flow.md): the SUBEB Executive Chairman submits; the UBEC BEAP Chair releases the
@@ -59,7 +60,9 @@ export async function GET(request: NextRequest) {
       const events = round ? (await db.query(`SELECT id,action,actor,comment,created_at,pillar FROM ubec_events WHERE round_id=$1 ${national ? '' : "AND action IN ('submit','return','approve')"} AND (pillar IS NULL OR pillar=ANY($2::text[])) ORDER BY id DESC`, [round.id, pillars])).rows : [];
       const ubecMode = await readUbecSubmissionMode(db);
       const reviews = user.role === 'Executive Chairman' ? await readPillarReviews(db, plan.id) : [];
-      const canSubmit = user.role === 'Executive Chairman' && (!allRounds[0] || allRounds[0].status === 'returned') && (ubecMode === 'reviewed_components' ? statePlanOpen(plan.status) : plan.status === 'awaiting_chairman') && readyForUbecSubmission(ubecMode, reviews, await readPlanSnapshot(db, plan.id), { documentsRequired: await readComponentDocumentsRequired(db) });
+      const canSubmit = user.role === 'Executive Chairman' && (!allRounds[0] || allRounds[0].status === 'returned') && (ubecMode === 'reviewed_components' ? statePlanOpen(plan.status) : plan.status === 'awaiting_chairman') && readyForUbecSubmission(ubecMode, reviews, await readPlanSnapshot(db, plan.id), { documentsRequired: await readComponentDocumentsRequired(db) })
+        // Observations the Executive Chairman asked UBEC Audit, Procurement or Finance for must be in and resolved (row 156).
+        && !(await readObservationStatus(db, plan.id)).problem;
       const setup = round?.snapshot.setup;
       const fundingTotal = setup?.fundingTotal != null ? Number(setup.fundingTotal) : null;
       return NextResponse.json({
@@ -104,6 +107,8 @@ export async function POST(request: NextRequest) {
         const readiness = { documentsRequired: await readComponentDocumentsRequired(db) };
         const unready = unreadySentComponents(snapshot, reviews, readiness)[0];
         if (unready) return error(componentSendProblem(unready, snapshot, readiness)!, 409);
+        const observations = (await readObservationStatus(db, plan.id)).problem;
+        if (observations) return error(observations, 409);
         if (!readyForUbecSubmission(ubecMode, reviews, snapshot, readiness)) return error(partial ? 'At least one component must reach the Executive Chairman before sending to UBEC.' : 'Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(ubecSubmissionSnapshot(snapshot, reviews)), user.id])).rows[0];
         status = 'submitted_ubec';

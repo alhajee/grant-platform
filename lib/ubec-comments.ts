@@ -18,9 +18,9 @@ export type Db = { query<R extends QueryResultRow = QueryResultRow>(sql: string,
 export type CommentRow = {
   id: number; parent_id: number | null; pillar: ImplementedPillar; sheet: CommentSheet; row_ref: string; column_id: string | null; body: string;
   author_id: number | null; author_name: string; author_role: string; created_at: Date | string; resolved_at: Date | string | null; resolved_by_name: string | null;
-  submission_number: number; target_label: string; scope: CommentScope; ubec_round_id: number | null; shared_at: Date | string | null; shared_by_name: string | null; round_number?: number | null;
+  submission_number: number; target_label: string; scope: CommentScope; ubec_round_id: number | null; shared_at: Date | string | null; shared_by_name: string | null; round_number?: number | null; observation_department: string | null;
 };
-export const commentFields = (alias = 'c') => ['id', 'parent_id', 'pillar', 'sheet', 'row_ref', 'column_id', 'body', 'author_id', 'author_name', 'author_role', 'created_at', 'resolved_at', 'resolved_by_name', 'submission_number', 'target_label', 'scope', 'ubec_round_id', 'shared_at', 'shared_by_name'].map(field => `${alias}.${field}`).join(', ');
+export const commentFields = (alias = 'c') => ['id', 'parent_id', 'pillar', 'sheet', 'row_ref', 'column_id', 'body', 'author_id', 'author_name', 'author_role', 'created_at', 'resolved_at', 'resolved_by_name', 'submission_number', 'target_label', 'scope', 'ubec_round_id', 'shared_at', 'shared_by_name', 'observation_department'].map(field => `${alias}.${field}`).join(', ');
 export { openRoundStatuses };
 export const isUbecAuthor = (role: string) => (ubecAuthorRoles as readonly string[]).includes(role);
 
@@ -41,17 +41,24 @@ export function toThreads(rows: CommentRow[], userId: number, snapshot: Snapshot
       submissionNumber: row.submission_number, resolvedAt: toIso(resolved?.resolved_at ?? null), resolvedByName: resolved?.resolved_by_name ?? null, replies: [],
       orphaned: !current[row.sheet].has(row.row_ref) || (row.column_id !== null && !(row.column_id in commentColumns[row.sheet])),
       scope: row.scope,
+      ...(row.scope === 'observation' ? { department: row.observation_department ?? undefined } : {}),
       ...(row.scope === 'ubec' ? { roundNumber: row.round_number ?? undefined, ...(options.withSharing ? { sharedAt: toIso(row.shared_at), sharedByName: row.shared_by_name } : {}) } : {}),
     });
   }
   return [...threads.values()];
 }
 
-/** State view: state threads plus shared UBEC threads (UBEC replies only up to the share time). */
+/**
+ * SQL condition: the observation thread whose root is `root` has reached the SUBEB, i.e. its department sent its
+ * observations back after writing it (a department's comments stay with UBEC until it does).
+ */
+export const observationSentSql = (root: string) => `EXISTS (SELECT 1 FROM plan_observation_departments od JOIN plan_observation_requests orq ON orq.id = od.request_id
+  WHERE orq.plan_id = ${root}.plan_id AND od.department = ${root}.observation_department AND od.completed_at >= ${root}.created_at)`;
+/** State view: state threads, observation threads (migration 075) and shared UBEC threads (UBEC replies only up to the share time). */
 export async function readStateVisibleRows(db: Db, planId: number, pillars: readonly string[]) {
   return (await db.query<CommentRow>(`SELECT ${commentFields()}, r.number AS round_number FROM plan_comments c
-    LEFT JOIN plan_comments p ON p.id = c.parent_id LEFT JOIN ubec_rounds r ON r.id = c.ubec_round_id
-    WHERE c.plan_id=$1 AND c.pillar=ANY($2::text[]) AND (c.scope='state'
+    LEFT JOIN plan_comments p ON p.id = c.parent_id LEFT JOIN ubec_rounds r ON r.id = c.ubec_round_id JOIN plan_comments root ON root.id = COALESCE(c.parent_id, c.id)
+    WHERE c.plan_id=$1 AND c.pillar=ANY($2::text[]) AND (c.scope='state' OR (c.scope='observation' AND ${observationSentSql('root')})
       OR (c.parent_id IS NULL AND c.shared_at IS NOT NULL)
       OR (p.shared_at IS NOT NULL AND (c.author_role <> ALL($3::text[]) OR c.created_at <= p.shared_at)))
     ORDER BY c.id`, [planId, pillars, ubecAuthorRoles])).rows;

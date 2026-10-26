@@ -20,12 +20,14 @@ export function CommentsPanel({ sheet, comments, onNavigate }: { sheet: Workbook
   const pending = useRef<PlanCommentThread | null>(null);
   const viewer = comments.controller.scope;
   // The SUBEB workbook can mix its own threads with the ones UBEC shared; let reviewers pick either.
-  const mixed = viewer === 'state' && comments.threads.some(t => t.scope === 'ubec');
-  const inSource = comments.threads.filter(t => !mixed || source === 'all' || t.scope === source);
+  const mixed = viewer === 'state' && comments.threads.some(t => t.scope !== 'state');
+  // UBEC observations asked for before sending (row 156) count as UBEC comments here.
+  const fromScope = (t: PlanCommentThread) => t.scope === 'observation' ? 'ubec' : t.scope;
+  const inSource = comments.threads.filter(t => !mixed || source === 'all' || fromScope(t) === source);
   const openThreads = inSource.filter(t => !t.resolvedAt), resolved = inSource.filter(t => t.resolvedAt);
   const allOpen = comments.threads.filter(t => !t.resolvedAt).length;
   const shown = filter === 'open' ? openThreads : resolved;
-  const count = (scope: 'state' | 'ubec') => comments.threads.filter(t => t.scope === scope && (filter === 'open' ? !t.resolvedAt : t.resolvedAt)).length;
+  const count = (scope: 'state' | 'ubec') => comments.threads.filter(t => fromScope(t) === scope && (filter === 'open' ? !t.resolvedAt : t.resolvedAt)).length;
   const choose = (thread: PlanCommentThread) => {
     if (thread.orphaned) { setExpanded(expanded === thread.id ? null : thread.id); return; }
     pending.current = thread; setOpen(false);
@@ -50,7 +52,7 @@ export function CommentsPanel({ sheet, comments, onNavigate }: { sheet: Workbook
       </div>
       {!shown.length ? <EmptyComments resolved={filter === 'resolved'} source={mixed ? source : 'all'} canStart={filter === 'open' && comments.can.start} /> :
         <ul className="wb-comments-list">{shown.map(thread => <li key={thread.id} data-thread-id={thread.id}>
-          <button type="button" className="wb-comments-item" data-ubec={(viewer === 'state' && thread.scope === 'ubec') || undefined} aria-expanded={thread.orphaned ? expanded === thread.id : undefined} onClick={() => choose(thread)}>
+          <button type="button" className="wb-comments-item" data-ubec={(viewer === 'state' && thread.scope !== 'state') || undefined} aria-expanded={thread.orphaned ? expanded === thread.id : undefined} onClick={() => choose(thread)}>
             <span className="wb-comments-target"><ScopeBadge thread={thread} viewer={viewer} />{thread.targetLabel}{thread.orphaned && <Badge variant="outline">No longer in the plan</Badge>}</span>
             <span className="wb-comments-body">{thread.body}</span>
             <span className="wb-comments-meta">{thread.authorName} · {relativeTime(thread.createdAt)}{thread.replies.length > 0 && ` · ${thread.replies.length} ${thread.replies.length === 1 ? 'reply' : 'replies'}`}</span>
