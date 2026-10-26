@@ -1,4 +1,4 @@
-.file-upload{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;border:1.5px dashed var(--border);border-radius:12px;background:var(--card);text-align:center;transition:border-color .15s,background .15s}
+.file-upload{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;border:1.5px dashed var(--border);border-radius:12px;background:var(--card);text-align:center;transition:border-color .15s,background .15s}
 .file-upload[data-invalid=true]{border-color:color-mix(in srgb,var(--destructive) 55%,var(--border));background:color-mix(in srgb,var(--destructive) 4%,var(--card))}
 .file-upload[data-compact=true] .upload-problem{grid-column:1/-1}
 .file-upload[data-dragging=true]{border-color:var(--primary);background:var(--accent)}

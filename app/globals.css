@@ -224,7 +224,8 @@
 .save-status svg { width: 14px; height: 14px; }
 .workspace-body, .workspace-split { flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
 .split-panel { min-width: 0; min-height: 0; }
-.workspace-pane { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; overflow: hidden; container-type: inline-size; }
+/* clip, not hidden: a hidden pane can still be scrolled by focus or scrollIntoView, which left a gap under the footer (UBEC111). */
+.workspace-pane { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; overflow: hidden; overflow: clip; container-type: inline-size; }
 .pane-scroll { flex: 1; min-height: 0; min-width: 0; width: 100%; }
 /* Radix's intrinsic table wrapper otherwise makes long content widen the pane. */
 .pane-scroll [data-slot="scroll-area-viewport"] > div { display: block !important; min-width: 0 !important; width: 100%; max-width: 100%; }
