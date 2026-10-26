@@ -7,7 +7,9 @@ import { stateDisplayName } from "@/lib/state-names";
 import { pendingActionsFor, type PillarReviewRow } from '@/lib/pending-actions';
 import { canCreateStatePlan } from '@/lib/subeb-access';
 import { readStateStageVisibility } from '@/lib/stage-visibility';
-import { visibleComponents } from '@/lib/plan-visibility';
+import { visibleComponents, visibleSnapshot } from '@/lib/plan-visibility';
+import { readPlanSnapshot } from '@/lib/plan-snapshot';
+import { levelMapping, type LevelMapping } from '@/lib/level-mapping';
 import { implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
 import { planSetupSchema, beapName, futureYearError } from '@/lib/plan-setup';
 import { creationSplitProblem, setsBudgetSplits, splitsByBeapChair, type CreationSplits } from '@/lib/budget-pairs';
@@ -62,9 +64,12 @@ export async function GET(request: NextRequest) {
     // Component statuses under the role/department ceiling, as on the plan page, so cards can name what was returned for changes.
     const ceiling = visibleComponents(workspace);
     const statusesOf = (planId: number) => implementedPillars.filter(pillar => ceiling.includes(pillar)).map(pillar => ({ pillar, status: reviews.find(review => review.plan_id === planId && review.pillar === pillar)?.status ?? 'draft' }));
+    // Spending by school level (UBEC127) from each plan's working snapshot, visible components only.
+    const levels = new Map<number, LevelMapping>();
+    for (const row of result.rows) levels.set(row.id, levelMapping(visibleSnapshot(await readPlanSnapshot(db, row.id), visibility.get(row.id) ?? [])));
     const plans = result.rows.map(({ componentLines, componentSchools, ...plan }) => {
       const pendingActions = pendingActionsFor(workspace, plan as { id: number; status: string }, reviews);
-      return { ...plan, ...visibleFigures(plan, visibility.get(plan.id) ?? [], componentLines, componentSchools), pendingActions, pendingReview: pendingActions.length > 0 && workspace.role !== 'Data Entry Staff', pillarReviews: statusesOf(plan.id) };
+      return { ...plan, ...visibleFigures(plan, visibility.get(plan.id) ?? [], componentLines, componentSchools), pendingActions, pendingReview: pendingActions.length > 0 && workspace.role !== 'Data Entry Staff', pillarReviews: statusesOf(plan.id), levels: levels.get(plan.id) };
     });
     const targetedSchools = new Set(plans.flatMap(plan => plan.schoolIds)).size;
     return NextResponse.json({ plans, recentActivity, targetedSchools, stateName: stateDisplayName(workspace.stateCode), role: workspace.role, canCreatePlan: canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair) }, { headers: { "Cache-Control": "no-store" } });

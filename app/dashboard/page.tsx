@@ -8,6 +8,8 @@ import { CreatePlanDialog } from "@/components/create-plan-dialog";
 import { EditPlanDialog } from "@/components/edit-plan-dialog";
 import { OtherFundingInfo } from "@/components/funding-sources-field";
 import { ComponentBudgets } from "@/components/dashboard/component-budgets";
+import { LevelMappingCard } from "@/components/level-mapping-card";
+import { sumMappings } from "@/lib/level-mapping";
 import { PlanCard } from "@/components/dashboard/plan-card";
 import { EmptyPlanArt } from "@/components/dashboard/empty-plan-art";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
@@ -151,6 +153,8 @@ export default function DashboardPage() {
           <div className="dashboard-aside-content">
           <Card className="budget-allocation"><CardHeader><CardTitle><h2>Where your plans invest</h2></CardTitle>{activeInvestmentFilters > 0 && <CardDescription>{dashboardPlans.length} matching {dashboardPlans.length === 1 ? "plan" : "plans"}</CardDescription>}</CardHeader><CardContent>
             <ComponentBudgets plans={dashboardPlans} areas={allAreas} amounts={areaAmounts} totalFunding={totalFunding} unavailable={unavailable} selected={investmentFilters.areas} onToggle={area => setInvestmentFilters(current => ({ ...current, areas: current.areas.length === 1 && current.areas[0] === area ? [] : [area] }))} />
+            {/* UBEC127: spending by school level across the plans shown (ECCDE, Primary, JSS, not school-specific). */}
+            {!unavailable && <LevelMappingCard className="dashboard-level-mapping" mapping={sumMappings(dashboardPlans.flatMap(p => p.levels ? [p.levels] : []))} description={`Across ${dashboardPlans.length === 1 ? "this plan" : `these ${dashboardPlans.length} plans`}: ECCDE, Primary, JSS and what is not school-specific`} />}
           </CardContent></Card>
           {!unavailable && <RecentActivity items={recentActivity} />}
           </div>

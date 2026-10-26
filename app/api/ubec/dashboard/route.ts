@@ -1,3 +1,4 @@
+import { levelMapping } from '@/lib/level-mapping';
 import { NextRequest, NextResponse } from 'next/server';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
@@ -6,7 +7,7 @@ import { stateDisplayName } from '@/lib/state-names';
 import { coversPlanningYear } from '@/lib/national-analytics';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
 import { componentAmount, componentItems, componentName, decisionCounts, type ItemDecisionValue, type PipelineComponent } from '@/lib/ubec-flow';
-import { seesEverything, ubecSeesPillarSql } from '@/lib/ubec-flow-db';
+import { seesEverything, ubecSeesPillarSql, ubecVisibleSnapshot } from '@/lib/ubec-flow-db';
 import { planPeriod } from '@/lib/action-plans';
 
 type RoundRow = UbecRound & { state_code: string; start_year: number; end_year: number; funding_quarters: number[] | null };
@@ -86,6 +87,7 @@ export async function GET(request: NextRequest) {
         budget: pipeline.reduce((sum, p) => sum + Math.round(p.amount * 100), 0) / 100, infrastructure: amounts.infrastructure ?? 0, sports: amounts.sports ?? 0, schools: [...new Set(schools)],
         pending: open ? released.filter(p => p.stage !== 'chair').length : 0, completed: released.filter(p => p.stage === 'chair').length,
         fundingTotal: r.snapshot.setup?.fundingTotal != null ? Number(r.snapshot.setup.fundingTotal) : null, amounts, components: pipeline,
+        levels: levelMapping(ubecVisibleSnapshot(r.snapshot, pillars)),
       };
     });
     const departments = [...new Set(components.filter(c => items.some(i => i.id === c.round_id && i.components?.some(p => p.pillar === c.pillar))).map(c => c.department))];

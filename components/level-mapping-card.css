@@ -1,0 +1,33 @@
+/* Resource mapping by school level (UBEC127): components/level-mapping-card.tsx. Hues validated for colour-vision
+   deficiency (dataviz validator, light and dark); "Not school-specific" is a neutral gray, labelled in the table. */
+.level-mapping {
+  --level-eccde: #2a78d6; --level-primary: #eb6834; --level-jss: #1baf7a; --level-none: #a3a3a3;
+}
+.dark .level-mapping { --level-eccde: #3987e5; --level-primary: #d95926; --level-jss: #199e70; --level-none: #737373; }
+.level-mapping-title { display: inline-flex; align-items: center; gap: 8px; }
+.level-mapping-title svg { width: 17px; height: 17px; color: var(--primary); }
+.level-mapping-body { display: flex; flex-direction: column; gap: 14px; }
+.level-mapping-empty { margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.level-mapping-bar { display: flex; gap: 2px; height: 14px; }
+.level-mapping-segment { flex-basis: 0; min-width: 6px; border-radius: 4px; cursor: default; }
+.level-mapping-segment:hover, .level-mapping-segment:focus-visible { outline: 2px solid var(--foreground); outline-offset: 1px; }
+.level-mapping [data-level="eccde"] { background: var(--level-eccde); }
+.level-mapping [data-level="primary"] { background: var(--level-primary); }
+.level-mapping [data-level="jss"] { background: var(--level-jss); }
+.level-mapping [data-level="none"] { background: var(--level-none); }
+.level-mapping-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.level-mapping-table th, .level-mapping-table td { padding: 5px 0; text-align: left; font-weight: 400; }
+.level-mapping-table td { text-align: right; color: var(--foreground); }
+.level-mapping-table td:last-child { width: 56px; color: var(--muted-foreground); }
+.level-mapping-table tbody th { display: flex; align-items: center; gap: 8px; color: var(--foreground); }
+.level-mapping-table tbody th i { width: 10px; height: 10px; flex: none; border-radius: 3px; }
+.level-mapping-table tr[data-empty] { color: var(--muted-foreground); }
+.level-mapping-table tr[data-empty] th, .level-mapping-table tr[data-empty] td { color: var(--muted-foreground); }
+.level-mapping-table tfoot th, .level-mapping-table tfoot td { border-top: 1px solid var(--border); padding-top: 7px; font-weight: 600; }
+.level-mapping-table tbody th { white-space: nowrap; }
+/* On the SUBEB dashboard it sits inside the aside card: no second frame. */
+.level-mapping.dashboard-level-mapping { margin-top: 8px; padding: 0; border: 0; box-shadow: none; background: transparent; }
+.level-mapping.dashboard-level-mapping > [data-slot="card-header"], .level-mapping.dashboard-level-mapping > [data-slot="card-content"] { padding-inline: 0; }
+/* On the wide UBEC overview: the figures stay next to their labels, and the card keeps its distance from the next row. */
+.level-mapping.ubec-level-mapping { margin-block: 16px; }
+.level-mapping.ubec-level-mapping .level-mapping-table { max-width: 560px; }

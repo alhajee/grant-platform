@@ -21,6 +21,8 @@ import { SendToUbecDialog } from '@/components/plan-page/send-to-ubec-dialog';
 import { ObservationsCard, usePlanObservations } from '@/components/plan-page/observations-card';
 import { RequestObservationsDialog } from '@/components/plan-page/request-observations-dialog';
 import { BudgetSplitsCard } from '@/components/plan-page/budget-splits-card';
+import { LevelMappingCard } from '@/components/level-mapping-card';
+import { levelMapping } from '@/lib/level-mapping';
 import { ReviewActionDialog, type ReviewRequest } from '@/components/plan-page/review-action-dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -170,6 +172,8 @@ export default function PlanPage() {
             {selected === 'current' && data.snapshot.setup && (data.role === 'Executive Chairman' || data.isBeapChair) && <BudgetSplitsCard plan={data.snapshot.setup} totals={totals} canSplit={data.isBeapChair && open} onSaved={async () => { await load(); }} />}
             <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} ubecStage={plan ? ubecStageLabels[plan.status] : null} />
             <ObservationsCard data={observations.data} />
+            {/* UBEC127: the plan's spending by school level (components the viewer sees). */}
+            <LevelMappingCard className="plan-status-panel" mapping={levelMapping(data.snapshot)} />
             {data.visiblePillars.includes('infrastructure') && data.snapshot.infrastructure.length > 0 && <DeliverablesCard packages={data.snapshot.infrastructure.map(item => item.package)} />}
             {selected === 'current' && data.pillarReviews.length > 0 && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
           </aside>
