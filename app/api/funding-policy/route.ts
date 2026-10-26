@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { allocationSchema } from '@/lib/funding-policy';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
+import { readInfrastructureTlmMode } from '@/lib/infrastructure-tlm-mode';
+import { setsBudgetSplits } from '@/lib/budget-pairs';
 
 const fields='id, allocation, created_at AS "createdAt", actor_name AS "createdBy"';
 const fail=(error:string,status:number)=>NextResponse.json({error},{status});
@@ -10,8 +12,11 @@ export async function GET(request: NextRequest) {
   try {
     const user=await getWorkspaceState(request);
     if(!user)return fail('Sign in to view allocations',401);
-    const policies=(await getPostgres().query(`SELECT ${fields} FROM funding_policies ORDER BY id DESC LIMIT 20`)).rows;
-    return NextResponse.json({policy:policies[0],history:user.role==='UBEC Executive Secretary'?policies:[],canEdit:user.role==='UBEC Executive Secretary',user:{name:user.name,role:user.role}},{headers:{'Cache-Control':'no-store'}});
+    const db=getPostgres();
+    const policies=(await db.query(`SELECT ${fields} FROM funding_policies ORDER BY id DESC LIMIT 20`)).rows;
+    // The create-plan dialog shows the BEAP Chair the budget splits with this policy and the platform's Infrastructure & TLM mode.
+    return NextResponse.json({policy:policies[0],history:user.role==='UBEC Executive Secretary'?policies:[],canEdit:user.role==='UBEC Executive Secretary',user:{name:user.name,role:user.role},
+      infrastructureTlmMode:await readInfrastructureTlmMode(db),setsSplits:setsBudgetSplits(user)},{headers:{'Cache-Control':'no-store'}});
   } catch {return fail('Allocations could not be loaded',503);}
 }
 export async function PUT(request:NextRequest) {

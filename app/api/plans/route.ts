@@ -10,6 +10,8 @@ import { readStateStageVisibility } from '@/lib/stage-visibility';
 import { visibleComponents } from '@/lib/plan-visibility';
 import { implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
 import { planSetupSchema, beapName, futureYearError } from '@/lib/plan-setup';
+import { creationSplitProblem, setsBudgetSplits, splitsByBeapChair, type CreationSplits } from '@/lib/budget-pairs';
+import { readInfrastructureTlmMode } from '@/lib/infrastructure-tlm-mode';
 import { planFormData, ratDocuments, PlanInputError } from '@/lib/plan-upload';
 
 // Recent activity is filtered per component after reading, so read a few more rows than are shown.
@@ -82,18 +84,25 @@ export async function POST(request: NextRequest) {
     const future = futureYearError(parsed.data.planningYear);
     if (future) return NextResponse.json({ error: future }, { status: 400 });
     const files = await ratDocuments(form);
+    // The BEAP Chair sets the budget splits when creating the plan (client, 26 October 2026); others leave them to the BEAP Chair.
+    const splits = form.get('splits') ? JSON.parse(String(form.get('splits'))) as Partial<CreationSplits> : null;
     const { planningYear, implementationYear, quarters, stateLodgment, fundingSources } = parsed.data;
     return await getPostgres().transaction(async db => {
     const actor = (await db.query('SELECT role,can_create_plan,is_beap_chair FROM users WHERE id=$1 AND active AND session_version=$2 AND state_code=$3 FOR SHARE', [workspace.userId,workspace.sessionVersion,workspace.stateCode])).rows[0];
     if (!actor || !canCreateStatePlan(actor.role, actor.can_create_plan, actor.is_beap_chair)) return NextResponse.json({ error:'Only the Executive Chairman or a staff member they authorize can create an action plan' },{status:403});
-    const fundingPolicy = (await db.query('SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1 FOR SHARE')).rows[0];
+    const fundingPolicy = (await db.query('SELECT id,allocation FROM funding_policies ORDER BY id DESC LIMIT 1 FOR SHARE')).rows[0];
     if (!fundingPolicy) return NextResponse.json({ error:'Funding allocations have not been configured. Ask the UBEC Executive Secretary or administrator to configure them before creating a plan.' },{status:409});
     await db.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`plan-period:${workspace.stateCode}:${planningYear}`]);
     const overlap = (await db.query('SELECT quarter FROM plan_quarters WHERE state_code=$1 AND planning_year=$2 AND quarter=ANY($3::int[]) ORDER BY quarter',[workspace.stateCode,planningYear,quarters])).rows;
     if(overlap.length) return NextResponse.json({error:`${overlap.map(r=>`Q${r.quarter}`).join(', ')} already belongs to a ${planningYear} plan. Choose other quarters or open the existing plan.`},{status:409});
+    const beapChair = setsBudgetSplits({ role: actor.role, isBeapChair: actor.is_beap_chair });
+    if (splits && !beapChair) return NextResponse.json({ error: splitsByBeapChair }, { status: 403 });
+    const split = beapChair ? creationSplitProblem({ stateLodgment, otherFunding: '0', fundingPolicy, fundingSources, infrastructureTlmMode: await readInfrastructureTlmMode(db) }, splits) : null;
+    if (split && 'problem' in split) return NextResponse.json({ error: split.problem }, { status: 400 });
     const name=beapName(stateDisplayName(workspace.stateCode),planningYear,quarters);
     const result = await db.query(`INSERT INTO action_plans (state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,beap_name,created_by,funding_policy_id) VALUES ($1,$2,$2,$3,$4,$5,0,$6,$7,$8) RETURNING id`, [workspace.stateCode,planningYear,implementationYear,quarters,stateLodgment,name,workspace.userId,fundingPolicy.id]);
     const id=result.rows[0].id;
+    if (split) await db.query('UPDATE action_plans SET ict_allocation=$1,tlm_allocation=$2 WHERE id=$3',[split.ictAllocation,split.tlmAllocation,id]);
     for(const quarter of quarters) await db.query('INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,$3,$4)',[id,workspace.stateCode,planningYear,quarter]);
     // Other funding is component-specific (plan_funding_sources); other_funding stays 0 on new plans.
     for(const source of fundingSources) await db.query('INSERT INTO plan_funding_sources(plan_id,component,funder,amount,created_by) VALUES($1,$2,$3,$4,$5)',[id,source.component,source.funder,source.amount,workspace.userId]);

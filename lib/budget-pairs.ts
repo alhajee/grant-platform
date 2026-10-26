@@ -7,9 +7,12 @@ import { nairaFormat } from './money-format';
  *   teachers-ict        action_plans.ict_allocation (migrations 038, 040); Teacher Development keeps the rest.
  *   infrastructure-tlm  action_plans.tlm_allocation (migration 051); Infrastructure keeps the rest. Only in split mode
  *                       (state_workflow_settings.infrastructure_tlm_mode); in shared_pool mode there is no split.
- * Either side can set the split from its editor: the stored side names its own amount, the keeper side names its amount
- * and the stored side gets shared − that amount.
+ * Only the SUBEB BEAP Chair sets the splits (client, 26 October 2026): when creating the plan, then from the plan page.
+ * Either side's amount can be named: the stored side names its own amount, the keeper side names its amount and the
+ * stored side gets shared − that amount. The component editors show the split read-only.
  */
+export const setsBudgetSplits = (user: { role: string; isBeapChair?: boolean | null }) => user.role === 'Director' && user.isBeapChair === true;
+export const splitsByBeapChair = 'Only the BEAP Chair sets the budget splits'
 export const splitSides = ['ict', 'teachers', 'tlm', 'infrastructure'] as const;
 export type SplitSide = typeof splitSides[number];
 export type BudgetPair = 'teachers-ict' | 'infrastructure-tlm';
@@ -59,7 +62,7 @@ export function sideAmount(plan: EnvelopePlan, side: SplitSide) {
   return side === pair.stored ? fromKobo(toKobo(stored)) : fromKobo(toKobo(shared) - toKobo(stored));
 }
 
-export const infrastructureSplitNeeded = 'Set how much of the shared Infrastructure & TLM budget Infrastructure will use before adding packages';
+export const infrastructureSplitNeeded = 'Ask the BEAP Chair to set how much of the shared Infrastructure & TLM budget Infrastructure will use before adding packages';
 /**
  * Why Infrastructure packages totalling `total` (kobo) cannot be saved or sent in split mode, or null (also while the plan
  * has no funding: no ceiling yet, as with the shared pool). Shared-pool mode is checked with infrastructurePoolProblem instead.
@@ -85,4 +88,28 @@ export function sharedBelowAllocationProblem(after: EnvelopePlan) {
     const name = sideNames[pair.stored];
     return [`${pair.label} would have ${naira.format(Number(shared))} available, but ${name} has already been allocated ${naira.format(Number(stored))}. Ask ${name} to reduce its allocation first or keep this funding.`];
   }).join(' ') || null;
+}
+
+/** The splits the BEAP Chair sets when creating a plan: ICT's and TLM's amounts (naira strings; TLM only in split mode). */
+export type CreationSplits = { ict: string; tlm?: string };
+const splitAmount = /^\d{1,13}(\.\d{1,2})?$/;
+/**
+ * Checks the splits given at plan creation against the new plan's envelopes (nothing is proposed yet) and returns the
+ * stored figures, or why they cannot be saved. TLM's amount is needed only in split mode.
+ */
+export function creationSplitProblem(plan: EnvelopePlan, splits: Partial<CreationSplits> | null | undefined): { problem: string } | { ictAllocation: string; tlmAllocation: string | null } {
+  const none = { own: '0', partner: '0' };
+  // ₦0 for ICT or TLM is allowed (nothing is planned yet): the keeper then takes the whole shared budget.
+  const check = (side: 'ict' | 'tlm', amount: string) => {
+    const shared = budgetPairs[pairOf(side)].envelope(plan);
+    return toKobo(amount) === BigInt(0) && shared != null && toKobo(shared) > BigInt(0) ? sharedSplit(plan, partnerOf(side), shared, none) : sharedSplit(plan, side, amount, none);
+  };
+  if (!splits?.ict || !splitAmount.test(splits.ict)) return { problem: 'Enter how much of the Teacher Development & ICT budget ICT will use' };
+  const ict = check('ict', splits.ict);
+  if (ict.problem !== undefined) return { problem: ict.problem };
+  if (!isSplitMode(plan)) return { ictAllocation: ict.allocation, tlmAllocation: null };
+  if (!splits.tlm || !splitAmount.test(splits.tlm)) return { problem: 'Enter how much of the Infrastructure & TLM budget TLM will use' };
+  const tlm = check('tlm', splits.tlm);
+  if (tlm.problem !== undefined) return { problem: tlm.problem };
+  return { ictAllocation: ict.allocation, tlmAllocation: tlm.allocation };
 }

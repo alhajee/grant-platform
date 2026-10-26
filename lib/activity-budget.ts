@@ -46,9 +46,9 @@ export const curriculumCapKobo = (envelope: bigint, activity: number) => activit
 
 /** Fixed naira caps on one activity's lines together, in kobo: ICT Maintenance of Model Smart Schools & DLC (₦30,000,000). */
 export const activityFixedCaps: Partial<Record<ActivityWorkstream, Record<number, bigint>>> = { ict: { [ictModelSchoolsActivity]: ictModelSchoolsCapKobo } };
-export const ictAllocationNeeded = 'Set how much of the shared Teacher Development & ICT budget ICT will use before adding ICT items';
-export const teachersSplitNeeded = 'Set how much of the shared Teacher Development & ICT budget Teacher Development will use before adding Teacher Development items';
-export const tlmSplitNeeded = 'Set how much of the shared Infrastructure & TLM budget TLM will use before adding TLM items';
+export const ictAllocationNeeded = 'Ask the BEAP Chair to set how much of the shared Teacher Development & ICT budget ICT will use before adding ICT items';
+export const teachersSplitNeeded = 'Ask the BEAP Chair to set how much of the shared Teacher Development & ICT budget Teacher Development will use before adding Teacher Development items';
+export const tlmSplitNeeded = 'Ask the BEAP Chair to set how much of the shared Infrastructure & TLM budget TLM will use before adding TLM items';
 
 /** An activity's own cap in kobo and what it is ("10% of the Curriculum allocation"), or null when it has none or the envelope is not set. */
 export type ActivityCap = { kobo: bigint; basis: string };

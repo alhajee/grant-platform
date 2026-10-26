@@ -69,7 +69,7 @@ assert.match(shortfallMessage(tight[0]), /^Infrastructure would have/);
 const snapshot = items => ({ setup: set, tlm: items.map(kobo => ({ activity: 6, quantity: 1, unit_cost: (Number(kobo) / 100).toFixed(2) })), infrastructure: [] });
 assert.equal(splitReadinessProblem('tlm', snapshot([500000n])), null);
 assert.match(splitReadinessProblem('tlm', snapshot([500001n])), /exceeded/);
-assert.match(splitReadinessProblem('tlm', { ...snapshot([1n]), setup: plan }), /Set how much of the shared Infrastructure & TLM budget TLM will use before sending/);
+assert.match(splitReadinessProblem('tlm', { ...snapshot([1n]), setup: plan }), /set how much of the shared Infrastructure & TLM budget TLM will use before sending/);
 assert.equal(splitReadinessProblem('tlm', { ...snapshot([500001n]), setup: { ...set, infrastructureTlmMode: 'shared_pool' } }), null);
 step('split envelopes, split bounds, ₦0 TLM rule, plan-edit and readiness rules (unit)');
 
@@ -78,10 +78,11 @@ const previousMode = (await db.query("SELECT infrastructure_tlm_mode AS mode FRO
 assert.ok(previousMode, 'Run migration 051 first.');
 await db.query("UPDATE state_workflow_settings SET infrastructure_tlm_mode='split' WHERE state_code='GLOBAL'");
 try {
-  for (const [key, role, department] of [['physical', 'Data Entry Staff', 'physical'], ['academic', 'Data Entry Staff', 'academic'], ['academicDirector', 'Director', 'academic'], ['chair', 'Executive Chairman', null]]) {
+  for (const [key, role, department] of [['physical', 'Data Entry Staff', 'physical'], ['academic', 'Data Entry Staff', 'academic'], ['academicDirector', 'Director', 'academic'], ['chair', 'Executive Chairman', null], ['beapChair', 'Director', 'planning']]) {
     const email = `${key}.${tag}@tlm-split.test`.toLowerCase();
     const id = (await db.query('INSERT INTO users(email,full_name,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id', [email, `QA ${key}`, role, department, state, hashSync(password, 4)])).rows[0].id;
     userIds.push(id);
+    if (key === 'beapChair') await db.query('UPDATE users SET is_beap_chair=TRUE WHERE id=$1', [id]);
     if (department) await db.query('INSERT INTO user_departments(user_id,department) VALUES($1,$2)', [id, department]);
     ok(await api(key, '/api/auth/login', { email, password }));
   }
@@ -101,26 +102,27 @@ try {
 
   const opened = ok(await api('academic', tlmUrl));
   assert.equal(opened.plan.infrastructureTlmMode, 'split'); assert.equal(opened.plan.tlmAllocation, null);
-  fails(await api('academic', tlmUrl, tlmLine(1)), 409, /Set how much of the shared Infrastructure & TLM budget TLM will use before adding TLM items/);
+  fails(await api('academic', tlmUrl, tlmLine(1)), 409, /set how much of the shared Infrastructure & TLM budget TLM will use before adding TLM items/);
   fails(await api('physical', infraUrl, furniture(1)), 409, /Infrastructure will use before adding packages/);
   step('TLM lines and Infrastructure packages are refused until the split is set (409)');
 
   fails(await split('academic', 'infrastructure', '15000'), 403);
   fails(await split('physical', 'tlm', '100'), 403);
-  fails(await split('academic', 'tlm', '0'), 409, /greater than zero/);
-  fails(await split('academic', 'tlm', '15000.01'), 409, /up to the shared Infrastructure & TLM budget of ₦15,000\.0000/);
-  assert.equal(ok(await split('physical', 'infrastructure', '15000')).tlmAllocation, '0.00');
+  fails(await split('chair', 'tlm', '100'), 403, /Only the BEAP Chair/);
+  fails(await split('beapChair', 'tlm', '0'), 409, /greater than zero/);
+  fails(await split('beapChair', 'tlm', '15000.01'), 409, /up to the shared Infrastructure & TLM budget of ₦15,000\.0000/);
+  assert.equal(ok(await split('beapChair', 'infrastructure', '15000')).tlmAllocation, '0.00');
   ok(await api('physical', infraUrl, furniture(1000)));
   fails(await api('academic', tlmUrl, tlmLine(0.01)), 409, /exceeded the Teaching & Learning Materials allocation \(₦0\.0000\)/);
-  step('each side sets the split only for its own component; Infrastructure may take it all, leaving TLM ₦0');
+  step('only the BEAP Chair sets the split (not Data Entry or the Executive Chairman); Infrastructure may take it all, leaving TLM ₦0');
 
-  assert.equal(ok(await split('academic', 'tlm', '5000')).tlmAllocation, '5000.00');
-  fails(await split('academic', 'tlm', '14000.01'), 409, /Infrastructure packages already propose ₦1,000\.0000, so TLM can use up to ₦14,000\.0000/);
+  assert.equal(ok(await split('beapChair', 'tlm', '5000')).tlmAllocation, '5000.00');
+  fails(await split('beapChair', 'tlm', '14000.01'), 409, /Infrastructure packages already propose ₦1,000\.0000, so TLM can use up to ₦14,000\.0000/);
   ok(await api('academic', tlmUrl, tlmLine(5000)));
   fails(await api('academic', tlmUrl, tlmLine(0.01)), 409, /exceeded the Teaching & Learning Materials allocation \(₦5,000\.0000\) by ₦0\.0100/);
-  fails(await split('academic', 'tlm', '4999.99'), 409, /TLM lines already propose ₦5,000\.0000/);
-  fails(await split('physical', 'infrastructure', '15000'), 409, /TLM lines already propose ₦5,000\.0000, so Infrastructure can use up to ₦10,000\.0000/);
-  fails(await split('physical', 'infrastructure', '999.99'), 409, /Infrastructure packages already propose ₦1,000\.0000/);
+  fails(await split('beapChair', 'tlm', '4999.99'), 409, /TLM lines already propose ₦5,000\.0000/);
+  fails(await split('beapChair', 'infrastructure', '15000'), 409, /TLM lines already propose ₦5,000\.0000, so Infrastructure can use up to ₦10,000\.0000/);
+  fails(await split('beapChair', 'infrastructure', '999.99'), 409, /Infrastructure packages already propose ₦1,000\.0000/);
   fails(await api('physical', infraUrl, furniture(9000.01)), 409, /exceeded the Infrastructure allocation \(₦10,000\.0000\) by ₦0\.0100/);
   ok(await api('physical', infraUrl, furniture(8000)));
   const infra = ok(await api('physical', infraUrl));
@@ -149,7 +151,7 @@ try {
   ok(await api('academic', tlmUrl, { workstream: 'tlm', entity: 'school', action: 'create', schoolId: schoolIds[0] }));
   const sendTlm = async () => api('academic', `/api/plans/review?plan=${planId}`, { action: 'submit', pillar: 'tlm', version: ok(await api('academic', `/api/plans/review?plan=${planId}`)).plan.version });
   await db.query('UPDATE action_plans SET tlm_allocation=NULL WHERE id=$1', [planId]);
-  fails(await sendTlm(), 409, /Set how much of the shared Infrastructure & TLM budget TLM will use before sending/);
+  fails(await sendTlm(), 409, /set how much of the shared Infrastructure & TLM budget TLM will use before sending/);
   await db.query('UPDATE action_plans SET tlm_allocation=4000 WHERE id=$1', [planId]);
   fails(await sendTlm(), 409, /exceeded the Teaching & Learning Materials allocation/);
   await db.query('UPDATE action_plans SET tlm_allocation=5000 WHERE id=$1', [planId]);
@@ -165,7 +167,7 @@ try {
   const used = pooled.packages.reduce((sum, p) => sum + Number(p.total_cost), 0) + 5000, left = 15100 - used;
   fails(await api('physical', infraUrl, furniture(left + 0.01)), 409, /Infrastructure and TLM share ₦15,100\.0000/);
   ok(await api('physical', infraUrl, furniture(left)));
-  fails(await split('physical', 'infrastructure', '100'), 409, /share one budget/);
+  fails(await split('beapChair', 'infrastructure', '100'), 409, /share one budget/);
   await db.query("UPDATE state_workflow_settings SET infrastructure_tlm_mode='split' WHERE state_code='GLOBAL'");
   fails(await api('physical', infraUrl, furniture(1)), 409, /exceeded the Infrastructure allocation/);
   step('shared_pool mode ignores the stored split; switching back applies it again without changing data');
@@ -181,6 +183,23 @@ try {
   const after = Object.fromEntries((await db.query('SELECT id, tlm_allocation::text AS a FROM action_plans WHERE id=ANY($1::int[])', [planIds])).rows.map(r => [r.id, r.a]));
   assert.deepEqual([after[planId], after[packagesOnly], after[empty]], ['5000.00', '0.00', null]);
   step('backfill: TLM lines total, ₦0 with only packages, NULL with neither');
+
+  // The BEAP Chair sets both splits when creating a plan (client, 26 October 2026); nobody else sends them.
+  const createWith = async (who, splits) => {
+    const book = new ExcelJS.Workbook(); book.addWorksheet('RAT').addRow(['Split QA']);
+    const f = new FormData(); f.set('setup', JSON.stringify({ planningYear: 2017, implementationYear: 2017, quarters: [2], stateLodgment: '10000', fundingSources: [] }));
+    if (splits) f.set('splits', JSON.stringify(splits));
+    f.append('rat', new Blob([await book.xlsx.writeBuffer()]), 'rat.xlsx');
+    return api(who, '/api/plans', f);
+  };
+  fails(await createWith('chair', { ict: '100', tlm: '100' }), 403, /Only the BEAP Chair/);
+  fails(await createWith('beapChair', null), 400, /ICT will use/);
+  fails(await createWith('beapChair', { ict: '1000' }), 400, /TLM will use/);
+  fails(await createWith('beapChair', { ict: '1000', tlm: '15000.01' }), 400, /up to the shared Infrastructure & TLM budget/);
+  const withSplits = ok(await createWith('beapChair', { ict: '1000', tlm: '0' }), 201).plan; planIds.push(withSplits.id);
+  const stored = (await db.query('SELECT ict_allocation::text AS ict, tlm_allocation::text AS tlm FROM action_plans WHERE id=$1', [withSplits.id])).rows[0];
+  assert.deepEqual(stored, { ict: '1000.00', tlm: '0.00' }, 'TLM ₦0 leaves Infrastructure the whole pool');
+  step('the BEAP Chair sets both splits when creating the plan; they are checked; nobody else may send them');
   console.log('PASS: Infrastructure and TLM split their pool.');
 } finally {
   await db.query("UPDATE state_workflow_settings SET infrastructure_tlm_mode=$1 WHERE state_code='GLOBAL'", [previousMode]);

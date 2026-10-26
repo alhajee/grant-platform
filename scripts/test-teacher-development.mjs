@@ -74,20 +74,20 @@ try {
   fails(await split('tpd', 'ict', '10000000'), 403);
   const first = ok(await api('tpd', url('teachers')));
   assert.equal(first.canEdit, true); assert.equal(first.plan.ictAllocation, null); assert.equal(Number(first.partnerProposed), 0);
-  step('Department access: only Teacher Development staff edit it and its side of the split');
+  step('Department access: only Teacher Development staff edit it; Data Entry cannot set the split (only the BEAP Chair)');
 
   // The split comes first; either side sets it and the other keeps the rest.
   fails(await api('tpd', url('teachers'), training(0, 100)), 400, /Teacher Development will use before adding Teacher Development items/);
-  fails(await split('tpd', 'teachers', '0'), 409, /greater than zero/);
-  fails(await split('tpd', 'teachers', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.0000/);
-  assert.equal(ok(await split('tpd', 'teachers', '30000000')).ictAllocation, '10000000.00');
+  fails(await split('chair', 'teachers', '0'), 409, /greater than zero/);
+  fails(await split('chair', 'teachers', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.0000/);
+  assert.equal(ok(await split('chair', 'teachers', '30000000')).ictAllocation, '10000000.00');
   assert.equal(ok(await api('ict', url('ict'))).plan.ictAllocation, '10000000.00');
-  ok(await split('ict', 'ict', '12000000'));
+  ok(await split('chair', 'ict', '12000000'));
   assert.equal(await allocation(), '12000000.00');
   // Teacher Development may take everything while ICT has no lines; ICT is then left ₦0.
-  assert.equal(ok(await split('tpd', 'teachers', '40000000')).ictAllocation, '0.00');
+  assert.equal(ok(await split('chair', 'teachers', '40000000')).ictAllocation, '0.00');
   fails(await api('ict', url('ict'), ictLine(1, 100)), 400, /exceeded the ICT allocation \(₦0\.0000\)/);
-  ok(await split('ict', 'ict', '10000000'));
+  ok(await split('chair', 'ict', '10000000'));
   step('Split from the Teacher Development side updates ICT and vice versa; ICT may be left ₦0 only without lines');
 
   // Line validation: training details replace description, strategy and target group.
@@ -122,13 +122,13 @@ try {
 
   // Bounds: neither side may drop below what its own lines, or the other side's lines, propose.
   ok(await api('ict', url('ict'), ictLine(1, 5000000)));
-  fails(await split('tpd', 'teachers', '14999999'), 409, /Teacher Development lines already propose ₦15,000,000\.0000/);
-  fails(await split('tpd', 'teachers', '36000000'), 409, /ICT lines already propose ₦5,000,000\.0000, so Teacher Development can use up to ₦35,000,000\.0000/);
-  fails(await split('ict', 'ict', '25000001'), 409, /Teacher Development lines already propose ₦15,000,000\.0000, so ICT can use up to ₦25,000,000\.0000/);
-  fails(await split('ict', 'ict', '4999999'), 409, /ICT lines already propose/);
-  assert.equal(ok(await split('tpd', 'teachers', '35000000')).ictAllocation, '5000000.00');
+  fails(await split('chair', 'teachers', '14999999'), 409, /Teacher Development lines already propose ₦15,000,000\.0000/);
+  fails(await split('chair', 'teachers', '36000000'), 409, /ICT lines already propose ₦5,000,000\.0000, so Teacher Development can use up to ₦35,000,000\.0000/);
+  fails(await split('chair', 'ict', '25000001'), 409, /Teacher Development lines already propose ₦15,000,000\.0000, so ICT can use up to ₦25,000,000\.0000/);
+  fails(await split('chair', 'ict', '4999999'), 409, /ICT lines already propose/);
+  assert.equal(ok(await split('chair', 'teachers', '35000000')).ictAllocation, '5000000.00');
   assert.equal(Number(ok(await api('tpd', url('teachers'))).partnerProposed), 5000000);
-  ok(await split('ict', 'ict', '10000000'));
+  ok(await split('chair', 'ict', '10000000'));
   step('Split bounds protect both sides’ saved lines');
 
   // Supporting documents: PDF or Excel only, every line, attached by Teacher Development staff.
@@ -163,7 +163,7 @@ try {
   await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode='individual_components', ubec_submission_mode='reviewed_components' WHERE state_code='GLOBAL'");
   ok(await review('tpd', { action: 'submit', pillar: 'teachers' }));
   fails(await api('tpd', url('teachers'), training(3, 100)), 409);
-  fails(await split('tpd', 'teachers', '30000000'), 409);
+  fails(await split('tpd', 'teachers', '30000000'), 403);
   const comment = ok(await api('tpdDirector', `/api/plans/comments?plan=${planId}`, { sheet: 'teachers', rowRef: String(literacy.id), columnId: 'provider', body: 'Confirm the provider MoU.' }), 201);
   assert.ok(comment.id);
   ok(await review('tpdDirector', { action: 'endorse', pillar: 'teachers' }));

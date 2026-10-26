@@ -63,10 +63,11 @@ const previousMode = (await db.query("SELECT infrastructure_tlm_mode AS mode FRO
 assert.ok(previousMode, 'Run migration 051 first.');
 await db.query("UPDATE state_workflow_settings SET infrastructure_tlm_mode='shared_pool' WHERE state_code='GLOBAL'");
 try {
-  for (const [key, role, department] of [['physical', 'Data Entry Staff', 'physical'], ['academic', 'Data Entry Staff', 'academic'], ['chair', 'Executive Chairman', null]]) {
+  for (const [key, role, department] of [['physical', 'Data Entry Staff', 'physical'], ['academic', 'Data Entry Staff', 'academic'], ['chair', 'Executive Chairman', null], ['beapChair', 'Director', 'planning']]) {
     const email = `${key}.${tag}@tlm-pool.test`.toLowerCase();
     const id = (await db.query('INSERT INTO users(email,full_name,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id', [email, `QA ${key}`, role, department, state, hashSync(password, 4)])).rows[0].id;
     userIds.push(id);
+    if (key === 'beapChair') await db.query('UPDATE users SET is_beap_chair=TRUE WHERE id=$1', [id]);
     if (department) await db.query('INSERT INTO user_departments(user_id,department) VALUES($1,$2)', [id, department]);
     ok(await api(key, '/api/auth/login', { email, password }));
   }
@@ -84,7 +85,7 @@ try {
   const furniture = cost => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost }], documentIds: [] } });
 
   assert.equal(ok(await api('academic', tlmUrl)).plan.infrastructureTlmMode, 'shared_pool');
-  fails(await api('academic', `/api/activities/budget-split?plan=${planId}`, { amount: '100', side: 'tlm' }, 'PATCH'), 409, /share one budget/);
+  fails(await api('beapChair', `/api/activities/budget-split?plan=${planId}`, { amount: '100', side: 'tlm' }, 'PATCH'), 409, /share one budget/);
   const whole = ok(await api('academic', tlmUrl, tlmLine(pool)));
   fails(await api('academic', tlmUrl, tlmLine(0.01)), 409, /Infrastructure and TLM share/);
   fails(await api('physical', infraUrl, furniture(1)), 409, /Together they would exceed it by ₦1\.0000/);

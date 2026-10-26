@@ -69,7 +69,7 @@ type Draft=ReturnType<typeof blankFor> & {id?:number};
 // The line as the schema and API take it: numbers parsed, empty training days as null (Teacher Development).
 // One-per-school activities (ICT Establishment of DLC) take their quantity from the schools chosen.
 const payload=(draft:Draft,workstream:ActivityWorkstream)=>({...draft,workstream,activity:Number(draft.activity),quantity:quantityFromSchools(workstream,Number(draft.activity))&&draft.schoolIds.length?draft.schoolIds.length:Number(draft.quantity),unitCost:Number(draft.unitCost),trainingDays:draft.trainingDays===''?null:Number(draft.trainingDays),priceItemId:draft.priceItemId?Number(draft.priceItemId):null});
-type Data={plan:ActionPlan;canEdit:boolean;lines:ActivityLine[];schools:DistributionSchool[];distribution:DistributionSchool[];renovated:number[];documents:{id:string;name:string;size:number}[];partnerProposed?:string|null;documentsRequired?:boolean};
+type Data={plan:ActionPlan;canEdit:boolean;/** Only the BEAP Chair sets budget splits. */canSplit?:boolean;lines:ActivityLine[];schools:DistributionSchool[];distribution:DistributionSchool[];renovated:number[];documents:{id:string;name:string;size:number}[];partnerProposed?:string|null;documentsRequired?:boolean};
 const shortTitle=(workstream:ActivityWorkstream)=>workstream==='tlm'?'TLM':activityTitles[workstream];
 const proformaAccept='.pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg';
 export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream}){
@@ -123,7 +123,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const lockReason:LockReason|null=!data||busy?null:error?{title:'Could not load this component',detail:'Reload the page and try again'}
   :!data.canEdit?{title:'Locked at this review stage',detail:'This component is with a reviewer or outside your departments, so its items cannot be changed now'}
   :needsSplit&&budgetPairs[pairOf(splitSide!)].envelope(data.plan)==null?{title:'Plan funding not set',detail:`Set the plan's funding on the plan page (Edit plan), then share the budget and add ${name} items`}
-  :needsSplit?{title:'Set the budget split first',detail:`Use “Set the budget split” above to decide how much of the shared budget ${name} will use, then add its items`}
+  :needsSplit?{title:'Waiting for the budget split',detail:data.canSplit?`Use “Set the budget split” above to decide how much of the shared budget ${name} will use`:`The BEAP Chair sets how much of the shared budget ${name} will use. You can add items once it is set`}
   :needsChoice?{title:'Choose the activities first',detail:`Use “Choose activities” above to pick the ${name} activities, then add items to them`}:null;
  const total=(data?.lines.reduce((s,l)=>s+Math.round(l.unitCost*100)*l.quantity,0)??0)/100;
  const envelopeKobo=data?componentEnvelopeKobo(data.plan,workstream):null;
@@ -245,7 +245,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
    <section className="workspace-pane editor-pane" aria-label={`${title} editor`}><ScrollArea className="pane-scroll"><div className="editor-canvas">
     <header className="editor-heading"><h1>{view==='distribution'?'Add schools':draft.id?'Edit budget item':'Add a budget item'}</h1>{training&&<Button asChild variant="outline" size="sm" className="rounded-full"><a href={trainingBudgetTemplate} download="BEAPMS Training Budget Template.xlsx" title="Literacy, ECCDE and Curriculum training budget guides"><DownloadIcon data-icon="inline-start"/>Budget template</a></Button>}</header>
     {error&&<Alert variant="destructive"><AlertTitle>Unable to load</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={()=>void load().catch(e=>setError(e.message))}>Retry</Button></AlertDescription></Alert>}
-    {splitSide&&data&&!error&&<SharedBudgetPanel key={storedAllocation(data.plan,splitSide)??'unset'} side={splitSide} plan={data.plan} proposed={total} partnerProposed={Number(data.partnerProposed??0)} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
+    {splitSide&&data&&!error&&<SharedBudgetPanel key={storedAllocation(data.plan,splitSide)??'unset'} side={splitSide} plan={data.plan} proposed={total} partnerProposed={Number(data.partnerProposed??0)} canEdit={!!data.canSplit&&!busy} onSaved={async()=>{await load();}}/>}
     {workstream==='ict'&&data&&!error&&<IctConnectPanel plan={data.plan} waivers={data.documents} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
     {choosesUpFront(workstream)&&data&&!error&&<ActivitySelectionPanel key={JSON.stringify(data.plan.qualityActivities)} workstream={workstream} plan={data.plan} lines={savedLines} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
     <form id="activity-form" onSubmit={view==='budget'?save:e=>{e.preventDefault();if(picked.length)void mutate({entity:'school',action:'create',schoolIds:picked});}}><LockedOverlay reason={lockReason}><fieldset disabled={disabled}><FieldGroup>

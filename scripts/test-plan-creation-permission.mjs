@@ -19,8 +19,10 @@ const profile=who=>({id:accounts[who].id,name:`QA ${who}`,role:accounts[who].rol
 // Plan creation requires the RAT as a real .xlsx workbook.
 const ratWorkbook=new ExcelJS.Workbook();ratWorkbook.addWorksheet('RAT').addRow(['Permission QA']);
 const rat=Buffer.from(await ratWorkbook.xlsx.writeBuffer());
-const createPlan=async (who,year=2026)=>{
+const createPlan=async (who,year=2026,splits=null)=>{
   const body=new FormData();
+  // The BEAP Chair sets the budget splits when creating a plan (client, 26 October 2026).
+  if(splits)body.set('splits',JSON.stringify(splits));
   body.set('setup',JSON.stringify({planningYear:year,implementationYear:year,quarters:[1],stateLodgment:'100.25',otherFunding:'0'}));
   body.append('rat',new Blob([rat]),'assessment.xlsx');
   const response=await fetch(base+'/api/plans',{method:'POST',headers:accounts[who]?.cookie?{Cookie:accounts[who].cookie}:{},body});
@@ -47,7 +49,8 @@ try {
   ok(await createPlan('director'),401);
   await login('director');
   assert.equal(ok(await api('director','/api/plans')).canCreatePlan,true);
-  ok(await createPlan('director',2021),201);
+  ok(await createPlan('director',2021),400);
+  ok(await createPlan('director',2021,{ict:'1',tlm:'1'}),201);
   const second=ok(await api('chair','/api/users',{name:'QA second',email:`second.${marker.toLowerCase()}@test.local`,role:'Director',department:'academic',active:true}),201);
   accounts.second={id:second.id,role:'Director'};
   ok(await api('chair','/api/users',{id:second.id,name:'QA second',role:'Director',department:'academic',active:true,isBeapChair:true},'PATCH'),409);

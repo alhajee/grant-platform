@@ -8,8 +8,8 @@ import { budgetPairs, pairOf, partnerOf, sideNames, storedAllocation, type Split
 
 // The split of a shared envelope (lib/budget-pairs.ts): Teacher Development & ICT (action_plans.ict_allocation) and,
 // in split mode, Infrastructure & TLM (action_plans.tlm_allocation). Both editors of a pair show this panel first.
-// While the split is not set the split dialog opens by itself and the editor stays read-only behind it; once set the
-// panel is a compact summary with "Adjust split".
+// Only the BEAP Chair sets the split (canEdit); everyone else reads it. While it is not set the editor stays read-only
+// (for the BEAP Chair the split dialog opens by itself); once set the panel is a compact summary.
 
 type Props = {
   side: SplitSide; plan: EnvelopePlan;
@@ -28,11 +28,12 @@ export function SharedBudgetPanel({ side, plan, proposed, partnerProposed, canEd
   if (stored == null) return <section className="ict-allocation" aria-labelledby={`${side}-split-title`}>
     <h2 id={`${side}-split-title`}>How much of the shared {pair.label} budget will {name} use?</h2>
     <p>{otherName} keeps whatever {name} does not use. Set the split before adding {name} {side === 'infrastructure' ? 'packages' : 'activities'}.</p>
-    {canEdit ? <div><Button type="button" onClick={() => setOpen(true)}>Set the budget split</Button></div> : <p>Someone who can edit {name} sets the split.</p>}
+    {canEdit ? <div><Button type="button" onClick={() => setOpen(true)}>Set the budget split</Button></div> : <p>The BEAP Chair sets the split. Ask them to set it on the plan page.</p>}
     {dialog}
   </section>;
   return <div className="ict-allocation-summary">
     <BudgetSplitBar side={side} plan={plan} />
+    {!canEdit && <p className="text-xs text-muted-foreground">Set by the BEAP Chair</p>}
     {canEdit && <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>Adjust split</Button>}
     {dialog}
   </div>;

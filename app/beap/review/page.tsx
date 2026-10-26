@@ -20,6 +20,7 @@ import { StatusPanel } from '@/components/plan-page/status-panel';
 import { SendToUbecDialog } from '@/components/plan-page/send-to-ubec-dialog';
 import { ObservationsCard, usePlanObservations } from '@/components/plan-page/observations-card';
 import { RequestObservationsDialog } from '@/components/plan-page/request-observations-dialog';
+import { BudgetSplitsCard } from '@/components/plan-page/budget-splits-card';
 import { ReviewActionDialog, type ReviewRequest } from '@/components/plan-page/review-action-dialog';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -165,6 +166,8 @@ export default function PlanPage() {
           </section>
           <aside className="plan-glance-side" aria-label="Plan funding and status">
             <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
+            {/* Budget splits: set by the BEAP Chair (client, 26 October 2026); the Executive Chairman sees them. */}
+            {selected === 'current' && data.snapshot.setup && (data.role === 'Executive Chairman' || data.isBeapChair) && <BudgetSplitsCard plan={data.snapshot.setup} totals={totals} canSplit={data.isBeapChair && open} onSaved={async () => { await load(); }} />}
             <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} ubecStage={plan ? ubecStageLabels[plan.status] : null} />
             <ObservationsCard data={observations.data} />
             {data.visiblePillars.includes('infrastructure') && data.snapshot.infrastructure.length > 0 && <DeliverablesCard packages={data.snapshot.infrastructure.map(item => item.package)} />}

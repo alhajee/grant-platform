@@ -157,9 +157,10 @@ try {
   // ICT: the allocation of the shared Teacher Development & ICT budget comes first and is bounded.
   fails(await api('ict', url('ict'), line('ict', 1, 100)), 400, /shared Teacher Development & ICT budget ICT will use/);
   fails(await allocate('qa', '1000'), 403);
-  fails(await allocate('ict', '0'), 409, /greater than zero/);
-  fails(await allocate('ict', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.0000/);
-  ok(await allocate('ict', '35000000'));
+  fails(await allocate('ict', '1000'), 403, /BEAP Chair/);
+  fails(await allocate('chair', '0'), 409, /greater than zero/);
+  fails(await allocate('chair', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.0000/);
+  ok(await allocate('chair', '35000000'));
   assert.equal(ok(await api('ict', url('ict'))).plan.ictAllocation, '35000000.00');
   step('ICT allocation required before lines, within 0 < amount ≤ shared envelope');
 
@@ -197,7 +198,7 @@ try {
   assert.deepEqual(ict.lines.find(l => l.activity === 5).subscriptionTypes, ['Starlink', 'MTN', 'Fibre', 'Smile']);
   assert.equal(ict.lines.find(l => l.activity === 6).websiteType, 'Hosting only');
   assert.ok(ict.schools.some(s => s.id === schoolA) && !ict.schools.some(s => s.id === foreign));
-  fails(await allocate('ict', '20000000'), 409, /already propose/);
+  fails(await allocate('chair', '20000000'), 409, /already propose/);
   step('ICT lines: line schools limited to the state, ₦30M Model Smart Schools cap, subscriptions, website type, ceiling');
 
   // Uploads: PDF/Excel only, by extension and signature; attached to the line.
@@ -273,7 +274,7 @@ try {
   ok(await review('qa', { action: 'submit', pillar: 'quality' }));
   ok(await review('ict', { action: 'submit', pillar: 'ict' }));
   fails(await api('ict', url('ict'), line('ict', 7, 100)), 409);
-  fails(await allocate('ict', '36000000'), 409);
+  fails(await allocate('ict', '36000000'), 403);
   fails(await review('ictDirector', { action: 'endorse', pillar: 'quality' }), 403);
   // A Director edit that removes a compulsory line blocks the next send step too.
   const removable = ok(await api('meDirector', url('quality'))).lines.find(l => l.activity === 9);

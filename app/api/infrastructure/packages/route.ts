@@ -8,11 +8,11 @@ import { mutatePlan } from '@/lib/plan-mutations';
 import { canManageSchoolRegister, canViewComponent } from '@/lib/subeb-access';
 import { notSentYetMessage, readStageVisibility } from '@/lib/stage-visibility';
 import { manualSchoolsAllowed } from '@/lib/school-register-source';
-import { mayEditPillar, readPillarReviews } from '@/lib/pillar-review';
+import { mayEditPillar, readPillarReviews, statePlanOpen } from '@/lib/pillar-review';
 import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
 import { readPoolState } from '@/lib/infrastructure-pool-db';
 import { isSplitMode, toKobo } from '@/lib/funding-policy';
-import { infrastructureSplitProblem } from '@/lib/budget-pairs';
+import { infrastructureSplitProblem, setsBudgetSplits } from '@/lib/budget-pairs';
 import { resolveLineQuarters } from '@/lib/line-quarters';
 import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
 import { resolveSavedLineDates } from '@/lib/line-dates-db';
@@ -39,7 +39,7 @@ export async function GET(req:NextRequest){
   const manualSchools=await manualSchoolsAllowed(db);
   const tlmProposed=(await db.query<{total:string}>("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='tlm'",[plan.id])).rows[0].total;
   // documentsRequired: the Super Admin's Supporting documents setting (migration 052); land documents are required either way.
-  return NextResponse.json({plan,schools,packages:packages.rows,tlmProposed,partnerProposed:tlmProposed,documents:documents.rows,documentsRequired:await readComponentDocumentsRequired(db),canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews),canManageSchools:manualSchools&&canManageSchoolRegister(user.role,user.isBeapChair,user.canManageSchools),manualSchools},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({plan,schools,packages:packages.rows,tlmProposed,partnerProposed:tlmProposed,documents:documents.rows,documentsRequired:await readComponentDocumentsRequired(db),canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews),canSplit:setsBudgetSplits(user)&&statePlanOpen(plan.status),canManageSchools:manualSchools&&canManageSchoolRegister(user.role,user.isBeapChair,user.canManageSchools),manualSchools},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load infrastructure',503);}
 }
 export async function POST(req:NextRequest){

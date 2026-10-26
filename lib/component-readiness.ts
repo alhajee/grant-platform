@@ -56,7 +56,7 @@ export function componentReadinessProblem(workstream: string, lines: readonly Re
   const missing = missingCompulsory(workstream, lines, setup);
   if (missing.length) return `Add at least one budget line to each compulsory activity before sending: ${compulsoryNames(workstream, missing).join('; ')}.`;
   if (workstream === 'quality' && setup && setup.qualityActivities === null) return 'Choose the Quality Assurance activities before sending';
-  if (workstream === 'teachers' && lines.length && setup && setup.ictAllocation == null) return 'Set how much of the shared Teacher Development & ICT budget Teacher Development will use before sending';
+  if (workstream === 'teachers' && lines.length && setup && setup.ictAllocation == null) return 'Ask the BEAP Chair to set how much of the shared Teacher Development & ICT budget Teacher Development will use before sending';
   const noSchools = lines.find(line => hasLineSchools(workstream, line.activity) && !line.schools?.length);
   if (noSchools) return `Choose the schools for “${lineName(workstream, noSchools)}” before sending`;
   if (!options.documentsRequired) return null;
@@ -81,7 +81,7 @@ export function splitReadinessProblem(pillar: string, snapshot: SplitSnapshot): 
   const items = pillar === 'infrastructure' ? snapshot.infrastructure ?? [] : snapshot.tlm ?? [];
   if (!items.length) return null;
   const name = pillar === 'infrastructure' ? 'Infrastructure' : 'TLM';
-  if (setup.tlmAllocation == null) return `Set how much of the shared Infrastructure & TLM budget ${name} will use before sending`;
+  if (setup.tlmAllocation == null) return `Ask the BEAP Chair to set how much of the shared Infrastructure & TLM budget ${name} will use before sending`;
   if (pillar === 'infrastructure') return infrastructureSplitProblem(setup, items.reduce((sum, item) => sum + lineKobo(item), BigInt(0)));
   return activityBudgetProblem('tlm', (snapshot.tlm ?? []).map(line => ({ activity: line.activity, kobo: lineKobo(line) })), setup);
 }
