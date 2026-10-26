@@ -4,7 +4,8 @@ import { NationalGlance, NationalHero } from '@/components/ubec/dashboard/nation
 import { UbecPageFrame, YearControls } from '@/components/ubec/dashboard/page-frame';
 import { ActivityCard, PlansSection, WorkloadCard, isNational } from '@/components/ubec/dashboard/sections';
 import { useUbecDashboard } from '@/components/ubec/dashboard/use-dashboard';
-import { departmentLabel, ubecRoleTitle, ubecRoles } from '@/lib/ubec';
+import { RatToolsCard } from '@/components/ubec/dashboard/rat-tools';
+import { departmentLabel, downloadsRatTools, ubecRoleTitle, ubecRoles } from '@/lib/ubec';
 
 /** UBEC Overview: the national picture (ES and BEAP Chair), a preview of plans, workload and activity. */
 export default function Dashboard() {
@@ -22,6 +23,8 @@ export default function Dashboard() {
         {/* The rest slides up over the map as the page scrolls */}
         <div className="nh-sheet"><NationalGlance data={d} /><div className="national-lower-grid"><WorkloadCard data={d} /><ActivityCard data={d} limit={6} moreHref="/ubec/activity" /></div></div>
       </> : <>
+        {/* UBEC Planning (DPRS) downloads each submitted plan's RAT tool (UBEC139). */}
+        {downloadsRatTools(d.user.role, d.user.department) && <RatToolsCard />}
         <PlansSection data={d} items={d.items} limit={6} moreHref="/ubec/plans" />
         <div className="national-lower-grid"><WorkloadCard data={d} /><ActivityCard data={d} limit={6} moreHref="/ubec/activity" /></div>
       </>}

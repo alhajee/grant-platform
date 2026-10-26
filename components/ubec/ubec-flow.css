@@ -196,3 +196,12 @@
 .ubec-assessment-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 10px; }
 .ubec-assessment-summary .ubec-decision { flex: 1 1 240px; min-width: 0; }
 .plan-glance-main > .ubec-assessment { margin-top: 20px; margin-bottom: 0; }
+/* UBEC139: RAT tools for UBEC Planning (components/ubec/dashboard/rat-tools.tsx) */
+.rat-tools-card { margin-bottom: 20px; }
+.rat-tools-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.rat-tools-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.rat-tools-list li:last-child { border-bottom: 0; }
+.rat-tools-list li > div { display: flex; flex-direction: column; min-width: 0; }
+.rat-tools-list li small { color: var(--muted-foreground); font-size: 12px; }
+.rat-tools-files { display: flex; flex-wrap: wrap; gap: 6px; }
+.rat-tools-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

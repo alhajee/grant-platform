@@ -72,6 +72,12 @@ export function ubecRoleTitle(role: string, department: string | null | undefine
   return role;
 }
 
+/**
+ * UBEC Planning (DPRS) downloads every submitted plan's RAT tool (UBEC139, client 26 October 2026): its Assessment
+ * Officers, who also assess the Planning, EMIS & Data Platform component, and their Director.
+ */
+export const downloadsRatTools = (role: string, department: string | null | undefined) => department === 'planning' && (role === ubecRoles.officer || role === ubecRoles.director);
+export type RatToolPlan = { planId: number; state: string; period: string; submittedAt: string; status: string; documents: { id: string; name: string; size: number }[] };
 export const activePillars = (snapshot: Snapshot) => implementedPillars.filter(p => (snapshot[p]?.length ?? 0) > 0);
 export const nationalStatusLabels: Record<string, string> = { received: 'With UBEC BEAP Chair', reviewing: 'Department review', returned: 'Returned to SUBEB', approved: 'Approved by UBEC' };
 
