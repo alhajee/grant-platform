@@ -10,6 +10,7 @@ import { PlanReviewContent } from '@/components/plan-review-content';
 import { PlanSummary } from '@/components/plan-page/plan-summary';
 import { UbecComponentCards, type CardStep } from '@/components/ubec/ubec-component-cards';
 import { FlowDialog, type FlowRequest } from '@/components/ubec/flow-dialog';
+import { AssessItemsDialog } from '@/components/ubec/assess-items-dialog';
 import { FinanceDocumentsCard } from '@/components/plan-page/finance-documents-card';
 import { LevelMappingCard } from '@/components/level-mapping-card';
 import { levelMapping } from '@/lib/level-mapping';
@@ -74,7 +75,7 @@ export default function UbecReviewPage() {
       officers: (c?.officers ?? []).map(o => ({ name: o.officerName, completed: !!o.completedAt, mine: false })), oversightDone: c?.oversight.map(o => o.department) ?? [] };
   }), [pillars, flow, totals]);
   const can = current && flow ? flow.abilities : null;
-  const [reportBusy, setReportBusy] = useState(false);
+  const [reportBusy, setReportBusy] = useState(false), [assessing, setAssessing] = useState<ImplementedPillar | null>(null);
   // Officers decide items in the workbook: each released component's sheet carries its decisions.
   const assessment = useMemo<WorkbookAssessment | null>(() => {
     if (!round || !flow?.components.length) return null;
@@ -127,12 +128,19 @@ export default function UbecReviewPage() {
     if (!c?.officers.length) return 'Assign staff';
     return flow!.officers.some(o => o.department === c.department && !c.officers.some(a => a.officerId === o.id)) ? 'Add officers' : 'Manage officers';
   };
+  /** Opens a component's workbook sheet; clicking again (same hash) still jumps there (UBEC138: the button looked dead). */
+  const openSheet = (pillar: ImplementedPillar) => {
+    const hash = `#review-${pillar}`;
+    if (window.location.hash !== hash) history.pushState(null, '', hash);
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  };
   const stepsFor = (pillar: ImplementedPillar): CardStep[] => !can ? [] : [
     ...(can.assign.includes(pillar) ? [{ label: assignLabel(pillar), kind: 'assign' as const, secondary: assignLabel(pillar) !== 'Assign staff', run: () => setRequest({ kind: 'assign', pillar }) }] : []),
-    ...(can.assess.includes(pillar) ? [{ label: 'Assess items', kind: 'assess' as const, run: () => { window.location.hash = `review-${pillar}`; } }] : []),
+    // UBEC138: Assess items opens the assessment screen (the workbook sheet stays one click away).
+    ...(can.assess.includes(pillar) ? [{ label: 'Assess items', kind: 'assess' as const, run: () => setAssessing(pillar) }] : []),
     ...(can.sendOversight.includes(pillar) ? [{ label: 'Send for oversight', kind: 'oversight' as const, run: () => setRequest({ kind: 'oversight', pillar }) }] : []),
     ...(can.assignObservers?.includes(pillar) ? (() => { const has = !!flow?.components.find(x => x.pillar === pillar)?.observers.some(o => o.department === data?.department); return [{ label: has ? 'Manage officers' : 'Assign officers', kind: 'assign' as const, secondary: has, run: () => setRequest({ kind: 'observers', pillar }) }]; })() : []),
-    ...(can.comment?.includes(pillar) ? [{ label: 'Comment on items', kind: 'assess' as const, run: () => { window.location.hash = `review-${pillar}`; } }] : []),
+    ...(can.comment?.includes(pillar) ? [{ label: 'Comment on items', kind: 'assess' as const, run: () => openSheet(pillar) }] : []),
     ...(can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observe', pillar }) }] : []),
   ];
   const released = flow?.components ?? [];
@@ -150,7 +158,7 @@ export default function UbecReviewPage() {
       : <Tabs value={activeTab} onValueChange={value => { setTab(value); history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#ubec-${value}`); }}>
         <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs ubec-assessment-tabs">{released.map(c => <TabsTrigger key={c.pillar} value={c.pillar}>{componentName(c.pillar)}{c.counts.rejected > 0 && <Badge variant="destructive" className="ml-1">{c.counts.rejected}</Badge>}</TabsTrigger>)}</TabsList></div>
         {released.map(c => <TabsContent key={c.pillar} value={c.pillar} className="ubec-assessment-panel">
-          <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} /><Button variant="outline" size="sm" className="rounded-full" onClick={() => { window.location.hash = `review-${c.pillar}`; }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : can?.observe.includes(c.pillar) || can?.comment?.includes(c.pillar) ? 'Review in the workbook' : 'View in the workbook'}</Button></div>
+          <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} />{can?.assess.includes(c.pillar) && <Button size="sm" className="rounded-full" onClick={() => setAssessing(c.pillar)}>Assess items</Button>}<Button variant="outline" size="sm" className="rounded-full" onClick={() => { openSheet(c.pillar); }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : can?.observe.includes(c.pillar) || can?.comment?.includes(c.pillar) ? 'Review in the workbook' : 'View in the workbook'}</Button></div>
           <ComponentPeople component={c} planId={data.plan.id} roundId={round.id} viewerId={flow.viewerId} canSendBack={!!can?.override?.includes(c.pillar)} canComplete={!!can?.complete.includes(c.pillar)} canRemove={!!can?.assign.includes(c.pillar)} removableObservers={can?.assignObservers?.includes(c.pillar) ? data.department : null} onComplete={() => setRequest({ kind: 'complete', pillar: c.pillar })} onChanged={() => void load()} />
         </TabsContent>)}
       </Tabs>}
@@ -177,7 +185,7 @@ export default function UbecReviewPage() {
         <div className="plan-glance">
           <h2 id="ubec-components-title" className="plan-section-title plan-glance-head">Components</h2>
           <section className="plan-components plan-glance-main" aria-labelledby="ubec-components-title">
-            {cards.length ? <UbecComponentCards components={cards} planTotal={totals?.total.budget ?? 0} comments={comments} stepsFor={stepsFor} onView={pillar => { window.location.hash = `review-${pillar}`; setTab(pillar); }} />
+            {cards.length ? <UbecComponentCards components={cards} planTotal={totals?.total.budget ?? 0} comments={comments} stepsFor={stepsFor} onView={pillar => { openSheet(pillar); setTab(pillar); }} />
               : <UbecEmpty art={<PipelineIdleArt />} title="No components to show">Nothing in this submission has reached you</UbecEmpty>}
             {chair && current && <div className="workflow-bar ubec-chair-bar">
               {round.status === 'received' ? <><div className="ubec-chair-cta"><span className="ubec-chair-cta-icon"><SendIcon aria-hidden="true" /></span><p><strong>Ready to release</strong><span>{pillars.length} components go to {new Set(pillars.map(p => pillarDepartments[p])).size} department Directors</span></p></div><Button className="rounded-full" disabled={!can?.release} onClick={() => setRequest({ kind: 'release' })}><SendIcon data-icon="inline-start" />Release to UBEC departments</Button></>
@@ -205,6 +213,7 @@ export default function UbecReviewPage() {
         <PlanReviewContent key={round.id} showPlanReference={false} comments={comments} assessment={assessment} snapshot={round.snapshot} visiblePillars={pillars.length ? pillars : undefined} />
         {data.assignments.length > 0 && <Card className="mt-6"><CardHeader><CardTitle>Earlier department reviews</CardTitle></CardHeader><CardContent><ul className="ubec-legacy-reviews">{data.assignments.map(a => <li key={a.id}><strong>{departmentName(a.department)} · {componentName(a.pillar)}</strong><span>{a.completed_at ? a.recommendation === 'changes' ? 'Changes recommended' : 'Endorsed' : 'Not completed'}</span>{a.feedback && <p className="review-comment">{a.feedback}</p>}</li>)}</ul></CardContent></Card>}
         <Card className="mt-6"><CardHeader><CardTitle>Review trail</CardTitle></CardHeader><CardContent><ol className="national-activity">{data.events.map(e => <li key={e.id}><span className="national-activity-dot" /><div><strong>{trail[e.action] ?? e.action}{e.pillar ? ` · ${componentName(e.pillar)}` : ''}</strong><span>{e.actor} · {date.format(new Date(e.created_at))}</span>{e.comment && <p className="review-comment">{e.comment}</p>}</div></li>)}</ol></CardContent></Card>
+        {assessing && <AssessItemsDialog open onOpenChange={next => { if (!next) setAssessing(null); }} pillar={assessing} name={componentName(assessing)} snapshot={round.snapshot} assessment={assessment} />}
         <FlowDialog admin={admin} request={request} planId={data.plan.id} plan={`${data.plan.stateName ? `${data.plan.stateName} ` : ''}${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP`} version={data.plan.version} roundId={round.id} flow={flow} components={cards} threads={comments?.threads ?? []} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} onChanged={() => void load()} />
       </>}
     </div>

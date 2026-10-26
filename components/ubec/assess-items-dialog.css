@@ -1,0 +1,55 @@
+/* UBEC138: the Assess items screen (components/ubec/assess-items-dialog.tsx), laid out like the SUBEB editors. */
+.assess-dialog[data-slot=dialog-content] { display: flex; flex-direction: column; gap: 0; width: min(1280px, calc(100vw - 32px)); max-width: none; height: min(880px, calc(100dvh - 32px)); padding: 0; overflow: hidden; }
+.assess-head { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 18px 56px 16px 24px; border-bottom: 1px solid var(--border); text-align: left; }
+.assess-head-title { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.assess-progress { display: flex; align-items: center; gap: 10px; min-width: 220px; font-size: 13px; color: var(--muted-foreground); white-space: nowrap; }
+.assess-progress [data-slot=progress] { width: 140px; }
+.assess-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); }
+.assess-groups { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-right: 1px solid var(--border); overflow: auto; background: color-mix(in srgb, var(--muted) 40%, transparent); }
+.assess-groups button { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-radius: 10px; border: 0; background: transparent; color: var(--foreground); font-size: 13.5px; text-align: left; cursor: pointer; }
+.assess-groups button:hover { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+.assess-groups button[aria-pressed=true] { background: var(--primary); color: var(--primary-foreground); }
+.assess-groups button small { flex: none; font-size: 12px; font-variant-numeric: tabular-nums; opacity: .8; }
+.assess-groups button small svg { width: 15px; height: 15px; }
+.assess-groups button[data-done]:not([aria-pressed=true]) small { color: var(--primary); opacity: 1; }
+.assess-component-docs { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12.5px; }
+.assess-component-docs p { margin: 0; color: var(--muted-foreground); }
+.assess-component-docs a, .assess-docs a { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--primary); text-decoration: none; }
+.assess-component-docs a:hover, .assess-docs a:hover { text-decoration: underline; }
+.assess-component-docs svg, .assess-docs svg { width: 14px; height: 14px; flex: none; }
+.assess-items { min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.assess-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+.assess-bulk { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; font-size: 13px; color: var(--muted-foreground); }
+.assess-list { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 14px 20px 24px; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.assess-item { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(170px, 220px); gap: 14px; align-items: start; padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 12px; background: var(--card); }
+.assess-item[data-decision=accept] { border-left-color: var(--primary); }
+.assess-item[data-decision=reject] { border-left-color: var(--destructive); }
+.assess-item[data-selected] { background: color-mix(in srgb, var(--primary) 5%, var(--card)); }
+.assess-item > [data-slot=checkbox] { margin-top: 3px; }
+.assess-item-main { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.assess-item-head { display: flex; justify-content: space-between; gap: 12px; }
+.assess-item-head > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.assess-item-head strong { font-size: 14px; overflow-wrap: anywhere; }
+.assess-item-head small { font-size: 12px; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.assess-item-head b { flex: none; font-variant-numeric: tabular-nums; }
+.assess-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 16px; margin: 0; font-size: 12.5px; }
+.assess-facts dt { color: var(--muted-foreground); }
+.assess-facts dd { margin: 0; overflow-wrap: anywhere; }
+.assess-docs { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; }
+.assess-docs a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.assess-docs a em { font-style: normal; font-weight: 600; }
+.assess-no-docs { color: var(--muted-foreground); }
+.assess-previous { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: var(--muted-foreground); }
+.assess-previous svg { width: 13px; height: 13px; }
+.assess-item-decision { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
+.assess-note { margin: 0; font-size: 12px; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.assess-item-actions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+@media (max-width: 900px) {
+  .assess-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .assess-groups { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 16px; }
+  .assess-groups button { flex: none; }
+  .assess-component-docs { display: none; }
+  .assess-item { grid-template-columns: auto minmax(0, 1fr); }
+  .assess-item-decision { grid-column: 2; align-items: flex-start; text-align: left; }
+  .assess-head { padding-right: 48px; }
+}
