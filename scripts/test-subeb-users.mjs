@@ -46,7 +46,7 @@ try {
   assert.equal((await api('chair', '/api/users', { ...profile, role: 'Executive Chairman' })).status, 400);
   assert.equal((await api('beap', '/api/users', { ...profile, canCreatePlan: true })).status, 403, 'Only the Executive Chairman delegates plan creation');
   const created = ok(await api('beap', '/api/users', profile), 201);
-  assert.ok(created.password.length > 20);
+  assert.match(created.password, /^[a-km-zA-HJ-NP-Z2-9]{4}-[a-km-zA-HJ-NP-Z2-9]{4}-[a-km-zA-HJ-NP-Z2-9]{4}$/, "a readable generated password");
   assert.equal((await api('beap', '/api/users', profile)).status, 409, 'Emails are unique');
   emails.new = profile.email; await login('new', created.password);
   assert.equal((await api('foreign', '/api/users', { id: created.id, action: 'reset_password' }, 'PATCH')).status, 404);

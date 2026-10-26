@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { CredentialsDialog } from '@/components/credentials-dialog';
 import { createColumnHelper } from '@tanstack/react-table';
 import { KeyRoundIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, UserRoundCogIcon } from 'lucide-react';
 import { DataTable } from '@/components/data-table';
@@ -113,6 +114,6 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
       {formError&&<FieldError role="alert">{formError}</FieldError>}
     </FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={()=>setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving||(roleNeedsDepartment(form.role)&&form.departments.length===0)}>{saving&&<Spinner data-icon="inline-start"/>}Save user</Button></DialogFooter></form></DialogContent></Dialog>
     <Dialog open={Boolean(reset)} onOpenChange={openState=>{if(!openState&&!saving)setReset(null);}}><DialogContent showCloseButton={!saving}><DialogHeader><DialogTitle>Reset password?</DialogTitle><DialogDescription>{reset?.name} will be signed out. A new password will be shown once for secure sharing.</DialogDescription></DialogHeader>{formError&&<Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}<DialogFooter><Button variant="outline" disabled={saving} onClick={()=>setReset(null)}>Cancel</Button><Button disabled={saving} onClick={()=>void save(true)}>{saving&&<Spinner data-icon="inline-start"/>}Reset password</Button></DialogFooter></DialogContent></Dialog>
-    <Dialog open={Boolean(credentials)} onOpenChange={openState=>{if(!openState)setCredentials(null);}}><DialogContent><DialogHeader><DialogTitle>Login details</DialogTitle><DialogDescription>Copy and share these details securely. The password will not be shown again.</DialogDescription></DialogHeader><FieldGroup><Field><FieldLabel htmlFor="admin-credential-email">Email</FieldLabel><Input id="admin-credential-email" readOnly value={credentials?.email??''}/></Field><Field><FieldLabel htmlFor="admin-credential-password">Password</FieldLabel><Input id="admin-credential-password" readOnly value={credentials?.password??''}/></Field></FieldGroup><DialogFooter><Button onClick={()=>setCredentials(null)}>Done</Button></DialogFooter></DialogContent></Dialog>
+    <CredentialsDialog credentials={credentials} idPrefix="admin-credential" onClose={()=>setCredentials(null)}/>
   </div>;
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generatePassword } from '@/lib/generated-password';
 import { hashSync } from 'bcryptjs';
 import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
       if ((await db.query('SELECT 1 FROM users WHERE email=$1', [parsed.data.email])).rowCount) return json({ error: 'An account already uses this email address' }, 409);
       const full = isComponentDepartment(department) ? await officerLimitProblem(db, department) : null;
       if (full) return json({ error: full }, 409);
-      const password = `Ubec-${crypto.randomUUID()}!`;
+      const password = generatePassword();
       const id = (await db.query<{ id: number }>("INSERT INTO users(full_name,email,password_hash,role,department,state_code,active) VALUES($1,$2,$3,$4,$5,'UBEC',TRUE) RETURNING id", [parsed.data.name, parsed.data.email, hashSync(password, 10), ubecRoles.officer, department])).rows[0].id;
       await replaceUserDepartments(db, id, [department]);
       await db.query('INSERT INTO user_management_events(actor_id,target_id,state_code,action,details) VALUES($1,$2,$3,$4,$5::jsonb)', [actor.id, id, 'UBEC', 'create', JSON.stringify({ role: ubecRoles.officer, departments: [department], active: true })]);

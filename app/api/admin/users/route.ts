@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generatePassword } from '@/lib/generated-password';
 import { hashSync } from 'bcryptjs';
 import { z } from 'zod';
 import { getAuthenticatedUser } from '@/lib/workspace-state';
@@ -95,7 +96,7 @@ async function mutate(request: NextRequest, creating: boolean) {
         }
         if (input.role === 'Director' && !input.isBeapChair && input.active && (await db.query("SELECT u.id FROM users u JOIN user_departments ud ON ud.user_id=u.id WHERE u.state_code=$1 AND ud.department=ANY($2::text[]) AND u.role='Director' AND NOT u.is_beap_chair AND u.active AND u.id<>$3 LIMIT 1", [input.stateCode, selectedDepartments, target?.id ?? 0])).rowCount) return json({ error: 'One or more selected departments already has an active Director' }, 409);
       }
-      const password = creating || resetting ? `Ubec-${crypto.randomUUID()}!` : undefined;
+      const password = creating || resetting ? generatePassword() : undefined;
       let id = target?.id;
       if ('email' in input) {
         if ((await db.query('SELECT id FROM users WHERE email=$1', [input.email])).rowCount) return json({ error: 'An account already uses this email address' }, 409);

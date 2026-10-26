@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CredentialsDialog } from '@/components/credentials-dialog';
 import { PlusIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { UbecShell } from '@/components/ubec-shell';
@@ -81,6 +82,6 @@ export default function TeamPage() {
         {formError && <FieldError role="alert">{formError}</FieldError>}
       </FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={() => setAdding(false)}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}Add officer</Button></DialogFooter></form>
     </DialogContent></Dialog>
-    <Dialog open={!!credentials} onOpenChange={open => { if (!open) setCredentials(null); }}><DialogContent className="national-dialog"><DialogHeader><DialogTitle>Login details</DialogTitle><DialogDescription>Copy and share these details securely. The password will not be shown again.</DialogDescription></DialogHeader><FieldGroup><Field><FieldLabel htmlFor="officer-cred-email">Email</FieldLabel><Input id="officer-cred-email" readOnly value={credentials?.email ?? ''} /></Field><Field><FieldLabel htmlFor="officer-cred-password">Password</FieldLabel><Input id="officer-cred-password" readOnly value={credentials?.password ?? ''} /></Field></FieldGroup><DialogFooter><Button onClick={() => setCredentials(null)}>Done</Button></DialogFooter></DialogContent></Dialog>
+    <CredentialsDialog credentials={credentials} idPrefix="officer-cred" className="national-dialog" onClose={() => setCredentials(null)} />
   </UbecShell>;
 }
