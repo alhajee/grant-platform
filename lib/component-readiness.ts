@@ -14,7 +14,8 @@ type ReadinessLine = { id: number; activity: number; description: string; custom
 /** The plan setup fields readiness reads (a snapshot's setup or an ActionPlan). */
 type ReadinessSetup = { ictAllocation?: string | null; qualityActivities?: readonly number[] | null; ictConnect?: 'has' | 'needs' | null; ictConnectWaivers?: number } | null | undefined;
 /** Platform settings readiness depends on: whether supporting documents (ICT, Teacher Development, Infrastructure except land documents) are required (migration 052). */
-export type ReadinessOptions = { documentsRequired: boolean };
+/** fullAllocation: every component must use its whole allocation before it is sent (UBEC79, migration 076). */
+export type ReadinessOptions = { documentsRequired: boolean; fullAllocation?: boolean };
 
 export const readinessWorkstreams = ['quality', 'ict', 'teachers', 'planning', 'tlm'] as const;
 export type ReadinessWorkstream = typeof readinessWorkstreams[number];

@@ -46,7 +46,7 @@ const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value
 // The same checks the server runs on every send step, so a holder sees the problem on the card before sending.
 const readiness = (data: PlanReview, pillar: ImplementedPillar) => (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length ? emptyDistributionMessage(pillar) : null)
   ?? (pillar === 'infrastructure' && data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot, { documentsRequired: data.documentsRequired }) : null)
-  ?? componentSendProblem(pillar, data.snapshot, { documentsRequired: data.documentsRequired });
+  ?? componentSendProblem(pillar, data.snapshot, { documentsRequired: data.documentsRequired, fullAllocation: data.fullAllocation });
 // Budget lines saved but no distribution list: the send step shows, disabled, with the reason (from `readiness`).
 const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length;
 

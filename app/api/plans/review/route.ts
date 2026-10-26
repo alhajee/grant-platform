@@ -1,4 +1,6 @@
 import { withDistributionCoordinates } from '@/lib/distribution-coordinates';
+import { readReadinessOptions } from '@/lib/full-allocation-setting';
+import { allocationUseProblem } from '@/lib/allocation-use';
 import { visibleComponents, visibleSnapshot } from '@/lib/plan-visibility';
 import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
 import { canViewWholeStatePlan } from '@/lib/subeb-access';
@@ -18,7 +20,6 @@ import { implementedPillars } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, emptyDistributionMessage, hasDistribution } from '@/lib/activity-plans';
 import { componentReadinessProblem, hasReadinessRules, splitReadinessProblem } from '@/lib/component-readiness';
 import { sportsSnapshotProblem } from '@/lib/sports';
-import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
 import { readObservationStatus } from '@/lib/observation-requests-db';
 import { aggregateReviewStatus, executiveChairmanProblem, readPillarReviews, readyForExecutiveChairman, readyForUbecSubmission, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       const events = (await db.query(`SELECT id, action, actor_name AS "actorName", actor_role AS "actorRole", comment, scope, submission_number AS "submissionNumber", created_at AS "createdAt" FROM plan_review_events WHERE plan_id = $1 ORDER BY id DESC`, [plan.id])).rows;
       const pillarReviews = await readPillarReviews(db, plan.id);
       const { mode: beapChairSubmissionMode, ubecMode: ubecSubmissionMode } = await readWorkflowSettings(db);
-      const documentsRequired = await readComponentDocumentsRequired(db);
+      const { documentsRequired, fullAllocation } = await readReadinessOptions(db);
       // Cards and statuses follow the role/department ceiling; details follow the workflow stage (lib/stage-visibility.ts).
       const ceiling = visibleComponents(workspace);
       const current = await readStageVisibility(db, workspace, plan.id);
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       const bySubmission = await readSubmissionVisibility(db, workspace, plan.id, submissions.map(submission => submission.number));
       const visibleSubmissions = submissions.filter(submission => (canViewWholeStatePlan(workspace) || visibleEvents.some(event => event.submissionNumber === submission.number)) && (bySubmission.get(submission.number)?.length ?? 0) > 0);
       if (requested && !visibleSubmissions.some(submission => submission.number === Number(requested))) return error('Submission not found', 404);
-      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => ceiling.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot, { documentsRequired }), executiveChairmanProblem: workspace.isBeapChair ? executiveChairmanProblem(pillarReviews, snapshot, { documentsRequired }) : null, readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot, { documentsRequired }), observationProblem: canViewWholeStatePlan(workspace) ? (await readObservationStatus(db, plan.id)).problem : null, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, documentsRequired, snapshot: visibleSnapshot(snapshot, visiblePillars), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => ceiling.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot, { documentsRequired, fullAllocation }), executiveChairmanProblem: workspace.isBeapChair ? executiveChairmanProblem(pillarReviews, snapshot, { documentsRequired, fullAllocation }) : null, readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot, { documentsRequired, fullAllocation }), fullAllocation, observationProblem: canViewWholeStatePlan(workspace) ? (await readObservationStatus(db, plan.id)).problem : null, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, documentsRequired, snapshot: visibleSnapshot(snapshot, visiblePillars), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       const reviews = await readPillarReviews(db, plan.id);
       const snapshot = await readPlanSnapshot(db, plan.id);
       const beapChairSubmissionMode = await readBeapChairSubmissionMode(db);
-      const readiness = { documentsRequired: await readComponentDocumentsRequired(db) };
+      const readiness = await readReadinessOptions(db);
       if (input.action === 'forward' && beapChairSubmissionMode === 'complete_plan') {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send the plan to the SUBEB Executive Chairman', 403);
         if (input.pillar) return error('This state sends the complete BEAP to the Executive Chairman at once', 409);
@@ -151,6 +152,8 @@ export async function POST(request: NextRequest) {
       if (input.action !== 'request_changes' && isPoolComponent(input.pillar) && !isSplitMode(plan)) { const problem=infrastructurePoolProblem(plan,{infrastructure:(snapshot.infrastructure??[]).reduce((sum,item)=>sum+lineKobo(item),BigInt(0)),tlm:(snapshot.tlm??[]).reduce((sum,line)=>sum+lineKobo(line),BigInt(0))}); if(problem)return error(problem,409); }
       // Sports: the envelope and each section's share of it are caps at every send step.
       if (input.action !== 'request_changes' && input.pillar === 'sports') { const problem=sportsSnapshotProblem(snapshot.sports,plan); if(problem)return error(problem,409); }
+      // UBEC79: the component (and every share inside it) must use its whole allocation (Super Admin setting, migration 076).
+      if (input.action !== 'request_changes' && readiness.fullAllocation) { const problem=allocationUseProblem(input.pillar,snapshot); if(problem)return error(problem,409); }
       if (input.action !== 'request_changes' && (isCappedFor(input.pillar, plan) || input.pillar === 'sbmc')) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,kobo:lineKobo(line)})),plan); if(problem)return error(problem); }
       await db.query('INSERT INTO plan_pillar_reviews(plan_id,pillar,status) VALUES($1,$2,$3) ON CONFLICT(plan_id,pillar) DO UPDATE SET status=EXCLUDED.status,updated_at=NOW()', [plan.id,input.pillar,status]);
       const number = plan.submissionNumber + 1;

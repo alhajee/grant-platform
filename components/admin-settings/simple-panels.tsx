@@ -65,6 +65,23 @@ export function PriceListPanel({ onDirty }: PanelProps) {
   </SettingsPanel>;
 }
 
+/** UBEC79: whether every component must use its whole allocation before it is sent (migration 076). */
+export function FullAllocationPanel({ onDirty }: PanelProps) {
+  const s = useSetting<boolean>({ url: '/api/admin/full-allocation', read: readRequired, write: required => ({ required }), noun: 'full allocation setting', saved: required => required ? 'Components must now use their whole allocation before sending' : 'Components can now be sent before their allocation is used up', onDirty });
+  return <SettingsPanel title="Full use of allocations" description="Whether each component must use its whole allocation before it is sent">
+    {s.error ? <PanelError title="Full allocation setting unavailable" message={s.error} onRetry={() => void s.load()} />
+      : s.draft === null ? <PanelSkeleton rows={1} /> : <>
+        <SettingsCard>
+          <SettingRow label="Require full use of allocations" htmlFor="full-allocation-required" description={s.draft ? 'A component is sent only once its items use its whole allocation, and every share inside it is used in full' : 'Components can be sent with part of their allocation unused'}
+            info="Checked at every send step (to the Director, the BEAP Chair, the Executive Chairman and UBEC). Covers the component allocation, the activity shares (Curriculum 60/20/10/10, Quality Assurance, SBMC), the Sports sections and the Sports Competitions sub-activities. Fixed caps such as ICT Model Smart Schools are ceilings only.">
+            <Switch id="full-allocation-required" checked={s.draft} disabled={s.saving} onCheckedChange={s.setDraft} />
+          </SettingRow>
+        </SettingsCard>
+        <SaveBar dirty={s.dirty} saving={s.saving} onDiscard={s.discard} onSave={() => void s.save()} />
+      </>}
+  </SettingsPanel>;
+}
+
 export function DocumentsPanel({ onDirty }: PanelProps) {
   const s = useSetting<boolean>({ url: '/api/admin/component-documents', read: readRequired, write: required => ({ required }), noun: 'supporting documents setting', saved: required => required ? 'Supporting documents are now required' : 'Supporting documents are now optional', onDirty });
   return <SettingsPanel title="Supporting documents" description="Whether component uploads must be attached before saving or sending">

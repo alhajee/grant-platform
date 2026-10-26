@@ -1,4 +1,5 @@
 import type { QueryResult, QueryResultRow } from 'pg';
+import { allocationUseProblem } from './allocation-use';
 import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import { canEditPillar } from './subeb-access';
 import type { PlanStatus } from './action-plans';
@@ -90,6 +91,9 @@ function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
  * or (split mode, migration 051) Infrastructure/TLM without their split or over their own part. The mode comes from the snapshot's setup.
  */
 export function componentSendProblem(pillar: ImplementedPillar, snapshot: Snapshot, options: ReadinessOptions): string | null {
+  return componentRulesProblem(pillar, snapshot, options) ?? (options.fullAllocation ? allocationUseProblem(pillar, snapshot) : null);
+}
+function componentRulesProblem(pillar: ImplementedPillar, snapshot: Snapshot, options: ReadinessOptions): string | null {
   // TLM, Greening and Curriculum need at least one school on their distribution list, as at every state send step.
   if (hasDistribution(pillar) && !(snapshot[distributionSnapshotKeys[pillar]]?.length ?? 0)) return emptyDistributionMessage(pillar);
   if (hasReadinessRules(pillar)) return componentReadinessProblem(pillar, snapshot[pillar] ?? [], snapshot.setup, options) ?? splitReadinessProblem(pillar, snapshot);

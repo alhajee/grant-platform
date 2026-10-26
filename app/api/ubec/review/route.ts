@@ -1,4 +1,5 @@
 import { withDistributionCoordinates } from '@/lib/distribution-coordinates';
+import { readReadinessOptions } from '@/lib/full-allocation-setting';
 import { NextRequest, NextResponse } from 'next/server';
 import { canViewWholeStatePlan } from '@/lib/subeb-access';
 import { z } from 'zod';
@@ -9,7 +10,6 @@ import { activePillars, isUbec, pillarDepartments, ubecRoles, type UbecRound, ty
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
 import { aggregateReviewStatus, componentSendProblem, readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
-import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
 import { readUbecSubmissionMode } from '@/lib/workflow-settings';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { shareCommentIdsSchema } from '@/lib/plan-comments';
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
       const events = round ? (await db.query(`SELECT id,action,actor,comment,created_at,pillar FROM ubec_events WHERE round_id=$1 ${national ? '' : "AND action IN ('submit','return','approve')"} AND (pillar IS NULL OR pillar=ANY($2::text[])) ORDER BY id DESC`, [round.id, pillars])).rows : [];
       const ubecMode = await readUbecSubmissionMode(db);
       const reviews = user.role === 'Executive Chairman' ? await readPillarReviews(db, plan.id) : [];
-      const canSubmit = user.role === 'Executive Chairman' && (!allRounds[0] || allRounds[0].status === 'returned') && (ubecMode === 'reviewed_components' ? statePlanOpen(plan.status) : plan.status === 'awaiting_chairman') && readyForUbecSubmission(ubecMode, reviews, await readPlanSnapshot(db, plan.id), { documentsRequired: await readComponentDocumentsRequired(db) })
+      const canSubmit = user.role === 'Executive Chairman' && (!allRounds[0] || allRounds[0].status === 'returned') && (ubecMode === 'reviewed_components' ? statePlanOpen(plan.status) : plan.status === 'awaiting_chairman') && readyForUbecSubmission(ubecMode, reviews, await readPlanSnapshot(db, plan.id), await readReadinessOptions(db))
         // Observations the Executive Chairman asked UBEC Audit, Procurement or Finance for must be in and resolved (row 156).
         && !(await readObservationStatus(db, plan.id)).problem;
       const setup = round?.snapshot.setup;
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         if (round && !input.comment) return error('Describe how the UBEC feedback was addressed');
         const snapshot: Snapshot = await readPlanSnapshot(db, plan.id);
         const reviews = await readPillarReviews(db, plan.id);
-        const readiness = { documentsRequired: await readComponentDocumentsRequired(db) };
+        const readiness = await readReadinessOptions(db);
         const unready = unreadySentComponents(snapshot, reviews, readiness)[0];
         if (unready) return error(componentSendProblem(unready, snapshot, readiness)!, 409);
         const observations = (await readObservationStatus(db, plan.id)).problem;

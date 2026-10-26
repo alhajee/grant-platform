@@ -1,12 +1,13 @@
-import { FileCheckIcon, PlugZapIcon, ReceiptTextIcon, SchoolIcon, UsersRoundIcon, WalletIcon, WorkflowIcon, type LucideIcon } from 'lucide-react';
+import { CircleGaugeIcon, FileCheckIcon, PlugZapIcon, ReceiptTextIcon, SchoolIcon, UsersRoundIcon, WalletIcon, WorkflowIcon, type LucideIcon } from 'lucide-react';
 
-export const settingsSections = ['workflow', 'documents', 'budget', 'pricelist', 'officers', 'schools', 'dnemis'] as const;
+export const settingsSections = ['workflow', 'documents', 'allocations', 'budget', 'pricelist', 'officers', 'schools', 'dnemis'] as const;
 export type SettingsSection = typeof settingsSections[number];
 
 export const sectionGroups: { label: string; items: { id: SettingsSection; label: string; icon: LucideIcon }[] }[] = [
   { label: 'Plans', items: [
     { id: 'workflow', label: 'SUBEB workflow', icon: WorkflowIcon },
     { id: 'documents', label: 'Supporting documents', icon: FileCheckIcon },
+    { id: 'allocations', label: 'Full use of allocations', icon: CircleGaugeIcon },
     { id: 'budget', label: 'Infrastructure & TLM budget', icon: WalletIcon },
     { id: 'pricelist', label: 'Procurement price list', icon: ReceiptTextIcon },
   ] },
