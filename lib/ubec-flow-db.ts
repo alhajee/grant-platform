@@ -135,7 +135,7 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
   const officerDepartments = viewer.role === superAdminRole ? [...new Set(components.map(c => c.department))] : (viewer.role === ubecRoles.director && isComponentDepartment(viewer.department)) || overseer ? [viewer.department!] : [];
   // Open work: component assessments for component officers, live components with oversight for oversight officers.
   const departmentOfficers = officerDepartments.length
-    ? (await db.query<{ id: number; name: string; email: string; open: number; department: string }>(`SELECT u.id, u.full_name AS name, u.email, u.department,
+    ? (await db.query<{ id: number; name: string; email: string; open: number; department: string }>(`SELECT u.id, u.display_name AS name, u.email, u.department,
         (SELECT COUNT(*)::int FROM ubec_officer_assignments oa JOIN ubec_round_components rc ON rc.id=oa.round_component_id JOIN ubec_rounds r ON r.id=rc.round_id
           WHERE oa.officer_id=u.id AND oa.removed_at IS NULL AND oa.completed_at IS NULL AND r.status='reviewing')
         + (SELECT COUNT(*)::int FROM ubec_oversight_assignments xa JOIN ubec_round_components rc ON rc.id=xa.round_component_id JOIN ubec_rounds r ON r.id=rc.round_id
@@ -163,7 +163,7 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
 export type Actor = { id: number; role: string; department: string | null; full_name: string; email: string };
 /** The acting user, re-read under a share lock (a changed role or signed-out session is refused). */
 export async function readActor(db: Db, session: { userId: number; sessionVersion: number }) {
-  return (await db.query<Actor>('SELECT id, role, department, full_name, email FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
+  return (await db.query<Actor>('SELECT id, role, department, display_name AS full_name, email FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
 }
 
 export async function addUbecEvent(db: Db, event: { roundId: number; planId: number | string; action: string; actor: Actor; comment?: string; pillar?: ImplementedPillar | null }) {

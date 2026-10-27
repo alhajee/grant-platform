@@ -120,10 +120,10 @@ try {
   const team = ok(await api('audit', '/api/ubec/officers'));
   assert.deepEqual(team.departments, ['audit']); assert.equal(team.officers.length, 2);
   for (const n of [1, 2]) {
-    const email = `extra${n}.${marker}@ubec-oversight.test`.toLowerCase();
-    extraOfficers.push(ok(await api('audit', '/api/ubec/officers', { name: `QA extra ${n}`, email }), 201).id);
+    const email = `extra${n}.${marker}@ubec.gov.ng`.toLowerCase();
+    extraOfficers.push(ok(await api('audit', '/api/ubec/officers', { name: `QA extra ${n}`, roleTitle: `QA Audit Officer ${n}`, email }), 201).id);
   }
-  fails(await api('audit', '/api/ubec/officers', { name: 'Wrong department', email: `wrong.${marker}@ubec-oversight.test`.toLowerCase(), department: 'finance' }), 403);
+  fails(await api('audit', '/api/ubec/officers', { name: 'Wrong department', roleTitle: 'QA wrong', email: `wrong.${marker}@ubec.gov.ng`.toLowerCase(), department: 'finance' }), 403);
   step('Oversight Directors add officers to their own department on the Officers page, with no limit');
   console.log(`\nPASS: ${passed} UBEC oversight officer checks`);
 } finally {

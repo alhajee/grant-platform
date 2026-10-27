@@ -51,7 +51,7 @@ async function withOpenRound(request: NextRequest, run: (db: Db, context: Contex
   const planId = planParam(request), selected = roundParam(request);
   if (!planId || Number.isNaN(selected)) return error('Choose a valid plan');
   return getPostgres().transaction(async db => {
-    const actor = (await db.query<Actor>('SELECT id, role, department, full_name FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
+    const actor = (await db.query<Actor>('SELECT id, role, department, display_name AS full_name FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
     if (!actor || !isUbec(actor.role) || actor.role === ubecRoles.es) return error(actor?.role === ubecRoles.es ? 'The UBEC Executive Secretary has read-only access to comments' : 'You do not have permission for this action', 403);
     // FOR SHARE serialises with the ES decision, which locks the plan FOR UPDATE.
     if (!(await db.query('SELECT 1 FROM action_plans WHERE id=$1 FOR SHARE', [planId])).rowCount) return error('Plan not found', 404);

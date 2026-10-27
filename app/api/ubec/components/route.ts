@@ -114,7 +114,7 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
   }
   if (input.action === 'assign_officers') {
     if (!input.comment) return error('Add a comment for the Assessment Officer before assigning');
-    const officers = (await db.query<{ id: number; full_name: string }>('SELECT id,full_name FROM users WHERE id=ANY($1::int[]) AND role=$2 AND department=$3 AND active', [input.officerIds, ubecRoles.officer, component.department])).rows;
+    const officers = (await db.query<{ id: number; full_name: string }>('SELECT id,display_name AS full_name FROM users WHERE id=ANY($1::int[]) AND role=$2 AND department=$3 AND active', [input.officerIds, ubecRoles.officer, component.department])).rows;
     if (officers.length !== new Set(input.officerIds).size) return error(admin ? `Choose active Assessment Officers of ${departmentName(component.department)}.` : 'Choose active Assessment Officers of your department');
     const current = await live();
     const fresh = officers.filter(o => !current.some(a => a.officer_id === o.id));
@@ -165,7 +165,7 @@ async function observers(db: Db, input: Extract<Command, { action: 'assign_obser
     return NextResponse.json({ removed: assignment.id });
   }
   if (!input.comment) return error('Add a comment for the Assessment Officer before assigning');
-  const officers = (await db.query<{ id: number; full_name: string }>('SELECT id,full_name FROM users WHERE id=ANY($1::int[]) AND role=$2 AND department=$3 AND active', [input.officerIds, ubecRoles.officer, department])).rows;
+  const officers = (await db.query<{ id: number; full_name: string }>('SELECT id,display_name AS full_name FROM users WHERE id=ANY($1::int[]) AND role=$2 AND department=$3 AND active', [input.officerIds, ubecRoles.officer, department])).rows;
   if (officers.length !== new Set(input.officerIds).size) return error(`Choose active Assessment Officers of ${departmentName(department)}`);
   const fresh = officers.filter(o => !live.some(a => a.officer_id === o.id));
   if (!fresh.length) return error('These officers are already assigned to this component', 409);

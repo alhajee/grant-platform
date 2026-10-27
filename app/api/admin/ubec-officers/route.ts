@@ -34,7 +34,7 @@ async function requireAdmin(request: NextRequest) {
 async function readSettings(db: Db) {
   const limits = await readOfficerLimits(db);
   const defaults = await readDefaultOfficers(db);
-  const officers = (await db.query<{ id: number; name: string; email: string; department: string }>('SELECT id, full_name AS name, email, department FROM users WHERE role=$1 AND active ORDER BY full_name, id', [ubecRoles.officer])).rows;
+  const officers = (await db.query<{ id: number; name: string; email: string; department: string }>('SELECT id, display_name AS name, email, department FROM users WHERE role=$1 AND active ORDER BY display_name, id', [ubecRoles.officer])).rows;
   const departments = limits.map(limit => ({
     ...limit, short: componentDepartments.find(d => d.id === limit.department)!.short, warning: overLimitWarning(limit),
     components: departmentPillars(limit.department).map(pillar => ({ pillar, name: componentName(pillar), defaults: (defaults.get(pillar) ?? []).map(o => o.id) })),

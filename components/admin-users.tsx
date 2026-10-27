@@ -23,11 +23,12 @@ import { departmentLabel as departmentName, ubecRoleDepartments, ubecRoleList, u
 import { toast } from 'sonner';
 import { DepartmentCheckboxes } from '@/components/department-checkboxes';
 import { accessLabel, tokenDepartment } from '@/lib/component-access';
+import { isUbecEmail, maxRoleTitleLength, ubecEmailDomain, ubecEmailError } from '@/lib/officer-title';
 
-export type AdminManagedUser = { id:number; name:string; email:string; role:string; department:string|null; departments:string[]; stateCode:string; active:boolean; canCreatePlan:boolean; canManageSchools:boolean; isBeapChair:boolean };
+export type AdminManagedUser = { id:number; name:string; roleTitle?:string; email:string; role:string; department:string|null; departments:string[]; stateCode:string; active:boolean; canCreatePlan:boolean; canManageSchools:boolean; isBeapChair:boolean };
 type Form = Omit<AdminManagedUser, 'id'>;
 const helper = createColumnHelper<DataTableFeatures, AdminManagedUser>();
-const blank = (stateCode:string):Form => ({ name:'', email:'', role:stateCode === 'UBEC' ? ubecRoles.officer : 'Data Entry Staff', department:'', departments:[], stateCode, active:true, canCreatePlan:false, canManageSchools:false, isBeapChair:false });
+const blank = (stateCode:string):Form => ({ name:'', roleTitle:'', email:'', role:stateCode === 'UBEC' ? ubecRoles.officer : 'Data Entry Staff', department:'', departments:[], stateCode, active:true, canCreatePlan:false, canManageSchools:false, isBeapChair:false });
 
 const workspaceName = (stateCode:string) => stateCode === 'UBEC' ? 'UBEC' : subebDisplayName(stateCode);
 const roleNeedsDepartment = (role:string) => ['Data Entry Staff','Director'].includes(role) || ubecRoleDepartments(role).length > 0;
@@ -57,7 +58,7 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
 
   const open = useCallback((user:AdminManagedUser|'new') => {
     setEditing(user);
-    setForm(user === 'new' ? blank(initialWorkspace) : {...user,department:user.department ?? '',departments:user.departments ?? (user.department ? [user.department] : [])});
+    setForm(user === 'new' ? blank(initialWorkspace) : {...user,roleTitle:user.roleTitle ?? '',department:user.department ?? '',departments:user.departments ?? (user.department ? [user.department] : [])});
     setFormError('');
   },[initialWorkspace]);
   const changeWorkspace = (stateCode:string) => setForm(blank(stateCode));
@@ -67,6 +68,8 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
     if (pending.current || (!editing && !reset)) return;
     pending.current=true; setSaving(true); setFormError('');
     const email = passwordReset ? reset!.email : form.email;
+    // New Assessment Officers use a UBEC email (UBEC150).
+    if (!passwordReset && editing === 'new' && form.role === ubecRoles.officer && !isUbecEmail(form.email)) { setFormError(ubecEmailError); pending.current=false; setSaving(false); return; }
     try {
       // An edit cannot change the email and the API refuses fields it does not take, so it is left out (undefined is not sent).
       const body = passwordReset ? {id:reset!.id,action:'reset_password'} : {...form,department:form.departments[0] || null,...(editing === 'new' ? {} : {email:undefined,id:(editing as AdminManagedUser).id})};
@@ -88,7 +91,7 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
     {column:'active',title:'Status',options:facetOptions(users,user=>[statusValue(user)],value=>value==='active'?'Active':'Inactive')},
   ],[users]);
   const columns = useMemo(()=>helper.columns([
-    helper.accessor('name',{enableHiding:false,header:({column})=><DataTableColumnHeader column={column} title="User"/>,filterFn:(row,_id,value)=>[row.original.name,row.original.email,row.original.role,workspaceName(row.original.stateCode),departmentLabel(row.original)].join(' ').toLowerCase().includes(String(value).toLowerCase()),cell:({row})=><div><p className="font-medium">{row.original.name}</p><p className="text-xs text-muted-foreground">{row.original.email}</p></div>}),
+    helper.accessor('name',{enableHiding:false,header:({column})=><DataTableColumnHeader column={column} title="User"/>,filterFn:(row,_id,value)=>[row.original.name,row.original.email,row.original.role,workspaceName(row.original.stateCode),departmentLabel(row.original)].join(' ').toLowerCase().includes(String(value).toLowerCase()),cell:({row})=><div><p className="font-medium">{row.original.roleTitle ? `${row.original.roleTitle} (${row.original.name})` : row.original.name}</p><p className="text-xs text-muted-foreground">{row.original.email}</p></div>}),
     helper.accessor('role',{filterFn:(row,_id,value)=>anyOf(roleValues(row.original))(value),header:({column})=><DataTableColumnHeader column={column} title="Role"/>,cell:({row})=><div className="flex flex-wrap items-center gap-2">{row.original.role}{row.original.isBeapChair&&<Badge variant="secondary">BEAP Chair</Badge>}</div>}),
     helper.accessor('stateCode',{filterFn:(row,_id,value)=>anyOf([row.original.stateCode])(value),header:({column})=><DataTableColumnHeader column={column} title="Workspace"/>,cell:info=>workspaceName(info.getValue())}),
     helper.accessor('department',{filterFn:(row,_id,value)=>anyOf(departmentValues(row.original))(value),header:({column})=><DataTableColumnHeader column={column} title="Department"/>,cell:({row})=>departmentLabel(row.original)}),
@@ -96,7 +99,7 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
     helper.display({id:'actions',enableHiding:false,header:'',cell:({row})=><div className="flex justify-end"><DropdownMenu modal={false}><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Manage ${row.original.name}`}><MoreHorizontalIcon/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onSelect={()=>open(row.original)}><PencilIcon/>Edit user</DropdownMenuItem><DropdownMenuItem onSelect={()=>{setReset(row.original);setFormError('');}}><KeyRoundIcon/>Reset password</DropdownMenuItem><DropdownMenuSeparator/><DropdownMenuItem disabled={!row.original.active||busy!==null} onSelect={()=>void onSwitch(row.original.id)}><UserRoundCogIcon/>{busy===row.original.id?'Switching…':'Act as user'}</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div>}),
   ]),[busy,onSwitch,open]);
 
-  const isUbec = form.stateCode === 'UBEC';
+  const isUbec = form.stateCode === 'UBEC', isOfficer = isUbec && form.role === ubecRoles.officer;
   const departments = isUbec ? ubecRoleDepartments(form.role) : subebDepartments;
   return <div className="flex flex-col gap-4">
     <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-lg font-semibold">Manage users</h2></div><Button onClick={()=>open('new')} disabled={!workspaces.length}><PlusIcon data-icon="inline-start"/>Add user</Button></div>
@@ -105,7 +108,8 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
       <Field><FieldLabel htmlFor="admin-user-workspace">Workspace</FieldLabel><NativeSelect id="admin-user-workspace" required disabled={saving||editing!=='new'} value={form.stateCode} onChange={event=>changeWorkspace(event.target.value)}>{workspaces.map(code=><NativeSelectOption key={code} value={code}>{workspaceName(code)}</NativeSelectOption>)}</NativeSelect></Field>
       <Field><FieldLabel htmlFor="admin-user-name">Full name</FieldLabel><Input id="admin-user-name" required minLength={2} maxLength={120} disabled={saving} value={form.name} onChange={event=>setForm({...form,name:event.target.value})}/></Field>
       <Field><FieldLabel htmlFor="admin-user-email">Email address</FieldLabel><Input id="admin-user-email" type="email" required disabled={saving||editing!=='new'} value={form.email} onChange={event=>setForm({...form,email:event.target.value})}/></Field>
-      <Field><FieldLabel htmlFor="admin-user-role">Role</FieldLabel><NativeSelect id="admin-user-role" disabled={saving} value={form.role} onChange={event=>changeRole(event.target.value)}>{isUbec?ubecRoleList.map(role=><NativeSelectOption key={role} value={role}>{role}</NativeSelectOption>):<><NativeSelectOption value="Data Entry Staff">Data Entry Staff</NativeSelectOption><NativeSelectOption value="Director">Director</NativeSelectOption><NativeSelectOption value="Executive Chairman">Executive Chairman</NativeSelectOption></>}</NativeSelect></Field>
+      <Field><FieldLabel htmlFor="admin-user-role">Role</FieldLabel><NativeSelect id="admin-user-role" disabled={saving} value={form.role} onChange={event=>changeRole(event.target.value)}>{isUbec?ubecRoleList.map(role=><NativeSelectOption key={role} value={role}>{role}</NativeSelectOption>):<><NativeSelectOption value="Data Entry Staff">Data Entry Staff</NativeSelectOption><NativeSelectOption value="Director">Director</NativeSelectOption><NativeSelectOption value="Executive Chairman">Executive Chairman</NativeSelectOption></>}</NativeSelect>{isOfficer&&editing==='new'&&<FieldDescription>Assessment Officers use a UBEC email address (@{ubecEmailDomain})</FieldDescription>}</Field>
+      {isOfficer&&<Field><FieldLabel htmlFor="admin-user-role-title">Role name</FieldLabel><Input id="admin-user-role-title" required={editing==='new'} minLength={2} maxLength={maxRoleTitleLength} placeholder="UBEC Assessment Officer 1 - Infrastructure" disabled={saving} value={form.roleTitle ?? ''} onChange={event=>setForm({...form,roleTitle:event.target.value})}/><FieldDescription>Shown as {form.roleTitle?.trim() || 'the role name'} ({form.name.trim() || 'Full name'})</FieldDescription></Field>}
       {roleNeedsDepartment(form.role) && (isUbec ? <Field><FieldLabel htmlFor="admin-user-department">Department</FieldLabel><NativeSelect id="admin-user-department" required disabled={saving} value={form.departments[0]??''} onChange={event=>setForm({...form,department:event.target.value,departments:[event.target.value]})}><NativeSelectOption value="" disabled>Select department</NativeSelectOption>{departments.map(item=><NativeSelectOption key={item.id} value={item.id}>{departmentName(item.id)}</NativeSelectOption>)}</NativeSelect></Field> : <DepartmentCheckboxes departments={departments} support={isUbec ? [] : supportDepartments} selected={form.departments} components={form.role==='Data Entry Staff'} disabled={saving} onChange={values=>setForm({...form,departments:values,department:values[0]??''})}/>)}
       <Field><FieldLabel htmlFor="admin-user-active">Account access</FieldLabel><NativeSelect id="admin-user-active" disabled={saving} value={String(form.active)} onChange={event=>setForm({...form,active:event.target.value==='true'})}><NativeSelectOption value="true">Active</NativeSelectOption><NativeSelectOption value="false">Inactive</NativeSelectOption></NativeSelect></Field>
       {!isUbec&&<Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="admin-user-create-plan">Allow creating action plans</FieldLabel><Switch id="admin-user-create-plan" disabled={saving||form.isBeapChair} checked={form.isBeapChair||form.canCreatePlan} onCheckedChange={canCreatePlan=>setForm({...form,canCreatePlan})}/></Field>}

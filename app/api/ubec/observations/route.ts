@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     const planId = planParam(request);
     if (!planId) return error('Choose a valid plan');
     return await getPostgres().transaction(async db => {
-      const actor = (await db.query<{ id: number; full_name: string; email: string; role: string; department: string | null }>('SELECT id,full_name,email,role,department FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
+      const actor = (await db.query<{ id: number; full_name: string; email: string; role: string; department: string | null }>('SELECT id,display_name AS full_name,email,role,department FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
       if (!actor) return error('Session expired', 401);
       const viewer = observationViewer(actor.role, actor.department);
       if (!viewer?.director) return error('Only the department’s Oversight Director sends its observations back', 403);

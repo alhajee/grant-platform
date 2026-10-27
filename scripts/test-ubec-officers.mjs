@@ -89,21 +89,29 @@ try {
   const chairTeam = ok(await api('chair', '/api/ubec/officers'));
   assert.ok(chairTeam.directors.some(d => d.id === users.dpp && d.role === 'UBEC Director' && d.department === 'physical'), 'the BEAP Chair lists the Directors');
   assert.deepEqual(team.limits.map(l => [l.department, l.active, l.limit]), [['quality', n, n]]);
-  const add = (who, email, extra = {}) => api(who, '/api/ubec/officers', { name: `QA Officer ${email}`, email: `${email}.${marker}@ubec-officers.test`.toLowerCase(), ...extra });
+  const add = (who, email, extra = {}) => api(who, '/api/ubec/officers', { name: `QA Officer ${email}`, email: `${email}.${marker}@ubec.gov.ng`.toLowerCase(), roleTitle: `QA Officer role ${email}`, ...extra });
   fails(await add('dme', 'q1'), 409, /already has \d+ of \d+ Assessment Officer/);
   assert.equal(await activeOfficers('quality'), n, 'a refused addition creates nothing');
   await setLimit('quality', n + 1);
   const q1 = ok(await add('dme', 'q1'), 201); created.push(q1.id);
+  // UBEC150: a role name and a @ubec.gov.ng email; Directors see "Role name (Full name)".
+  fails(await api('dme', '/api/ubec/officers', { name: 'QA Gmail', roleTitle: 'QA role', email: `gmail.${marker}@gmail.com`.toLowerCase() }), 400, /@ubec\.gov\.ng/);
+  fails(await api('dme', '/api/ubec/officers', { name: 'QA No role', email: `norole.${marker}@ubec.gov.ng`.toLowerCase() }), 400);
+  const listed = ok(await api('dme', '/api/ubec/officers')).officers.find(o => o.id === q1.id);
+  assert.equal(listed.label, `QA Officer role q1 (QA Officer q1)`);
+  assert.equal((await db.query('SELECT display_name FROM users WHERE id=$1', [q1.id])).rows[0].display_name, 'QA Officer role q1 (QA Officer q1)');
   fails(await add('dme', 'q2'), 409, /Monitoring & Evaluation already has/);
   fails(await add('chair', 'q2', { department: 'quality' }), 409);
   step('UBEC Officers page: Add is refused with 409 at the limit (Director and BEAP Chair), allowed after the Super Admin raises it');
 
   // Limit on Admin > Users.
-  const adminCreate = email => api('admin', '/api/admin/users', { name: `QA Admin Officer ${email}`, email: `${email}.${marker}@ubec-officers.test`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: true });
+  const adminCreate = email => api('admin', '/api/admin/users', { name: `QA Admin Officer ${email}`, roleTitle: `QA role ${email}`, email: `${email}.${marker}@ubec.gov.ng`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: true });
   const edit = (id, profile) => api('admin', '/api/admin/users', { id, name: `QA edit ${id}`, stateCode: 'UBEC', ...profile }, 'PATCH');
   fails(await adminCreate('a1'), 409, /already has/);
-  ok(await api('admin', '/api/admin/users', { name: 'QA inactive officer', email: `a2.${marker}@ubec-officers.test`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: false }), 201);
-  created.push((await db.query('SELECT id FROM users WHERE email=$1', [`a2.${marker}@ubec-officers.test`.toLowerCase()])).rows[0].id);
+  fails(await api('admin', '/api/admin/users', { name: 'QA Admin gmail', roleTitle: 'QA role', email: `ag.${marker}@gmail.com`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: false }), 400, /@ubec\.gov\.ng/);
+  fails(await api('admin', '/api/admin/users', { name: 'QA Admin no role', email: `an.${marker}@ubec.gov.ng`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: false }), 400, /role name/);
+  ok(await api('admin', '/api/admin/users', { name: 'QA inactive officer', roleTitle: 'QA inactive role', email: `a2.${marker}@ubec.gov.ng`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: false }), 201);
+  created.push((await db.query('SELECT id FROM users WHERE email=$1', [`a2.${marker}@ubec.gov.ng`.toLowerCase()])).rows[0].id);
   ok(await edit(users.offQ, { role: 'UBEC Assessment Officer', departments: ['quality'], active: true }), 200);
   fails(await edit(users.offP2, { role: 'UBEC Assessment Officer', departments: ['quality'], active: true }), 409, /already has/);
   fails(await edit(users.dme, { role: 'UBEC Assessment Officer', departments: ['quality'], active: true }), 409, /already has/);
