@@ -44,7 +44,7 @@ export const componentSections: Record<PillarId,{name:string;department:string;h
   quality:[{name:'Quality Assurance',department:'me',href:'/beap/quality'}],
   teachers:[{name:'Teacher Development',department:'teachers',href:'/beap/teachers'},{name:'ICT',department:'ict',href:'/beap/ict'}],
   ict:[{name:'ICT',department:'ict',href:'/beap/ict'}],
-  sports:[{name:'Sports Activities',department:'academic',href:'/beap/sports'}],
+  sports:[{name:'Sports, Quiz & Debate Activities',department:'academic',href:'/beap/sports'}],
   monitoring:[{name:'Supervision & Monitoring',department:'physical',href:'/beap/monitoring'}],
   curriculum:[{name:'Curriculum Purchase, Distribution & Training',department:'academic',href:'/beap/curriculum'}],
   sbmc:[{name:'SBMC',department:'social',href:'/beap/sbmc'}],

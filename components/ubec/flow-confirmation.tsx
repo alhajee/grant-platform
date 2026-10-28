@@ -60,7 +60,7 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
     description: `Your Director${component ? `, ${departmentName(component.department)},` : ''} is notified and reviews your decisions.`,
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: 'Your Director' }],
     notes: [{ kind: 'lock', text: 'Your decisions are locked once submitted. You can’t change them afterwards.' }] };
-  if (request.kind === 'oversight') return { title: `Send ${name} for oversight?`, confirm: 'Yes, send for oversight', tone: 'default',
+  if (request.kind === 'oversight') return { title: `Send ${name} to the Oversight Departments?`, confirm: 'Yes, send to Oversight Department', tone: 'default',
     description: 'Audit, Procurement and Finance review it next; then it goes to the UBEC BEAP Chair',
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: oversightNames(oversightDepartments.map(d => d.id)) }],
     notes: [{ kind: 'lock', text: 'Its item decisions can’t be changed once it is sent, and your department’s assessment ends' }] };

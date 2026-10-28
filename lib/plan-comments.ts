@@ -32,7 +32,7 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   sbmc: { ...activityColumns, rationale: 'Rationale', approach: 'Implementation approach', ...activityTail },
   tlm: { ...activityColumns, material: 'Material type', subject: 'Subject', classes: 'Classes', ...activityTail },
   distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', allocation: 'Allocation' },
-  monitoring: { ...activityColumns, ...activityTail },
+  monitoring: { ...activityColumns, frequency: 'Frequency', ...activityTail },
   gscci: { ...activityColumns, item: 'Item', ...activityTail },
   gscciDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', allocation: 'Allocation' },
   curriculum: { ...activityColumns, share: 'Activity share', ...activityTail },
@@ -84,14 +84,12 @@ export function commentAbilities(user: Viewer, pillar: ImplementedPillar, status
   return { start: holder, reply: view, resolveAny: view && (staff || holder), reopen: view && isStateReviewer(user) };
 }
 /**
- * What a SUBEB user may do on a UBEC thread the UBEC ES has shared: anyone who can view the component
- * replies; that department's Data Entry Staff and the reviewer holding the component resolve; nobody at
- * the state starts or reopens UBEC threads (the plan must also be open).
+ * What a SUBEB user may do on a shared UBEC thread or a sent-back observation: anyone who can view the component
+ * replies (the plan must be open); nobody at the state starts, resolves or reopens them. UBEC and its Oversight
+ * Departments resolve their own comments (UBEC193).
  */
 export function sharedUbecAbilities(user: Viewer, pillar: ImplementedPillar, status: string): CommentAbilities {
-  const own = commentAbilities(user, pillar, status);
-  const staff = user.role === 'Data Entry Staff' && grantsComponent(departments(user), pillar);
-  return { start: false, reply: own.reply, resolveAny: own.reply && (staff || own.start), reopen: false };
+  return { start: false, reply: commentAbilities(user, pillar, status).reply, resolveAny: false, reopen: false };
 }
 /** UBEC abilities on one visible component of an open round. The UBEC ES is supervisory and read-only. */
 export function ubecAbilities(visible: boolean, open: boolean, role = ''): CommentAbilities {

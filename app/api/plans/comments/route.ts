@@ -117,12 +117,12 @@ export async function PATCH(request: NextRequest) {
       if (!root || !visible.includes(root.pillar) || !can?.reply) return error('Comment not found', 404);
       if (input.action === 'resolve') {
         if (root.resolved_at) return error('This comment is already resolved', 409);
-        if (root.scope !== 'state' && !can.resolveAny) return error('Only this department’s Data Entry Staff or the reviewer holding the component can resolve a UBEC comment', 403);
+        if (root.scope !== 'state') return error(root.scope === 'observation' ? 'The Oversight Department that made this observation resolves it. Reply to say what you changed.' : 'UBEC resolves its own comments. Reply to say what you changed.', 403);
         if (!can.resolveAny && root.author_id !== actor.id) return error('Only this department’s Data Entry Staff, the comment author or the reviewer holding the component can resolve it', 403);
         await db.query('UPDATE plan_comments SET resolved_at=NOW(), resolved_by_name=$1 WHERE id=$2', [name, root.id]);
       } else {
-        if (!root.resolved_at) return error('This comment is already open', 409);
         if (root.scope !== 'state') return error('Only UBEC can reopen a UBEC comment', 403);
+        if (!root.resolved_at) return error('This comment is already open', 409);
         if (!can.reopen) return error('Only a Director, the BEAP Chair or the Executive Chairman can reopen a comment', 403);
         const clash = await db.query("SELECT 1 FROM plan_comments WHERE plan_id=$1 AND scope='state' AND sheet=$2 AND row_ref=$3 AND column_id IS NOT DISTINCT FROM $4 AND parent_id IS NULL AND resolved_at IS NULL", [plan.id, root.sheet, root.row_ref, root.column_id]);
         if (clash.rowCount) return error('Another open comment already covers this cell. Reply there instead.', 409);

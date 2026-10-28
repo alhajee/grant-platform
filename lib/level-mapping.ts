@@ -13,7 +13,7 @@ import type { Snapshot } from './plan-review';
 
 export const schoolLevelKeys = ['eccde', 'primary', 'jss', 'none'] as const;
 export type SchoolLevelKey = typeof schoolLevelKeys[number];
-export const schoolLevelLabels: Record<SchoolLevelKey, string> = { eccde: 'ECCDE', primary: 'Primary', jss: 'JSS', none: 'Not school-specific' };
+export const schoolLevelLabels: Record<SchoolLevelKey, string> = { eccde: 'ECCDE', primary: 'Primary', jss: 'JSS', none: 'Others' }; // UBEC153: "Not school-specific" is shown as Others
 /** Naira per level, with the plan total. */
 export type LevelMapping = Record<SchoolLevelKey, number> & { total: number };
 type Weights = Partial<Record<SchoolLevelKey, number>>;

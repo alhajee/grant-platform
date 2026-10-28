@@ -119,12 +119,13 @@ try {
   fails(await decide('dacs', 'monitoring', monitoringLine, 'accept'), 403, /another department/);
   fails(await decide('offP1', 'monitoring', '987654321', 'accept'), 400, /not in this submission/);
   fails(await step2('offP1', 'complete_assessment', 'monitoring'), 409, /undecided/);
+  fails(await decide('offP1', 'monitoring', monitoringLine, 'reject'), 400, /reason/); // UBEC176
   ok(await decide('offP1', 'monitoring', monitoringLine, 'reject', 'too costly'));
   ok(await decide('offP1', 'monitoring', monitoringLine, null));
   ok(await decide('offP1', 'monitoring', monitoringLine, 'accept'));
   ok(await step2('offP1', 'complete_assessment', 'monitoring', { note: 'All good.' }));
   fails(await step2('offP1', 'complete_assessment', 'monitoring'), 409, /already/);
-  fails(await decide('offP1', 'monitoring', monitoringLine, 'reject'), 409, /locked/);
+  fails(await decide('offP1', 'monitoring', monitoringLine, 'reject', 'late'), 409, /locked/);
   // UBEC143: the Director changes a decision, or sends a completed assessment back to its officer.
   ok(await decide('dpp', 'monitoring', monitoringLine, 'reject', 'Unit cost too high'));
   assert.match((await view('dpp')).flow.decisions.find(d => d.rowRef === monitoringLine).officerName, /\(Director\)$/);
@@ -147,7 +148,7 @@ try {
   fails(await api('offP2', path), 404, 'a removed officer no longer sees the component');
   fails(await step2('dpp', 'send_oversight', 'monitoring'), 400, /comment/);
   ok(await step2('dpp', 'send_oversight', 'monitoring', { comment: 'Monitoring assessed and endorsed.' }));
-  fails(await step2('dpp', 'assign_officers', 'monitoring', { officerIds: [users.offP2], comment: 'late' }), 409, /oversight/);
+  fails(await step2('dpp', 'assign_officers', 'monitoring', { officerIds: [users.offP2], comment: 'late' }), 409, /Oversight Departments/);
   assert.ok(await notified('audit', 'send_oversight') && await notified('finance', 'send_oversight'));
   step('officers decide items only on assigned components (oversight, ES, Directors, others 403); complete needs every item decided and locks decisions; a pending officer can be removed; send for oversight needs all officers done and a comment');
 

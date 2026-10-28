@@ -58,7 +58,7 @@ function Card({ component: c, planTotal, comments, steps, onView }: { component:
     <div className="component-card-foot">
       <OfficerStack officers={c.officers} />
       {open > 0 && <span className="review-open-comments review-ubec-comments card-pill" title={`${open} open UBEC comments`}><MessageSquareTextIcon aria-hidden="true" /><span className="card-pill-count" aria-hidden="true">{open}</span><span className="card-pill-label">{open} open</span></span>}
-      <Button size="sm" variant="ghost" className="card-pill rounded-full ubec-card-view" onClick={onView}><EyeIcon aria-hidden="true" /><span className="card-pill-label">View</span></Button>
+      {/* UBEC180: a bordered View button, always labelled, instead of an eye that reveals "View" on hover. */}<Button size="sm" variant="outline" className="rounded-full ubec-card-view" onClick={onView}><EyeIcon data-icon="inline-start" aria-hidden="true" />View</Button>
       <CardSteps steps={steps} name={componentName(c.pillar)} />
     </div>
   </li>;

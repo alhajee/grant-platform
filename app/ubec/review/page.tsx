@@ -35,7 +35,7 @@ import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-const trail: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to the UBEC departments', assign_officer: 'Assessment Officers assigned', reopen_assessment: 'Assessment sent back to the officer', assign_observer: 'Oversight officers assigned', unassign_observer: 'Oversight officer removed', default_officers: 'Default Assessment Officers assigned', unassign_officer: 'Assessment Officer removed', complete_assessment: 'Assessment completed', send_oversight: 'Sent for oversight', observations_done: 'Observations done', ready_for_chair: 'Ready for the UBEC BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned (earlier flow)', feedback: 'Department review (earlier flow)' };
+const trail: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to the UBEC departments', assign_officer: 'Assessment Officers assigned', reopen_assessment: 'Assessment sent back to the officer', assign_observer: 'Oversight officers assigned', unassign_observer: 'Oversight officer removed', default_officers: 'Default Assessment Officers assigned', unassign_officer: 'Assessment Officer removed', complete_assessment: 'Assessment completed', send_oversight: 'Sent to the Oversight Departments', observations_done: 'Observations done', ready_for_chair: 'Ready for the UBEC BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned (earlier flow)', feedback: 'Department review (earlier flow)' };
 
 /** The UBEC plan page: summary, component cards, the BEAP Chair's steps, item assessment, the workbook and the trail. */
 export default function UbecReviewPage() {
@@ -138,7 +138,7 @@ export default function UbecReviewPage() {
     ...(can.assign.includes(pillar) ? [{ label: assignLabel(pillar), kind: 'assign' as const, secondary: assignLabel(pillar) !== 'Assign staff', run: () => setRequest({ kind: 'assign', pillar }) }] : []),
     // UBEC138: Assess items opens the assessment screen (the workbook sheet stays one click away).
     ...(can.assess.includes(pillar) ? [{ label: 'Assess items', kind: 'assess' as const, run: () => setAssessing(pillar) }] : []),
-    ...(can.sendOversight.includes(pillar) ? [{ label: 'Send for oversight', kind: 'oversight' as const, run: () => setRequest({ kind: 'oversight', pillar }) }] : []),
+    ...(can.sendOversight.includes(pillar) ? [{ label: 'Send to Oversight Department', kind: 'oversight' as const, run: () => setRequest({ kind: 'oversight', pillar }) }] : []),
     ...(can.assignObservers?.includes(pillar) ? (() => { const has = !!flow?.components.find(x => x.pillar === pillar)?.observers.some(o => o.department === data?.department); return [{ label: has ? 'Manage officers' : 'Assign officers', kind: 'assign' as const, secondary: has, run: () => setRequest({ kind: 'observers', pillar }) }]; })() : []),
     ...(can.comment?.includes(pillar) ? [{ label: 'Comment on items', kind: 'assess' as const, run: () => openSheet(pillar) }] : []),
     ...(can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observe', pillar }) }] : []),
@@ -170,6 +170,8 @@ export default function UbecReviewPage() {
       <Button asChild variant="ghost" size="sm" className="review-back"><a href={admin ? '/admin?section=officers' : '/ubec'}><ArrowLeftIcon data-icon="inline-start" />{admin ? 'Administration' : 'Dashboard'}</a></Button>
       <div className="national-page-title"><div><span className="national-eyebrow">{data?.plan.stateName ?? 'BASIC EDUCATION ACTION PLAN'}</span><h1>{data ? `${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP` : 'Plan review'}</h1></div>
         <div className="review-actions">
+          {/* UBEC184: the UBEC BEAP Chair releases from the top of the page too. */}
+          {round?.status === 'received' && can?.release && <Button size="sm" className="rounded-full" onClick={() => setRequest({ kind: 'release' })}><SendIcon data-icon="inline-start" />Release to UBEC departments</Button>}
           {flow?.releasedAt && <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="rounded-full"><MegaphoneIcon data-icon="inline-start" />Chair’s note</Button></PopoverTrigger>
             <PopoverContent align="end" className="ubec-release-note"><strong>{flow.releasedByName === 'UBEC BEAP Chair' ? flow.releasedByName : `${flow.releasedByName}, UBEC BEAP Chair`}</strong>{flow.releaseComment && <p>{flow.releaseComment}</p>}<small>Released {date.format(new Date(flow.releasedAt))}</small></PopoverContent></Popover>}
           {round && <Badge variant={round.status === 'returned' ? 'warning' : round.status === 'approved' ? 'default' : 'secondary'}>{nationalStatusLabels[round.status]}</Badge>}

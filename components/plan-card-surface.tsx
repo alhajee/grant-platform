@@ -1,6 +1,7 @@
 'use client';
 
 import type { PointerEvent } from 'react';
+import states from '@/lib/nigeria-map.json';
 
 // Banknote-style guilloché: a hypotrochoid rosette drawn as five nested bands, sitting off the card's
 // top-right corner. The seed (the plan year) picks the curve, so neighbouring cards differ slightly.
@@ -32,6 +33,34 @@ function rosettePaths(seed: number) {
 export function PlanCardGuilloche({ seed }: { seed: number }) {
   return <svg className="plan-guilloche" viewBox={`0 0 ${SIZE} ${SIZE}`} aria-hidden="true" focusable="false">
     {rosettePaths(seed).map((d, index) => <path key={index} d={d} />)}
+  </svg>;
+}
+
+// The plan's state drawn as nested outlines in the same corner, like the guilloché (client, 28 October 2026). The map's
+// paths use one projection, so each state is framed by its own bounding box and kept to its true shape.
+const outlines = new Map<string, { d: string; box: string; cx: number; cy: number } | null>();
+function stateOutline(code: string) {
+  const key = code.trim().toUpperCase().replace(/^NG-/, '').replace(/^FCT$/, 'FC');
+  if (!outlines.has(key)) {
+    const state = (states as { code: string; d: string }[]).find(s => s.code === key);
+    const pairs = [...(state?.d.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g) ?? [])];
+    if (!state || pairs.length < 3) outlines.set(key, null);
+    else {
+      const xs = pairs.map(m => Number(m[1])), ys = pairs.map(m => Number(m[2]));
+      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+      const side = Math.max(x1 - x0, y1 - y0) * 1.08, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      outlines.set(key, { d: state.d, box: `${(cx - side / 2).toFixed(1)} ${(cy - side / 2).toFixed(1)} ${side.toFixed(1)} ${side.toFixed(1)}`, cx, cy });
+    }
+  }
+  return outlines.get(key)!;
+}
+
+/** The state's outline as the card's corner pattern; falls back to the guilloché when the state is unknown. */
+export function PlanCardStateShape({ stateCode, seed }: { stateCode?: string | null; seed: number }) {
+  const outline = stateCode ? stateOutline(stateCode) : null;
+  if (!outline) return <PlanCardGuilloche seed={seed} />;
+  return <svg className="plan-guilloche plan-state-shape" viewBox={outline.box} aria-hidden="true" focusable="false" preserveAspectRatio="xMidYMid meet">
+    {[1, 0.86, 0.72, 0.58, 0.44].map(scale => <path key={scale} d={outline.d} vectorEffect="non-scaling-stroke" transform={`translate(${outline.cx} ${outline.cy}) scale(${scale}) translate(${-outline.cx} ${-outline.cy})`} />)}
   </svg>;
 }
 

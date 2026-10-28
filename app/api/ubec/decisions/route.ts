@@ -11,6 +11,7 @@ import { readActor } from '@/lib/ubec-flow-db';
 // Item decisions (docs/ubec-flow.md): an Assessment Officer assigned to the component accepts or rejects each line
 // (one decision per item per round) until their assessment is complete. null clears the decision. The Director of the
 // component's department may also change a decision while the component is with them (UBEC143); it records the Director.
+// A rejection needs a reason (UBEC176).
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const command = z.object({
   roundId: z.number().int().positive(), pillar: z.enum(implementedPillars), rowRef: z.string().regex(/^-?[1-9]\d{0,17}$/),
@@ -38,6 +39,8 @@ export async function PUT(request: NextRequest) {
       if (director && component?.department !== actor.department) return error('This component belongs to another department', 403);
       const mine = director ? { completed_at: null } : component && (await db.query<{ completed_at: Date | null }>('SELECT completed_at FROM ubec_officer_assignments WHERE round_component_id=$1 AND officer_id=$2 AND removed_at IS NULL', [component.id, actor.id])).rows[0];
       if (!mine || !component) return error('This component is not assigned to you', 403);
+      // UBEC176: a rejection always says why.
+      if (input.decision === 'reject' && !input.note) return error('Give a reason for the rejection');
       const latest = (await db.query<{ id: number }>('SELECT id FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC LIMIT 1', [planId])).rows[0];
       if (latest?.id !== round.id || round.status !== 'reviewing' || component.stage !== 'director') return error('This component is no longer open for assessment', 409);
       if (mine.completed_at) return error('You have completed your assessment; decisions are locked', 409);

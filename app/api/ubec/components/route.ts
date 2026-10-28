@@ -67,7 +67,7 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
   if (input.action === 'assign_observers' || input.action === 'unassign_observer') return observers(db, input, actor, component, event, name, planId);
   if (input.action === 'observations_done') {
     if (!isOversightDepartment(actor.department)) return error('Your account has no oversight department', 403);
-    if (component.stage !== 'oversight') return error(component.stage === 'director' ? `${name} has not been sent for oversight yet.` : `${name} has already reached the UBEC BEAP Chair.`, 409);
+    if (component.stage !== 'oversight') return error(component.stage === 'director' ? `${name} has not been sent to the Oversight Departments yet.` : `${name} has already reached the UBEC BEAP Chair.`, 409);
     if ((await db.query('SELECT 1 FROM ubec_oversight_reviews WHERE round_component_id=$1 AND department=$2', [component.id, actor.department])).rowCount) return error('Your department has already finished its observations on this component', 409);
     await db.query('INSERT INTO ubec_oversight_reviews(round_component_id,department,reviewer_id,reviewer_name,note) VALUES($1,$2,$3,$4,$5)', [component.id, actor.department, actor.id, actor.full_name, input.note]);
     const id = await event('observations_done', input.note);
@@ -82,7 +82,7 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
     }
     return NextResponse.json({ stage: 'oversight', pending: oversightIds.filter(d => !done.includes(d)) });
   }
-  if (component.stage !== 'director') return error(`${name} has already been sent for oversight.`, 409);
+  if (component.stage !== 'director') return error(`${name} has already been sent to the Oversight Departments.`, 409);
   if (input.action === 'complete_assessment') {
     const mine = (await live()).find(a => a.officer_id === actor.id);
     if (!mine) return error('This component is not assigned to you', 403);
@@ -136,7 +136,7 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
     return NextResponse.json({ removed: assignment.id });
   }
   // send_oversight
-  if (!input.comment) return error('Add your comment before sending for oversight');
+  if (!input.comment) return error('Add your comment before sending to the Oversight Departments');
   const assignments = await live();
   if (!assignments.length) return error('Assign an Assessment Officer first', 409);
   const open = assignments.filter(a => !a.completed_at).length;
@@ -154,7 +154,7 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
 async function observers(db: Db, input: Extract<Command, { action: 'assign_observers' | 'unassign_observer' }>, actor: Actor, component: ComponentRow, event: (action: string, comment?: string) => Promise<number>, name: string, planId: string) {
   const department = actor.department;
   if (!isOversightDepartment(department)) return error('Your account has no oversight department', 403);
-  if (component.stage !== 'oversight') return error(component.stage === 'director' ? `${name} has not been sent for oversight yet.` : `${name} has already reached the UBEC BEAP Chair.`, 409);
+  if (component.stage !== 'oversight') return error(component.stage === 'director' ? `${name} has not been sent to the Oversight Departments yet.` : `${name} has already reached the UBEC BEAP Chair.`, 409);
   if ((await db.query('SELECT 1 FROM ubec_oversight_reviews WHERE round_component_id=$1 AND department=$2', [component.id, department])).rowCount) return error('Your department has already finished its observations on this component', 409);
   const live = (await db.query<{ id: number; officer_id: number; officer_name: string }>('SELECT id,officer_id,officer_name FROM ubec_oversight_assignments WHERE round_component_id=$1 AND department=$2 AND removed_at IS NULL ORDER BY id', [component.id, department])).rows;
   if (input.action === 'unassign_observer') {

@@ -196,7 +196,7 @@
 .component-card .card-pill-label { min-width: 0; overflow: hidden; opacity: 0; transform: translateY(4px); transition: opacity 160ms ease, transform 160ms cubic-bezier(.2, .8, .2, 1); }
 .component-card .card-pill-count { position: absolute; top: -4px; right: -5px; display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: currentColor; font-size: 10px; line-height: 1; transition: opacity 160ms ease, transform 160ms ease; }
 .component-card .review-ubec-comments .card-pill-count { background: #1a73e8; color: #fff; }
-.component-card .review-open-comments:not(.review-ubec-comments) .card-pill-count { background: #e37400; color: #fff; }
+.component-card .review-open-comments:not(.review-ubec-comments):not(.review-ubec-rejections) .card-pill-count { background: #e37400; color: #fff; }
 .component-card .card-pill-step { padding: 0 8px; }
 .component-card .card-pill-step[data-slot=button] { height: 30px; }
 @media (hover: none) { .component-card .card-pill { grid-template-columns: auto 1fr; gap: 6px; padding: 0 11px; } .component-card .card-pill-label { opacity: 1; transform: none; } .component-card .card-pill-count { opacity: 0; transform: scale(.5); } }
@@ -247,3 +247,19 @@
 .finance-documents-body li[data-done] > p svg { color: var(--primary); }
 .finance-documents-submitted { align-self: flex-start; gap: 6px; }
 .finance-missing-note { color: var(--warning-foreground); }
+
+/* UBEC188/190: items UBEC rejected, on the component card (red) with the list in a popover. */
+.review-open-comments.review-ubec-rejections { color: var(--destructive); background: color-mix(in srgb, var(--destructive) 9%, var(--card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--destructive) 35%, transparent); border: 0; cursor: pointer; }
+.review-open-comments.review-ubec-rejections:hover { background: color-mix(in srgb, var(--destructive) 14%, var(--card)); }
+.review-open-comments.review-ubec-rejections svg { color: var(--destructive); }
+.component-card .review-ubec-rejections .card-pill-count { background: var(--destructive); color: #fff; }
+.component-card .review-ubec-rejections .card-pill-label { opacity: 1; transform: none; }
+.ubec-rejections-popover { width: min(380px, calc(100vw - 32px)); padding: 10px; }
+.ubec-rejections-title { margin: 2px 6px 8px; font-size: 13px; font-weight: 600; color: var(--destructive); }
+.ubec-rejections-popover ul { display: flex; flex-direction: column; gap: 2px; max-height: 300px; overflow-y: auto; }
+.ubec-rejections-popover li > a, .ubec-rejections-popover li > div { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; font-size: 13px; color: inherit; text-decoration: none; }
+.ubec-rejections-popover li > a:hover, .ubec-rejections-popover li > a:focus-visible { background: color-mix(in srgb, var(--destructive) 8%, transparent); }
+.ubec-rejections-popover li span:first-child { display: flex; flex-direction: column; min-width: 0; }
+.ubec-rejections-popover small { color: var(--muted-foreground); font-style: italic; }
+.ubec-rejections-popover svg { width: 15px; height: 15px; color: var(--muted-foreground); }
+.ubec-rejections-hint { margin: 8px 6px 2px; font-size: 12px; color: var(--muted-foreground); }

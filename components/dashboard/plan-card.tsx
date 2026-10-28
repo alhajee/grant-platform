@@ -5,7 +5,7 @@ import { ArrowUpRightIcon, HandCoinsIcon, PencilIcon, SchoolIcon } from 'lucide-
 import { Amount, FundingGauge, amountFormat, compactNaira as compact } from '@/components/dashboard/plan-figures';
 import { OtherFundingInfo } from '@/components/funding-sources-field';
 import type { InvestmentArea } from '@/components/investment-filter';
-import { PlanCardGuilloche, planCardTilt } from '@/components/plan-card-surface';
+import { PlanCardStateShape, planCardTilt } from '@/components/plan-card-surface';
 import { PlanStatusBadge } from '@/components/plan-status';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,7 @@ import { planHref, planPeriod, type PlanOverview } from '@/lib/action-plans';
 import { statePlanOpen } from '@/lib/pillar-review';
 import { otherFundingTotal } from '@/lib/plan-setup';
 
-export type PlanCardProps = { plan: PlanOverview; isOfficer: boolean; canEdit: boolean; onEdit: (planId: number) => void };
+export type PlanCardProps = { plan: PlanOverview; isOfficer: boolean; canEdit: boolean; onEdit: (planId: number) => void; /** The workspace's state: its outline is the card's corner pattern. */ stateCode?: string | null };
 
 const date = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const relative = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
@@ -34,13 +34,13 @@ function actionLabel(plan: PlanOverview, isOfficer: boolean) {
 }
 
 /** One action plan on the dashboard: the funding figure first, then where it goes and what it holds. */
-export function PlanCard({ plan, isOfficer, canEdit, onEdit }: PlanCardProps) {
+export function PlanCard({ plan, isOfficer, canEdit, onEdit, stateCode }: PlanCardProps) {
   const funding = Number(plan.fundingTotal ?? 0), other = Number(otherFundingTotal(plan));
   const share = funding > 0 ? Math.round(plan.budget / funding * 100) : 0;
   const href = planHref('/beap/review', plan.id);
   const proposed = plan.lineCount > 0 || plan.budget > 0;
   return <Card className="dashboard-plan-card" {...planCardTilt}>
-    <PlanCardGuilloche seed={plan.startYear} />
+    <PlanCardStateShape stateCode={stateCode} seed={plan.startYear} />
     <CardHeader className="plan-card-header">
       <div className="min-w-0"><CardTitle><h3>{planPeriod(plan)} BEAP</h3></CardTitle>{plan.endYear > plan.startYear && <CardDescription>{plan.endYear - plan.startYear + 1}-year plan</CardDescription>}</div>
       <PlanStatusBadge status={plan.status} reviews={plan.pillarReviews} />

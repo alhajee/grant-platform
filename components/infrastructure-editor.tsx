@@ -117,6 +117,18 @@ export function InfrastructureEditor(){
  }
  // A new package's timeline starts as all of the plan's quarters; a saved one keeps its quarters column (migration 050).
  function begin(kind:InfrastructureInput['kind'],record?:InfrastructurePackage){createKey.current=null;const stored={...(record?structuredClone(record.input):{...blank(kind),schoolId:0}),quarters:record?.quarters??record?.input.quarters??planQuarters(data?.plan),startDate:record?(record.start_date??record.input.startDate??null):null,dueDate:record?(record.due_date??record.input.dueDate??null):null};const registered=data?.canEdit?data.schools.find(s=>s.id===stored.schoolId):undefined;const d:InfrastructureInput={...(stored.kind==='new'&&data?.canEdit?{...stored,targeting:'nonhope' as const}:stored),...(registered?{components:schoolComponents(registered)}:{})};setDraft(d);setBaseline(JSON.stringify(d));setEditing(record??null);setStep(0);setSelected('classroomPri');}
+ // UBEC188/191: ?line=-<package id> (the workbook row of a UBEC rejection) opens that package once the list loads.
+ const linkedPackage=useRef<string|null|undefined>(undefined);
+ useEffect(()=>{
+  if(!data)return;
+  if(linkedPackage.current===undefined)linkedPackage.current=new URLSearchParams(window.location.search).get('line');
+  const wanted=linkedPackage.current;if(!wanted)return;
+  linkedPackage.current=null;
+  const url=new URL(window.location.href);url.searchParams.delete('line');window.history.replaceState(null,'',url);
+  const record=data.packages.find(p=>String(-p.id)===wanted||String(p.id)===wanted);
+  if(record)void Promise.resolve().then(()=>begin(record.kind,record));
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[data]);
  async function command(body:{action:'save'|'delete';id?:number}&Record<string,unknown>){if(lock.current)return false;lock.current=true;setBusy(true);
   const clientKey=body.action==='save'&&!body.id?(createKey.current??=newClientKey()):undefined;
   try{const reply=await postJson<{error?:string}>(currentPlanHref('/api/infrastructure/packages'),{...body,...(clientKey?{clientKey}:{})});if(!reply.ok)throw Error(reply.data.error||'Unable to save');await load();return true;}

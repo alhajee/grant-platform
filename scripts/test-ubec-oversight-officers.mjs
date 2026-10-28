@@ -69,7 +69,7 @@ try {
   ok(await step2('dpp', 'assign_officers', { officerIds: [users.offP], comment: 'Assess monitoring.' }));
   ok(await api('offP', `/api/ubec/decisions${q}`, { roundId: (await view('chair')).round.id, pillar: 'monitoring', rowRef: line, decision: 'accept', note: '' }, 'PUT'));
   ok(await step2('offP', 'complete_assessment', { note: 'Done.' }));
-  fails(await step2('audit', 'assign_observers', { officerIds: [users.auditOff1], comment: 'early' }), 409, /not been sent for oversight/);
+  fails(await step2('audit', 'assign_observers', { officerIds: [users.auditOff1], comment: 'early' }), 409, /not been sent to the Oversight Departments/);
   ok(await step2('dpp', 'send_oversight', { comment: 'Assessed.' }));
   step('a plan reaches oversight (assigning oversight officers before then is refused)');
 

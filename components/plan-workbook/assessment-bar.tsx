@@ -31,9 +31,9 @@ export function useAssessActions(assessment: SheetAssessment | null) {
   const dialog = <Dialog open={rejecting !== null} onOpenChange={open => { if (!open && !busy) setRejecting(null); }}>
     <DialogContent className="national-dialog sm:max-w-md" showCloseButton={!busy}>
       <DialogHeader><DialogTitle>Reject {items(rejecting?.length ?? 0)}</DialogTitle><DialogDescription>Say briefly why, so the Director and the SUBEB can act on it</DialogDescription></DialogHeader>
-      <form onSubmit={event => { event.preventDefault(); if (rejecting) void run(rejecting, 'reject', note); }}>
-        <Field><FieldLabel htmlFor="wb-reject-note">Reason (optional)</FieldLabel><Textarea id="wb-reject-note" rows={3} maxLength={1000} value={note} onChange={event => setNote(event.target.value)} disabled={busy} autoFocus /></Field>
-        <DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={busy} onClick={() => setRejecting(null)}>Cancel</Button><Button type="submit" variant="destructive" disabled={busy}>{busy && <Spinner data-icon="inline-start" />}Reject {items(rejecting?.length ?? 0)}</Button></DialogFooter>
+      <form onSubmit={event => { event.preventDefault(); if (rejecting && note.trim()) void run(rejecting, 'reject', note.trim()); }}>
+        <Field><FieldLabel htmlFor="wb-reject-note">Reason</FieldLabel><Textarea id="wb-reject-note" required rows={3} maxLength={1000} value={note} onChange={event => setNote(event.target.value)} disabled={busy} autoFocus /></Field>
+        <DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={busy} onClick={() => setRejecting(null)}>Cancel</Button><Button type="submit" variant="destructive" disabled={busy || !note.trim()}>{busy && <Spinner data-icon="inline-start" />}Reject {items(rejecting?.length ?? 0)}</Button></DialogFooter>
       </form>
     </DialogContent>
   </Dialog>;

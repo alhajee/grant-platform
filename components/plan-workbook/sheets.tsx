@@ -6,6 +6,7 @@ import { deliverableDescription, itemOperation, kindNames } from '@/lib/infrastr
 import { sportsSections } from '@/lib/sports';
 import { formatQuarters } from '@/lib/line-quarters';
 import { formatLineDates } from '@/lib/line-dates';
+import { frequencyLabel } from '@/lib/activity-extras';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { SchoolMapDialog } from '@/components/school-map-dialog';
@@ -74,6 +75,8 @@ function activityExtras(key: ActivitySheetKey): WorkbookColumn[] {
   if (key === 'quality') return [text('equipment', 'Equipment', 220, true)];
   if (key === 'gscci') return [text('item', 'Item', 200, true)];
   if (key === 'planning') return [text('census', 'Census type', 170, true)];
+  // UBEC164: officer allowances show officers × visits.
+  if (key === 'monitoring') return [text('frequency', 'Frequency', 190, true)];
   if (key === 'ict') return [text('details', 'Details', 200), qty('schools', 'Schools', true), qty('documents', 'Documents')];
   return key === 'curriculum' ? [text('share', 'Activity share', 120, true)] : [];
 }
@@ -83,6 +86,7 @@ function activityExtraValues(key: ActivitySheetKey, line: NonNullable<Snapshot['
   if (key === 'quality') return { equipment: [line.equipment_category, line.equipment_type].filter(Boolean).join(' · ') };
   if (key === 'gscci') return { item: line.item ?? '' };
   if (key === 'planning') return { census: line.census_type ?? '' };
+  if (key === 'monitoring') return { frequency: line.frequency ? frequencyLabel(line.quantity, line.frequency) : '' };
   if (key === 'ict') return { details: line.subscription_types?.length ? line.subscription_types.join(', ') : line.website_type || '', schools: line.schools?.length || '', documents: line.documents?.length || '' };
   // Others (specify) has no share of its own; it only counts toward the Curriculum allocation.
   const share = (curriculumActivityShares as readonly number[])[line.activity];

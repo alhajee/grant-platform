@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-export type LocalUser = { name: string; role: string; email: string; department?: string | null; departments?: string[]; isBeapChair?: boolean; sessionVersion?: number; adminSessionId?:string;
+export type LocalUser = { name: string; role: string; email: string; /** The workspace (state code, UBEC or ADMIN), from the session response. */ stateCode?: string; department?: string | null; departments?: string[]; isBeapChair?: boolean; sessionVersion?: number; adminSessionId?:string;
   /** This sign-in's id (migration 072): only the account's newest sign-in is accepted (users.current_session_id). */
   sessionId?: string; impersonation?: { id:string; adminName:string; expiresAt:string } };
 

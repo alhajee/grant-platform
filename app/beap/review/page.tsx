@@ -38,7 +38,7 @@ import { summarizeSnapshot } from '@/lib/plan-summary';
 import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
 import { holdsComponent } from '@/lib/component-access';
 import { usePlanComments } from '@/components/plan-workbook/comments-context';
-import { UbecResultsCard } from '@/components/plan-page/ubec-results';
+import { UbecResultsCard, useUbecResults } from '@/components/plan-page/ubec-results';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
@@ -100,6 +100,8 @@ export default function PlanPage() {
   const plan = data?.plan;
   // Comments belong to the current working plan only; saved submissions hide them.
   const comments = usePlanComments(data?.plan.id, !!data && !error && selected === 'current', data?.plan.version);
+  // UBEC's latest decision: the cards show its rejected items and the assessment card lists them (UBEC188/190/192).
+  const ubecResults = useUbecResults(data?.plan.id ?? 0, data?.plan.version, !!data && !error && selected === 'current');
   // Observations asked of UBEC Audit, Procurement and Finance before sending (row 156): Executive Chairman and BEAP Chair.
   const observations = usePlanObservations(data?.plan.id, !!data && (data.role === 'Executive Chairman' || data.isBeapChair) && selected === 'current', data?.plan.version);
   const totals = useMemo(() => data && summarizeSnapshot(data.snapshot), [data]);
@@ -162,7 +164,7 @@ export default function PlanPage() {
           {/* Support departments (Procurement, Finance) hold no components: their work on the plan takes the main column. */}
           <h2 id="plan-components-title" className="plan-section-title plan-glance-head">{data.pillarReviews.length ? 'Components' : 'Your work on this plan'}</h2>
           <section className="plan-components plan-glance-main" id="plan-components" aria-labelledby="plan-components-title">
-            {data.pillarReviews.length ? <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} /> : selected === 'current' && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
+            {data.pillarReviews.length ? <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} ubec={ubecResults} /> : selected === 'current' && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
             <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} onSendToUbec={() => setSendingToUbec(true)} onSendSeveral={() => setSendingSeveral(true)} onRequestObservations={observations.data?.canRequest ? () => setAskingObservations(true) : undefined} />
             <SendSeveralDialog open={sendingSeveral} onOpenChange={setSendingSeveral} data={data} problemFor={pillar => nothingToSend(data, pillar) ? 'Nothing saved in this component yet' : readiness(data, pillar)} onDone={async () => { await load(); }} />
           </section>
@@ -178,7 +180,7 @@ export default function PlanPage() {
             {selected === 'current' && data.pillarReviews.length > 0 && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
           </aside>
         </div>
-        {selected === 'current' && <UbecResultsCard planId={data.plan.id} reloadKey={data.plan.version} />}
+        {selected === 'current' && <UbecResultsCard data={ubecResults} editHrefFor={pillar => { const review = data.pillarReviews.find(r => r.pillar === pillar); return review ? actionsFor(review).editHref : undefined; }} />}
         <div className="review-layout">
           <PlanReviewContent showPlanReference={false} showDocuments={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} {...workbookLinks} />
           {/* Documents and the review history share a row; each takes the full width on narrow screens. */}

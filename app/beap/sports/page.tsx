@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { isPheTraining, supervisionActivity, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsLine, type SportsPlan } from "@/lib/sports";
+import { isPheTraining, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsLine, type SportsPlan } from "@/lib/sports";
 import { toKobo } from "@/lib/funding-policy";
 import { EnvelopeMeter } from "@/components/envelope-meter";
 import { PanelSummary, PanelToolbar } from "@/components/line-panel/line-section";
@@ -165,8 +165,20 @@ export default function SportsPage() {
     if (target.entity === "budget" ? budgetDirty : allocationDirty) setPendingAction({ run, leaving: false });
     else run();
   }
+  // UBEC188/191: ?line=<id> (from the plan page's UBEC rejections) opens that budget line once the plan loads.
+  const linkedLine = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (loading) return;
+    if (linkedLine.current === undefined) linkedLine.current = new URLSearchParams(window.location.search).get("line");
+    const wanted = linkedLine.current; if (!wanted) return;
+    linkedLine.current = null;
+    const url = new URL(window.location.href); url.searchParams.delete("line"); window.history.replaceState(null, "", url);
+    const item = plan.lines.find((line) => String(line.id) === wanted);
+    if (item) void Promise.resolve().then(() => edit({ entity: "budget", item }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, plan]);
   function startSection(section: SportsSection) {
-    const run = () => { changeView("budget"); resetBudget({ ...emptyBudget, section, activityType: section === "supervision" ? supervisionActivity : "", quarters: availableQuarters }); panel.follow(); focusEditor("sports-section"); };
+    const run = () => { changeView("budget"); resetBudget({ ...emptyBudget, section, activityType: "", quarters: availableQuarters }); panel.follow(); focusEditor("sports-section"); };
     if (budgetDirty) setPendingAction({ run, leaving: false }); else run();
   }
   // Quantity, unit cost or description edited in the table: the whole line goes through the same schema and API as the form.
@@ -312,7 +324,7 @@ export default function SportsPage() {
   </article>}</ScrollArea></section>;
 
   return <div className="portal-shell"><div className="portal-workspace" ref={workspaceRef}>
-    <header className="workspace-header editor-page-header" aria-label="Plan editor"><div className="editor-header-heading"><Button variant="ghost" size="icon" disabled={saving} aria-label="Back to the plan" onClick={finish}><XIcon /></Button><span className="editor-plan-title">{actionPlan ? planPeriod(actionPlan) + " " : ""}Sports activities plan</span>{actionPlan && <PlanStatusBadge status={actionPlan.status} />}</div><div className="workspace-actions"><span className="save-status" aria-live="polite">{loading ? "Loading plan…" : saving ? "Saving…" : loadError ? "Connection issue" : dirty ? "Unfinished line" : <><CheckIcon aria-hidden="true" />All lines saved</>}</span><Button disabled={saving || loading} onClick={finish}>Done</Button></div></header>
+    <header className="workspace-header editor-page-header" aria-label="Plan editor"><div className="editor-header-heading"><Button variant="ghost" size="icon" disabled={saving} aria-label="Back to the plan" onClick={finish}><XIcon /></Button><span className="editor-plan-title">{actionPlan ? planPeriod(actionPlan) + " " : ""}Sports, Quiz &amp; Debate Activities plan</span>{actionPlan && <PlanStatusBadge status={actionPlan.status} />}</div><div className="workspace-actions"><span className="save-status" aria-live="polite">{loading ? "Loading plan…" : saving ? "Saving…" : loadError ? "Connection issue" : dirty ? "Unfinished line" : <><CheckIcon aria-hidden="true" />All lines saved</>}</span><Button disabled={saving || loading} onClick={finish}>Done</Button></div></header>
     <Tabs value={view} onValueChange={(value) => changeView(value as PlanView)} className="sports-workspace">
       <div className="sports-view-tabs"><TabsList><TabsTrigger value="budget" disabled={saving}>Budget</TabsTrigger><TabsTrigger value="allocation" disabled={saving}>Beneficiary schools</TabsTrigger></TabsList></div><Separator />
       <TabsContent value={view} className="workspace-body sports-view-content"><main className="workspace-body sports-main" id="sports">

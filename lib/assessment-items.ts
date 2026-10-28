@@ -1,4 +1,5 @@
 import type { ImplementedPillar } from './beap-pillars';
+import type { InfrastructurePackage } from './infrastructure-model';
 import type { Snapshot } from './plan-review';
 import { activityLabel, strategyLabel, type ActivityWorkstream } from './activity-plans';
 import { sportsSections } from './sports';
@@ -9,8 +10,9 @@ import { nairaFormat } from './money-format';
 // (activity, Sports section or package type), with the figures that matter and every uploaded document as a link.
 // rowRef matches the decision row refs (componentItems in lib/ubec-flow.ts) and the workbook row ids.
 
-export type AssessmentDocument = { id: string; name: string; href: string; label?: string };
-export type AssessmentItem = { rowRef: string; group: string; title: string; subtitle: string; amount: number; facts: { label: string; value: string }[]; documents: AssessmentDocument[] };
+export type AssessmentDocument = { id: string; name: string; size: number; href: string; label?: string };
+/** `package`: an Infrastructure package's requirements table, shown under the item (UBEC174). */
+export type AssessmentItem = { rowRef: string; group: string; title: string; subtitle: string; amount: number; facts: { label: string; value: string }[]; documents: AssessmentDocument[]; package?: InfrastructurePackage };
 export type AssessmentGroup = { name: string; items: AssessmentItem[] };
 
 const kobo = (unitCost: string | number, quantity: number) => Math.round(Number(unitCost) * 100) * Number(quantity);
@@ -26,7 +28,8 @@ export function assessmentItems(snapshot: Snapshot, pillar: ImplementedPillar): 
     return { rowRef: String(line.id), group: line.construction?.name || 'Infrastructure', title: line.school.name, subtitle: `${line.school.lga} · ${line.school.level}`,
       amount: kobo(line.unit_cost, line.quantity) / 100,
       facts: present([{ label: 'Strategy', value: line.strategy }, { label: 'Duration', value: line.package?.input?.duration ?? '' }, ...timeline(line.quarters, line.start_date, line.due_date)]),
-      documents: docs.map(d => ({ id: d.id, name: d.name, href: `/api/infrastructure/documents?id=${d.id}`, label: d.kind.toUpperCase() === 'BOQ' ? 'BOQ' : d.kind.replace(/_/g, ' ') })) };
+      package: line.package,
+      documents: docs.map(d => ({ id: d.id, name: d.name, size: d.size, href: `/api/infrastructure/documents?id=${d.id}`, label: d.kind.toUpperCase() === 'BOQ' ? 'BOQ' : d.kind.replace(/_/g, ' ') })) };
   });
   if (pillar === 'sports') return snapshot.sports.map(line => ({
     rowRef: String(line.id), group: sportsSections.find(s => s.id === line.section)?.label ?? line.section, title: line.description || line.activity_type, subtitle: line.activity_type,
@@ -44,7 +47,7 @@ export function assessmentItems(snapshot: Snapshot, pillar: ImplementedPillar): 
       { label: 'Census', value: line.census_type }, { label: 'Training provider', value: line.training_provider }, { label: 'Participants', value: line.target_participants },
       { label: 'School levels', value: line.school_levels?.join(', ') }, { label: 'Training days', value: line.training_days ? String(line.training_days) : '' },
       { label: 'Schools', value: line.schools?.length ? line.schools.map(s => s.name).join(', ') : '' }, ...timeline(line.quarters, (line as { start_date?: string | null }).start_date, (line as { due_date?: string | null }).due_date)]),
-    documents: (line.documents ?? []).map(d => ({ id: d.id, name: d.name, href: `/api/activities/line-documents?id=${d.id}`, label: documentKinds[d.kind ?? 'document'] || undefined })),
+    documents: (line.documents ?? []).map(d => ({ id: d.id, name: d.name, size: d.size, href: `/api/activities/line-documents?id=${d.id}`, label: documentKinds[d.kind ?? 'document'] || undefined })),
   }));
 }
 
@@ -60,4 +63,4 @@ export function groupItems(items: readonly AssessmentItem[]): AssessmentGroup[] 
 
 /** Component-wide documents (Supervision & Monitoring proforma invoices) the officer may also need. */
 export const componentDocuments = (snapshot: Snapshot, pillar: ImplementedPillar): AssessmentDocument[] =>
-  (snapshot.componentDocuments ?? []).filter(d => d.component === pillar).map(d => ({ id: d.id, name: d.name, href: `/api/activities/documents?id=${d.id}` }));
+  (snapshot.componentDocuments ?? []).filter(d => d.component === pillar).map(d => ({ id: d.id, name: d.name, size: d.size, href: `/api/activities/documents?id=${d.id}` }));

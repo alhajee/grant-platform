@@ -11,7 +11,7 @@ export const sportsSections = [
   { id: "equipment", label: "Procurement & Training of PHE Officers", shortLabel: "Procurement & PHE training", share: 60, typeLabel: "Sport", itemLabel: "Item", placeholder: "Choose a sport or type another…" },
   { id: "competitions", label: "Sports Competitions", shortLabel: "Competitions", share: 30, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose a competition…" },
   { id: "publicity", label: "Publicity & Administration", shortLabel: "Publicity & admin", share: 5, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose an activity…" },
-  { id: "supervision", label: "Supervision, Assessment and Verification", shortLabel: "Supervision", share: 5, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "" },
+  { id: "supervision", label: "Supervision, Assessment and Verification", shortLabel: "Supervision", share: 5, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose a sub-activity…" },
 ] as const;
 
 /** Procurement: at most this many distinct sports per plan (QA UBEC19). */
@@ -30,9 +30,11 @@ export const sportsCatalog: readonly SportCatalogEntry[] = [
   { name: "Board Games", items: ["Chess sets", "Ludo sets", "Draughts/Checkers sets", "Scrabble sets"] },
 ];
 /** Sub-activities per section. `share` is a cap: the sub-activity's % of its section's cap (competitions only). */
-export const sportsSubActivities: Record<"competitions" | "publicity", readonly { name: string; share?: number }[]> = {
+export const sportsSubActivities: Record<"competitions" | "publicity" | "supervision", readonly { name: string; share?: number }[]> = {
   competitions: [{ name: "Inter School Competition", share: 5 }, { name: "Inter Local Government Competition", share: 10 }, { name: "State Finals Competition", share: 40 }, { name: "Geo-Political (Zonal) Finals", share: 25 }, { name: "National Finals", share: 10 }, { name: "Other Competitions", share: 10 }],
   publicity: [{ name: "Sensitization of Key Stakeholders" }, { name: "Electronic Media" }, { name: "Print Media" }, { name: "Social Media" }, { name: "Others" }],
+  // UBEC166: chosen before the activity / item description. No shares.
+  supervision: [{ name: "Supervision" }, { name: "Assessment" }, { name: "Verification" }],
 };
 /** The "Other Competitions" and "Others" sub-activities: the description names the activity. */
 export const isOtherSubActivity = (name: string) => /^others?\b/i.test(name.trim());
@@ -43,7 +45,7 @@ export const isOtherSubActivity = (name: string) => /^others?\b/i.test(name.trim
  */
 export const pheTrainingActivity = "Training of PHE Officers";
 export const isPheTraining = (line: { section: string; activityType: string }) => line.section === "equipment" && line.activityType.trim().toLowerCase() === pheTrainingActivity.toLowerCase();
-/** Supervision has no sub-activity list; its lines carry the section name as their activity type. */
+/** Supervision lines saved before UBEC166 carry the section name as their activity type; it stays valid for them. */
 export const supervisionActivity = "Supervision, Assessment and Verification";
 
 const key = (value: string) => value.trim().toLowerCase();
@@ -60,7 +62,8 @@ export function sportsCatalogError(line: { section: SportsSection; activityType:
     if (!used.some((sport) => key(sport) === key(line.activityType)) && used.length >= maxEquipmentSports) return { field: "activityType", message: `You can select up to ${maxEquipmentSports} sports (${used.join(", ")}). Add items to one of these sports instead.` };
     return null;
   }
-  if (line.section === "competitions" || line.section === "publicity") {
+  if (line.section === "competitions" || line.section === "publicity" || line.section === "supervision") {
+    if (line.section === "supervision" && line.activityType.trim() === supervisionActivity) return null;
     if (!sportsSubActivities[line.section].some((item) => item.name === line.activityType.trim())) return { field: "activityType", message: "Choose a sub-activity from the list" };
   }
   return null;

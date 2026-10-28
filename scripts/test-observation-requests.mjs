@@ -1,7 +1,7 @@
 // Observations before sending to UBEC (bug sheet row 156, migration 075): the Executive Chairman may ask any of UBEC Audit,
 // Procurement and Finance for observations; they see the whole working plan, comment per activity (tagged with their
 // department) and their Oversight Director sends them back; the SUBEB sees a department's comments only once sent back,
-// must resolve them, and cannot send to UBEC while a department asked has not replied or an observation is open. Requests
+// replies to them (the department resolves them, UBEC193), and cannot send to UBEC while a department asked has not replied or an observation is open. Requests
 // can be repeated (earlier comments stay); the UBEC BEAP Chair follows read-only; the formal UBEC review never shows them.
 // Usage: node --env-file=.env scripts/test-observation-requests.mjs [baseUrl]   (local only; throwaway state, users and plan; cleans up)
 import assert from 'node:assert/strict';
@@ -101,7 +101,8 @@ try {
   fails(await api('auditOff', ubecPath, { action: 'done', note: '' }), 403);
   ok(await api('audit', ubecPath, { action: 'done', note: 'One question on receipts' }));
   fails(await api('audit', ubecPath, { action: 'done', note: '' }), 409, /already sent/);
-  fails(await api('auditOff', ubecComments, { parentId: auditThread, body: 'late' }), 409, /no open request/);
+  fails(await api('auditOff', ubecComments, { sheet: 'monitoring', rowRef: line, columnId: 'amount', body: 'late' }), 409, /no open request/);
+  ok(await api('auditOff', ubecComments, { parentId: auditThread, body: 'Replying after sending back' }), 201); // UBEC193: answers continue
   assert.ok(await notified('ec', 'observation_return'));
   let threads = ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation');
   assert.deepEqual(threads.map(t => t.department), ['audit'], 'Audit’s observations reach the SUBEB; Finance’s are still with UBEC');
@@ -114,12 +115,12 @@ try {
 
   threads = ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation');
   ok(await api('desP', stateComments, { parentId: threads[0].id, body: 'Receipts are attached' }), 201);
-  fails(await api('subebChair', stateComments, { id: threads[0].id, action: 'resolve' }, 'PATCH'), 403, /holding the component/);
-  ok(await api('desP', stateComments, { id: threads[0].id, action: 'resolve' }, 'PATCH'));
-  ok(await api('ec', stateComments, { id: threads[1].id, action: 'resolve' }, 'PATCH'));
+  // UBEC193: the SUBEB replies; only the Oversight Department that made an observation resolves it.
+  for (const who of ['desP', 'ec']) fails(await api(who, stateComments, { id: threads[0].id, action: 'resolve' }, 'PATCH'), 403, /Oversight Department/);
   fails(await api('ec', stateComments, { id: threads[0].id, action: 'reopen' }, 'PATCH'), 403, /Only UBEC/);
+  for (const thread of threads) ok(await api(thread.department, ubecComments, { id: thread.id, action: 'resolve' }, 'PATCH'));
   assert.equal(ok(await api('ec', requestPath)).problem, null);
-  step('the SUBEB replies; the department\'s Data Entry Staff or the holder resolves (not others; nobody at the SUBEB reopens)');
+  step('the SUBEB replies but cannot resolve; the department resolves its observations after sending them back (UBEC193)');
 
   ok(await ask('ec', ['procurement'], 'One more look, please'), 201);
   status = ok(await api('ec', requestPath));

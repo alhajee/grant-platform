@@ -26,7 +26,7 @@ async function openAssignment(db: Parameters<Parameters<ReturnType<typeof getPos
   if (latest?.id !== round.id || round.status !== 'reviewing') return { problem: error('This submission is no longer open for review', 409) };
   const component = (await db.query<{ id: number; stage: string }>('SELECT id,stage FROM ubec_round_components WHERE round_id=$1 AND pillar=$2 FOR UPDATE', [round.id, pillar])).rows[0];
   if (!component) return { problem: error('This component was not released for review', 404) };
-  if (component.stage !== 'director') return { problem: error('This component has already been sent for oversight', 409) };
+  if (component.stage !== 'director') return { problem: error('This component has already been sent to the Oversight Departments', 409) };
   const assignment = (await db.query<{ completed_at: Date | null }>('SELECT completed_at FROM ubec_officer_assignments WHERE round_component_id=$1 AND officer_id=$2 AND removed_at IS NULL', [component.id, officerId])).rows[0];
   if (!assignment) return { problem: error('This component is not assigned to you', 403) };
   if (assignment.completed_at) return { problem: error('You have already completed this assessment', 409) };

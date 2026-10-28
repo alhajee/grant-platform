@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { NationalGlance, NationalHero } from '@/components/ubec/dashboard/national-hero';
 import { UbecPageFrame, YearControls } from '@/components/ubec/dashboard/page-frame';
-import { ActivityCard, PlansSection, WorkloadCard, isNational } from '@/components/ubec/dashboard/sections';
+import { ActivityCard, OverviewPlans, WorkloadCard, isNational } from '@/components/ubec/dashboard/sections';
 import { useUbecDashboard } from '@/components/ubec/dashboard/use-dashboard';
 import { RatToolsCard } from '@/components/ubec/dashboard/rat-tools';
 import { ObservationPlansCard } from '@/components/ubec/dashboard/observation-plans';
@@ -25,15 +25,17 @@ export default function Dashboard() {
       {isNational(d.user.role) ? <>
         <NationalHero data={d} controls={<YearControls years={d.years} year={year} onYear={setYear} onRefresh={load} loading={loading} />} />
         {/* The rest slides up over the map as the page scrolls */}
-        <div className="nh-sheet"><NationalGlance data={d} />{/* UBEC127: national spending by school level across the submitted plans. */}<LevelMappingCard className="ubec-level-mapping" mapping={sumMappings(d.items.flatMap(i => i.levels ? [i.levels] : []))} description={`Across the ${d.items.length} submitted ${d.items.length === 1 ? 'plan' : 'plans'}: ECCDE, Primary, JSS and what is not school-specific`} />{/* Observations asked before sending to UBEC (row 156): the UBEC BEAP Chair follows them. */}{observationViewer(d.user.role, d.user.department) && <ObservationPlansCard hideEmpty />}<div className="national-lower-grid"><WorkloadCard data={d} /><ActivityCard data={d} limit={6} moreHref="/ubec/activity" /></div></div>
+        <div className="nh-sheet"><NationalGlance data={d} />{/* UBEC178: the plans come first, four to a row. */}<OverviewPlans data={d} />{/* Observations asked before sending to UBEC (row 156): the UBEC BEAP Chair follows them. */}{observationViewer(d.user.role, d.user.department) && <ObservationPlansCard hideEmpty />}
+          {/* UBEC127/177: spending by school level, compact, on one row with the folded workload and activity. */}
+          <div className="national-lower-grid ubec-overview-row"><LevelMappingCard className="ubec-level-mapping" mapping={sumMappings(d.items.flatMap(i => i.levels ? [i.levels] : []))} description={`Across the ${d.items.length} submitted ${d.items.length === 1 ? 'plan' : 'plans'}`} /><WorkloadCard data={d} defaultOpen={false} /><ActivityCard data={d} limit={12} moreHref="/ubec/activity" defaultOpen={false} /></div></div>
       </> : <>
         {/* UBEC Planning (DPRS) downloads each submitted plan's RAT tool (UBEC139). */}
         {downloadsRatTools(d.user.role, d.user.department) && <RatToolsCard />}
         {/* Audit, Procurement and Finance: observations an Executive Chairman asked for before sending (row 156). */}
         {observationViewer(d.user.role, d.user.department) && <ObservationPlansCard />}
-        <LevelMappingCard className="ubec-level-mapping" mapping={sumMappings(d.items.flatMap(i => i.levels ? [i.levels] : []))} description="Across the plans you review: ECCDE, Primary, JSS and what is not school-specific" />
-        <PlansSection data={d} items={d.items} limit={6} moreHref="/ubec/plans" />
-        <div className="national-lower-grid"><WorkloadCard data={d} /><ActivityCard data={d} limit={6} moreHref="/ubec/activity" /></div>
+        {/* UBEC178: the assigned plans first, four to a row; UBEC177: the spending card is compact, beside workload and activity. */}
+        <OverviewPlans data={d} />
+        <div className="national-lower-grid ubec-overview-row"><LevelMappingCard className="ubec-level-mapping" mapping={sumMappings(d.items.flatMap(i => i.levels ? [i.levels] : []))} description="Across the plans you review" /><WorkloadCard data={d} defaultOpen={false} /><ActivityCard data={d} limit={12} moreHref="/ubec/activity" defaultOpen={false} /></div>
       </>}
     </>}
   </UbecPageFrame>;

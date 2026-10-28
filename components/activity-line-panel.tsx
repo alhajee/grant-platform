@@ -8,7 +8,7 @@ import { LineTable, lineAmount, type InlineField, type PanelLine } from '@/compo
 import { EmptySection, FocusEmpty, LineSection, PanelSummary, PanelToolbar } from '@/components/line-panel/line-section';
 import { useCollapsed, type PanelMode } from '@/components/line-panel/use-line-panel';
 import { activityLabel, activityNames, strategyLabel, selectableActivityIndexes, type ActivityLine, type ActivityWorkstream } from '@/lib/activity-plans';
-import { missingLineDocument } from '@/lib/activity-extras';
+import { frequencyLabel, missingLineDocument } from '@/lib/activity-extras';
 
 const count = new Intl.NumberFormat('en-NG');
 const plural = (n: number, word: string, many = `${word}s`) => `${count.format(n)} ${n === 1 ? word : many}`;
@@ -54,7 +54,7 @@ type ActivityLinePanelProps = {
 
 function details(workstream: ActivityWorkstream, l: ActivityLine): string {
   const training = workstream === 'teachers';
-  return [l.item, l.censusType, l.equipment, l.textbookSubject, l.textbookClasses.join(', '), (l.equipmentType ? [l.equipmentCategory, l.equipmentType].filter(Boolean).join(' · ') : '') || l.websiteType, (l.subscriptionTypes ?? []).join(', '),
+  return [l.item, l.censusType, l.frequency ? frequencyLabel(l.quantity, l.frequency) : '', l.equipment, l.textbookSubject, l.textbookClasses.join(', '), (l.equipmentType ? [l.equipmentCategory, l.equipmentType].filter(Boolean).join(' · ') : '') || l.websiteType, (l.subscriptionTypes ?? []).join(', '),
     l.schools?.length ? plural(l.schools.length, 'school') : '',
     training ? trainingSummary(l) : [strategyLabel(l.strategy), l.targetGroup].filter(Boolean).join(' · ')].filter(Boolean).join(' · ');
 }

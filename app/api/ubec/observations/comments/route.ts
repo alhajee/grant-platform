@@ -14,7 +14,8 @@ import { readObservationRequests } from '@/lib/observation-requests-db';
 // tagged with the UBEC department that wrote them. Each department reads its own threads (the UBEC BEAP Chair reads them
 // all); the Oversight Director and Assessment Officers of a department asked on the latest request (and not yet sent back) start,
 // reply to, resolve and reopen their own department's threads. The SUBEB sees a department's threads once it sends them
-// back (app/api/plans/comments). The formal UBEC review (app/api/ubec/comments) never shows them.
+// back (app/api/plans/comments) and replies; only the department resolves them (UBEC193), so after sending back it may
+// still reply and resolve while the plan is with the SUBEB. The formal UBEC review (app/api/ubec/comments) never shows them.
 type Actor = { id: number; role: string; department: string | null; full_name: string };
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const planParam = (request: NextRequest) => { const plan = request.nextUrl.searchParams.get('plan'); return plan && /^[1-9]\d{0,9}$/.test(plan) ? Number(plan) : null; };
@@ -37,14 +38,19 @@ export async function GET(request: NextRequest) {
       if (!statePlanOpen(plan.status)) return error('This plan has been sent to UBEC. Its observations are not part of the UBEC review.', 409);
       const rows = (await db.query<CommentRow>(`SELECT ${commentFields()} FROM plan_comments c WHERE c.plan_id=$1 AND c.scope='observation' AND ($2::text IS NULL OR c.observation_department=$2) ORDER BY c.id`, [plan.id, viewer.department])).rows;
       const open = mayObserve(viewer, await readObservationRequests(db, plan.id));
-      const abilities = Object.fromEntries(implementedPillars.map(p => [p, ubecAbilities(true, open, user.role)]));
+      // After sending back, the department still replies to the SUBEB and resolves its threads (UBEC193).
+      const answer = !viewer.chair;
+      const abilities = Object.fromEntries(implementedPillars.map(p => [p, { ...ubecAbilities(true, open, user.role), reply: open || answer, resolveAny: open || answer }]));
       return NextResponse.json({ threads: toThreads(rows, user.userId, await readPlanSnapshot(db, plan.id)), locked: !open, abilities, scope: 'observation' }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Observation comments could not be loaded', cause); return error('Unable to load comments. Please try again.', 503); }
 }
 
-/** Writes: same origin, a current account of a department the latest request is waiting on, plan still with the SUBEB. */
-async function withOpenRequest(request: NextRequest, run: (db: Db, context: { plan: { id: number; submission_number: number }; actor: Actor; department: string }) => Promise<NextResponse>) {
+/**
+ * Writes: same origin, a current account of a department the latest request is waiting on, plan still with the SUBEB.
+ * `answer` (replies and resolving) is also open to a department that has already sent its observations back.
+ */
+async function withOpenRequest(request: NextRequest, run: (db: Db, context: { plan: { id: number; submission_number: number }; actor: Actor; department: string }) => Promise<NextResponse>, { answer = false } = {}) {
   const session = await getWorkspaceState(request);
   if (!session) return error('Sign in to continue', 401);
   if (!isSameRequestOrigin(request)) return error('This action must come from the portal', 403);
@@ -57,7 +63,8 @@ async function withOpenRequest(request: NextRequest, run: (db: Db, context: { pl
     const plan = await readPlan(db, viewer, planId);
     if (!plan) return error('Plan not found', 404);
     if (!statePlanOpen(plan.status)) return error('This plan has been sent to UBEC, so its observations are read-only', 409);
-    if (!mayObserve(viewer, await readObservationRequests(db, plan.id))) return error(viewer.chair ? 'The UBEC BEAP Chair follows observations read-only' : 'Your department has no open request for observations on this plan', viewer.chair ? 403 : 409);
+    if (viewer.chair) return error('The UBEC BEAP Chair follows observations read-only', 403);
+    if (!answer && !mayObserve(viewer, await readObservationRequests(db, plan.id))) return error(viewer.chair ? 'The UBEC BEAP Chair follows observations read-only' : 'Your department has no open request for observations on this plan', viewer.chair ? 403 : 409);
     return run(db, { plan, actor, department: viewer.department! });
   });
 }
@@ -84,7 +91,7 @@ export async function POST(request: NextRequest) {
       if (await taken(db, plan.id, department, { sheet: input.sheet, row_ref: input.rowRef, column_id: input.columnId })) return error(`Your department already has an open comment on this ${input.columnId ? 'cell' : 'row'}. Reply to it instead.`, 409);
       const id = (await insert([plan.id, sheetPillar[input.sheet], input.sheet, input.rowRef, input.columnId, null, input.body, actor.id, actor.full_name, actor.role, plan.submission_number, targetLabel(input.sheet, input.columnId, rowLabel), department])).rows[0].id;
       return NextResponse.json({ id: Number(id) }, { status: 201 });
-    });
+    }, { answer: 'parentId' in input });
   } catch (cause) {
     if ((cause as { code?: string }).code === '23505') return error('This cell or row already has an open comment. Refresh to see it.', 409);
     console.error('Observation comment could not be saved', cause); return error('Your comment could not be saved. Please try again.', 503);
@@ -108,7 +115,7 @@ export async function PATCH(request: NextRequest) {
         await db.query('UPDATE plan_comments SET resolved_at=NULL, resolved_by_name=NULL WHERE id=$1', [root.id]);
       }
       return NextResponse.json({ id: Number(root.id), resolved: input.action === 'resolve' });
-    });
+    }, { answer: input.action === 'resolve' });
   } catch (cause) {
     if ((cause as { code?: string }).code === '23505') return error('Another open comment already covers this cell. Refresh to see it.', 409);
     console.error('Observation comment could not be updated', cause); return error('The comment could not be updated. Please try again.', 503);

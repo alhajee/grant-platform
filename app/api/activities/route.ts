@@ -14,7 +14,7 @@ import { activityLineSchema, activityWorkstreams, capActivities, hasDistribution
 import { activityBudgetProblem, isCapped } from '@/lib/activity-budget';
 import { isSplitMode } from '@/lib/funding-policy';
 import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
-import { compulsoryActivities, lineSchoolActivities } from '@/lib/activity-extras';
+import { compulsoryActivities, lineSchoolActivities, needsFrequency } from '@/lib/activity-extras';
 import { requiredFirstProblem } from '@/lib/component-readiness';
 import { readLineExtras, saveLineSchools } from '@/lib/activity-line-extras';
 import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
@@ -35,7 +35,7 @@ export async function GET(req:NextRequest){
   const db=getPostgres(), workstream=parsed.data;
   if(!canViewComponent(user,workstream))return error('This component belongs to another department',403);
   if(!(await readStageVisibility(db,user,plan.id)).includes(workstream))return error(notSentYetMessage,403);
-  const lines=(await db.query('SELECT id,code,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject",equipment_category AS "equipmentCategory",equipment_type AS "equipmentType",subscription_types AS "subscriptionTypes",website_type AS "websiteType",item,census_type AS "censusType",price_item_id AS "priceItemId",training_provider AS "trainingProvider",target_participants AS "targetParticipants",school_levels AS "schoolLevels",training_days AS "trainingDays",venue_type AS "venueType",quarters,start_date::text AS "startDate",due_date::text AS "dueDate",client_key AS "clientKey" FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
+  const lines=(await db.query('SELECT id,code,workstream,activity,custom_activity AS "customActivity",description,rationale,implementation_approach AS "implementationApproach",quantity,unit_cost::float8 AS "unitCost",strategy,target_group AS "targetGroup",location,equipment,textbook_classes AS "textbookClasses",textbook_subject AS "textbookSubject",equipment_category AS "equipmentCategory",equipment_type AS "equipmentType",subscription_types AS "subscriptionTypes",website_type AS "websiteType",item,census_type AS "censusType",frequency,price_item_id AS "priceItemId",training_provider AS "trainingProvider",target_participants AS "targetParticipants",school_levels AS "schoolLevels",training_days AS "trainingDays",venue_type AS "venueType",quarters,start_date::text AS "startDate",due_date::text AS "dueDate",client_key AS "clientKey" FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 ORDER BY activity,id',[plan.id,workstream])).rows;
   // Quality Assurance, ICT and Teacher Development lines carry their chosen schools and documents (migrations 038, 040).
   const extras=await readLineExtras(db,plan.id,workstream);
   const withExtras=lines.map(line=>{const schools=extras.schools.get(line.id)??[];return {...line,schools,schoolIds:schools.map(s=>s.id),documents:extras.documents.get(line.id)??[]};});
@@ -141,7 +141,7 @@ export async function POST(req:NextRequest){
      const lineId=action==='create'
       ?(await db.query<{id:number}>('INSERT INTO activity_plan_lines(activity,custom_activity,description,quantity,unit_cost,strategy,target_group,location,equipment,rationale,implementation_approach,textbook_classes,textbook_subject,equipment_type,subscription_types,website_type,training_provider,target_participants,school_levels,training_days,venue_type,quarters,start_date,due_date,equipment_category,item,census_type,plan_id,workstream,client_key) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30) RETURNING id',[...values,plan.id,workstream,clientKey??null])).rows[0].id
       :(await db.query('UPDATE activity_plan_lines SET activity=$1,custom_activity=$2,description=$3,quantity=$4,unit_cost=$5,strategy=$6,target_group=$7,location=$8,equipment=$9,rationale=$10,implementation_approach=$11,textbook_classes=$12,textbook_subject=$13,equipment_type=$14,subscription_types=$15,website_type=$16,training_provider=$17,target_participants=$18,school_levels=$19,training_days=$20,venue_type=$21,quarters=$22,start_date=$23,due_date=$24,equipment_category=$25,item=$26,census_type=$27,updated_at=NOW() WHERE id=$28 AND plan_id=$29',[...values,id,plan.id]),id!);
-     await db.query('UPDATE activity_plan_lines SET price_item_id=$1 WHERE id=$2',[priced.priceItemId,lineId]);
+     await db.query('UPDATE activity_plan_lines SET price_item_id=$1,frequency=$2 WHERE id=$3',[priced.priceItemId,needsFrequency(workstream,v.activity)?v.frequency??1:null,lineId]);
      // Line schools must be in the plan's state; a failure here rolls back the whole save.
      if(!(await saveLineSchools(db,lineId,v.schoolIds,user.stateCode)))throw new LineSchoolsError();
      return NextResponse.json({ok:true,id:lineId});

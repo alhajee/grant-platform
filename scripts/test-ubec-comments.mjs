@@ -177,25 +177,24 @@ try {
   assert.deepEqual(new Set(ubecThreads.map(t => t.id)), new Set([t1, t5, esSbmc]));
   assert.deepEqual(ubecThreads.find(t => t.id === t1).replies.map(r => r.body), ['REV-A-REPLY-BEFORE-SHARE: please attach quotations.']);
   assert.ok(ubecThreads.every(t => t.roundNumber === 1 && t.sharedAt === undefined), 'state view carries the round number but not sharing internals');
-  assert.deepEqual(stateView.otherAbilities.sports, { start: false, reply: true, resolveAny: true, reopen: false });
+  assert.deepEqual(stateView.otherAbilities.sports, { start: false, reply: true, resolveAny: false, reopen: false });
   await assertStateSees(['ES-SHARED', 'REV-A-SHARED', 'REV-A-REPLY']);
   for (const path of stateEndpoints) for (const who of ['ec', 'des', 'dir']) { const text = (await api(who, path)).text; for (const secret of ['REV-P-INTERNAL', 'REV-P-RESOLVED', 'REV-S-INTERNAL']) assert.ok(!text.includes(secret), `${path} leaked ${secret}`); }
   assert.ok(!ok(await api('dirSocial', stateComments)).threads.some(t => t.pillar === 'sports'), 'other department sees no Sports UBEC thread');
   step('state view: only the 3 shared threads (with the UBEC reply written before sharing), tagged scope ubec; unticked and resolved threads stay invisible everywhere');
 
-  // State replies and resolves; only UBEC reopens.
+  // State replies; only UBEC resolves and reopens (UBEC193).
   ok(await api('des', stateComments, { parentId: t1, body: 'STATE-REPLY-1: quotations attached to the dossier.' }), 201);
   ok(await api('ec', stateComments, { parentId: t5, body: 'STATE-REPLY-2: split into three zonal finals.' }), 201);
   expect(await api('dirSocial', stateComments, { parentId: t1, body: 'x' }), 404);
   expect(await api('des', stateComments, { parentId: t3, body: 'x' }), 404); expect(await api('des', stateComments, { id: t3, action: 'resolve' }, { method: 'PATCH' }), 404);
   expect(await api('foreignDir', stateComments), 404); expect(await api('foreignDir', stateComments, { parentId: t1, body: 'x' }), 404);
-  expect(await api('dir', stateComments, { id: t5, action: 'resolve' }, { method: 'PATCH' }), 403, /UBEC comment/);
-  ok(await api('desSocial', stateComments, { id: esSbmc, action: 'resolve' }, { method: 'PATCH' }));
-  expect(await api('desSocial', stateComments, { parentId: esSbmc, body: 'x' }), 409, /Only UBEC can reopen/);
+  for (const who of ['dir', 'des', 'ec']) expect(await api(who, stateComments, { id: t5, action: 'resolve' }, { method: 'PATCH' }), 403, /UBEC resolves/);
+  expect(await api('desSocial', stateComments, { id: esSbmc, action: 'resolve' }, { method: 'PATCH' }), 403, /UBEC resolves/);
   for (const who of ['ec', 'dirSocial', 'desSocial']) expect(await api(who, stateComments, { id: esSbmc, action: 'reopen' }, { method: 'PATCH' }), 403, /Only UBEC/);
   expect(await api('dir', stateComments, { sheet: 'sports', rowRef: balls, columnId: 'amount', body: 'x' }), 403, /holding/);
   expect(await api('es', stateComments, { parentId: t1, body: 'x' }), 403);
-  step('state: department Data Entry and the Executive Chairman reply; other department, unshared ids and other states 404; non-holder Director cannot resolve (403); Data Entry resolves; only UBEC reopens (403)');
+  step('state: department Data Entry and the Executive Chairman reply; other department, unshared ids and other states 404; nobody at the state resolves (403, UBEC193); only UBEC reopens (403)');
 
   // Returned round: UBEC reads it but writes are refused, and the state's new replies are not shown yet.
   expect(await cell('uchair', balls, 'code', 'late'), 409, /read-only/); expect(await api('revA', ubec, { parentId: t1, body: 'late' }), 409, /read-only/);
@@ -211,20 +210,20 @@ try {
   ok(await api('dir', stateComments, { sheet: 'sports', rowRef: balls, columnId: 'section', body: 'Director thread during the return' }), 201);
   const sameCell = (await db.query("SELECT COUNT(*)::int AS n FROM plan_comments WHERE plan_id=$1 AND sheet='sports' AND row_ref=$2 AND column_id='unitCost' AND parent_id IS NULL AND resolved_at IS NULL", [planId, balls])).rows[0].n;
   assert.equal(sameCell, 2, 'a state thread and a UBEC thread can both be open on one cell');
-  ok(await api('dir', stateComments, { id: t5, action: 'resolve' }, { method: 'PATCH' }));
+  expect(await api('dir', stateComments, { id: t5, action: 'resolve' }, { method: 'PATCH' }), 403, /UBEC resolves/);
   await review('dir', 'request_changes', 'sports', 'Remove the finals line.');
   ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'delete', id: Number(kits) }));
   await review('des', 'submit', 'sports', 'Finals line removed.');
   for (const pillar of ['sports', 'sbmc']) { await review(pillar === 'sbmc' ? 'dirSocial' : 'dir', 'endorse', pillar); await review('chair', 'forward', pillar); }
   ok(await api('ec', ubecReview, { action: 'submit', version: ok(await api('ec', ubecReview)).plan.version, comment: 'All UBEC comments addressed.' }));
   const round2 = ok(await api('uchair', ubecReview)).round.id;
-  step('state: holder Director resolves a shared thread; a state and a UBEC thread stay open on the same cell (one per scope); the plan is resubmitted as round 2');
+  step('state: the holder Director cannot resolve a shared thread (UBEC193); a state and a UBEC thread stay open on the same cell (one per scope); the plan is resubmitted as round 2');
 
   esRound = ok(await api('es', ubec));
   assert.equal(esRound.roundId, round2); assert.equal(esRound.locked, false);
   assert.deepEqual(new Set(esRound.threads.map(t => t.id)), new Set([t1, t5, esSbmc]), 'round 2 carries the shared threads only');
   assert.deepEqual(esRound.threads.find(t => t.id === t1).replies.map(r => r.body), ['REV-A-REPLY-BEFORE-SHARE: please attach quotations.', 'STATE-REPLY-1: quotations attached to the dossier.']);
-  assert.ok(esRound.threads.find(t => t.id === t5).resolvedAt && esRound.threads.find(t => t.id === esSbmc).resolvedAt);
+  assert.ok(!esRound.threads.find(t => t.id === t5).resolvedAt && !esRound.threads.find(t => t.id === esSbmc).resolvedAt, 'the shared threads stay open for UBEC to resolve');
   assert.ok(esRound.threads.find(t => t.id === t5).orphaned, 'thread on the deleted line is orphaned');
   assert.ok(!JSON.stringify(esRound).includes('Director thread') && !JSON.stringify(esRound).includes('STATE-INTERNAL'));
   const history = ok(await api('es', `${ubec}&round=${round1}`));
@@ -232,7 +231,7 @@ try {
   assert.ok(!JSON.stringify(history).includes('STATE-REPLY'), 'round 1 history shows the round as it was decided');
   expect(await api('uchair', `${ubec}&round=${round1}`, { parentId: t1, body: 'x' }), 409, /read-only/);
   expect(await cell('uchair', kits, 'amount', 'deleted line'), 400, /no longer in the plan/);
-  step('round 2: UBEC sees the carried shared threads with the state replies and resolutions, orphaned rows flagged; round 1 history is read-only and unchanged');
+  step('round 2: UBEC sees the carried shared threads, still open, with the state replies, orphaned rows flagged; round 1 history is read-only and unchanged');
 
   expect(await api('revA', ubec, { parentId: t1, body: 'x' }), 404, /Submission not found/);
   await release(round2, [['sports', 'dacs', ['revA']], ['sbmc', 'dsm', ['revS']]]);
@@ -242,10 +241,10 @@ try {
   ok(await api('revA', ubec, { id: t1, action: 'resolve' }, { method: 'PATCH' }));
   const r2 = ok(await cell('uchair', balls, 'unitCost', 'ROUND2-INTERNAL: approve as is.'), 201).id;
   expect(await api('revA', ubec, { id: t1, action: 'reopen' }, { method: 'PATCH' }), 409, /Another open comment/);
-  ok(await api('revA', ubec, { id: t5, action: 'reopen' }, { method: 'PATCH' }));
-  ok(await api('uchair', ubec, { id: esSbmc, action: 'reopen' }, { method: 'PATCH' }));
+  ok(await api('revA', ubec, { id: t5, action: 'resolve' }, { method: 'PATCH' }));
+  ok(await api('uchair', ubec, { id: esSbmc, action: 'resolve' }, { method: 'PATCH' }));
   expect(await api('revS', ubec, { id: t5, action: 'resolve' }, { method: 'PATCH' }), 404);
-  step('round 2 officers see the state replies; a reopen that would duplicate an open cell thread is refused (409); UBEC reopens threads the state resolved');
+  step('round 2 officers see the state replies; a reopen that would duplicate an open cell thread is refused (409); UBEC resolves the threads the state answered');
 
   // Approval never shares.
   await assess(round2, 'sports', 'dacs', ['revA']); await assess(round2, 'sbmc', 'dsm', ['revS']);

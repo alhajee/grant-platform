@@ -29,5 +29,7 @@
 .level-mapping.dashboard-level-mapping { margin-top: 8px; padding: 0; border: 0; box-shadow: none; background: transparent; }
 .level-mapping.dashboard-level-mapping > [data-slot="card-header"], .level-mapping.dashboard-level-mapping > [data-slot="card-content"] { padding-inline: 0; }
 /* On the wide UBEC overview: the figures stay next to their labels, and the card keeps its distance from the next row. */
-.level-mapping.ubec-level-mapping { margin-block: 16px; }
-.level-mapping.ubec-level-mapping .level-mapping-table { max-width: 560px; }
+.level-mapping.ubec-level-mapping { margin: 0; }
+.level-mapping.ubec-level-mapping .level-mapping-body { gap: 10px; }
+.level-mapping.ubec-level-mapping .level-mapping-bar { height: 10px; }
+.level-mapping.ubec-level-mapping .level-mapping-table th, .level-mapping.ubec-level-mapping .level-mapping-table td { padding-block: 3px; }

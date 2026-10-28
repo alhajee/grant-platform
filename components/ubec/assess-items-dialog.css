@@ -44,6 +44,16 @@
 .assess-item-decision { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
 .assess-note { margin: 0; font-size: 12px; color: var(--muted-foreground); overflow-wrap: anywhere; }
 .assess-item-actions { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+/* UBEC181: rejecting reads red. */
+.assess-reject:not(:disabled) { color: var(--destructive); border-color: color-mix(in srgb, var(--destructive) 45%, transparent); }
+.assess-reject:not(:disabled):hover { background: color-mix(in srgb, var(--destructive) 8%, transparent); color: var(--destructive); }
+.assess-package { border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-size: 13px; }
+.assess-package summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; color: var(--primary); list-style: none; }
+.assess-package summary::-webkit-details-marker { display: none; }
+.assess-package summary svg { width: 15px; height: 15px; transition: transform .15s; }
+.assess-package[open] summary svg { transform: rotate(180deg); }
+.assess-package[open] summary { margin-bottom: 12px; }
+.assess-package { overflow-x: auto; }
 @media (max-width: 900px) {
   .assess-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .assess-groups { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 16px; }

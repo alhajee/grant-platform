@@ -36,6 +36,13 @@
 .plan-guilloche path:nth-child(3) { stroke-opacity: .11; }
 .plan-guilloche path:nth-child(4) { stroke-opacity: .085; }
 .plan-guilloche path:nth-child(5) { stroke-opacity: .06; }
+/* The plan's state outline in place of the rosette (components/plan-card-surface.tsx). */
+.plan-guilloche.plan-state-shape { top: 6px; right: -18px; width: 210px; height: 210px; stroke-width: 1.2; stroke-linejoin: round; mask-image: radial-gradient(circle at 60% 40%, #000 0 55%, transparent 90%); }
+.plan-state-shape path { stroke-opacity: .32; }
+.plan-state-shape path:nth-child(2) { stroke-opacity: .24; }
+.plan-state-shape path:nth-child(3) { stroke-opacity: .18; }
+.plan-state-shape path:nth-child(4) { stroke-opacity: .13; }
+.plan-state-shape path:nth-child(5) { stroke-opacity: .09; }
 
 @media (hover: hover) {
   /* Edit plan and the updated time are hover details; touch screens always show them. */

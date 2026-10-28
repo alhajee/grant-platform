@@ -3,7 +3,7 @@ import '@/components/dashboard/plan-card.css';
 
 import { ArrowUpRightIcon, LayersIcon, SchoolIcon } from 'lucide-react';
 import { Amount, FundingGauge, amountFormat, compactNaira } from '@/components/dashboard/plan-figures';
-import { PlanCardGuilloche, planCardTilt } from '@/components/plan-card-surface';
+import { PlanCardStateShape, planCardTilt } from '@/components/plan-card-surface';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +22,7 @@ export function UbecPlanCard({ item, action }: { item: NationalItem; action?: st
   const funding = item.fundingTotal ?? 0, href = `/ubec/review?plan=${item.planId}`;
   const components = item.components ?? [];
   return <Card className="dashboard-plan-card ubec-plan-card" {...planCardTilt}>
-    <PlanCardGuilloche seed={item.startYear + item.planId} />
+    <PlanCardStateShape stateCode={item.stateCode} seed={item.startYear + item.planId} />
     <CardHeader className="plan-card-header">
       <div className="min-w-0"><CardTitle><h3>{item.state}</h3></CardTitle><CardDescription>{planPeriod(item)} BEAP · Submission {item.round}</CardDescription></div>
       <Badge variant={item.status === 'returned' ? 'warning' : item.status === 'approved' ? 'default' : 'secondary'}>{nationalStatusLabels[item.status]}</Badge>

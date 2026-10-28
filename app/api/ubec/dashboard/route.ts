@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         const name = componentName(p.pillar), anchor = `#ubec-${p.pillar}`;
         if (viewer.role === ubecRoles.director && p.department === viewer.department && p.stage === 'director') {
           if (!p.officers.length) push('assign', `Assign staff to ${name}`, '', anchor);
-          else if (p.officers.every(o => o.completed)) push('consolidate', `Send ${name} for oversight`, 'assessment complete', anchor);
+          else if (p.officers.every(o => o.completed)) push('consolidate', `Send ${name} to the Oversight Departments`, 'assessment complete', anchor);
         }
         if (viewer.role === ubecRoles.officer && p.stage === 'director' && p.officers.some(o => o.mine && !o.completed)) push('assess', `Assess ${name}`, `${p.counts.undecided} of ${p.counts.total} items to decide`, anchor);
         if (viewer.role === ubecRoles.oversight && p.stage === 'oversight' && !p.oversightDone.includes(viewer.department as PipelineComponent['oversightDone'][number])) push('observe', `Observations on ${name}`, '', anchor);

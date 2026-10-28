@@ -2,6 +2,7 @@
 import './budget-split-dialog.css';
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
 import { Slider } from '@/components/ui/slider';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { CurrencyInput } from '@/components/currency-input';
 import { componentPalette } from '@/components/dashboard/component-budgets';
 import { fromKobo, isSplitMode, toKobo, type EnvelopePlan } from '@/lib/funding-policy';
@@ -21,7 +22,8 @@ export function evenSplits(plan: EnvelopePlan): SplitDraft {
 
 /**
  * The plan's budget splits, set by the BEAP Chair in the create-plan dialog (client, 26 October 2026): Teacher Development
- * & ICT always, Infrastructure & TLM in split mode. A slider and an amount per pair; the server re-checks every rule.
+ * & ICT always, Infrastructure & TLM in split mode. A slider, an amount and a percentage for each side (UBEC156); the
+ * server re-checks every rule.
  */
 export function PlanSplitsField({ plan, value, onChange, error, disabled }: { plan: EnvelopePlan; value: SplitDraft; onChange: (next: SplitDraft) => void; error?: string; disabled?: boolean }) {
   const pairs: BudgetPair[] = isSplitMode(plan) ? ['infrastructure-tlm', 'teachers-ict'] : ['teachers-ict'];
@@ -31,6 +33,8 @@ export function PlanSplitsField({ plan, value, onChange, error, disabled }: { pl
       const sharedK = shared == null ? BigInt(0) : toKobo(shared), amount = valid(value[side]) ? toKobo(value[side]) : BigInt(0);
       const keeperK = sharedK > amount ? sharedK - amount : BigInt(0);
       const step = Math.max(1, Math.floor(Math.min(100000, Number(sharedK) / 100 * 0.005)));
+      // A typed percentage of the shared budget, to the kobo: the keeper's share or the stored side's.
+      const setPercent = (which: 'keeper' | 'stored', typed: string) => { const p = Math.min(100, Math.max(0, Number(typed))); if (!Number.isFinite(p)) return; const part = BigInt(Math.round(Number(sharedK) * p / 100)); onChange({ ...value, [side]: fromKobo(which === 'stored' ? part : sharedK - part) }); };
       return <Field key={id} className="gap-2 rounded-lg border p-3">
         <FieldLabel htmlFor={`split-${side}`}>{pair.label}</FieldLabel>
         {shared == null || sharedK === BigInt(0) ? <FieldDescription>Enter the state counterpart fund first</FieldDescription> : <>
@@ -43,13 +47,24 @@ export function PlanSplitsField({ plan, value, onChange, error, disabled }: { pl
           <Slider aria-label={`${sideNames[pair.keeper]} amount`} min={0} max={Number(sharedK) / 100} step={step} value={[Number(keeperK) / 100]} disabled={disabled}
             onValueChange={([naira]) => { const keep = BigInt(Math.round(naira * 100)); onChange({ ...value, [side]: fromKobo(sharedK > keep ? sharedK - keep : BigInt(0)) }); }} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="text-sm"><span className="text-muted-foreground">{sideNames[pair.keeper]}</span><br /><strong>{nairaFormat.format(Number(keeperK) / 100)}</strong> <span className="text-muted-foreground">· {pct(keeperK, sharedK)}%</span></div>
-            <div><CurrencyInput id={`split-${side}`} aria-label={`${sideNames[side]} amount (₦)`} value={value[side]} maxIntegerDigits={13} disabled={disabled} onValueChange={next => onChange({ ...value, [side]: next })} />
-              <span className="text-xs text-muted-foreground">{sideNames[side]} · {pct(amount, sharedK)}%</span></div>
+            <div className="flex flex-col gap-1 text-sm"><span className="text-muted-foreground">{sideNames[pair.keeper]}</span><strong>{nairaFormat.format(Number(keeperK) / 100)}</strong>
+              <SplitPercentInput id={`split-${pair.keeper}-pct`} name={sideNames[pair.keeper]} value={pct(keeperK, sharedK)} disabled={disabled} onCommit={typed => setPercent('keeper', typed)} /></div>
+            <div className="flex flex-col gap-1"><CurrencyInput id={`split-${side}`} aria-label={`${sideNames[side]} amount (₦)`} value={value[side]} maxIntegerDigits={13} disabled={disabled} onValueChange={next => onChange({ ...value, [side]: next })} />
+              <span className="text-xs text-muted-foreground">{sideNames[side]}</span>
+              <SplitPercentInput id={`split-${side}-pct`} name={sideNames[side]} value={pct(amount, sharedK)} disabled={disabled} onCommit={typed => setPercent('stored', typed)} /></div>
           </div>
         </>}
       </Field>;
     })}
     {error && <FieldError>{error}</FieldError>}
   </div>;
+}
+
+/** A side's share as a typed percentage; applied on Enter or when the box is left, so typing is not interrupted. */
+function SplitPercentInput({ id, name, value, disabled, onCommit }: { id: string; name: string; value: number; disabled?: boolean; onCommit: (typed: string) => void }) {
+  return <InputGroup className="h-8 w-28">
+    <InputGroupInput key={value} id={id} aria-label={`${name} share (%)`} inputMode="decimal" defaultValue={String(value)} disabled={disabled}
+      onBlur={e => { if (e.target.value !== String(value)) onCommit(e.target.value); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onCommit(e.currentTarget.value); } }} />
+    <InputGroupAddon align="inline-end">%</InputGroupAddon>
+  </InputGroup>;
 }

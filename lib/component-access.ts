@@ -11,7 +11,7 @@ export const departmentComponents: Record<string, ImplementedPillar[]> = Object.
 );
 /** Short component names for access lists and pickers. */
 export const componentAccessNames: Record<ImplementedPillar, string> = {
-  infrastructure: 'Infrastructure', monitoring: 'Supervision & Monitoring', sports: 'Sports', tlm: 'TLM', curriculum: 'Curriculum',
+  infrastructure: 'Infrastructure', monitoring: 'Supervision & Monitoring', sports: 'Sports, Quiz & Debate', tlm: 'TLM', curriculum: 'Curriculum',
   gscci: 'Greening', quality: 'Quality Assurance', teachers: 'Teacher Development', ict: 'ICT', sbmc: 'SBMC', planning: 'Planning',
 };
 export const componentToken = (component: ImplementedPillar) => `${subebComponentDepartments[component]}/${component}`;

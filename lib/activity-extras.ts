@@ -50,6 +50,16 @@ export const censusTypes = ['Annual School Census', 'NPA'] as const;
 export const censusActivity = 0;
 export const needsCensusType = (workstream: string, activity: number) => workstream === 'planning' && activity === censusActivity;
 
+/**
+ * Supervision & Monitoring "Allowances for monitoring officers" (activity 2) records the number of visits (UBEC164,
+ * migration 078): amount = officers × visits × unit cost. The line's quantity is officers × visits.
+ */
+export const frequencyActivity = 2;
+export const needsFrequency = (workstream: string, activity: number) => workstream === 'monitoring' && activity === frequencyActivity;
+export const maxFrequency = 10000;
+/** "50 officers × 50 visits". */
+export const frequencyLabel = (quantity: number, frequency: number) => `${(quantity / frequency).toLocaleString('en-NG')} ${quantity / frequency === 1 ? 'officer' : 'officers'} × ${frequency.toLocaleString('en-NG')} ${frequency === 1 ? 'visit' : 'visits'}`;
+
 /** QA activities whose items record an equipment category and type: Mobility and office equipment, and its maintenance. */
 export const qualityEquipmentActivities = [0, 1] as const;
 export const isQualityEquipmentActivity = (workstream: string, activity: number) => workstream === 'quality' && (qualityEquipmentActivities as readonly number[]).includes(activity);

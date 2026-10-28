@@ -80,7 +80,7 @@ export function executiveChairmanProblem(reviews: PillarReview[], snapshot: Snap
   for (const p of implementedPillars) { const problem = componentSendProblem(p, snapshot, options); if (problem) return `${componentNames[p]}: ${problem}`; }
   return 'The plan is not complete yet';
 }
-const componentNames: Record<ImplementedPillar, string> = { infrastructure: 'Infrastructure', tlm: 'TLM', sports: 'Sports', sbmc: 'SBMC', monitoring: 'Supervision & Monitoring', gscci: 'Greening', curriculum: 'Curriculum', quality: 'Quality Assurance', teachers: 'Teacher Development', ict: 'ICT', planning: 'Planning' };
+const componentNames: Record<ImplementedPillar, string> = { infrastructure: 'Infrastructure', tlm: 'TLM', sports: 'Sports, Quiz & Debate', sbmc: 'SBMC', monitoring: 'Supervision & Monitoring', gscci: 'Greening', curriculum: 'Curriculum', quality: 'Quality Assurance', teachers: 'Teacher Development', ict: 'ICT', planning: 'Planning' };
 function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
   return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot, options)
     && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup, options)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup)

@@ -69,15 +69,15 @@ try {
 
   let data = await feed('des');
   assert.deepEqual(Object.keys(data).sort(), ['notifications', 'todos', 'unreadCount']);
-  assert.ok(data.todos.some(t => t.planId === planId && t.label === 'Complete Sports Activities' && t.href === `/beap/sports?plan=${planId}` && t.period === '2021 · Q1–Q4 BEAP'), JSON.stringify(data.todos));
+  assert.ok(data.todos.some(t => t.planId === planId && t.label === 'Complete Sports, Quiz & Debate Activities' && t.href === `/beap/sports?plan=${planId}` && t.period === '2021 · Q1–Q4 BEAP'), JSON.stringify(data.todos));
   assert.match((await api('des', '/api/notifications')).headers.get('cache-control') ?? '', /no-store/);
-  step('Data Entry Staff: "Complete Sports Activities" is listed under To do, response is no-store');
+  step('Data Entry Staff: "Complete Sports, Quiz & Debate Activities" is listed under To do, response is no-store');
 
   await review('des', 'submit', 'sports');
   let items = await mine('dir');
   assert.equal(items.length, 1); assert.equal(items[0].source, 'state'); assert.equal(items[0].action, 'submit'); assert.equal(items[0].scope, 'sports'); assert.equal(items[0].readAt, null);
   data = await feed('dir');
-  assert.ok(data.unreadCount >= 1); assert.ok(data.todos.some(t => t.label === 'Review Sports Activities'));
+  assert.ok(data.unreadCount >= 1); assert.ok(data.todos.some(t => t.label === 'Review Sports, Quiz & Debate Activities'));
   assert.equal((await mine('foreignDir')).length, 0); assert.equal((await mine('chair')).length, 0);
   step('submit notifies the department Director (unread, with a Review to-do); other states and the BEAP Chair see nothing');
 

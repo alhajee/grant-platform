@@ -49,7 +49,7 @@ export function allocationUseProblem(pillar: ImplementedPillar, snapshot: Snapsh
   const envelope = componentEnvelope(plan, pillar);
   if (envelope == null) return null;
   const whole = toKobo(envelope);
-  const name = pillar === 'infrastructure' ? 'Infrastructure' : pillar === 'sports' ? 'Sports' : activityTitles[pillar as ActivityWorkstream];
+  const name = pillar === 'infrastructure' ? 'Infrastructure' : pillar === 'sports' ? 'Sports, Quiz & Debate' : activityTitles[pillar as ActivityWorkstream];
   if (pillar === 'sports') {
     const lines = (snapshot.sports ?? []).map(l => ({ section: l.section, activityType: l.activity_type, kobo: toKobo(String(l.unit_cost)) * BigInt(l.quantity) }));
     for (const { section, proposed, cap } of sportsSectionBudgets(lines, whole)) {

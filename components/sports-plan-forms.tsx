@@ -15,7 +15,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LineDatesField } from "@/components/line-dates";
 import { keepDatesInWindow } from "@/lib/line-dates";
 import { QuarterTimeline } from "@/components/quarter-timeline";
-import { equipmentSports, findSport, isOtherSubActivity, isPheTraining, pheTrainingActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, supervisionActivity, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
+import { equipmentSports, findSport, isOtherSubActivity, isPheTraining, pheTrainingActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
 export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; quantity: string; unitCost: string; quarters: number[]; startDate: string | null; dueDate: string | null };
 export type AllocationDraft = { id?: number; schoolId: number | null; lineId: number | null; quantity: string; longitude: string; latitude: string };
@@ -65,14 +65,14 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
   const sportNames = [...new Set([...usedSports, ...sportsCatalog.map((sport) => sport.name)].map((name) => findSport(name)?.name ?? name))];
   const sport = findSport(draft.activityType);
   const sportItems = [...new Set([...(sport?.items ?? []), ...plan.lines.filter((line) => line.section === "equipment" && line.activityType.trim().toLowerCase() === draft.activityType.trim().toLowerCase()).map((line) => line.description)])];
-  const subActivities = draft.section === "competitions" || draft.section === "publicity" ? sportsSubActivities[draft.section] : [];
+  const subActivities = draft.section === "competitions" || draft.section === "publicity" || draft.section === "supervision" ? sportsSubActivities[draft.section] : [];
   const legacyType = subActivities.length && draft.activityType && !subActivities.some((item) => item.name === draft.activityType) ? draft.activityType : "";
   const total = sportsLineTotal({ quantity: Number(draft.quantity) || 0, unitCost: Number(draft.unitCost) || 0 });
   const setText = (field: "activityType" | "description") => (value: string) => onChange({ ...draft, [field]: value });
   return <FieldGroup className="gap-6">
     <Field data-disabled={locked}>
       <FieldLabel htmlFor="sports-section">Budget section</FieldLabel>
-      <SportsSectionSelect id="sports-section" value={draft.section} disabled={locked} onValueChange={(value) => onChange({ ...draft, section: value, activityType: value === "supervision" ? supervisionActivity : "", description: "" })} />
+      <SportsSectionSelect id="sports-section" value={draft.section} disabled={locked} onValueChange={(value) => onChange({ ...draft, section: value, activityType: "", description: "" })} />
     </Field>
     {draft.section === "equipment" && <Field data-disabled={locked}>
       <FieldLabel id="sports-kind-label">Type of item</FieldLabel>

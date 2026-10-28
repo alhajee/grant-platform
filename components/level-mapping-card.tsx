@@ -18,7 +18,7 @@ export function LevelMappingCard({ mapping, title = 'Spending by school level', 
   const total = mapping?.total ?? 0;
   return <Card className={['level-mapping', className].filter(Boolean).join(' ')}>
     <CardHeader><CardTitle><h2 className="level-mapping-title"><SchoolIcon aria-hidden="true" />{title}</h2></CardTitle>
-      <CardDescription>{description ?? 'Proposed budget for ECCDE, Primary and JSS, and what is not school-specific'}</CardDescription></CardHeader>
+      <CardDescription>{description ?? 'Proposed budget for ECCDE, Primary, JSS and Others (not tied to a school level)'}</CardDescription></CardHeader>
     <CardContent className="level-mapping-body">
       {!mapping || total <= 0 ? <p className="level-mapping-empty">Nothing proposed yet</p> : <>
         <div className="level-mapping-bar" role="img" aria-label={schoolLevelKeys.map(key => `${schoolLevelLabels[key]} ${pct(mapping[key], total)}%`).join(', ')}>
