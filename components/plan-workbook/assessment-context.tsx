@@ -14,6 +14,8 @@ export type WorkbookAssessment = {
   pillars: readonly ImplementedPillar[];
   decisions: (pillar: ImplementedPillar) => ReadonlyMap<string, RowDecision>;
   previous: (pillar: ImplementedPillar) => ReadonlyMap<string, RowDecision>;
+  /** UBEC195: rows rejected on the previous submission that the SUBEB corrected (shown in yellow). */
+  corrected?: (pillar: ImplementedPillar) => ReadonlySet<string>;
   canDecide: (pillar: ImplementedPillar) => boolean;
   /** Saves one decision for every row; null clears. Resolves false when any row failed (already reported). */
   decide: (pillar: ImplementedPillar, rowRefs: readonly string[], decision: ItemDecisionValue | null, note?: string) => Promise<boolean>;
@@ -59,7 +61,7 @@ export function withDecisions(sheets: WorkbookSheet[], assessment: WorkbookAsses
   return sheets.map(sheet => {
     const pillar = assessment.pillars.find(p => p === sheet.key);
     if (!pillar) return sheet;
-    const decisions = assessment.decisions(pillar), previous = assessment.previous(pillar);
+    const decisions = assessment.decisions(pillar), previous = assessment.previous(pillar), corrected = assessment.corrected?.(pillar) ?? new Set<string>();
     // Decision sits next to the frozen first column so it stays in view; the note and the previous round go last.
     const [first, ...rest] = sheet.columns;
     const columns: WorkbookColumn[] = [
@@ -71,8 +73,9 @@ export function withDecisions(sheets: WorkbookSheet[], assessment: WorkbookAsses
     ];
     return { ...sheet, columns, rows: sheet.rows.map(row => {
       const d = decisions.get(row.id), before = previous.get(row.id), label = decisionLabels[d?.decision ?? 'open'];
-      const earlier = before ? `${decisionLabels[before.decision]}${before.note ? `: ${before.note}` : ''}` : '';
-      return { ...row, decision: d?.decision ?? 'open', search: `${row.search} ${label.toLowerCase()}`, values: { ...row.values, [decisionColumn]: label, [noteColumn]: noteText(d), ...(previous.size ? { [previousColumn]: earlier } : {}) } };
+      const fixed = corrected.has(row.id);
+      const earlier = before ? `${decisionLabels[before.decision]}${before.note ? `: ${before.note}` : ''}${fixed ? ' · corrected by the SUBEB' : ''}` : '';
+      return { ...row, decision: d?.decision ?? 'open', corrected: fixed || undefined, search: `${row.search} ${label.toLowerCase()}`, values: { ...row.values, [decisionColumn]: label, [noteColumn]: noteText(d), ...(previous.size ? { [previousColumn]: earlier } : {}) } };
     }) };
   });
 }

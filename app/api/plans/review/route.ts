@@ -6,6 +6,9 @@ import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
 import { canViewWholeStatePlan } from '@/lib/subeb-access';
 import { readStageVisibility, readSubmissionVisibility } from '@/lib/stage-visibility';
 import { NextRequest, NextResponse } from 'next/server';
+import { readOpenRejections } from '@/lib/ubec-corrections-db';
+import { rejectionProblem } from '@/lib/ubec-corrections';
+import { componentName } from '@/lib/ubec-flow';
 import { z } from 'zod';
 import { getPostgres } from '@/lib/postgres';
 import { getWorkspaceState } from '@/lib/workspace-state';
@@ -57,7 +60,11 @@ export async function GET(request: NextRequest) {
       const bySubmission = await readSubmissionVisibility(db, workspace, plan.id, submissions.map(submission => submission.number));
       const visibleSubmissions = submissions.filter(submission => (canViewWholeStatePlan(workspace) || visibleEvents.some(event => event.submissionNumber === submission.number)) && (bySubmission.get(submission.number)?.length ?? 0) > 0);
       if (requested && !visibleSubmissions.some(submission => submission.number === Number(requested))) return error('Submission not found', 404);
-      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => ceiling.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && readyForExecutiveChairman(pillarReviews, snapshot, { documentsRequired, fullAllocation }), executiveChairmanProblem: workspace.isBeapChair ? executiveChairmanProblem(pillarReviews, snapshot, { documentsRequired, fullAllocation }) : null, readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot, { documentsRequired, fullAllocation }), fullAllocation, observationProblem: canViewWholeStatePlan(workspace) ? (await readObservationStatus(db, plan.id)).problem : null, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, documentsRequired, snapshot: visibleSnapshot(snapshot, visiblePillars), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
+      // UBEC189: rejected items of a returned round not yet changed or removed, per component (the working plan only).
+      const allOpen = selectedSubmission ? {} : await readOpenRejections(db, plan.id, snapshot);
+      const ubecOpenRejections = Object.fromEntries(Object.entries(allOpen).filter(([pillar]) => (visiblePillars as readonly string[]).includes(pillar)));
+      const chairRejection = pillarReviews.filter(r => r.status === 'beap_review').map(r => rejectionProblem(componentName(r.pillar), allOpen[r.pillar])).find(Boolean) ?? null;
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => ceiling.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && !chairRejection && readyForExecutiveChairman(pillarReviews, snapshot, { documentsRequired, fullAllocation }), executiveChairmanProblem: workspace.isBeapChair ? executiveChairmanProblem(pillarReviews, snapshot, { documentsRequired, fullAllocation }) ?? chairRejection : null, ubecOpenRejections, readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot, { documentsRequired, fullAllocation }), fullAllocation, observationProblem: canViewWholeStatePlan(workspace) ? (await readObservationStatus(db, plan.id)).problem : null, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, documentsRequired, snapshot: visibleSnapshot(snapshot, visiblePillars), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }
@@ -80,10 +87,12 @@ export async function POST(request: NextRequest) {
       const snapshot = await readPlanSnapshot(db, plan.id);
       const beapChairSubmissionMode = await readBeapChairSubmissionMode(db);
       const readiness = await readReadinessOptions(db);
+      // UBEC189: after a UBEC return, a component goes on only once every item UBEC rejected has been changed or removed.
+      const openRejected = input.action === 'request_changes' ? {} : await readOpenRejections(db, plan.id, snapshot);
       if (input.action === 'forward' && beapChairSubmissionMode === 'complete_plan') {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send the plan to the SUBEB Executive Chairman', 403);
         if (input.pillar) return error('This state sends the complete BEAP to the Executive Chairman at once', 409);
-        { const problem = executiveChairmanProblem(reviews,snapshot,readiness); if (problem) return error(problem, 409); }
+        { const problem = executiveChairmanProblem(reviews,snapshot,readiness) ?? reviews.filter(r => r.status === 'beap_review').map(r => rejectionProblem(componentName(r.pillar), openRejected[r.pillar])).find(Boolean); if (problem) return error(problem, 409); }
         const recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Executive Chairman'", [workspace.stateCode])).rows;
         if (!recipients.length) return error('No active SUBEB Executive Chairman is configured for this state',409);
         await db.query("UPDATE plan_pillar_reviews SET status='chairman_ready',updated_at=NOW() WHERE plan_id=$1 AND status='beap_review'",[plan.id]);
@@ -95,6 +104,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({status:'awaiting_chairman'});
       }
       if (!input.pillar) return error('Choose a component for this review action');
+      { const problem = rejectionProblem(componentName(input.pillar), openRejected[input.pillar]); if (problem) return error(problem, 409); }
       const department = pillarDepartments[input.pillar];
       const current = reviews.find(r => r.pillar === input.pillar)!;
       let status: PillarReviewStatus;

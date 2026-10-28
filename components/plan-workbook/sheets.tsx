@@ -49,7 +49,7 @@ function infrastructureSheet(snapshot: Snapshot, editHref?: string): WorkbookShe
 function sportsSheet(snapshot: Snapshot, editHref?: string): WorkbookSheet {
   const byId = new Map(snapshot.sports.map(line => [String(line.id), line]));
   return {
-    key: 'sports', label: 'Sports', hash: 'review-sports', icon: Trophy, itemLabel: 'budget items', empty: 'No sports budget items', editHref, editLabel: 'Sports activities',
+    key: 'sports', label: 'Sports, Quiz & Debate', hash: 'review-sports', icon: Trophy, itemLabel: 'budget items', empty: 'No sports budget items', editHref, editLabel: 'Sports, Quiz & Debate Activities',
     columns: [text('item', 'Budget item', 270), text('code', 'Code', 180), text('section', 'Section', 124, true), text('activity', 'Sport / sub-activity', 170, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), qty('schools', 'Schools', true), qty('allocated', 'Allocated qty')],
     rows: snapshot.sports.map(line => row(String(line.id), {
       item: line.description, code: line.code, section: sectionNames[line.section] || line.section, activity: line.activity_type || '', timeline: quarters(line),

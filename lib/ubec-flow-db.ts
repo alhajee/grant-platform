@@ -1,4 +1,5 @@
 import type { QueryResult, QueryResultRow } from 'pg';
+import { readCorrections } from './ubec-corrections-db';
 import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
 import { activePillars, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound } from './ubec';
@@ -149,9 +150,11 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
     ? Object.fromEntries(departmentOfficers.length === 1 ? components.map(c => [c.pillar, [departmentOfficers[0].id]]) : [])
     : Object.fromEntries(components.map(c => [c.pillar, (defaults.get(c.pillar) ?? []).map(o => o.id).filter(officerId => available.has(officerId))]).filter(([, ids]) => ids.length));
   const openOversightComments = await openOversightCommentCount(db, round.id);
+  const allCorrected = await readCorrections(db, round);
+  const corrected = Object.fromEntries(Object.entries(allCorrected).filter(([pillar]) => visible.includes(pillar as ImplementedPillar)));
   return {
     releasedAt: iso(round.released_at ?? null), releasedByName: round.released_by_name ?? null, releaseComment: round.release_comment ?? '',
-    components, decisions: allDecisions.filter(d => visible.includes(d.pillar)), previousDecisions,
+    components, decisions: allDecisions.filter(d => visible.includes(d.pillar)), previousDecisions, corrected,
     abilities: viewer.role === ubecRoles.es ? flowAbilities({ ...viewer, role: '' }, round, latest, components) : flowAbilities(viewer, round, latest, all.filter(c => visible.includes(c.pillar))),
     officers: departmentOfficers, defaultOfficers, viewerId: viewer.id,
     allArrived: all.length > 0 && all.every(c => c.stage === 'chair'), approvable: approvableComponents(all) && !openOversightComments, openOversightComments,

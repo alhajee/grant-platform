@@ -45,6 +45,8 @@ export type DepartmentOfficer = { id: number; name: string; email: string; open:
 export type UbecFlow = {
   releasedAt: string | null; releasedByName: string | null; releaseComment: string;
   components: FlowComponent[]; decisions: ItemDecision[]; previousDecisions: ItemDecision[];
+  /** UBEC195: the previous round's rejected items the SUBEB changed before resubmitting, per component (row refs). */
+  corrected: Partial<Record<ImplementedPillar, string[]>>;
   abilities: FlowAbilities; officers: DepartmentOfficer[];
   /** Admin default officers per component, pre-ticked in the assign step (only for viewers who assign, among `officers`). */
   defaultOfficers: Partial<Record<ImplementedPillar, number[]>>;

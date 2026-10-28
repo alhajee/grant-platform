@@ -39,12 +39,16 @@ import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
 import { holdsComponent } from '@/lib/component-access';
 import { usePlanComments } from '@/components/plan-workbook/comments-context';
 import { UbecResultsCard, useUbecResults } from '@/components/plan-page/ubec-results';
+import { componentName } from '@/lib/ubec-flow';
+import { rejectionProblem } from '@/lib/ubec-corrections';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports activities' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
+const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value === 'infrastructure' ? 'Infrastructure' : value === 'sports' ? 'Sports, Quiz & Debate' : componentSections[value as ImplementedPillar]?.[0]?.name ?? value.replace(':', ' · line ');
 // Compulsory activities, line schools and documents, and the Sports caps must be in place before any send step.
 // The same checks the server runs on every send step, so a holder sees the problem on the card before sending.
-const readiness = (data: PlanReview, pillar: ImplementedPillar) => (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length ? emptyDistributionMessage(pillar) : null)
+// UBEC189: after a UBEC return, a component goes on only once its rejected items are changed or removed.
+const readiness = (data: PlanReview, pillar: ImplementedPillar) => rejectionProblem(componentName(pillar), data.ubecOpenRejections?.[pillar])
+  ?? (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length ? emptyDistributionMessage(pillar) : null)
   ?? (pillar === 'infrastructure' && data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot, { documentsRequired: data.documentsRequired }) : null)
   ?? componentSendProblem(pillar, data.snapshot, { documentsRequired: data.documentsRequired, fullAllocation: data.fullAllocation });
 // Budget lines saved but no distribution list: the send step shows, disabled, with the reason (from `readiness`).

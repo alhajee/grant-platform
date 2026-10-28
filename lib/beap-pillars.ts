@@ -3,7 +3,7 @@ export const beapComponents = [
   { id: "quality", name: "Quality Assurance", share: 5, description: "Strengthen standards and the quality of basic education", areas: ["Standards", "Quality"], href: "/beap/quality" },
   { id: "teachers", name: "Teacher development and ICT", share: 5, description: "Support teacher development and digital learning", areas: ["Teachers", "ICT"], href: "/beap/teachers" },
   { id: "sbmc", name: "SBMC", share: 5, description: "Support school-based management committees", areas: ["School management", "Community participation"], href: "/beap/sbmc" },
-  { id: "sports", name: "Sports activities", share: 2, description: "Create opportunities for children to play, participate and thrive", areas: ["Equipment", "Competitions", "School sports"], href: "/beap/sports" },
+  { id: "sports", name: "Sports, Quiz & Debate Activities", share: 2, description: "Create opportunities for children to play, participate and thrive", areas: ["Equipment", "Competitions", "School sports"], href: "/beap/sports" },
   { id: "monitoring", name: "Supervision and monitoring", share: 2, description: "Track delivery and supervise school projects", areas: ["Supervision", "Monitoring"], href: "/beap/monitoring" },
   { id: "curriculum", name: "Purchase and curriculum distribution", share: 2, description: "Plan curriculum purchases and distribution to schools", areas: ["Curriculum", "Distribution"], href: "/beap/curriculum" },
   { id: "planning", name: "Planning, EMIS & Data Platform", share: 2, description: "Strengthen education planning, research and data systems", areas: ["Planning", "EMIS", "Research", "Statistics"], href: "/beap/planning" },

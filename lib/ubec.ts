@@ -97,6 +97,7 @@ export type UbecDetail = {
 export type NationalItem = {
   /** Proposed budget by school level, components the viewer sees only (UBEC127, lib/level-mapping.ts). */
   levels?: import('./level-mapping').LevelMapping;
+  /** UBEC196: rejected items of the previous round the SUBEB corrected (resubmissions under review). */ corrected?: number;
   id: number; planId: number; state: string; stateCode: string; startYear: number; endYear: number; fundingQuarters?: number[] | null; status: string; round: number; submittedAt: string; decidedAt: string | null;
   budget: number; schools: string[]; infrastructure: number; sports: number;
   /** Released components not yet with the BEAP Chair, and components that have arrived. */

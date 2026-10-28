@@ -234,3 +234,7 @@
 .wb-grid tbody tr[data-decision=accept] > td.wb-decision { color: #1f6b43; background: color-mix(in srgb, #2f9e64 9%, var(--background)); }
 .wb-grid tbody tr[data-decision=reject] > td.wb-decision { color: var(--destructive); background: color-mix(in srgb, var(--destructive) 8%, var(--background)); }
 .wb-assessment > button { margin-left: auto; }
+
+/* UBEC195: rows the SUBEB corrected after a rejection read yellow until decided again. */
+.wb-grid tbody tr[data-corrected]:not([data-decision=accept]):not([data-decision=reject]) > td { background: color-mix(in srgb, #f5c542 16%, var(--background)); }
+.wb-grid tbody tr[data-corrected]:not([data-decision=reject]) > th.wb-gutter { box-shadow: inset 3px 0 0 #e0a800; }

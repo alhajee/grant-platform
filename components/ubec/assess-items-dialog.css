@@ -24,6 +24,8 @@
 .assess-item { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(170px, 220px); gap: 14px; align-items: start; padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 12px; background: var(--card); }
 .assess-item[data-decision=accept] { border-left-color: var(--primary); }
 .assess-item[data-decision=reject] { border-left-color: var(--destructive); }
+.assess-item[data-corrected]:not([data-decision=accept]):not([data-decision=reject]) { border-left-color: #e0a800; background: color-mix(in srgb, #f5c542 12%, var(--card)); }
+.assess-corrected { margin: 0; font-size: 12.5px; font-weight: 600; color: #8a5300; }
 .assess-item[data-selected] { background: color-mix(in srgb, var(--primary) 5%, var(--card)); }
 .assess-item > [data-slot=checkbox] { margin-top: 3px; }
 .assess-item-main { min-width: 0; display: flex; flex-direction: column; gap: 10px; }

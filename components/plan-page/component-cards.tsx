@@ -28,7 +28,7 @@ import { commentCount, ubecCount } from './review-action-dialog';
 /** What the viewer can do with one component card: open its editor, and the workflow step they hold (if any). */
 export type CardActions = { editHref?: string; step?: { label: string; run: () => void; /** Why the step cannot run yet (missing documents or compulsory activities); the button is then disabled. */ blocked?: string | null } };
 
-type CardProps = { plan: PlanReview['plan']; envelopePlan: EnvelopePlan; review: PillarReview; totals: PlanTotals; comments: CommentsController | null; actions: CardActions; /** False until the component has been sent to the viewer: the card then shows only its status. */ detail: boolean ; /** The latest UBEC decision (returned plans show their rejected items, UBEC188/190). */ ubec?: UbecResults['components'][number] | null};
+type CardProps = { plan: PlanReview['plan']; envelopePlan: EnvelopePlan; review: PillarReview; totals: PlanTotals; comments: CommentsController | null; actions: CardActions; /** False until the component has been sent to the viewer: the card then shows only its status. */ detail: boolean ; /** The latest UBEC decision (returned plans show their rejected items, UBEC188/190). */ ubec?: UbecResults['components'][number] | null; /** Rejected row refs not yet changed or removed (UBEC189). */ stillOpen?: readonly string[]};
 
 /**
  * Proposed amount against the component's ceiling (policy share plus its own funding sources): a slim bar, then "₦X of ₦Y".
@@ -74,7 +74,7 @@ const reviewLabel = (planStatus: string, status: PillarReviewStatus) =>
   : status === 'chairman_ready' && ['submitted_ubec', 'ubec_review'].includes(planStatus) ? 'With UBEC'
   : pillarReviewLabels[status];
 
-function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, detail, ubec }: CardProps) {
+function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, detail, ubec, stillOpen }: CardProps) {
   const { pillar } = review, section = componentSections[pillar][0], summary = totals[pillar];
   const ceilingValue = componentEnvelope(envelopePlan, pillar), ceiling = ceilingValue == null ? null : Number(ceilingValue);
   // Infrastructure and TLM in shared-pool mode: the ceiling is the pool they share, so the partner's proposals count against it too.
@@ -84,6 +84,7 @@ function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, 
   const sheet = `#review-${pillar}`, own = comments?.openCount(pillar) ?? 0, ubecOpen = (comments?.openCount(pillar, 'ubec') ?? 0) + (comments?.openCount(pillar, 'observation') ?? 0);
   const palette = componentPalette[pillar];
   const rejected = ubec?.items.filter(item => item.decision === 'reject') ?? [];
+  const fixedCount = rejected.filter(item => stillOpen && !stillOpen.includes(item.rowRef)).length;
   if (!detail) return <li className="component-card" data-component={pillar} data-pending style={{ '--component-fill': palette.fill, '--component-ink': palette.ink } as CSSProperties}>
     <span className="component-card-art" aria-hidden="true">{pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={pillar} standalone />}</span>
     <div className="component-card-body">
@@ -113,10 +114,11 @@ function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, 
       {own > 0 && <a className="review-open-comments card-pill" href={sheet} title={commentCount(own)} aria-label={commentCount(own)}><MessageSquareTextIcon aria-hidden="true" /><span className="card-pill-count" aria-hidden="true">{own}</span><span className="card-pill-label">{own} open</span></a>}
       {ubecOpen > 0 && <a className="review-open-comments review-ubec-comments card-pill" href={sheet} title={ubecCount(ubecOpen)} aria-label={ubecCount(ubecOpen)}><MessageSquareTextIcon aria-hidden="true" /><span className="card-pill-count" aria-hidden="true">{ubecOpen}</span><span className="card-pill-label">UBEC {ubecOpen}</span></a>}
       {/* UBEC188/190: the items UBEC rejected, in red; the list opens each one in its form to correct. */}
-      {rejected.length > 0 && <Popover><Tooltip><TooltipTrigger asChild><PopoverTrigger asChild><button type="button" className="review-open-comments review-ubec-rejections card-pill" aria-label={`${rejected.length} ${rejected.length === 1 ? 'item' : 'items'} rejected by UBEC. Show them`}><XCircleIcon aria-hidden="true" /><span className="card-pill-count" aria-hidden="true">{rejected.length}</span><span className="card-pill-label">{rejected.length} rejected</span></button></PopoverTrigger></TooltipTrigger>
+      {rejected.length > 0 && <Popover><Tooltip><TooltipTrigger asChild><PopoverTrigger asChild><button type="button" className="review-open-comments review-ubec-rejections card-pill" data-all-fixed={(rejected.length > 0 && fixedCount === rejected.length) || undefined} aria-label={`${rejected.length} ${rejected.length === 1 ? 'item' : 'items'} rejected by UBEC. Show them`}><XCircleIcon aria-hidden="true" /><span className="card-pill-count" aria-hidden="true">{rejected.length}</span><span className="card-pill-label">{fixedCount ? `${fixedCount}/${rejected.length} corrected` : `${rejected.length} rejected`}</span></button></PopoverTrigger></TooltipTrigger>
         <TooltipContent side="top" className="soft-tip max-w-xs"><strong>Rejected by UBEC</strong>{rejected.slice(0, 3).map(item => <span key={item.rowRef} className="block">{item.title}{item.note ? ` · ${item.note}` : ''}</span>)}{rejected.length > 3 && <span className="block">and {rejected.length - 3} more</span>}</TooltipContent></Tooltip>
         <PopoverContent align="start" className="ubec-rejections-popover"><p className="ubec-rejections-title">Rejected by UBEC · {rejected.length}</p><ul>{rejected.map(item => { const href = itemEditHref(actions.editHref, item.rowRef);
-          const body = <><span><b>{item.title}</b>{item.note && <small>“{item.note}”</small>}</span><span className="tabular-nums">{compactNaira.format(item.amount)}</span>{href && <ChevronRightIcon aria-hidden="true" />}</>;
+          const fixed = !!stillOpen && !stillOpen.includes(item.rowRef);
+          const body = <><span><b>{item.title}</b>{item.note && <small>“{item.note}”</small>}{fixed && <em className="ubec-rejection-fixed">Changed · UBEC will see it as corrected</em>}</span><span className="tabular-nums">{compactNaira.format(item.amount)}</span>{href && <ChevronRightIcon aria-hidden="true" />}</>;
           return <li key={item.rowRef}>{href ? <a href={href} title="Open this item in the form to correct it">{body}</a> : <div>{body}</div>}</li>; })}</ul>
           {!actions.editHref && <p className="ubec-rejections-hint">The component&apos;s Data Entry Staff correct these items</p>}</PopoverContent></Popover>}
       {actions.step && (actions.step.blocked
@@ -144,7 +146,7 @@ export function ComponentCards({ data, totals, comments, actionsFor, ubec }: { d
         <Separator className="component-group-rule" />
       </div>
       <ul className="component-cards">
-        {group.items.map(review => <ComponentCard key={review.pillar} plan={data.plan} envelopePlan={envelopePlan} review={review} totals={totals} comments={comments} actions={actionsFor(review)} detail={data.visiblePillars.includes(review.pillar)} ubec={returned.find(c => c.pillar === review.pillar)} />)}
+        {group.items.map(review => <ComponentCard key={review.pillar} plan={data.plan} envelopePlan={envelopePlan} review={review} totals={totals} comments={comments} actions={actionsFor(review)} detail={data.visiblePillars.includes(review.pillar)} ubec={returned.find(c => c.pillar === review.pillar)} stillOpen={data.ubecOpenRejections ? data.ubecOpenRejections[review.pillar] ?? [] : undefined} />)}
       </ul>
     </section>)}
   </div>;

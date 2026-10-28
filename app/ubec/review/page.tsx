@@ -92,7 +92,7 @@ export default function UbecReviewPage() {
       if (problem) toast.error(problem);
       return !problem;
     };
-    return { pillars: flow.components.map(c => c.pillar), decisions: byPillar(flow.decisions), previous: byPillar(flow.previousDecisions),
+    return { pillars: flow.components.map(c => c.pillar), decisions: byPillar(flow.decisions), previous: byPillar(flow.previousDecisions), corrected: pillar => new Set(flow.corrected?.[pillar] ?? []),
       canDecide: pillar => !!can?.assess.includes(pillar) || !!can?.override?.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }),
       canObserve: pillar => !!can?.observe.includes(pillar), observe: pillar => setRequest({ kind: 'observe', pillar }), canComment: pillar => !!can?.comment?.includes(pillar),
       oversightDone: pillar => flow.components.find(c => c.pillar === pillar)?.oversight.map(o => o.department) ?? [],

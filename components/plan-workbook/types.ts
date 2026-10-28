@@ -8,7 +8,7 @@ export type ColumnKind = 'text' | 'number' | 'money';
 /** `cell` draws the cell (e.g. a map link) in place of the formatted value, which still serves copying, search and export. */
 export type WorkbookColumn = { id: string; header: string; kind: ColumnKind; size?: number; filter?: boolean; total?: boolean; cell?: (row: WorkbookRow) => ReactNode };
 /** `decision`: the UBEC item decision, on assessed component sheets only (assessment-context.tsx). */
-export type WorkbookRow = { id: string; values: Record<string, CellValue>; search: string; expandable?: boolean; decision?: 'accept' | 'reject' | 'open' };
+export type WorkbookRow = { id: string; values: Record<string, CellValue>; search: string; expandable?: boolean; decision?: 'accept' | 'reject' | 'open'; /** UBEC195: rejected on the previous submission and corrected since. */ corrected?: boolean };
 export type WorkbookSheet = {
   key: SheetKey; label: string; hash: string; icon: ComponentType<{ className?: string }>;
   itemLabel: string; empty: string; columns: WorkbookColumn[]; rows: WorkbookRow[];

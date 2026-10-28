@@ -1,4 +1,6 @@
 import { CircleAlertIcon, ScanEyeIcon, SendIcon } from 'lucide-react';
+import { rejectionProblem } from '@/lib/ubec-corrections';
+import { componentName } from '@/lib/ubec-flow';
 import { Button } from '@/components/ui/button';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { statePlanOpen } from '@/lib/pillar-review';
@@ -29,7 +31,9 @@ export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSe
   }
   if (data.role !== 'Executive Chairman') return null;
   // Observations asked of UBEC Audit, Procurement or Finance hold the send until they are in and resolved.
-  const observations = data.observationProblem ?? null;
+  // UBEC189: and so do items UBEC rejected that nobody has changed or removed yet.
+  const rejected = data.pillarReviews.filter(r => r.status === 'chairman_ready').map(r => rejectionProblem(componentName(r.pillar), data.ubecOpenRejections?.[r.pillar])).find(Boolean) ?? null;
+  const observations = data.observationProblem ?? rejected;
   return <div className="workflow-bar">
     <p>{count(['chairman_ready'])} {of} ready{data.ubecSubmissionMode === 'reviewed_components' ? '. Only ready components are sent to UBEC.' : ''}</p>
     <div className="flex flex-wrap gap-2">

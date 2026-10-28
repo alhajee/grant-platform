@@ -195,11 +195,16 @@ try {
   fails(await api('chair', `/api/ubec/results${q}`), 403);
   step('approval is blocked while an item is rejected; the BEAP Chair returns the whole plan; the return lands with the SUBEB BEAP Chair, who sends it down to the Director and Data Entry; shared threads and item results reach the state by department');
 
+  // UBEC189: the rejected item must be changed (or removed) before Data Entry can send the component on.
+  fails(await api('desA', statePath, { action: 'submit', pillar: 'sports', version: ok(await api('desA', statePath)).plan.version, comment: 'Nothing changed.' }), 409, /Correct the item UBEC rejected in Sports, Quiz & Debate Activities first/);
+  assert.deepEqual(ok(await api('desA', statePath)).ubecOpenRejections, { sports: [String(sportsLine)] });
   ok(await api('desA', sports, { ...budget, action: 'update', id: sportsLine, quantity: 6, description: 'Revised equipment' }));
+  assert.deepEqual(ok(await api('desA', statePath)).ubecOpenRejections, {}, 'a changed item no longer blocks');
   await throughState('sports', 'desA', 'dirA', 'Quantity reduced.');
   ok(await api('ec', path, { action: 'submit', version: ok(await api('ec', path)).plan.version, comment: 'Revised the equipment specification.' }));
   const second = await view('chair');
   assert.equal(second.round.number, 2); assert.equal(second.round.status, 'received'); assert.ok(second.flow.previousDecisions.some(d => d.pillar === 'sports' && d.decision === 'reject'));
+  assert.deepEqual(second.flow.corrected, { sports: [String(sportsLine)] }, 'UBEC sees the rejected item as corrected (UBEC195)');
   ok(await act('chair', 'release', { comment: 'Resubmission received.' }));
   assert.equal((await view('dpp')).round.number, 1, 'round 2 has no Physical Planning component, so its Director sees only round 1 history');
   ok(await step2('dacs', 'assign_officers', 'sports', { officerIds: [users.offA], comment: 'Check the revision.' }));

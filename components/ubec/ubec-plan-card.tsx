@@ -25,7 +25,7 @@ export function UbecPlanCard({ item, action }: { item: NationalItem; action?: st
     <PlanCardStateShape stateCode={item.stateCode} seed={item.startYear + item.planId} />
     <CardHeader className="plan-card-header">
       <div className="min-w-0"><CardTitle><h3>{item.state}</h3></CardTitle><CardDescription>{planPeriod(item)} BEAP · Submission {item.round}</CardDescription></div>
-      <Badge variant={item.status === 'returned' ? 'warning' : item.status === 'approved' ? 'default' : 'secondary'}>{nationalStatusLabels[item.status]}</Badge>
+      <span className="ubec-card-badges"><Badge variant={item.status === 'returned' ? 'warning' : item.status === 'approved' ? 'default' : 'secondary'}>{nationalStatusLabels[item.status]}</Badge>{item.corrected ? <Badge className="ubec-corrected-badge" title="Items UBEC rejected last time that the SUBEB changed">{item.corrected} corrected</Badge> : null}</span>
     </CardHeader>
     <CardContent>
       <p className="plan-funding-label">{funding ? 'Available funding' : 'Proposed'}</p>

@@ -1,4 +1,5 @@
 import { levelMapping } from '@/lib/level-mapping';
+import { readCorrections } from '@/lib/ubec-corrections-db';
 import { NextRequest, NextResponse } from 'next/server';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
@@ -51,6 +52,8 @@ export async function GET(request: NextRequest) {
       return false;
     });
     const queue: UbecQueueItem[] = [];
+    // UBEC196: resubmitted plans say how many rejected items the SUBEB corrected (open rounds only).
+    const corrections = new Map(await Promise.all(rounds.filter(r => r.number > 1 && ['received', 'reviewing'].includes(r.status)).map(async r => [r.id, await readCorrections(db, r)] as const)));
     const items: NationalItem[] = rounds.map(r => {
       const pillars = visibleIn(r), state = stateDisplayName(r.state_code), period = planPeriod({ startYear: r.start_year, endYear: r.end_year, fundingQuarters: r.funding_quarters });
       const href = `/ubec/review?plan=${r.plan_id}`, open = r.status === 'reviewing';
@@ -88,6 +91,7 @@ export async function GET(request: NextRequest) {
         pending: open ? released.filter(p => p.stage !== 'chair').length : 0, completed: released.filter(p => p.stage === 'chair').length,
         fundingTotal: r.snapshot.setup?.fundingTotal != null ? Number(r.snapshot.setup.fundingTotal) : null, amounts, components: pipeline,
         levels: levelMapping(ubecVisibleSnapshot(r.snapshot, pillars)),
+        corrected: Object.entries(corrections.get(r.id) ?? {}).filter(([pillar]) => pillars.includes(pillar as ImplementedPillar)).reduce((sum, [, refs]) => sum + refs.length, 0),
       };
     });
     const departments = [...new Set(components.filter(c => items.some(i => i.id === c.round_id && i.components?.some(p => p.pillar === c.pillar))).map(c => c.department))];

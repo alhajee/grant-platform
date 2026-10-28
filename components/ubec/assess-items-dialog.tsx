@@ -21,8 +21,8 @@ import type { Snapshot } from '@/lib/plan-review';
 import type { ItemDecisionValue } from '@/lib/ubec-flow';
 import { nairaFormat } from '@/lib/money-format';
 
-type Filter = 'all' | 'open' | 'accept' | 'reject';
-const filterLabels: Record<Filter, string> = { all: 'All', open: 'To decide', accept: 'Accepted', reject: 'Rejected' };
+type Filter = 'all' | 'open' | 'accept' | 'reject' | 'corrected';
+const filterLabels: Record<Filter, string> = { all: 'All', open: 'To decide', accept: 'Accepted', reject: 'Rejected', corrected: 'Corrected' };
 
 /**
  * UBEC138: the Assessment Officer's "Assess items" screen, laid out like the SUBEB editors. Activities (or Sports
@@ -45,7 +45,7 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
   const items = useMemo(() => assessmentItems(snapshot, pillar), [snapshot, pillar]);
   const groups = useMemo(() => groupItems(items), [items]);
   const extraDocuments = useMemo(() => componentDocuments(snapshot, pillar), [snapshot, pillar]);
-  const decisions = assessment.decisions(pillar), previous = assessment.previous(pillar);
+  const decisions = assessment.decisions(pillar), previous = assessment.previous(pillar), corrected = assessment.corrected?.(pillar) ?? new Set<string>();
   const can = assessment.canDecide(pillar);
   const [group, setGroup] = useState<string | null>(null), [filter, setFilter] = useState<Filter>('all');
   const [selected, setSelected] = useState<string[]>([]), [busy, setBusy] = useState(false);
@@ -55,7 +55,9 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
 
   const status = (item: AssessmentItem): Filter => decisions.get(item.rowRef)?.decision ?? 'open';
   const inGroup = group ? items.filter(i => i.group === group) : items;
-  const shown = filter === 'all' ? inGroup : inGroup.filter(i => status(i) === filter);
+  // UBEC195: "Corrected" lists the items rejected last time that the SUBEB changed.
+  const matches = (i: AssessmentItem, f: Filter) => f === 'all' || (f === 'corrected' ? corrected.has(i.rowRef) : status(i) === f);
+  const shown = inGroup.filter(i => matches(i, filter));
   const decided = items.filter(i => decisions.has(i.rowRef)).length;
   const counts = (list: readonly AssessmentItem[]) => ({ decided: list.filter(i => decisions.has(i.rowRef)).length, total: list.length });
   // Only the ticked items the filter shows count (UBEC175: "To decide · 6" then Select all must be 6, not 7).
@@ -91,7 +93,7 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
           <div className="assess-toolbar">
             {can && <Checkbox checked={allShownSelected} disabled={!shown.length || busy} aria-label="Select every item shown" onCheckedChange={on => setSelected(on === true ? [...new Set([...selected, ...shown.map(i => i.rowRef)])] : selected.filter(r => !shown.some(i => i.rowRef === r)))} />}
             <ToggleGroup type="single" variant="outline" size="sm" value={filter} onValueChange={value => { if (value) { setFilter(value as Filter); setSelected([]); } }} aria-label="Show">
-              {(Object.keys(filterLabels) as Filter[]).map(f => <ToggleGroupItem key={f} value={f}>{filterLabels[f]} · {f === 'all' ? inGroup.length : inGroup.filter(i => status(i) === f).length}</ToggleGroupItem>)}
+              {(Object.keys(filterLabels) as Filter[]).filter(f => f !== 'corrected' || corrected.size > 0).map(f => <ToggleGroupItem key={f} value={f}>{filterLabels[f]} · {inGroup.filter(i => matches(i, f)).length}</ToggleGroupItem>)}
             </ToggleGroup>
             {can && <span className="assess-bulk">
               <span>{picked.length ? `${picked.length} selected` : 'Tick items to decide several'}</span>
@@ -103,7 +105,7 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
           {!shown.length ? <UbecEmpty art={<NoItemsArt />} title={filter === 'all' ? 'No items here' : `No ${filterLabels[filter].toLowerCase()} items`}>{filter === 'open' ? 'Every item here has been decided' : 'Choose another activity or filter'}</UbecEmpty>
             : <ul className="assess-list">{shown.map(item => {
               const d = decisions.get(item.rowRef), before = previous.get(item.rowRef);
-              return <li key={item.rowRef} className="assess-item" data-decision={d?.decision ?? 'open'} data-selected={selected.includes(item.rowRef) || undefined}>
+              return <li key={item.rowRef} className="assess-item" data-decision={d?.decision ?? 'open'} data-corrected={corrected.has(item.rowRef) || undefined} data-selected={selected.includes(item.rowRef) || undefined}>
                 {can && <Checkbox checked={selected.includes(item.rowRef)} disabled={busy} aria-label={`Select ${item.title}`} onCheckedChange={on => toggle(item.rowRef, on === true)} />}
                 <div className="assess-item-main">
                   <div className="assess-item-head"><div><strong>{item.title}</strong>{item.subtitle && <small>{item.subtitle}</small>}{!group && <small>{item.group}</small>}</div><b>{nairaFormat.format(item.amount)}</b></div>
@@ -111,6 +113,7 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
                   <div className="assess-docs">{item.documents.length ? item.documents.map(doc => <a key={doc.id} href={doc.href} title={`Open ${doc.name}`} onClick={e => { e.preventDefault(); openDocument(doc); }}><FileTextIcon aria-hidden="true" />{doc.label ? <em>{doc.label}</em> : null}<span>{doc.name}</span></a>) : <span className="assess-no-docs">No documents uploaded</span>}</div>
                   {item.package && <details className="assess-package"><summary><ChevronDownIcon aria-hidden="true" />Requirements</summary><InfrastructurePackageDetails record={item.package} /></details>}
                   {before && <p className="assess-previous"><HistoryIcon aria-hidden="true" />Previous submission: {before.decision === 'accept' ? 'Accepted' : 'Rejected'}{before.note ? ` · ${before.note}` : ''}</p>}
+                  {corrected.has(item.rowRef) && <p className="assess-corrected">Corrected by the SUBEB since it was rejected. Accept or reject it again</p>}
                 </div>
                 <div className="assess-item-decision">
                   {d ? <Badge variant={d.decision === 'accept' ? 'secondary' : 'destructive'}>{d.decision === 'accept' ? <CheckIcon aria-hidden="true" /> : <XIcon aria-hidden="true" />}{d.decision === 'accept' ? 'Accepted' : 'Rejected'}</Badge> : <Badge variant="outline">To decide</Badge>}

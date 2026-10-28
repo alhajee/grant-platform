@@ -1,6 +1,8 @@
 import { withDistributionCoordinates } from '@/lib/distribution-coordinates';
 import { readReadinessOptions } from '@/lib/full-allocation-setting';
 import { NextRequest, NextResponse } from 'next/server';
+import { readOpenRejections } from '@/lib/ubec-corrections-db';
+import { rejectionProblem } from '@/lib/ubec-corrections';
 import { canViewWholeStatePlan } from '@/lib/subeb-access';
 import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
@@ -9,13 +11,13 @@ import { isSameRequestOrigin } from '@/lib/request-origin';
 import { activePillars, isUbec, pillarDepartments, ubecRoles, type UbecRound, type UbecAssignment } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
-import { aggregateReviewStatus, componentSendProblem, readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
+import { aggregateReviewStatus, componentSendProblem, componentsWithExecutiveChairman, readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
 import { readUbecSubmissionMode } from '@/lib/workflow-settings';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { shareCommentIdsSchema } from '@/lib/plan-comments';
 import { shareableThreadIds } from '@/lib/ubec-comments';
 import { addUbecEvent, approvableComponents, notifyUbec, openOversightCommentCount, oversightCommentsMessage, readActor, readDecisions, readFlow, readRoundComponents, readViewerRounds, releaseRows, ubecVisibleSnapshot, viewerPillars } from '@/lib/ubec-flow-db';
-import { superAdminRole } from '@/lib/ubec-flow';
+import { componentName, superAdminRole } from '@/lib/ubec-flow';
 import { readObservationStatus } from '@/lib/observation-requests-db';
 import { subebComponentDepartments, type ImplementedPillar } from "@/lib/beap-pillars";
 
@@ -62,7 +64,8 @@ export async function GET(request: NextRequest) {
       const reviews = user.role === 'Executive Chairman' ? await readPillarReviews(db, plan.id) : [];
       const canSubmit = user.role === 'Executive Chairman' && (!allRounds[0] || allRounds[0].status === 'returned') && (ubecMode === 'reviewed_components' ? statePlanOpen(plan.status) : plan.status === 'awaiting_chairman') && readyForUbecSubmission(ubecMode, reviews, await readPlanSnapshot(db, plan.id), await readReadinessOptions(db))
         // Observations the Executive Chairman asked UBEC Audit, Procurement or Finance for must be in and resolved (row 156).
-        && !(await readObservationStatus(db, plan.id)).problem;
+        && !(await readObservationStatus(db, plan.id)).problem
+        && !Object.keys(await readOpenRejections(db, plan.id, await readPlanSnapshot(db, plan.id))).some(p => componentsWithExecutiveChairman(reviews).includes(p as ImplementedPillar));
       const setup = round?.snapshot.setup;
       const fundingTotal = setup?.fundingTotal != null ? Number(setup.fundingTotal) : null;
       return NextResponse.json({
@@ -109,6 +112,8 @@ export async function POST(request: NextRequest) {
         if (unready) return error(componentSendProblem(unready, snapshot, readiness)!, 409);
         const observations = (await readObservationStatus(db, plan.id)).problem;
         if (observations) return error(observations, 409);
+        // UBEC189: the components going to UBEC must have every rejected item of the returned round changed or removed.
+        { const open = await readOpenRejections(db, plan.id, snapshot); const sent = componentsWithExecutiveChairman(reviews); const problem = sent.map(p => rejectionProblem(componentName(p), open[p])).find(Boolean); if (problem) return error(problem, 409); }
         if (!readyForUbecSubmission(ubecMode, reviews, snapshot, readiness)) return error(partial ? 'At least one component must reach the Executive Chairman before sending to UBEC.' : 'Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(ubecSubmissionSnapshot(snapshot, reviews)), user.id])).rows[0];
         status = 'submitted_ubec';
