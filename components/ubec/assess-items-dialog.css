@@ -56,6 +56,21 @@
 .assess-package[open] summary svg { transform: rotate(180deg); }
 .assess-package[open] summary { margin-bottom: 12px; }
 .assess-package { overflow-x: auto; }
+/* UBEC186: observations per item, and the grid layout. */
+.assess-observed { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted-foreground); }
+.assess-observed svg { width: 15px; height: 15px; }
+.assess-observations { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--primary) 5%, var(--card)); font-size: 13px; }
+.assess-observation p { margin: 0; overflow-wrap: anywhere; }
+.assess-observation-reply { padding-left: 12px; border-left: 2px solid var(--border); margin-top: 4px !important; }
+.assess-observation small { color: var(--muted-foreground); font-size: 12px; }
+.assess-observation[data-resolved] { opacity: .7; }
+.assess-observation-add { display: flex; flex-direction: column; gap: 6px; }
+.assess-item-head b { white-space: nowrap; }
+.assess-list[data-layout=grid] { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); align-items: start; }
+.assess-list[data-layout=grid] .assess-item { grid-template-columns: auto minmax(0, 1fr); }
+.assess-list[data-layout=grid] .assess-item-decision { grid-column: 2; align-items: flex-start; text-align: left; }
+.assess-list .assess-item[data-observing] { grid-template-columns: minmax(0, 1fr); }
+.assess-list .assess-item[data-observing] .assess-item-decision { grid-column: 1; grid-row: 1; flex-direction: row; align-items: center; justify-content: flex-start; text-align: left; }
 @media (max-width: 900px) {
   .assess-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .assess-groups { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 16px; }

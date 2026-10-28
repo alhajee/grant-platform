@@ -1,7 +1,9 @@
 'use client';
 import './assess-items-dialog.css';
 import { useMemo, useState } from 'react';
-import { CheckIcon, ChevronDownIcon, ClipboardCheckIcon, FileTextIcon, HistoryIcon, Undo2Icon, XIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon, ClipboardCheckIcon, FileTextIcon, HistoryIcon, LayoutGridIcon, ListIcon, MessageSquareTextIcon, ShieldCheckIcon, Undo2Icon, XIcon } from 'lucide-react';
+import type { CommentsController } from '@/components/plan-workbook/comments-context';
+import type { CommentSheet } from '@/lib/plan-comments';
 import { DocumentPreview, type DocumentFile } from '@/components/document-files';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
 import { Badge } from '@/components/ui/badge';
@@ -31,22 +33,30 @@ const filterLabels: Record<Filter, string> = { all: 'All', open: 'To decide', ac
  * together; a rejection needs a reason (UBEC176). Documents open in the app (UBEC175); Infrastructure items show their
  * package's requirements (UBEC174). Ticking works on the items the filter shows. Saves through the page's `assessment.decide` (PUT /api/ubec/decisions),
  * the same as the workbook, which stays available.
+ * UBEC186: the Oversight Departments (Directors and their officers) open the same screen to review items: each item takes
+ * an observation (a UBEC row comment, or a reply to the open one), and the Oversight Director finishes with Observations
+ * done. Items show as a list or a grid.
  */
-export function AssessItemsDialog({ open, onOpenChange, pillar, name, snapshot, assessment }: {
-  open: boolean; onOpenChange: (open: boolean) => void; pillar: ImplementedPillar; name: string; snapshot: Snapshot; assessment: WorkbookAssessment | null;
+export function AssessItemsDialog({ open, onOpenChange, pillar, name, snapshot, assessment, comments }: {
+  open: boolean; onOpenChange: (open: boolean) => void; pillar: ImplementedPillar; name: string; snapshot: Snapshot; assessment: WorkbookAssessment | null; comments?: CommentsController | null;
 }) {
   if (!assessment) return null;
-  return <AssessItems open={open} onOpenChange={onOpenChange} pillar={pillar} name={name} snapshot={snapshot} assessment={assessment} />;
+  return <AssessItems open={open} onOpenChange={onOpenChange} pillar={pillar} name={name} snapshot={snapshot} assessment={assessment} comments={comments ?? null} />;
 }
 
-function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }: {
-  open: boolean; onOpenChange: (open: boolean) => void; pillar: ImplementedPillar; name: string; snapshot: Snapshot; assessment: WorkbookAssessment;
+function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment, comments }: {
+  open: boolean; onOpenChange: (open: boolean) => void; pillar: ImplementedPillar; name: string; snapshot: Snapshot; assessment: WorkbookAssessment; comments: CommentsController | null;
 }) {
   const items = useMemo(() => assessmentItems(snapshot, pillar), [snapshot, pillar]);
   const groups = useMemo(() => groupItems(items), [items]);
   const extraDocuments = useMemo(() => componentDocuments(snapshot, pillar), [snapshot, pillar]);
   const decisions = assessment.decisions(pillar), previous = assessment.previous(pillar), corrected = assessment.corrected?.(pillar) ?? new Set<string>();
   const can = assessment.canDecide(pillar);
+  // UBEC186: Oversight Directors and their officers review items and add observations.
+  const observing = !can && (assessment.canObserve(pillar) || !!assessment.canComment?.(pillar));
+  const [layout, setLayout] = useState<'list' | 'grid'>('list');
+  const threadsFor = (rowRef: string) => (comments?.threads ?? []).filter(t => t.scope === 'ubec' && t.sheet === pillar && t.rowRef === rowRef);
+  const observations = items.filter(i => threadsFor(i.rowRef).some(t => !t.resolvedAt)).length;
   const [group, setGroup] = useState<string | null>(null), [filter, setFilter] = useState<Filter>('all');
   const [selected, setSelected] = useState<string[]>([]), [busy, setBusy] = useState(false);
   const [rejecting, setRejecting] = useState<string[] | null>(null), [reason, setReason] = useState('');
@@ -77,9 +87,11 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
   return <Dialog open={open} onOpenChange={next => { if (!busy) onOpenChange(next); }}>
     <DialogContent className="assess-dialog" showCloseButton={!busy} onInteractOutside={event => event.preventDefault()}>
       <DialogHeader className="assess-head">
-        <div className="assess-head-title"><DialogTitle>Assess {name}</DialogTitle>
-          <DialogDescription>{can ? 'Accept or reject each item. Tick several to decide them together' : 'You can read the items and their documents; deciding is for the assigned officers'}</DialogDescription></div>
+        <div className="assess-head-title"><DialogTitle>{observing ? 'Review' : 'Assess'} {name}</DialogTitle>
+          <DialogDescription>{can ? 'Accept or reject each item. Tick several to decide them together' : observing ? 'Add your observation on any item. Accepting and rejecting is for the component\'s officers' : 'You can read the items and their documents; deciding is for the assigned officers'}</DialogDescription></div>
         <div className="assess-progress"><Progress value={items.length ? decided / items.length * 100 : 0} aria-label={`${decided} of ${items.length} decided`} /><span>{decided} of {items.length} decided</span></div>
+        {observing && <span className="assess-observed"><MessageSquareTextIcon aria-hidden="true" />{observations} {observations === 1 ? 'item' : 'items'} with open observations</span>}
+        {assessment.canObserve(pillar) && <Button className="rounded-full" disabled={busy} onClick={() => { onOpenChange(false); assessment.observe(pillar); }}><ShieldCheckIcon data-icon="inline-start" />Observations done</Button>}
         {complete && <Button className="rounded-full" disabled={busy || decided < items.length} title={decided < items.length ? `Decide the remaining ${items.length - decided} items first` : undefined} onClick={() => { onOpenChange(false); assessment.complete(pillar); }}><ClipboardCheckIcon data-icon="inline-start" />Complete assessment</Button>}
       </DialogHeader>
       <div className="assess-body">
@@ -95,6 +107,9 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
             <ToggleGroup type="single" variant="outline" size="sm" value={filter} onValueChange={value => { if (value) { setFilter(value as Filter); setSelected([]); } }} aria-label="Show">
               {(Object.keys(filterLabels) as Filter[]).filter(f => f !== 'corrected' || corrected.size > 0).map(f => <ToggleGroupItem key={f} value={f}>{filterLabels[f]} · {inGroup.filter(i => matches(i, f)).length}</ToggleGroupItem>)}
             </ToggleGroup>
+            <ToggleGroup type="single" variant="outline" size="sm" value={layout} onValueChange={value => { if (value) setLayout(value as 'list' | 'grid'); }} aria-label="Layout">
+              <ToggleGroupItem value="list" aria-label="List" title="List"><ListIcon /></ToggleGroupItem><ToggleGroupItem value="grid" aria-label="Grid" title="Grid"><LayoutGridIcon /></ToggleGroupItem>
+            </ToggleGroup>
             {can && <span className="assess-bulk">
               <span>{picked.length ? `${picked.length} selected` : 'Tick items to decide several'}</span>
               <Button size="sm" className="rounded-full" disabled={!picked.length || busy} onClick={() => void decide(picked, 'accept')}>{busy ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}Accept</Button>
@@ -103,9 +118,9 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
             </span>}
           </div>
           {!shown.length ? <UbecEmpty art={<NoItemsArt />} title={filter === 'all' ? 'No items here' : `No ${filterLabels[filter].toLowerCase()} items`}>{filter === 'open' ? 'Every item here has been decided' : 'Choose another activity or filter'}</UbecEmpty>
-            : <ul className="assess-list">{shown.map(item => {
+            : <ul className="assess-list" data-layout={layout}>{shown.map(item => {
               const d = decisions.get(item.rowRef), before = previous.get(item.rowRef);
-              return <li key={item.rowRef} className="assess-item" data-decision={d?.decision ?? 'open'} data-corrected={corrected.has(item.rowRef) || undefined} data-selected={selected.includes(item.rowRef) || undefined}>
+              return <li key={item.rowRef} className="assess-item" data-observing={observing || undefined} data-decision={d?.decision ?? 'open'} data-corrected={corrected.has(item.rowRef) || undefined} data-selected={selected.includes(item.rowRef) || undefined}>
                 {can && <Checkbox checked={selected.includes(item.rowRef)} disabled={busy} aria-label={`Select ${item.title}`} onCheckedChange={on => toggle(item.rowRef, on === true)} />}
                 <div className="assess-item-main">
                   <div className="assess-item-head"><div><strong>{item.title}</strong>{item.subtitle && <small>{item.subtitle}</small>}{!group && <small>{item.group}</small>}</div><b>{nairaFormat.format(item.amount)}</b></div>
@@ -114,6 +129,7 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
                   {item.package && <details className="assess-package"><summary><ChevronDownIcon aria-hidden="true" />Requirements</summary><InfrastructurePackageDetails record={item.package} /></details>}
                   {before && <p className="assess-previous"><HistoryIcon aria-hidden="true" />Previous submission: {before.decision === 'accept' ? 'Accepted' : 'Rejected'}{before.note ? ` · ${before.note}` : ''}</p>}
                   {corrected.has(item.rowRef) && <p className="assess-corrected">Corrected by the SUBEB since it was rejected. Accept or reject it again</p>}
+                  {comments && (observing || threadsFor(item.rowRef).length > 0) && <ItemObservations sheet={pillar as CommentSheet} rowRef={item.rowRef} threads={threadsFor(item.rowRef)} comments={comments} canWrite={observing && comments.abilities(pillar).start} />}
                 </div>
                 <div className="assess-item-decision">
                   {d ? <Badge variant={d.decision === 'accept' ? 'secondary' : 'destructive'}>{d.decision === 'accept' ? <CheckIcon aria-hidden="true" /> : <XIcon aria-hidden="true" />}{d.decision === 'accept' ? 'Accepted' : 'Rejected'}</Badge> : <Badge variant="outline">To decide</Badge>}
@@ -139,4 +155,27 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment }:
       {preview && <DocumentPreview document={preview} onClose={() => setPreview(null)} />}
     </DialogContent>
   </Dialog>;
+}
+
+/** UBEC186: the UBEC comments on one item, and a box to add an observation (a reply when the item already has an open one). */
+function ItemObservations({ sheet, rowRef, threads, comments, canWrite }: { sheet: CommentSheet; rowRef: string; threads: CommentsController['threads']; comments: CommentsController; canWrite: boolean }) {
+  const [body, setBody] = useState(''), [saving, setSaving] = useState(false);
+  const open = threads.find(t => !t.resolvedAt);
+  async function send() {
+    if (!body.trim() || saving) return;
+    setSaving(true);
+    try { if (await (open ? comments.reply(open.id, body.trim()) : comments.create(sheet, rowRef, null, body.trim()))) setBody(''); }
+    finally { setSaving(false); }
+  }
+  return <div className="assess-observations">
+    {threads.map(t => <div key={t.id} className="assess-observation" data-resolved={t.resolvedAt ? true : undefined}>
+      <p><b>{t.authorName}</b> {t.body}</p>
+      {t.replies.map(r => <p key={r.id} className="assess-observation-reply"><b>{r.authorName}</b> {r.body}</p>)}
+      {t.resolvedAt && <small>Resolved{t.resolvedByName ? ` by ${t.resolvedByName}` : ''}</small>}
+    </div>)}
+    {canWrite && <div className="assess-observation-add">
+      <Textarea rows={2} maxLength={2000} value={body} disabled={saving} placeholder={open ? 'Reply to the observation on this item' : 'Add an observation on this item'} aria-label={`Observation on this item`} onChange={e => setBody(e.target.value)} />
+      <Button size="sm" variant="outline" className="rounded-full self-end" disabled={!body.trim() || saving} onClick={() => void send()}>{saving ? <Spinner data-icon="inline-start" /> : <MessageSquareTextIcon data-icon="inline-start" />}{open ? 'Reply' : 'Add observation'}</Button>
+    </div>}
+  </div>;
 }
