@@ -11,9 +11,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { ConfirmStep, useConfirmStep } from '@/components/confirm-step';
 import { planPeriod, type ActionPlan } from '@/lib/action-plans';
 import { listDepartments, observationDepartmentIds } from '@/lib/observation-requests';
-import { oversightDepartments, type OversightDepartment } from '@/lib/ubec';
+import { oversightDepartments, type OversightDepartment, oversightList } from '@/lib/ubec';
 
-const looksAt: Record<OversightDepartment, string> = { audit: 'Compliance and controls across the plan', procurement: 'Items to buy, prices and procurement methods', finance: 'Funding, costs and budget lines' };
+const looksAt: Record<OversightDepartment, string> = { audit: 'Compliance and controls across the plan', procurement: 'Items to buy, prices and procurement methods', finance: 'Funding, costs and budget lines', special: 'Special programmes and their beneficiaries' };
 
 /**
  * The Executive Chairman's optional request for observations before sending to UBEC (row 156): choose any of UBEC Audit,
@@ -51,7 +51,7 @@ export function RequestObservationsDialog({ plan, open, onClose, onSent }: { pla
         comment={comment} confirmLabel="Yes, ask for observations" saving={saving} error={error} bodyClassName="px-4 pb-5" onBack={() => { setError(''); step.back(); }} onConfirm={() => void send()} /> : <>
         <DialogHeader className={step.commentStepClass}>
           <DialogTitle>Ask UBEC for observations</DialogTitle>
-          <DialogDescription>Optional. Before you send the plan, UBEC Audit, Procurement or Finance can look at it and comment</DialogDescription>
+          <DialogDescription>Optional. Before you send the plan, UBEC {oversightList('or')} can look at it and comment</DialogDescription>
         </DialogHeader>
         <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}>
           <div className="px-4 pb-4"><FieldGroup>

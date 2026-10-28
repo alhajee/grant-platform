@@ -1,5 +1,5 @@
 import { confirmMoney, type ConfirmFact, type ConfirmStat, type ConfirmNote, type ConfirmTone } from '@/components/confirm-step';
-import { departmentName, oversightDepartments } from '@/lib/ubec';
+import { departmentName, oversightDepartments, oversightList } from '@/lib/ubec';
 import { componentName, oversightPending, type DecisionCounts, type PipelineComponent, type UbecFlow } from '@/lib/ubec-flow';
 import type { FlowRequest } from './flow-dialog';
 import { ComponentsArt, DirectorsArt, FundsArt } from './stat-art';
@@ -61,7 +61,7 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: 'Your Director' }],
     notes: [{ kind: 'lock', text: 'Your decisions are locked once submitted. You can’t change them afterwards.' }] };
   if (request.kind === 'oversight') return { title: `Send ${name} to the Oversight Departments?`, confirm: 'Yes, send to Oversight Department', tone: 'default',
-    description: 'Audit, Procurement and Finance review it next; then it goes to the UBEC BEAP Chair',
+    description: `${oversightList()} review it next; then it goes to the UBEC BEAP Chair`,
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: oversightNames(oversightDepartments.map(d => d.id)) }],
     notes: [{ kind: 'lock', text: 'Its item decisions can’t be changed once it is sent, and your department’s assessment ends' }] };
   const pending = oversightPending(component?.oversight.map(o => o.department) ?? []);

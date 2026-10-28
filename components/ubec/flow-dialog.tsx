@@ -16,7 +16,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
 import type { PlanCommentThread } from '@/lib/plan-comments';
-import { departmentName } from '@/lib/ubec';
+import { departmentName, oversightList } from '@/lib/ubec';
 import { componentName, type FlowComponent, type PipelineComponent, type UbecFlow } from '@/lib/ubec-flow';
 import { DecisionBar } from './flow-bits';
 import { flowConfirmation } from './flow-confirmation';
@@ -36,9 +36,9 @@ const copy: Record<FlowRequest['kind'], { title: (name: string) => string; descr
   release: { title: () => 'Release to UBEC departments', description: 'Each Director gets their components and assigns Assessment Officers', field: 'Message to the Directors', required: true, confirm: 'Release to UBEC departments' },
   assign: { title: name => `Assign staff · ${name}`, description: 'Choose one or more Assessment Officers of the component’s department. They accept or reject each item and report back to the Director.', field: 'Comment for the officers', required: true, confirm: 'Assign staff' },
   complete: { title: name => `Complete assessment · ${name}`, description: 'Your decisions are locked and sent to your Director', field: 'Note for your Director (optional)', required: false, confirm: 'Submit assessment' },
-  oversight: { title: name => `Complete & send to Oversight Department · ${name}`, description: 'Audit, Procurement and Finance review it next. When all three have finished their observations it goes to the UBEC BEAP Chair.', field: 'Your comment', required: true, confirm: 'Send to Oversight Department' },
+  oversight: { title: name => `Complete & send to Oversight Department · ${name}`, description: `${oversightList()} review it next. When they have all finished their observations it goes to the UBEC BEAP Chair.`, field: 'Your comment', required: true, confirm: 'Send to Oversight Department' },
   observers: { title: name => `Assign officers · ${name}`, description: 'Choose one or more Assessment Officers of your department. They comment on the items; they do not accept or reject. Their open comments must be resolved before the plan is approved.', field: 'Comment for the officers', required: true, confirm: 'Assign officers' },
-  observe: { title: name => `Observations done · ${name}`, description: 'Add any comments on items in the workbook first. Once Audit, Procurement and Finance are all done, the component goes to the UBEC BEAP Chair.', field: 'Your observations (optional)', required: false, confirm: 'Observations done' },
+  observe: { title: name => `Observations done · ${name}`, description: `Add any comments on items in the workbook first. Once ${oversightList()} are all done, the component goes to the UBEC BEAP Chair.`, field: 'Your observations (optional)', required: false, confirm: 'Observations done' },
   approve: { title: () => 'Approve action plan', description: 'Every item has been accepted. Approval locks the plan; it does not disburse funds.', field: 'Decision note', required: true, confirm: 'Approve action plan' },
   return: { title: () => 'Return to SUBEB', description: 'The whole plan goes back to the SUBEB BEAP Chair with every component’s results', field: 'Consolidated changes required', required: true, confirm: 'Return to SUBEB' },
 };

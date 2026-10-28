@@ -52,6 +52,7 @@ try {
   await user('dpp', 'UBEC Director', ['physical'], u); await user('dacs', 'UBEC Director', ['academic'], u); await user('dprs', 'UBEC Director', ['planning'], u);
   await user('offP1', 'UBEC Assessment Officer', ['physical'], u); await user('offP2', 'UBEC Assessment Officer', ['physical'], u); await user('offA', 'UBEC Assessment Officer', ['academic'], u);
   await user('audit', 'UBEC Oversight Director', ['audit'], u); await user('procurement', 'UBEC Oversight Director', ['procurement'], u); await user('finance', 'UBEC Oversight Director', ['finance'], u);
+  await user('special', 'UBEC Oversight Director', ['special'], u); // UBEC183: the fourth Oversight Department
 
   const rat = new ExcelJS.Workbook(); rat.addWorksheet('RAT').addRow(['UBEC flow QA']);
   const form = new FormData();
@@ -165,10 +166,13 @@ try {
   fails(await step2('dpp', 'observations_done', 'monitoring'), 403);
   fails(await act('chair', 'approve', { comment: 'early' }), 409, /in progress/);
   assert.equal((await view('chair')).flow.components.find(c => c.pillar === 'monitoring').stage, 'oversight', 'two of three observations keep it in oversight');
-  ok(await step2('finance', 'observations_done', 'monitoring'));
+  ok(await step2('finance', 'observations_done', 'monitoring')); ok(await step2('special', 'observations_done', 'monitoring'));
   assert.equal((await view('chair')).flow.components.find(c => c.pillar === 'monitoring').stage, 'chair');
   assert.ok(await notified('chair', 'ready_for_chair'));
   for (const who of ['audit', 'procurement', 'finance']) ok(await step2(who, 'observations_done', 'sports'));
+  // UBEC183: with an active Special Programmes Oversight Director, the component also waits for Special Programmes.
+  assert.equal((await view('chair')).flow.components.find(c => c.pillar === 'sports').stage, 'oversight');
+  assert.deepEqual(ok(await step2('special', 'observations_done', 'sports')), { stage: 'chair' });
   step('oversight sees components once sent, comments (the ES reads but cannot write), cannot assign or decide; all three observations move a component to the BEAP Chair automatically and notify her');
 
   const chairView = await view('chair');
@@ -213,7 +217,7 @@ try {
   ok(await decide('offA', 'sports', String(sportsLine), 'accept'));
   ok(await step2('offA', 'complete_assessment', 'sports'));
   ok(await step2('dacs', 'send_oversight', 'sports', { comment: 'Revision accepted.' }));
-  for (const who of ['audit', 'procurement', 'finance']) ok(await step2(who, 'observations_done', 'sports'));
+  for (const who of ['audit', 'procurement', 'finance', 'special']) ok(await step2(who, 'observations_done', 'sports'));
   const ready = await view('chair');
   assert.equal(ready.flow.approvable, true);
   const decision = { action: 'approve', version: ready.plan.version, roundId: ready.round.id, comment: 'Approved by UBEC.' };

@@ -2,7 +2,7 @@ import type { QueryResult, QueryResultRow } from 'pg';
 import { readCorrections } from './ubec-corrections-db';
 import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
-import { activePillars, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound } from './ubec';
+import { activePillars, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound, oversightList } from './ubec';
 import { componentAmount, componentItems, decisionCounts, superAdminRole, type FlowAbilities, type FlowComponent, type ItemDecision, type ObserverAssignment, type OfficerAssignment, type OversightReview, type UbecFlow } from './ubec-flow';
 import { readDefaultOfficers } from './ubec-officer-limits';
 
@@ -96,7 +96,7 @@ export async function openOversightCommentCount(db: Db, roundId: number): Promis
     WHERE c.scope='ubec' AND c.ubec_round_id=$1 AND c.parent_id IS NULL AND c.resolved_at IS NULL AND u.role=ANY($2::text[]) AND u.department=ANY($3::text[])`,
     [roundId, [ubecRoles.oversight, ubecRoles.officer], oversightIds])).rows[0]?.n ?? 0;
 }
-export const oversightCommentsMessage = (n: number) => `Resolve the ${n} open ${n === 1 ? 'comment' : 'comments'} from Audit, Procurement and Finance before approving`;
+export const oversightCommentsMessage = (n: number) => `Resolve the ${n} open ${n === 1 ? 'comment' : 'comments'} from ${oversightList()} before approving`;
 
 /** Every item of every released component is decided and none is rejected. */
 export const approvableComponents = (components: readonly FlowComponent[]) => components.length > 0 && components.every(c => c.stage === 'chair' && c.counts.rejected === 0 && c.counts.undecided === 0);

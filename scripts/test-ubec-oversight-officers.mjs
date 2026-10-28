@@ -109,7 +109,7 @@ try {
   fails(await step2('audit', 'assign_observers', { officerIds: [users.auditOff2], comment: 'late' }), 409, /reached the UBEC BEAP Chair/);
   const ready = await view('chair');
   assert.equal(ready.flow.openOversightComments, 1); assert.equal(ready.flow.approvable, false);
-  fails(await act('chair', 'approve', { comment: 'Approve' }), 409, /Resolve the 1 open comment from Audit, Procurement and Finance/);
+  fails(await act('chair', 'approve', { comment: 'Approve' }), 409, /Resolve the 1 open comment from Audit, Procurement, Finance and Special Programmes/);
   step('with the component at the UBEC BEAP Chair, an open oversight comment blocks approval');
 
   ok(await api('dpp', comments, { id: thread, action: 'resolve' }, 'PATCH'));

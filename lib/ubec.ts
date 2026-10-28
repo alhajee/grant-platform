@@ -34,13 +34,14 @@ export const oversightDepartments = [
   { id: 'audit', name: 'Audit', short: 'Audit' },
   { id: 'procurement', name: 'Procurement', short: 'Procurement' },
   { id: 'finance', name: 'Finance', short: 'Finance' },
+  // UBEC183 (28 October 2026): the fourth Oversight Department.
+  { id: 'special', name: 'Special Programmes', short: 'Special' },
 ] as const;
 export type ComponentDepartment = typeof componentDepartments[number]['id'];
 export type OversightDepartment = typeof oversightDepartments[number]['id'];
 export const oversightIds = oversightDepartments.map(d => d.id) as OversightDepartment[];
 const legacyDepartments = [
   { id: 'administration', name: 'Administration and Supplies', short: 'Admin' },
-  { id: 'special', name: 'Special Programmes', short: 'Special' },
   { id: 'zonal', name: 'Zonal and State Offices', short: 'Zonal' },
 ] as const;
 /** Every UBEC department a user can hold (component and oversight departments). */
@@ -112,3 +113,6 @@ export type UbecDashboard = {
   activity: { id: number; plan_id: number; action: string; actor: string; created_at: string; stateName: string; pillar?: string | null }[];
   workload: { department: string; pending: number; completed: number }[]; monthly: { month: string; submissions: number }[]; years: number[];
 };
+
+/** "Audit, Procurement, Finance and Special Programmes" (or "or"), for copy that names the Oversight Departments. */
+export const oversightList = (join: 'and' | 'or' = 'and') => { const names = oversightDepartments.map(d => d.name); return `${names.slice(0, -1).join(', ')} ${join} ${names[names.length - 1]}`; };

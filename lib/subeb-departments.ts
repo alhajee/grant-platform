@@ -15,6 +15,8 @@ export const subebDepartments = [
 export const supportDepartments = [
   {id:'procurement',name:'Procurement'},
   {id:'finance',name:'Finance'},
+  // UBEC183 (28 October 2026): Special Programmes, an oversight department with a Director and Data Entry Officer.
+  {id:'special',name:'Special Programmes'},
 ] as const;
 /** Every SUBEB department a user can hold. */
 export const stateDepartments = [...subebDepartments, ...supportDepartments] as const;

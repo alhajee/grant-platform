@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { currentPlanHref } from '@/lib/action-plans';
 import { observationDepartmentName, type ObservationRequest } from '@/lib/observation-requests';
 import type { Snapshot } from '@/lib/plan-review';
+import { oversightList } from '@/lib/ubec';
 
 const openLabel = (n: number) => `${n === 0 ? 'No' : n} open ${n === 1 ? 'comment' : 'comments'} from your department`;
 
@@ -72,7 +73,7 @@ export default function ObservationsPage() {
             <CardDescription>The plan is still with the SUBEB. Comment on its activities in the workbook below; the SUBEB sees your department’s comments once they are sent back</CardDescription></CardHeader>
             <CardContent className="observations-card-body"><ObservationRequests requests={data.requests} /></CardContent></Card>
           <Card className="observations-card"><CardHeader><CardTitle><h2>{data.department ? observationDepartmentName(data.department) : 'UBEC BEAP Chair'}</h2></CardTitle>
-            <CardDescription>{!data.department ? 'You follow these observations. Audit, Procurement and Finance write them' : data.abilities.comment ? openLabel(comments?.threads.filter(t => !t.resolvedAt).length ?? 0) : own?.completedAt ? 'Your department has sent its observations back' : 'Your department was not asked on the latest request'}</CardDescription></CardHeader>
+            <CardDescription>{!data.department ? `You follow these observations. ${oversightList()} write them` : data.abilities.comment ? openLabel(comments?.threads.filter(t => !t.resolvedAt).length ?? 0) : own?.completedAt ? 'Your department has sent its observations back' : 'Your department was not asked on the latest request'}</CardDescription></CardHeader>
             <CardContent>{data.abilities.sendBack ? <Button className="rounded-full" onClick={() => setSending(true)}><SendIcon data-icon="inline-start" />Send observations back</Button>
               : data.abilities.comment ? <p className="text-sm text-muted-foreground">Your Oversight Director sends the observations back</p> : null}</CardContent></Card>
         </div>

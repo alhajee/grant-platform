@@ -73,14 +73,18 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
     const id = await event('observations_done', input.note);
     await notifyUbec(db, planId, id, actor.id, { role: ubecRoles.director, departments: [component.department] });
     const done = (await db.query<{ department: string }>('SELECT department FROM ubec_oversight_reviews WHERE round_component_id=$1', [component.id])).rows.map(r => r.department);
-    if (oversightIds.every(d => done.includes(d))) {
-      // The third observation moves the component to the UBEC BEAP Chair automatically.
+    // Every Oversight Department with an active Oversight Director must finish (UBEC183 added Special Programmes; a
+    // department nobody holds yet does not hold components up).
+    const staffed = (await db.query<{ department: string }>('SELECT DISTINCT department FROM users WHERE role=$1 AND active AND department=ANY($2::text[])', [ubecRoles.oversight, oversightIds])).rows.map(r => r.department);
+    const required = oversightIds.filter(d => staffed.includes(d) || done.includes(d));
+    if (required.every(d => done.includes(d))) {
+      // The last observation moves the component to the UBEC BEAP Chair automatically.
       await db.query("UPDATE ubec_round_components SET stage='chair',arrived_at=NOW() WHERE id=$1", [component.id]);
       const ready = await event('ready_for_chair');
       await notifyUbec(db, planId, ready, actor.id, { role: ubecRoles.chair }, { role: ubecRoles.director, departments: [component.department] });
       return NextResponse.json({ stage: 'chair' });
     }
-    return NextResponse.json({ stage: 'oversight', pending: oversightIds.filter(d => !done.includes(d)) });
+    return NextResponse.json({ stage: 'oversight', pending: required.filter(d => !done.includes(d)) });
   }
   if (component.stage !== 'director') return error(`${name} has already been sent to the Oversight Departments.`, 409);
   if (input.action === 'complete_assessment') {

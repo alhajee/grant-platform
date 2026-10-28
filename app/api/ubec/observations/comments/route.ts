@@ -9,6 +9,7 @@ import { commentColumns, createCommentSchema, sheetPillar, sheetRows, targetLabe
 import { commentFields, toThreads, type CommentRow, type Db } from '@/lib/ubec-comments';
 import { mayObserve, observationViewer, type ObservationViewer } from '@/lib/observation-requests';
 import { readObservationRequests } from '@/lib/observation-requests-db';
+import { oversightList } from '@/lib/ubec';
 
 // Observation comments (bug sheet row 156, migration 075): plan_comments scope 'observation' on the SUBEB's working plan,
 // tagged with the UBEC department that wrote them. Each department reads its own threads (the UBEC BEAP Chair reads them
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     const user = await getWorkspaceState(request);
     if (!user) return error('Sign in to view comments', 401);
     const viewer = observationViewer(user.role, user.department), planId = planParam(request);
-    if (!viewer) return error('Observation requests go to UBEC Audit, Procurement and Finance', 403);
+    if (!viewer) return error(`Observation requests go to UBEC ${oversightList()}`, 403);
     if (!planId) return error('Choose a valid plan');
     return await getPostgres().transaction(async db => {
       const plan = await readPlan(db, viewer, planId);
@@ -59,7 +60,7 @@ async function withOpenRequest(request: NextRequest, run: (db: Db, context: { pl
   return getPostgres().transaction(async db => {
     const actor = (await db.query<Actor>('SELECT id, role, department, display_name AS full_name FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
     const viewer = actor && observationViewer(actor.role, actor.department);
-    if (!viewer) return error('Observation requests go to UBEC Audit, Procurement and Finance', 403);
+    if (!viewer) return error(`Observation requests go to UBEC ${oversightList()}`, 403);
     const plan = await readPlan(db, viewer, planId);
     if (!plan) return error('Plan not found', 404);
     if (!statePlanOpen(plan.status)) return error('This plan has been sent to UBEC, so its observations are read-only', 409);

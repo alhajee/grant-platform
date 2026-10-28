@@ -1,7 +1,9 @@
 // UBEC accounts for the review flow (docs/ubec-flow.md, migration 055): makes the active UBEC side exactly
 //   1 UBEC Executive Secretary (the existing account is kept), 1 UBEC BEAP Chair, 7 component Directors,
-//   3 Oversight Directors (Audit, Procurement, Finance), 11 Assessment Officers (one per component) and 3 oversight
-//   Assessment Officers (one per Audit, Procurement and Finance, migration 071).
+//   4 Oversight Directors (Audit, Procurement, Finance, Special Programmes since UBEC183), 11 Assessment Officers (one per
+//   component) and 4 oversight Assessment Officers (one per Oversight Department, migration 071).
+// Caution: it retires every other UBEC account, including officers added since through /ubec/team or Admin > Users, so
+// do not run it on a live system that has those; add new accounts one by one instead.
 // Every other UBEC-side account (e.g. the old `UBEC Department Reviewer` accounts) is retired: deleted when nothing
 // references it (every foreign key to users is checked; never TRUNCATE ... CASCADE), otherwise deactivated with its
 // sessions revoked and its history kept. The Super Admin and SUBEB accounts are never touched.
@@ -26,7 +28,7 @@ if (apply && !sharedPassword) throw new Error('SEED_SHARED_PASSWORD is required 
 
 const ES = 'UBEC Executive Secretary';
 const directors = [['physical', 'Physical Planning (DPP)', 'dpp'], ['planning', 'Planning, EMIS & Data Platform (DPRS)', 'dprs'], ['academic', 'Academic Services (DACS)', 'dacs'], ['teachers', 'Teacher Professional Development (DTPD)', 'dtpd'], ['digital', 'Data, Digital Platforms & Analytics (DDDPA)', 'dddpa'], ['quality', 'Monitoring & Evaluation (DME)', 'dme'], ['social', 'Social Mobilisation (DSM)', 'dsm']];
-const oversight = [['audit', 'Audit'], ['procurement', 'Procurement'], ['finance', 'Finance']];
+const oversight = [['audit', 'Audit'], ['procurement', 'Procurement'], ['finance', 'Finance'], ['special', 'Special Programmes']];
 // Component → [UBEC department, name] (lib/ubec.ts pillarDepartments).
 const components = [['infrastructure', 'physical', 'Infrastructure'], ['monitoring', 'physical', 'Supervision & Monitoring'], ['planning', 'planning', 'Planning (EMIS)'], ['sports', 'academic', 'Sports'], ['tlm', 'academic', 'TLM'], ['curriculum', 'academic', 'Curriculum'], ['gscci', 'academic', 'Greening'], ['teachers', 'teachers', 'Teacher Development'], ['ict', 'digital', 'ICT'], ['quality', 'quality', 'Quality Assurance'], ['sbmc', 'social', 'SBMC']];
 const targets = [

@@ -10,6 +10,7 @@ import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { withDistributionCoordinates } from '@/lib/distribution-coordinates';
 import { mayObserve, observationDepartmentName, observationViewer, waitingDepartments, type ObservationPlan, type ObservationViewer } from '@/lib/observation-requests';
 import { readObservationRequests } from '@/lib/observation-requests-db';
+import { oversightList } from '@/lib/ubec';
 
 // Observations before sending to UBEC, UBEC side (bug sheet row 156, migration 075). GET: the plans whose Executive Chairman
 // asked the viewer's department (the UBEC BEAP Chair: every plan) for observations, latest request first. GET ?plan=: the
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     const user = await getWorkspaceState(request);
     if (!user) return error('Sign in to continue', 401);
     const viewer = observationViewer(user.role, user.department);
-    if (!viewer) return error('Observation requests go to UBEC Audit, Procurement and Finance', 403);
+    if (!viewer) return error(`Observation requests go to UBEC ${oversightList()}`, 403);
     const planId = planParam(request);
     return await getPostgres().transaction(async db => {
       if (!planId) {
