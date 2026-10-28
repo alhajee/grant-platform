@@ -188,7 +188,7 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, pe
     catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to remove'); }
     finally { setBusy(false); await onChanged().catch(() => undefined); }
   }
-  const hintFor = (slot: LineDocumentSlot) => workstream === 'teachers' ? `${teacherDocumentHint}. PDF or Excel only` : slot.kind === 'document' && !slot.governed ? `Quotations, specifications, photos or other evidence for this item. ${slot.hint}` : slot.hint;
+  const hintFor = (slot: LineDocumentSlot) => workstream === 'teachers' ? `${teacherDocumentHint}. PDF or Excel only` : slot.kind === 'document' && !slot.governed ? `Quotations, specifications, photos or other evidence for this item; the BPP waiver for a Non-Applicable strategy. ${slot.hint}` : slot.hint;
   return <>
     {slots.map(slot => {
       const mandatory = isRequired && slot.governed, id = `line-document-${slot.kind}`;

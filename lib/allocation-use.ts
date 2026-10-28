@@ -1,6 +1,6 @@
 import { componentEnvelope, infrastructurePoolEnvelope, isSplitMode, toKobo, type EnvelopePlan } from './funding-policy';
 import { formatKobo } from './money-format';
-import { activityNames, activityShareCaps, activityShareGroups, activityTitles, capActivities, type ActivityWorkstream } from './activity-plans';
+import { activityNames, activityShareCaps, activityShareGroups, activityTitles, capActivities, isAdvisoryShare, type ActivityWorkstream } from './activity-plans';
 import { activityCapKobo } from './activity-budget';
 import { isChosen, planSelection } from './activity-selection';
 import { sportsSectionBudgets, subActivityBudget, sportsSubActivities } from './sports';
@@ -9,7 +9,8 @@ import type { Snapshot } from './plan-review';
 
 // Full use of allocations (UBEC79, client 26 October 2026: "all must be exhausted both ways"). A component is sent (to the
 // Director, the BEAP Chair, the Executive Chairman or UBEC) only once its items use its whole allocation, and every capped
-// part of it uses its whole share too: the activity shares (Curriculum 60/20/10/10, Quality Assurance, SBMC), the Sports
+// part of it uses its whole share too: the activity shares (the required Quality Assurance activities, SBMC; Curriculum's
+// and the optional QA ones are guides since UBEC162/173), the Sports
 // sections and the Sports Competitions sub-activities. Fixed naira caps (ICT Model Smart Schools ₦30M) are ceilings, not
 // shares, and are not required in full. In shared-pool mode Infrastructure and TLM together must use the whole pool.
 // Governed by the Super Admin setting state_workflow_settings.full_allocation_required (migration 076, default on).
@@ -30,6 +31,7 @@ function activitySharesProblem(workstream: ActivityWorkstream, lines: readonly (
   for (const activity of firsts) {
     const group = capActivities(workstream, activity);
     if (!group.some(a => isChosen(workstream, selection, a))) continue;
+    if (isAdvisoryShare(workstream, activity)) continue; // UBEC162/173: guides, not required in full
     caps++;
     const cap = activityCapKobo(workstream, envelope, activity, selection), used = kobo(lines.filter(l => group.includes(l.activity)));
     if (used < cap) return { problem: short(group.map(a => `‘${activityNames[workstream][a]}’`).join(' and '), cap, used), caps };

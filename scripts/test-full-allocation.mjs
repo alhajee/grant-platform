@@ -1,5 +1,5 @@
 // UBEC79 (migration 076): with "Full use of allocations" on, a component is sent only once its items use its whole
-// allocation, and every activity share inside it (Curriculum 60/20/10/10) is used in full; with it off, as before.
+// allocation (guide shares such as Curriculum's 60/20/10/10 need not be used in full, UBEC162); with it off, as before.
 // The checks run at every send step; the plan page reads the same rule (`fullAllocation` in GET /api/plans/review).
 // Usage: node --env-file=.env scripts/test-full-allocation.mjs [baseUrl]   (local only; throwaway state, users and plan; cleans up)
 import assert from 'node:assert/strict';
@@ -57,19 +57,14 @@ try {
   ok(await send('physical', 'monitoring'));
   step('a component is sent only once its items use its whole allocation');
 
-  // Curriculum: each activity share (60/20/10/10) must be used in full, then the allocation.
+  // Curriculum: its 60/20/10/10 shares are a guide (UBEC162), so only the whole allocation must be used, by any activity.
   const schoolId = (await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,'QA Full School','QA LGA','Primary','Rural',10,10) RETURNING id", [state])).rows[0].id;
   ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'create', schoolIds: [schoolId] }));
   ok(await api('academic', url('curriculum'), line('curriculum', 0, 50)));
-  let problem = fails(await send('academic', 'curriculum'), 409, /‘Curriculum Procurement \(Acquisition\)’ must use all of its ₦[\d,.]+ before sending/).error;
-  for (const activity of [0, 1, 2, 3]) {
-    const name = ['Curriculum Procurement', 'Training of teachers', 'Distribution of the Curriculum', 'Monitoring & Accountability'][activity];
-    assert.ok(problem.includes(name), `${name} is reported in order: ${problem}`);
-    ok(await api('academic', url('curriculum'), line('curriculum', activity, leftOf(problem))));
-    const next = await send('academic', 'curriculum');
-    if (activity < 3) problem = fails(next, 409).error; else ok(next);
-  }
-  step('every activity share inside a component must be used in full too ("both ways")');
+  const left = fails(await send('academic', 'curriculum'), 409, /Use the whole Curriculum allocation/).error;
+  ok(await api('academic', url('curriculum'), line('curriculum', 1, leftOf(left))));
+  ok(await send('academic', 'curriculum'));
+  step('guide shares (Curriculum) are not required in full; the whole allocation is');
 
   await db.query("UPDATE state_workflow_settings SET full_allocation_required=FALSE WHERE state_code='GLOBAL'");
   assert.equal(ok(await api('ec', review)).fullAllocation, false);

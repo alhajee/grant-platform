@@ -66,6 +66,14 @@ export const capActivities = (workstream: ActivityWorkstream, activity: number):
 /** This activity's share in basis points (its own, or its group's), or undefined when it has none. */
 export const activityShare = (workstream: ActivityWorkstream, activity: number): number | undefined => activityShareGroups[workstream]?.find(g => g.activities.includes(activity))?.share ?? activityShareCaps[workstream]?.[activity];
 export const curriculumActivityShares = [6000, 2000, 1000, 1000] as const;
+/**
+ * Shares shown as a guide but not enforced (client, 28 October 2026): every Curriculum activity (UBEC162) and the optional
+ * Quality Assurance activities, Mobility and office equipment with its maintenance, Literacy and Numeracy Assessment and
+ * Server renewal (UBEC173). Items may go over them; the component allocation still caps (and, with full use on, must be
+ * used in full), and these shares are not required in full.
+ */
+export const advisoryShareActivities: Partial<Record<ActivityWorkstream, readonly number[]>> = { curriculum: [0, 1, 2, 3], quality: [0, 1, 4, 11] };
+export const isAdvisoryShare = (workstream: ActivityWorkstream, activity: number) => (advisoryShareActivities[workstream] ?? []).includes(activity);
 export { distributionWorkstreams, hasDistribution, distributionSnapshotKeys, distributionNames, emptyDistributionMessage, type DistributionWorkstream } from './distribution-lists.ts';
 /** Workstreams that collect documents in component_documents (the Supervision & Monitoring proforma invoices). */
 export const documentWorkstreams = ['monitoring', 'ict'] as const;
@@ -101,13 +109,22 @@ export const textbookSubjects = ['English/literacy (Core)', 'Mathematics/Numerac
  * its own). Stored values stay short and stable; `strategyLabels` gives the names shown. The retired ones stay valid on
  * lines that already use them, but cannot be chosen again (the save route refuses a change to one).
  */
-export const implementationStrategies = ['NCB', 'Request for quotation', 'Market survey', 'Single source/Direct contracting', 'Prequalification', 'Quality and cost based', 'Consultant Qualification', 'Least cost'] as const;
+// UBEC159 (28 October 2026): ICB, Non-Consultancy and Non-Applicable added. Non-Applicable lines say what is used instead
+// (e.g. E-payment/cash transfer, direct payment to vendor), stored as "Non-Applicable: <what>" (`withStrategyDetail`).
+export const implementationStrategies = ['ICB', 'NCB', 'Request for quotation', 'Market survey', 'Single source/Direct contracting', 'Prequalification', 'Quality and cost based', 'Consultant Qualification', 'Least cost', 'Non-Consultancy', 'Non-Applicable'] as const;
+export const nonApplicableStrategy = 'Non-Applicable';
+export const maxStrategyDetailLength = 100;
+const nonApplicablePrefix = `${nonApplicableStrategy}: `;
+/** "Non-Applicable: E-payment" → { strategy: 'Non-Applicable', detail: 'E-payment' }; any other value has no detail. */
+export const splitStrategy = (value: string) => value.startsWith(nonApplicablePrefix) ? { strategy: nonApplicableStrategy, detail: value.slice(nonApplicablePrefix.length) } : { strategy: value, detail: '' };
+export const withStrategyDetail = (strategy: string, detail: string) => strategy === nonApplicableStrategy && detail.trim() ? `${nonApplicablePrefix}${detail.trim().slice(0, maxStrategyDetailLength)}` : strategy;
+export const isNonApplicable = (value: string) => splitStrategy(value).strategy === nonApplicableStrategy;
 export const retiredStrategies = ['E-payment/Cash transfer', 'Credit School account', 'Credit SBMC school account', 'Credit staff concern account', 'Direct payment to vendor'] as const;
 export const strategyLabels: Record<string, string> = {
-  NCB: 'NCB (National Competitive Bidding)', 'Request for quotation': 'Request for Quotation', 'Market survey': 'Market Survey (Shopping)',
+  ICB: 'ICB (International Competitive Bidding)', NCB: 'NCB (National Competitive Bidding)', 'Request for quotation': 'Request for Quotation', 'Market survey': 'Market Survey (Shopping)',
   'Single source/Direct contracting': 'Single Source/Direct Contracting',
 };
-export const strategyLabel = (value: string) => strategyLabels[value] ?? value;
+export const strategyLabel = (value: string) => { const { strategy, detail } = splitStrategy(value); return detail ? `${strategy} (${detail})` : strategyLabels[value] ?? value; };
 export const isRetiredStrategy = (value: string) => (retiredStrategies as readonly string[]).includes(value);
 export const targetGroups = ['National level', 'State level', 'LGA level', 'Community level', 'Schools', 'All Learners', 'All Learners and Teachers', 'ECCDE Learners', 'Primary School Learners', 'JSS Learners', 'Teachers', 'ECCDE Learners and Teachers', 'Primary School Learners and Teachers', 'JSS Learners and Teachers'] as const;
 /** Several target groups (17 October 2026) are stored together in the line's one text field, in list order: "Schools, Teachers". */
@@ -128,7 +145,7 @@ export const activityLineSchema = z.object({
   implementationApproach: z.string().trim().max(1000).default(''),
   quantity: z.number().int().min(1).max(1000000),
   unitCost: z.number().positive().max(999999999999.99).refine(n=>Math.abs(n*100-Math.round(n*100))<.001, 'Use at most two decimal places'),
-  strategy: z.union([z.enum(implementationStrategies), z.enum(retiredStrategies), z.literal('')]).default(''), targetGroup: targetGroupField, location: z.enum(['','Rural','Urban']).default(''),
+  strategy: z.union([z.enum(implementationStrategies), z.enum(retiredStrategies), z.literal(''), z.string().regex(new RegExp(`^${nonApplicableStrategy}: \\S.{0,${maxStrategyDetailLength - 1}}$`), 'Say what is used instead (up to 100 characters)')]).default(''), targetGroup: targetGroupField, location: z.enum(['','Rural','Urban']).default(''),
   equipment: z.string().max(100).default(''),
   customActivity: z.string().trim().max(maxActivityNameLength, `Use up to ${maxActivityNameLength} characters for the activity name`).default(''),
   textbookClasses: z.array(z.enum(textbookClasses)).max(textbookClasses.length).default([]),
@@ -156,6 +173,7 @@ export const activityLineSchema = z.object({
   const training=v.workstream==='teachers';
   if(!v.description)ctx.addIssue({code:'custom',path:['description'],message:'Enter a description'});
   if(!training&&!v.strategy)ctx.addIssue({code:'custom',path:['strategy'],message:'Choose the implementation strategy'});
+  if(v.strategy===nonApplicableStrategy)ctx.addIssue({code:'custom',path:['strategy'],message:'Say what is used instead, e.g. E-payment/cash transfer or direct payment to vendor'});
   if(!training&&!v.targetGroup)ctx.addIssue({code:'custom',path:['targetGroup'],message:'Choose the target group'});
   if(training&&(v.strategy||v.targetGroup))ctx.addIssue({code:'custom',path:['strategy'],message:'Implementation strategy and target group do not apply to Teacher Development'});
   for(const issue of teacherTrainingIssues(v))ctx.addIssue({code:'custom',...issue});

@@ -97,7 +97,10 @@ try {
 
   const tlmUrl = `/api/activities?plan=${planId}&workstream=tlm`, infraUrl = `/api/infrastructure/packages?plan=${planId}`, splitUrl = `/api/activities/budget-split?plan=${planId}`;
   const tlmLine = unitCost => ({ workstream: 'tlm', entity: 'line', action: 'create', activity: 6, description: 'Story books', quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools' });
-  const furniture = cost => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost }], documentIds: [] } });
+  // UBEC170: a package needs its school's BOQ to save.
+  const boqForm = new FormData(); boqForm.set('kind', 'boq'); boqForm.set('schoolId', String(schoolIds[0])); boqForm.set('file', new File(['%PDF-1.4\nBOQ\n%%EOF'], 'boq.pdf', { type: 'application/pdf' }));
+  const boqId = ok(await api('physical', `/api/infrastructure/documents?plan=${planId}`, boqForm)).id;
+  const furniture = cost => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost }], documentIds: [boqId] } });
   const split = (who, side, amount) => api(who, splitUrl, { amount, side }, 'PATCH');
 
   const opened = ok(await api('academic', tlmUrl));

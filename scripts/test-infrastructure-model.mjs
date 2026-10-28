@@ -4,11 +4,11 @@ assert.deepEqual([1,240,241,320,321].map(modelFor),[0,0,1,1,2]);
 const land={available:true,documented:true,unencumbered:true};
 const make=(kind,extra={})=>packageSchema.parse({kind,schoolId:1,components:['Primary'],land,...extra});
 
-// Strategy: only Request for quotation, NCB and Credit SBMC school account (client feedback, October 2026), client and server schema.
-assert.deepEqual([...strategies],['Request for quotation','NCB','Credit SBMC school account']);
+// Strategy: the procurement list (UBEC159, 28 October 2026), client and server schema; Credit SBMC school account is retired.
+assert.deepEqual([...strategies],['Request for quotation','ICB','NCB','Market survey','Single source/Direct contracting','Prequalification','Quality and cost based','Consultant Qualification','Least cost','Non-Consultancy','Non-Applicable']);
 assert.equal(make('new').classroomStrategy,'Request for quotation','Request for quotation is the default strategy');
-const retired=packageSchema.safeParse({kind:'new',schoolId:1,components:['Primary'],classroomStrategy:'Market survey'});
-assert.equal(retired.success,false);assert.match(retired.error.issues[0].message,/Request for quotation, NCB or Credit SBMC school account/);
+const retired=packageSchema.safeParse({kind:'new',schoolId:1,components:['Primary'],classroomStrategy:'Credit SBMC school account'});
+assert.equal(retired.success,false);assert.match(retired.error.issues[0].message,/from the list/);
 assert.equal(packageSchema.safeParse({kind:'whole',schoolId:1,components:['Primary'],packageCosts:{office:{cost:1,strategy:'Direct payment to vendor',duration:'1 week'}}}).success,false,'Whole School intervention strategies are listed-only too');
 for(const strategy of strategies)assert.ok(packageSchema.safeParse({kind:'new',schoolId:1,components:['Primary'],classroomStrategy:strategy}).success);
 

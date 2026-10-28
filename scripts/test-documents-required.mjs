@@ -176,23 +176,26 @@ try {
   // Required: the refusals are as before.
   await setRequired(true);
   assert.equal(ok(await api('physical', infra)).documentsRequired, true);
+  // UBEC170: the BOQ is required to save a package at all (and every send step still checks it).
+  fails(await api('physical', infra, furniture), 400, /Bill of Quantities/);
+  const boq = await infraDoc('boq', school);
+  for (const input of [furniture.input, newSchool, whole]) input.documentIds = [boq];
   ok(await api('physical', infra, furniture));
-  fails(await review('physical', { action: 'submit', pillar: 'infrastructure' }), 400, /Attach a BOQ for DR School/);
   // Drawings (collected again per school since 17 October 2026) upload, but are never required.
   const drawing = await infraDoc('drawings', school);
   assert.ok(ok(await api('physical', infra)).documents.some(d => d.id === drawing && d.kind === 'drawings' && d.schoolId === school), 'drawings upload for a school');
   ok(await api('physical', `/api/infrastructure/documents?plan=${planId}&id=${drawing}`, undefined, { method: 'DELETE' }));
   fails(await api('physical', infra, { action: 'save', input: whole }), 400, /photographic evidence/);
   fails(await api('physical', infra, { action: 'save', input: newSchool }), 400, /land required for this model is available/);
-  step('Setting on: Infrastructure send refused without a BOQ (never for drawings, which upload per school but are optional); Whole School save refused without photographic evidence');
+  step('Setting on: a package is not saved without its BOQ (never for drawings, which upload per school but are optional); Whole School save refused without photographic evidence');
 
   // Optional: packages save without photos or an updated BOQ, but New Construction still needs its land documents.
   await setRequired(false);
   assert.equal(ok(await api('physical', infra)).documentsRequired, false);
   fails(await api('physical', infra, { action: 'save', input: newSchool }), 400, /land required for this model is available/);
-  fails(await api('physical', infra, { action: 'save', input: { ...newSchool, land: { available: true, documented: true, unencumbered: false }, documentIds: [await infraDoc('land', school), await infraDoc('land_area', school)] } }), 400, /Tick all three land declarations/);
-  fails(await api('physical', infra, { action: 'save', input: { ...newSchool, documentIds: [await infraDoc('land_area', school)] } }), 400, /C of O, R of O or Community Agreement/);
-  ok(await api('physical', infra, { action: 'save', input: { ...newSchool, documentIds: [await infraDoc('land', school), await infraDoc('land_area', school)] } }));
+  fails(await api('physical', infra, { action: 'save', input: { ...newSchool, land: { available: true, documented: true, unencumbered: false }, documentIds: [boq, await infraDoc('land', school), await infraDoc('land_area', school)] } }), 400, /Tick all three land declarations/);
+  fails(await api('physical', infra, { action: 'save', input: { ...newSchool, documentIds: [boq, await infraDoc('land_area', school)] } }), 400, /C of O, R of O or Community Agreement/);
+  ok(await api('physical', infra, { action: 'save', input: { ...newSchool, documentIds: [boq, await infraDoc('land', school), await infraDoc('land_area', school)] } }));
   ok(await api('physical', infra, { action: 'save', input: whole }));
   step('Setting off: Whole School saves without photographic evidence; New Construction land declaration & agreement still required');
 
@@ -200,23 +203,20 @@ try {
   await setRequired(true);
   const photo = await infraDoc('photo', school);
   let saved = await savedPackage('whole');
-  fails(await api('physical', infra, { action: 'save', id: saved.id, version: saved.version, input: { ...whole, documentIds: [photo], photoKeys: { [photo]: 'classroomPri' } } }), 400, /updated BOQ/);
+  fails(await api('physical', infra, { action: 'save', id: saved.id, version: saved.version, input: { ...whole, documentIds: [boq, photo], photoKeys: { [photo]: 'classroomPri' } } }), 400, /updated BOQ/);
   step('Setting on: re-saving a Whole School package needs an updated BOQ');
 
   // Optional: re-save without an updated BOQ, then send Infrastructure with only its BOQ (no surveys, photos or drawings).
   await setRequired(false);
   saved = await savedPackage('whole');
-  ok(await api('physical', infra, { action: 'save', id: saved.id, version: saved.version, input: { ...whole, documentIds: [] } }));
+  ok(await api('physical', infra, { action: 'save', id: saved.id, version: saved.version, input: { ...whole, documentIds: [boq] } }));
   const infraKinds = (await db.query('SELECT DISTINCT kind FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL', [planId])).rows.map(row => row.kind).sort();
-  assert.deepEqual(infraKinds, ['land', 'land_area', 'photo'], 'no drawings, BOQ or survey uploaded');
-  // The BOQ is always required (client, October 2026): refused without it even while the setting is off.
-  fails(await review('physical', { action: 'submit', pillar: 'infrastructure' }), 400, /Attach a BOQ for DR School/);
-  await infraDoc('boq', school);
+  assert.deepEqual(infraKinds, ['boq', 'land', 'land_area', 'photo'], 'no drawings or survey uploaded');
   await infraDoc('supporting', school); // optional supporting documents of their own (migration 066)
   ok(await review('physical', { action: 'submit', pillar: 'infrastructure' }));
   ok(await review('physicalDirector', { action: 'endorse', pillar: 'infrastructure' }));
   ok(await review('chair', { action: 'forward', pillar: 'infrastructure' }));
-  step('Setting off: Infrastructure re-saves without an updated BOQ and is sent on without drawings, BOQ, survey or photos');
+  step('Setting off: Infrastructure re-saves without an updated BOQ and is sent on with its BOQ, without drawings, survey or photos');
 
   // Executive Chairman → UBEC follows the setting too.
   await setRequired(true);

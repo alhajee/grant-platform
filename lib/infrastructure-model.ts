@@ -4,11 +4,15 @@ import { lineDatesShape } from './line-dates.ts';
 import { requirements, fenceDeliverable, appliesToStream, auditKeys, describableKeys, deliverableDescription, solarKva, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
 export { quantityLabel, requirements, fenceDeliverable, minimumKeys, appliesToStream, eccdeOnlyKeys, standardText, deliverableGroups, deliverableGroup, deliverableCategory, deliverableInfo, deliverableDescription, groupDeliverables, inDeliverableOrder, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
 
-/** Infrastructure implementation strategies: only these three (client feedback, October 2026); Request for quotation is the default (UBEC10). */
-export const strategies = ['Request for quotation', 'NCB', 'Credit SBMC school account'] as const;
+/**
+ * Infrastructure implementation strategies: the procurement list every component uses (UBEC159, 28 October 2026);
+ * Request for quotation is the default (UBEC10). Credit SBMC school account (October 2026) is retired: packages that
+ * carry it load, and saving asks for a listed one.
+ */
+export const strategies = ['Request for quotation', 'ICB', 'NCB', 'Market survey', 'Single source/Direct contracting', 'Prequalification', 'Quality and cost based', 'Consultant Qualification', 'Least cost', 'Non-Consultancy', 'Non-Applicable'] as const;
 export type InfrastructureStrategy = typeof strategies[number];
 export const defaultStrategy: InfrastructureStrategy = strategies[0];
-const strategyMessage = 'Choose Request for quotation, NCB or Credit SBMC school account as the implementation strategy';
+const strategyMessage = 'Choose an implementation strategy from the list';
 const strategySchema = z.enum(strategies, { errorMap: () => ({ message: strategyMessage }) });
 /** Whether a saved strategy is still offered (older packages may carry a retired one until it is changed). */
 export const isListedStrategy = (value: string): value is InfrastructureStrategy => (strategies as readonly string[]).includes(value);

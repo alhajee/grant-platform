@@ -117,12 +117,12 @@ try {
   // The editor always sends schoolIds (empty for activities without schools).
   const plain = ok(await api('qa', url('quality'), line('quality', 3, 100, { schoolIds: [], subscriptionTypes: [], equipmentCategory: '', equipmentType: '', websiteType: '' })));
   ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: plain.id }));
-  // Activity shares (client observations): Mobility and office equipment and its maintenance share 48% (₦19.2M here); Literacy and Numeracy 16% (₦6.4M).
-  fails(await api('qa', url('quality'), line('quality', 1, 9200000.01, { equipmentCategory: 'Office equipment', equipmentType: 'Printer' })), 400, /together can use up to ₦19,200,000\.0000 \(48% of the Quality Assurance allocation\)/);
-  const maintenance = ok(await api('qa', url('quality'), line('quality', 1, 9200000, { equipmentCategory: 'Office equipment', equipmentType: 'Printer' })));
-  ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: maintenance.id }));
-  fails(await api('qa', url('quality'), line('quality', 4, 6400000.01)), 400, /‘Literacy and Numeracy Assessment at LGEAs \(aligned with HOPE-EDU\)’ can use up to ₦6,400,000\.0000 \(16% of the Quality Assurance allocation\)/);
-  fails(await api('qa', url('quality'), line('quality', 11, 400000.01)), 400, /Server renewal and dashboard.*₦400,000\.0000 \(1%/);
+  // UBEC173: the optional activities' shares (Mobility & maintenance 48%, Literacy and Numeracy 16%, Server renewal 1%) are a
+  // guide; items may go above them. The required activities keep their caps (below) and the allocation still caps.
+  for (const [activity, amount, extra] of [[1, 9200000.01, { equipmentCategory: 'Office equipment', equipmentType: 'Printer' }], [4, 6400000.01, {}], [11, 400000.01, {}]]) {
+    const aboveGuide = ok(await api('qa', url('quality'), line('quality', activity, amount, extra))).id;
+    ok(await api('qa', url('quality'), { workstream: 'quality', entity: 'line', action: 'delete', id: aboveGuide }));
+  }
   // A plan already over one share can still save other items and bring the over item down, but not raise it.
   const over = (await db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,'quality',6,'Over the share',1,5000000,'Request for quotation','Schools') RETURNING id", [planId])).rows[0].id;
   const beside = ok(await api('qa', url('quality'), line('quality', 4, 100000)));

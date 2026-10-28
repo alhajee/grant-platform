@@ -47,6 +47,10 @@ try{
  await db.query("UPDATE activity_plan_lines SET strategy='Direct payment to vendor' WHERE id=$1",[saved.lines[0].id]);
  ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Direct payment to vendor'}));
  ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Credit SBMC school account'}),400);
+ // UBEC159: ICB and Non-Consultancy are listed; Non-Applicable must say what is used instead.
+ ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Non-Applicable'}),400);
+ ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Non-Applicable: E-payment/cash transfer'}));
+ ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'ICB'}));
  ok(await api('social',url,{...line,action:'update',id:saved.lines[0].id,quantity:3,activity:3,strategy:'Least cost'}));
  const tlmUrl=`/api/activities?plan=${plan}&workstream=tlm`;
  const tlm={...line,workstream:'tlm',activity:5,description:'Textbooks',textbookClasses:['Primary 1','Primary 2'],textbookSubject:'English/literacy (Core)'};

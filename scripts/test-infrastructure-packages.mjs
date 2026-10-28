@@ -22,22 +22,25 @@ try{
  school=(await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,'Infrastructure QA','QA','Primary','Rural',100,100) RETURNING id",[marker])).rows[0].id;
  const path=`/api/infrastructure/packages?plan=${plan}`,reviewPath=`/api/plans/review?plan=${plan}`;
  ok(await api('anonymous',path),401);ok(await api('social',path),403);
+ // UBEC170: every package needs its school's BOQ to save.
+ const boqFor=async id=>{const f=new FormData();f.set('kind','boq');f.set('schoolId',String(id));f.set('file',new File(['%PDF-1.4\nBOQ\n%%EOF'],'boq.pdf',{type:'application/pdf'}));return ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f)).id;};
+ const schoolBoq=await boqFor(school);
  const landIds=[];for(const kind of ['land','land_area']){const f=new FormData();f.set('kind',kind);f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],`${kind}.pdf`,{type:'application/pdf'}));landIds.push(ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f)).id);}
  // New Construction (client feedback, October 2026): all three land declarations, the C of O / R of O / Community Agreement document,
  // a chosen model and the perimeter fence length entered in the requirements table.
- const input=packageSchema.parse({kind:'new',schoolId:school,components:['Primary','ECCDE'],targeting:'hope',lumpSum:1000,duration:'6 months',model:0,fenceLength:180,land:{available:true,documented:true,unencumbered:true},documentIds:landIds});
+ const input=packageSchema.parse({kind:'new',schoolId:school,components:['Primary','ECCDE'],targeting:'hope',lumpSum:1000,duration:'6 months',model:0,fenceLength:180,land:{available:true,documented:true,unencumbered:true},documentIds:[...landIds,schoolBoq]});
  ok(await api('social',path,{action:'save',input}),403);
  ok(await api('officer',path,{action:'save',input:{...input,land:{available:false,documented:false,unencumbered:false}}}),400);
  const twoTicks=await api('officer',path,{action:'save',input:{...input,land:{available:true,documented:true,unencumbered:false}}});ok(twoTicks,400);assert.match(twoTicks.data.error,/Tick all three land declarations/);
- const noLandDoc=await api('officer',path,{action:'save',input:{...input,documentIds:[]}});ok(noLandDoc,400);assert.match(noLandDoc.data.error,/land required for this model is available/);
- const noTitle=await api('officer',path,{action:'save',input:{...input,documentIds:[landIds[1]]}});ok(noTitle,400);assert.match(noTitle.data.error,/C of O, R of O or Community Agreement/);
+ const noLandDoc=await api('officer',path,{action:'save',input:{...input,documentIds:[schoolBoq]}});ok(noLandDoc,400);assert.match(noLandDoc.data.error,/land required for this model is available/);
+ const noTitle=await api('officer',path,{action:'save',input:{...input,documentIds:[landIds[1],schoolBoq]}});ok(noTitle,400);assert.match(noTitle.data.error,/C of O, R of O or Community Agreement/);
  const noNewModel=await api("officer",path,{action:"save",input:{...input,model:undefined}});ok(noNewModel,400);assert.match(noNewModel.data.error,/Choose the school model/);
  const noNewFence=await api("officer",path,{action:"save",input:{...input,fenceLength:0}});ok(noNewFence,400);assert.match(noNewFence.data.error,/perimeter fence length/);
- const retiredStrategy=await api('officer',path,{action:'save',input:{...input,classroomStrategy:'Market survey'}});ok(retiredStrategy,400);assert.match(retiredStrategy.data.error,/Request for quotation, NCB or Credit SBMC school account/);
- ok(await api('officer',path,{action:'save',input:{...input,classroomStrategy:'Credit SBMC school account'}}));
+ const retiredStrategy=await api('officer',path,{action:'save',input:{...input,classroomStrategy:'Credit SBMC school account'}});ok(retiredStrategy,400);assert.match(retiredStrategy.data.error,/from the list/);
+ ok(await api('officer',path,{action:'save',input:{...input,classroomStrategy:'Market survey'}}));
  {const saved=ok(await api('officer',path)).packages[0];const keys=saved.result.items.map(i=>i.key);
   assert.equal(saved.result.modelLabel,'Model 1 · Small School');assert.ok(keys.includes('classBlock6')&&!keys.some(k=>/^block3/.test(k)),'Model 1: one block of 6, no block of 3');
-  assert.equal(saved.result.items.find(i=>i.key==='fence').quantity,180,'Fence length from the requirements table');assert.equal(saved.result.items.find(i=>i.key==='package').strategy,'Credit SBMC school account');
+  assert.equal(saved.result.items.find(i=>i.key==='fence').quantity,180,'Fence length from the requirements table');assert.equal(saved.result.items.find(i=>i.key==='package').strategy,'Market survey');
   ok(await api('officer',path,{action:'delete',id:saved.id,version:saved.version}));}
  ok(await api('officer',path,{action:'save',input}));let current=ok(await api('officer',path));const project=current.packages[0];assert.equal(Number(project.total_cost),1000);assert.equal(project.input.targeting,'nonhope','HOPE targeting is retired on save');
  ok(await api('officer',path,{action:'save',id:project.id,version:999,input}),409);
@@ -61,12 +64,17 @@ try{
  await db.query('UPDATE schools SET enrolment_male=150,enrolment_female=100 WHERE id=$1',[secondSchool]);
  const furniture=packageSchema.parse({kind:'furniture',schoolId:secondSchool,components:['Primary'],furniture:[{description:'Desks',quantity:1,cost:100}]});
  ok(await api('officer',path,{action:'save',input:{...furniture,documentIds:[docs[1]]}}),400);
- ok(await api('officer',path,{action:'save',input:furniture}));
- review=ok(await api('officer',reviewPath));const missing=await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version});ok(missing,400);assert.match(missing.data.error,/Second school/);
+ // UBEC170: no BOQ, no save.
+ const noBoq=await api('officer',path,{action:'save',input:furniture});ok(noBoq,400);assert.match(noBoq.data.error,/Bill of Quantities/);
  const schoolDocument=new FormData();schoolDocument.set('kind','boq');schoolDocument.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],'boq.pdf',{type:'application/pdf'}));
  ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,schoolDocument),400);
  schoolDocument.set('schoolId','2147483647');ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,schoolDocument),404);
- schoolDocument.set('schoolId',String(secondSchool));docs.push(ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,schoolDocument)).id);
+ schoolDocument.set('schoolId',String(secondSchool));const secondBoq=ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,schoolDocument)).id;docs.push(secondBoq);
+ ok(await api('officer',path,{action:'save',input:{...furniture,documentIds:[secondBoq]}}));
+ // A package left without its BOQ (saved before the rule, or the file removed) is still caught at the send step.
+ await db.query('UPDATE infrastructure_documents SET removed_at=NOW() WHERE id=$1',[secondBoq]);
+ review=ok(await api('officer',reviewPath));const missing=await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version});ok(missing,400);assert.match(missing.data.error,/Second school/);
+ await db.query('UPDATE infrastructure_documents SET removed_at=NULL WHERE id=$1',[secondBoq]);
  // A furniture-only school does not need a survey. Remove this disposable package
  // after asserting the shared readiness rule against its live snapshot.
  const {infrastructureDocumentProblem}=await import('../lib/infrastructure-documents.ts');
@@ -81,7 +89,7 @@ try{
  assert.equal(requirements.filter(r=>r.category==='other').length,30);
  assert.deepEqual(requirements.find(r=>r.key==='teachersFurniture').qty,[16,20,32],'Teachers’ furniture Model III is 32 sets (confirmed)');
  // Older Whole School package (a chosen model, a retired strategy, an "extra" figure, retired observations; a partial audit) still loads, displays and recalculates.
- const oldInput={kind:'whole',schoolId:school,components:['Primary'],targeting:'nonhope',grouping:'standard',model:2,land:{available:false,documented:false,unencumbered:false},documentIds:[],audit:{classroomPri:{existing:3,functional:2,extra:0},labFurniture:{existing:0,functional:0,extra:1}},fenceRequired:0,fenceLength:0,prices:{},classroomStrategy:'Request for quotation',packageCosts:{'labFurniture':{cost:5,strategy:'Market survey',duration:'2 weeks'}},lumpSum:0,duration:'',contingency:0,preliminaries:0,observations:'Old site notes',dilapidation:'Moderate deterioration',conditionNotes:'Old condition notes',furniture:[]};
+ const oldInput={kind:'whole',schoolId:school,components:['Primary'],targeting:'nonhope',grouping:'standard',model:2,land:{available:false,documented:false,unencumbered:false},documentIds:[],audit:{classroomPri:{existing:3,functional:2,extra:0},labFurniture:{existing:0,functional:0,extra:1}},fenceRequired:0,fenceLength:0,prices:{},classroomStrategy:'Request for quotation',packageCosts:{'labFurniture':{cost:5,strategy:'Credit SBMC school account',duration:'2 weeks'}},lumpSum:0,duration:'',contingency:0,preliminaries:0,observations:'Old site notes',dilapidation:'Moderate deterioration',conditionNotes:'Old condition notes',furniture:[]};
  const oldResult={model:2,modelLabel:'Model 3 · Large School',enrolment:400,items:[{key:'labFurniture',label:'Laboratory Furniture',quantity:1,unit:'sets',lump:false,cost:5,total:5,strategy:'Market survey',duration:'2 weeks',operation:'Supply / installation'}],classroomSubtotal:0,otherSubtotal:0,vat:0,total:5};
  const oldId=(await db.query('INSERT INTO infrastructure_packages(input,result,total_cost,school_id,kind,plan_id) VALUES($1::jsonb,$2::jsonb,5,$3,$4,$5) RETURNING id',[JSON.stringify(oldInput),JSON.stringify({...oldResult,school:{id:school,name:'Infrastructure QA',lga:'QA',level:'Primary',location:'Rural',male:200,female:200,latitude:'',longitude:''}}),school,'whole',plan])).rows[0].id;
  const oldLoaded=ok(await api('officer',path)).packages.find(p=>p.id===oldId);assert.equal(oldLoaded.input.observations,'Old site notes');assert.equal(oldLoaded.result.modelLabel,'Model 3 · Large School','The stored result is shown as saved');
@@ -91,7 +99,7 @@ try{
  assert.equal(calculateInfrastructure(reopened,400).modelLabel,'','The old model is ignored: Whole School is sized by enrolment');
  assert.match(wholeAuditProblem(reopened,400),/Classroom · ECCDE: enter existing and functional/,'Reopening an old package asks for the rest of the Minimum Standard');
  review=ok(await api('officer',reviewPath));assert.ok(review.snapshot.infrastructure.some(l=>l.id===-oldId),'Old package appears in the workbook snapshot');
- const oldSave=await api('officer',path,{action:'save',id:oldId,version:oldLoaded.version,input:oldInput});ok(oldSave,400);assert.match(oldSave.data.error,/Request for quotation, NCB or Credit SBMC school account/);
+ const oldSave=await api('officer',path,{action:'save',id:oldId,version:oldLoaded.version,input:oldInput});ok(oldSave,400);assert.match(oldSave.data.error,/from the list/);
  ok(await api('officer',path,{action:'delete',id:oldId,version:oldLoaded.version}));
  // Older New Construction package (block of 3 rows, one land tick) still loads and is in the snapshot; sending asks for all three ticks.
  const oldNew=packageSchema.parse({kind:'new',schoolId:school,components:['Primary'],lumpSum:10,duration:'1 month',land:{available:true,documented:false,unencumbered:false},documentIds:landIds});
@@ -122,7 +130,7 @@ try{
  const wrongRow=await api('officer',path,{action:'save',input:{...whole,photoKeys:{[toiletPhoto.id]:'office'}}});ok(wrongRow,400);assert.match(wrongRow.data.error,/photographic evidence for Toilet/,'A photo of another row does not count');
  ok(await api('officer',path,{action:'save',input:{...whole,photoKeys:{[toiletPhoto.id]:'notADeliverable'}}}),400);
  whole.photoKeys={[toiletPhoto.id]:'toilet','99999999-9999-4999-8999-999999999999':'office'};
- const badStrategy=await api('officer',path,{action:'save',input:{...whole,packageCosts:{...whole.packageCosts,office:{cost:1,strategy:'Market survey',duration:'1 week'}}}});ok(badStrategy,400);assert.match(badStrategy.data.error,/Credit SBMC school account/);
+ const badStrategy=await api('officer',path,{action:'save',input:{...whole,packageCosts:{...whole.packageCosts,office:{cost:1,strategy:'Credit SBMC school account',duration:'1 week'}}}});ok(badStrategy,400);assert.match(badStrategy.data.error,/from the list/);
  ok(await api('officer',path,{action:'save',input:whole}));
  const savedWhole=ok(await api('officer',path)).packages.find(p=>p.kind==='whole');
  assert.equal(savedWhole.result.modelLabel,'','No model for Whole School');assert.deepEqual(savedWhole.result.basis,{eccde:45,primary:355,jss:0,teachers:19},'The server uses DNEMIS enrolment by level and teachers');
@@ -142,7 +150,7 @@ try{
  review=ok(await api('officer',reviewPath));ok(await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version}));
  ok(await api('officer',path,{action:'save',input}),409);ok(await api('director',path,{action:'save',input}));
  const scoped=ok(await api('social',reviewPath));assert.equal(scoped.snapshot.infrastructure.length,0);assert.equal(scoped.snapshot.infrastructureDocuments,undefined);
- review=ok(await api('director',reviewPath));const historical=ok(await api('director',reviewPath+'&submission='+review.submissions[0].number));assert.equal(historical.snapshot.infrastructure.length,2);assert.equal(historical.snapshot.infrastructureDocuments.length,docs.length+landIds.length);assert.equal(historical.snapshot.infrastructureDocuments.find(d=>d.id===docs[1]).schoolId,school);
+ review=ok(await api('director',reviewPath));const historical=ok(await api('director',reviewPath+'&submission='+review.submissions[0].number));assert.equal(historical.snapshot.infrastructure.length,2);assert.equal(historical.snapshot.infrastructureDocuments.length,docs.length+landIds.length+1);assert.equal(historical.snapshot.infrastructureDocuments.find(d=>d.id===docs[1]).schoolId,school);
  async function removeDocument(who,id){const r=await fetch(`${base}/api/infrastructure/documents?plan=${plan}&id=${id}`,{method:'DELETE',headers:{Origin:base,Cookie:cookies[who]||''}});return {status:r.status,data:await r.json()};}
  ok(await removeDocument('anonymous',docs[1]),401);
  ok(await removeDocument('social',docs[1]),403);

@@ -90,3 +90,8 @@
 .nm-state { transition: fill 200ms ease, opacity 250ms ease; }
 .nm:has(.nm-lift) .nm-state:not([data-focus]) { opacity: .72; }
 @media (prefers-reduced-motion: reduce) { .nm-lift { animation: none; transform: translateY(-3px); } }
+
+/* States without a submission read as white with a visible border, so they never blend into the page (client, 28 October 2026). */
+.nm .nm-state:not([data-status]), .nh-map .nm-state:not([data-status]) { fill: #fbfcfb; stroke: #9aaba3; stroke-width: 1; }
+.nm .nm-lift:not([data-status]) { fill: #ffffff; stroke: #9fb0a8; }
+.nm-legend li[data-none] i { background: #fbfcfb; box-shadow: inset 0 0 0 1px #9fb0a8; }

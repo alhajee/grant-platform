@@ -84,7 +84,7 @@ assert.match(chairmanProblem(reviews('beap_review','beap_review','beap_review','
 assert.match(chairmanProblem(reviews('beap_review','beap_review'),{...completeSnapshot,teachers:[]}),/^Nothing has been budgeted yet for Teacher Development$/);
 // Katsina, October 2026: a Sports sub-activity over its share of Sports Competitions (₦80M Sports → ₦24M → Inter School 5% = ₦1.2M).
 const overSports = {...completeSnapshot, setup:{...completeSnapshot.setup, stateLodgment:'2000000000.00'}, sports:[{section:'competitions',activity_type:'Inter School Competition',unit_cost:'23660000',quantity:1}]};
-assert.match(chairmanProblem(reviews('beap_review','beap_review'),overSports) ?? '',/Sports: ‘Inter School Competition’ can use up to ₦1,200,000\.0000 \(5% of Sports Competitions\)/);
+assert.match(chairmanProblem(reviews('beap_review','beap_review'),overSports) ?? '',/Sports, Quiz & Debate: ‘Inter School Competition’ can use up to ₦1,200,000\.0000 \(5% of Sports Competitions\)/);
 assert.equal(readyForExecutiveChairman(reviews('beap_review','beap_review','beap_review','beap_review','draft'),completeSnapshot),false);
 // Quality Assurance and ICT readiness: compulsory activities and line documents.
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,quality:completeSnapshot.quality.slice(1)}),false);

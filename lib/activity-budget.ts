@@ -1,6 +1,6 @@
 import { componentEnvelope, isSplitMode, toKobo, type EnvelopePlan } from './funding-policy';
 import { formatKobo } from './money-format';
-import { activityNames, activityShare, activityShareCaps, activityShareGroups, activityTitles, capActivities, type ActivityWorkstream } from './activity-plans';
+import { activityNames, activityShare, activityShareCaps, activityShareGroups, activityTitles, capActivities, isAdvisoryShare, type ActivityWorkstream } from './activity-plans';
 import { ictModelSchoolsActivity, ictModelSchoolsCapKobo, isRetiredActivity } from './activity-extras';
 import { choosesUpFront, isChosen, planSelection, scaledPercent, shareTotal, type ActivitySelection } from './activity-selection';
 
@@ -90,6 +90,8 @@ export function activityBudgetProblem(workstream: ActivityWorkstream, lines: rea
   const activities = [...Object.keys(activityFixedCaps[workstream] ?? {}), ...Object.keys(activityShareCaps[workstream] ?? {})].map(Number)
     .concat((activityShareGroups[workstream] ?? []).map(g => g.activities[0]));
   for (const activity of activities) {
+    // Guide shares (UBEC162/173) are shown but never block; fixed naira caps always do.
+    if (isAdvisoryShare(workstream, activity) && !(activityFixedCaps[workstream] ?? {})[activity]) continue;
     const cap = activityCap(workstream, envelope, activity, selection), group = capActivities(workstream, activity);
     if (options.only !== undefined && !group.includes(options.only)) continue;
     const total = lines.filter(l => group.includes(l.activity)).reduce((sum, l) => sum + l.kobo, BigInt(0));
@@ -106,7 +108,7 @@ export function activityBudgetProblem(workstream: ActivityWorkstream, lines: rea
 
 /** The share caps these lines go over (each named by its first activity), for comparing two choices of activities. */
 export function overShareCaps(workstream: ActivityWorkstream, lines: readonly BudgetLine[], envelope: bigint, selection: ActivitySelection): number[] {
-  return [...(activityShareGroups[workstream] ?? []).map(g => g.activities[0]), ...Object.keys(activityShareCaps[workstream] ?? {}).map(Number)].filter(activity => {
+  return [...(activityShareGroups[workstream] ?? []).map(g => g.activities[0]), ...Object.keys(activityShareCaps[workstream] ?? {}).map(Number)].filter(activity => !isAdvisoryShare(workstream, activity)).filter(activity => {
     const group = capActivities(workstream, activity), total = lines.filter(l => group.includes(l.activity)).reduce((sum, l) => sum + l.kobo, BigInt(0));
     return total > activityCapKobo(workstream, envelope, activity, selection);
   });

@@ -83,6 +83,8 @@ export async function POST(req:NextRequest){
    if(docs.some(d=>d.school_id!==null&&d.school_id!==draft.schoolId))return error('One or more attachments belong to a different school');
    // New Construction: all three land declarations (packageProblem) and the C of O / R of O / Community Agreement document, always required.
    const landProblem=landDocumentProblem(draft,{land:docs.filter(d=>d.kind==='land').length,landArea:docs.filter(d=>d.kind==='land_area').length});if(landProblem)return error(landProblem);
+   // UBEC170: the school's Bill of Quantities is required to save the package, not only to send it.
+   if(!docs.some(d=>d.kind==='boq'))return error('Attach this school’s Bill of Quantities (BOQ) before saving the package');
    // Per-row photographic evidence: keep only keys that name a photo attached to this package (a removed photo drops out).
    const photoIds=docs.filter(d=>d.kind==='photo').map(d=>String(d.id));
    const input={...draft,photoKeys:Object.fromEntries(Object.entries(draft.photoKeys).filter(([id])=>photoIds.includes(id)))};

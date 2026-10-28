@@ -109,6 +109,10 @@ export function NationalMap({ data, selected: controlled, onSelect }: { data: Ub
         })}
         {/* Hover: the state lifts out of the map on a copy drawn above its neighbours */}
         {!selected && hover && (() => { const st = states.find(x => x.code === hover)!; return <path key={`lift-${hover}`} d={st.d} className="nm-lift" data-status={status.get(hover) ?? undefined} onClick={() => choose(hover)} onMouseLeave={() => setHover(null)} aria-hidden="true" />; })()}
+        {/* UBEC151: every state's name on the map, at the middle of its outline; small states get a smaller label. Drawn last, so a raised (hovered) state keeps its name. */}
+        <g className="nm-labels" aria-hidden="true">{states.map(state => { const b = geo[state.code]; if (!b) return null;
+          const size = Math.max(6, Math.min(12, Math.min(b.w, b.h) / 3.4));
+          return <text key={state.code} x={b.x + b.w / 2} y={b.y + b.h / 2} fontSize={size} data-dim={(selected && selected !== state.code) || undefined}>{state.code === 'FC' ? 'FCT' : state.name}</text>; })}</g>
       </svg>
 
       <div className="nm-controls" aria-label="Map controls">
@@ -116,7 +120,7 @@ export function NationalMap({ data, selected: controlled, onSelect }: { data: Ub
         <Button type="button" size="icon" variant="outline" aria-label="Zoom out" onClick={() => zoom(1.4)}><Minus /></Button>
         <Button type="button" size="icon" variant="outline" aria-label="Show all of Nigeria" onClick={() => choose(null)}><RotateCcw /></Button>
       </div>
-      <ul className="nm-legend">{statusOrder.map(s => <li key={s} data-status={s}><i />{nationalStatusLabels[s]}</li>)}</ul>
+      <ul className="nm-legend">{statusOrder.map(s => <li key={s} data-status={s}><i />{nationalStatusLabels[s]}</li>)}<li data-none><i />No submission yet</li></ul>
       {!selected && hover && <HoverChip name={states.find(s => s.code === hover)!.name} code={hover} items={byState.get(hover)!} />}
       {selected && !external && <StateDetail key={selected} name={states.find(s => s.code === selected)!.name} items={byState.get(selected)!} onBack={() => choose(null)} />}
     </div>

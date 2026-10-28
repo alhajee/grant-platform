@@ -126,20 +126,20 @@ try {
   fails(await review('academic', { action: 'submit', pillar: 'gscci' }), 400, /Greening distribution list/);
   step('Greening & Safeguards lines: nine activities (8 accepted, 9 refused), edit, delete, ₦ ceiling, distribution required');
 
-  // Curriculum: each activity limited to its share (60/20/10/10%) of the ₦4,000.00 envelope.
+  // Curriculum: the 60/20/10/10% shares are a guide (UBEC162); only the ₦4,000.00 envelope caps.
   ok(await api('academic', url('curriculum'), line('curriculum', 1, 800)));
-  fails(await api('academic', url('curriculum'), line('curriculum', 1, 0.01)), 400, /‘[^’]+’ can use up to ₦800\.0000 \(20% of the Curriculum allocation\)\. With this item it would come to ₦800\.0100, which is ₦0\.0100 over\./);
+  const aboveGuide = ok(await api('academic', url('curriculum'), line('curriculum', 1, 100))).id;
+  ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'line', action: 'delete', id: aboveGuide }));
   ok(await api('academic', url('curriculum'), line('curriculum', 0, 1200, { quantity: 2 })));
-  fails(await api('academic', url('curriculum'), line('curriculum', 0, 0.01)), 400, /60%/);
   ok(await api('academic', url('curriculum'), line('curriculum', 3, 400)));
+  fails(await api('academic', url('curriculum'), line('curriculum', 2, 400.01)), 400, /exceeded the Curriculum/);
   let curriculum = ok(await api('academic', url('curriculum')));
   const capped = curriculum.lines.find(l => l.activity === 1);
-  fails(await api('academic', url('curriculum'), { ...line('curriculum', 1, 801), action: 'update', id: capped.id }), 400, /20%/);
   ok(await api('academic', url('curriculum'), { ...line('curriculum', 2, 400), action: 'update', id: capped.id }));
   ok(await api('academic', url('curriculum'), line('curriculum', 1, 800)));
   curriculum = ok(await api('academic', url('curriculum')));
   assert.deepEqual(curriculum.lines.map(l => l.activity), [0, 1, 2, 3]);
-  step('Curriculum activity caps: 60/20/10/10% shares enforced on create and update');
+  step('Curriculum shares are a guide: an activity may go above its share; the Curriculum allocation still caps');
 
   // Curriculum distribution list: multi-select add, duplicates skipped, separate from the TLM list.
   assert.equal(curriculum.schools.length, 2);

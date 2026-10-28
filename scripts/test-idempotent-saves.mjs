@@ -65,10 +65,12 @@ try {
   assert.equal(listed.lines.find(l => l.id === first.id).clientKey, jigawa, 'The editor finds a landed save by its key.');
   step('activity line: same key twice → one row; the retry returns the same id with replayed (Jigawa: no cap error on the retry)');
 
-  // Without a key (old clients) a second create is checked as a new line, with the clearer cap message.
-  fails(await api('academic', activities('curriculum'), curriculumLine(2, 168, 166666)), 400,
-    /^‘Distribution of the Curriculum & Access’ can use up to ₦28,000,000\.0000 \(10% of the Curriculum allocation\)\. With this item it would come to ₦55,999,776\.0000, which is ₦27,999,776\.0000 over\.$/);
-  step('without a key the old behaviour stays; the cap message names the cap, the total with this item and the excess');
+  // Without a key (old clients) a second create is a new line: the Curriculum shares are a guide since UBEC162, so it saves.
+  const duplicate = ok(await api('academic', activities('curriculum'), curriculumLine(2, 168, 166666))).id;
+  assert.notEqual(duplicate, first.id);
+  assert.equal(await count('SELECT count(*)::int AS n FROM activity_plan_lines WHERE plan_id=$1 AND activity=2', [planId]), 2);
+  ok(await api('academic', activities('curriculum'), { workstream: 'curriculum', entity: 'line', action: 'delete', id: duplicate }));
+  step('without a key the old behaviour stays: a second create is a new line');
 
   const concurrentKey = randomUUID();
   const replies = await Promise.all(Array.from({ length: 5 }, () => api('academic', activities('curriculum'), curriculumLine(1, 2, 1000, concurrentKey))));
