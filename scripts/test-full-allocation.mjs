@@ -56,6 +56,12 @@ try {
   ok(await api('physical', url('monitoring'), line('monitoring', 1, leftOf(short.error))));
   ok(await send('physical', 'monitoring'));
   step('a component is sent only once its items use its whole allocation');
+  // UBEC172: a balance under ₦1 still counts as used in full.
+  await db.query("UPDATE plan_pillar_reviews SET status='draft' WHERE plan_id=$1 AND pillar='monitoring'", [planId]);
+  await db.query("UPDATE activity_plan_lines SET unit_cost=unit_cost-0.50 WHERE plan_id=$1 AND workstream='monitoring' AND activity=1", [planId]);
+  ok(await send('physical', 'monitoring'));
+  step('a balance under ₦1 still counts as the whole allocation (UBEC172)');
+
 
   // Curriculum: its 60/20/10/10 shares are a guide (UBEC162), so only the whole allocation must be used, by any activity.
   const schoolId = (await db.query("INSERT INTO schools(state_code,name,lga,level,location,enrolment_male,enrolment_female) VALUES($1,'QA Full School','QA LGA','Primary','Rural',10,10) RETURNING id", [state])).rows[0].id;

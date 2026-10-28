@@ -20,8 +20,8 @@ const step = message => { passed++; console.log('✓', message); };
 
 async function api(who, path, body) {
   const jar = jars[who] ??= {};
-  const headers = { Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '), Origin: base, ...(body ? { 'Content-Type': 'application/json' } : {}) };
-  const response = await fetch(base + path, { method: body ? 'POST' : 'GET', headers, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const headers = { Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '), Origin: base, ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}) };
+  const response = await fetch(base + path, { method: body ? 'POST' : 'GET', headers, ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}) });
   for (const cookie of response.headers.getSetCookie()) { const pair = cookie.split(';')[0], i = pair.indexOf('='); jars[who][pair.slice(0, i)] = pair.slice(i + 1); }
   const text = await response.text(); let data; try { data = JSON.parse(text); } catch { data = { error: text.slice(0, 200) }; }
   return { status: response.status, data };
@@ -132,7 +132,10 @@ try {
   step('sports: the section cap message says what the section may use and how far this item takes it over');
 
   // Infrastructure packages.
-  const furniture = (cost, clientKey) => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost }], documentIds: [] }, ...(clientKey ? { clientKey } : {}) });
+  // UBEC170: a package needs its school's BOQ to save.
+  const boqForm = new FormData(); boqForm.set('kind', 'boq'); boqForm.set('schoolId', String(schoolIds[0])); boqForm.set('file', new File(['%PDF-1.4\nBOQ\n%%EOF'], 'boq.pdf', { type: 'application/pdf' }));
+  const boqId = ok(await api('physical', `/api/infrastructure/documents?plan=${planId}`, boqForm)).id;
+  const furniture = (cost, clientKey) => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost }], documentIds: [boqId] }, ...(clientKey ? { clientKey } : {}) });
   const infraKey = randomUUID();
   const pkg = ok(await api('physical', infraUrl(), furniture(1000, infraKey)));
   assert.ok(Number.isInteger(pkg.id));

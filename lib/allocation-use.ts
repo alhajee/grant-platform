@@ -16,6 +16,12 @@ import type { Snapshot } from './plan-review';
 // Governed by the Super Admin setting state_workflow_settings.full_allocation_required (migration 076, default on).
 
 type Costed = { quantity: number; unit_cost: string };
+/**
+ * UBEC172 (client, 28 October 2026: "maybe expect some instance of decimal point"): a balance under ₦1 still counts as
+ * used in full, so naira prices that cannot divide an allocation to the kobo never block a send.
+ */
+export const fullUseTolerance = BigInt(100);
+const shortOf = (used: bigint, cap: bigint) => cap - used >= fullUseTolerance;
 const kobo = (lines: readonly Costed[]) => lines.reduce((sum, l) => sum + toKobo(String(l.unit_cost)) * BigInt(l.quantity), BigInt(0));
 /** A share inside the component (an activity, a Sports section or sub-activity) not used in full. */
 const short = (what: string, cap: bigint, used: bigint) => `${what} must use all of its ${formatKobo(cap)} before sending. Its items come to ${formatKobo(used)}, so ${formatKobo(cap - used)} is left`;
@@ -34,7 +40,7 @@ function activitySharesProblem(workstream: ActivityWorkstream, lines: readonly (
     if (isAdvisoryShare(workstream, activity)) continue; // UBEC162/173: guides, not required in full
     caps++;
     const cap = activityCapKobo(workstream, envelope, activity, selection), used = kobo(lines.filter(l => group.includes(l.activity)));
-    if (used < cap) return { problem: short(group.map(a => `‘${activityNames[workstream][a]}’`).join(' and '), cap, used), caps };
+    if (shortOf(used, cap)) return { problem: short(group.map(a => `‘${activityNames[workstream][a]}’`).join(' and '), cap, used), caps };
   }
   return { problem: null, caps };
 }
@@ -46,7 +52,7 @@ export function allocationUseProblem(pillar: ImplementedPillar, snapshot: Snapsh
   // Shared pool: Infrastructure and TLM use the pool together.
   if ((pillar === 'infrastructure' || pillar === 'tlm') && !isSplitMode(plan)) {
     const pool = infrastructurePoolEnvelope(plan), used = kobo(snapshot.infrastructure ?? []) + kobo(snapshot.tlm ?? []);
-    return pool != null && used < toKobo(pool) ? shortWhole('shared Infrastructure & TLM budget', toKobo(pool), used) : null;
+    return pool != null && shortOf(used, toKobo(pool)) ? shortWhole('shared Infrastructure & TLM budget', toKobo(pool), used) : null;
   }
   const envelope = componentEnvelope(plan, pillar);
   if (envelope == null) return null;
@@ -55,21 +61,21 @@ export function allocationUseProblem(pillar: ImplementedPillar, snapshot: Snapsh
   if (pillar === 'sports') {
     const lines = (snapshot.sports ?? []).map(l => ({ section: l.section, activityType: l.activity_type, kobo: toKobo(String(l.unit_cost)) * BigInt(l.quantity) }));
     for (const { section, proposed, cap } of sportsSectionBudgets(lines, whole)) {
-      if (cap != null && proposed < cap) return short(`‘${section.label}’`, cap, proposed);
+      if (cap != null && shortOf(proposed, cap)) return short(`‘${section.label}’`, cap, proposed);
       for (const sub of (sportsSubActivities as Record<string, readonly { name: string; share?: number }[]>)[section.id] ?? []) {
         const budget = sub.share ? subActivityBudget(lines, whole, section.id, sub.name) : null;
-        if (budget && budget.proposed < budget.cap) return short(`‘${sub.name}’`, budget.cap, budget.proposed);
+        if (budget && shortOf(budget.proposed, budget.cap)) return short(`‘${sub.name}’`, budget.cap, budget.proposed);
       }
     }
     const used = lines.reduce((sum, l) => sum + l.kobo, BigInt(0));
     // Section caps are rounded to the kobo, so a few kobo may stay unassigned once every section is used in full.
-    return used + BigInt(4) < whole ? shortWhole('Sports allocation', whole, used) : null;
+    return shortOf(used, whole) ? shortWhole('Sports allocation', whole, used) : null;
   }
-  if (pillar === 'infrastructure') { const used = kobo(snapshot.infrastructure ?? []); return used < whole ? shortWhole(`${name} allocation`, whole, used) : null; }
+  if (pillar === 'infrastructure') { const used = kobo(snapshot.infrastructure ?? []); return shortOf(used, whole) ? shortWhole(`${name} allocation`, whole, used) : null; }
   if (!(activityWorkstreams as readonly string[]).includes(pillar)) return null;
   const lines = snapshot[pillar as ActivityWorkstream] ?? [];
   const shares = activitySharesProblem(pillar as ActivityWorkstream, lines, whole, plan);
   if (shares.problem) return shares.problem;
   const used = kobo(lines);
-  return used + BigInt(shares.caps) < whole ? shortWhole(`${name} allocation`, whole, used) : null;
+  return shortOf(used, whole) ? shortWhole(`${name} allocation`, whole, used) : null;
 }

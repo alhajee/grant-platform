@@ -18,8 +18,8 @@ const step = message => { passed++; console.log('✓', message); };
 
 async function api(who, path, body, { method = body ? 'POST' : 'GET' } = {}) {
   const jar = jars[who] ??= {};
-  const headers = { Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '), Origin: base, ...(body ? { 'Content-Type': 'application/json' } : {}) };
-  const response = await fetch(base + path, { method, headers, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const headers = { Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '), Origin: base, ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}) };
+  const response = await fetch(base + path, { method, headers, ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}) });
   for (const cookie of response.headers.getSetCookie()) { const pair = cookie.split(';')[0], i = pair.indexOf('='); jars[who][pair.slice(0, i)] = pair.slice(i + 1); }
   const text = await response.text(); let data; try { data = JSON.parse(text); } catch { data = { error: text.slice(0, 200) }; }
   return { status: response.status, data };
@@ -114,7 +114,10 @@ try {
   const infraUrl = `/api/infrastructure/packages?plan=${planId}`;
   // Split mode (migration 051): Infrastructure takes the whole Infrastructure & TLM pool here (TLM has no lines).
   await db.query('UPDATE action_plans SET tlm_allocation=0 WHERE id=$1', [planId]);
-  const furniture = extra => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 2, cost: 100 }], documentIds: [], ...extra } });
+  // UBEC170: a package needs its school's BOQ to save.
+  const boqForm = new FormData(); boqForm.set('kind', 'boq'); boqForm.set('schoolId', String(schoolIds[0])); boqForm.set('file', new File(['%PDF-1.4\nBOQ\n%%EOF'], 'boq.pdf', { type: 'application/pdf' }));
+  const boqId = ok(await api('physical', `/api/infrastructure/documents?plan=${planId}`, boqForm)).id;
+  const furniture = extra => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 2, cost: 100 }], documentIds: [boqId], ...extra } });
   fails(await api('physical', infraUrl, furniture({ quarters: [] })), 400, /at least one quarter/);
   fails(await api('physical', infraUrl, furniture({ quarters: [4] })), 400, /Q4 is not in this plan/);
   fails(await api('physical', infraUrl, furniture({ quarters: [1, 3] })), 400, /next to each other/);
