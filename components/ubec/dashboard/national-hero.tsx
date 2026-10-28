@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { planDeliverableLabels, sumPlanDeliverables } from '@/lib/plan-deliverables';
 import { ArrowLeft, ArrowUpRight, Landmark, SendIcon } from 'lucide-react';
 import { componentPalette } from '@/components/dashboard/component-budgets';
 import states from '@/lib/nigeria-map.json';
@@ -110,6 +111,8 @@ function StateFigures({ data, code, onBack }: { data: UbecDashboard; code: strin
       <article className="nh-stat nh-in" data-tone="sky" data-alert={s.returned > 0 || undefined} style={{ '--i': 4 } as CSSProperties}><span className="nh-stat-art"><StatesArtwork /></span><span>Returned</span><strong>{count.format(s.returned)}</strong></article>
       <article className="nh-stat nh-stat-wide nh-in nh-state-more" data-tone="lilac" style={{ '--i': 5 } as CSSProperties}>
         {items.length ? <>
+          {/* UBEC152: the state's deliverables, beside its component mix. */}
+          {(() => { const d = sumPlanDeliverables(items.map(i => i.deliverables)); return <ul className="nh-state-deliverables">{(['schools', 'classrooms', 'teachers', 'curriculum', 'tlm'] as const).map(k => <li key={k}><b>{count.format(d[k])}</b><span>{planDeliverableLabels[k]}</span></li>)}</ul>; })()}
           {mix.length > 0 && <>
             <div className="nh-mix-bar" aria-hidden="true">{mix.map(a => <span key={a.p} style={{ flexGrow: a.v / total, background: componentPalette[a.p as ImplementedPillar].fill } as CSSProperties} />)}</div>
             <ul className="nh-mix">{mix.slice(0, 3).map(a => <li key={a.p}><i style={{ background: componentPalette[a.p as ImplementedPillar].fill }} /><span>{componentName(a.p)}</span><b>{money.format(a.v)}</b></li>)}{mix.length > 3 && <li className="nh-mix-more">+{mix.length - 3} more components</li>}</ul>

@@ -54,3 +54,23 @@ export function countDeliverables(packages: readonly (DeliverablePackage | null 
   }
   return counts;
 }
+
+/**
+ * UBEC152/154/197: a plan's headline deliverables for the UBEC dashboards (client, 28 October 2026; defaults agreed:
+ * teachers = Teacher Development participants, curriculum = quantities under Curriculum Procurement, TLM = quantities
+ * of all TLM items). Schools and classrooms come from the plan's school counts and Infrastructure packages.
+ */
+export type PlanDeliverables = { schools: number; classrooms: number; teachers: number; curriculum: number; tlm: number; toilets: number; furniture: number; water: number };
+export const planDeliverableLabels: Record<keyof PlanDeliverables, string> = {
+  schools: 'Schools intervened', classrooms: 'Classrooms', teachers: 'Teachers trained', curriculum: 'Curriculum purchased', tlm: 'TLM purchased',
+  toilets: 'Toilet compartments', furniture: 'Furniture units', water: 'Water systems',
+};
+type QuantityLine = { activity: number; quantity: number };
+export function planDeliverables(input: { schools: number; packages: readonly (DeliverablePackage | null | undefined)[]; teachers?: readonly { quantity: number }[]; curriculum?: readonly QuantityLine[]; tlm?: readonly { quantity: number }[] }): PlanDeliverables {
+  const infra = countDeliverables(input.packages);
+  const sum = (lines: readonly { quantity: number }[] = []) => lines.reduce((total, line) => total + (Number(line.quantity) || 0), 0);
+  return { schools: input.schools, classrooms: infra.classrooms + infra.eccde, teachers: sum(input.teachers), curriculum: sum((input.curriculum ?? []).filter(line => line.activity === 0)), tlm: sum(input.tlm), toilets: infra.toilets, furniture: infra.furniture, water: infra.water };
+}
+export const sumPlanDeliverables = (all: readonly (PlanDeliverables | undefined)[]): PlanDeliverables =>
+  all.reduce<PlanDeliverables>((total, d) => d ? Object.fromEntries(Object.keys(total).map(k => [k, total[k as keyof PlanDeliverables] + d[k as keyof PlanDeliverables]])) as PlanDeliverables : total,
+    { schools: 0, classrooms: 0, teachers: 0, curriculum: 0, tlm: 0, toilets: 0, furniture: 0, water: 0 });

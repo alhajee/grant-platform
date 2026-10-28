@@ -1,4 +1,5 @@
 import { levelMapping } from '@/lib/level-mapping';
+import { planDeliverables } from '@/lib/plan-deliverables';
 import { readCorrections } from '@/lib/ubec-corrections-db';
 import { NextRequest, NextResponse } from 'next/server';
 import { getWorkspaceState } from '@/lib/workspace-state';
@@ -91,6 +92,8 @@ export async function GET(request: NextRequest) {
         pending: open ? released.filter(p => p.stage !== 'chair').length : 0, completed: released.filter(p => p.stage === 'chair').length,
         fundingTotal: r.snapshot.setup?.fundingTotal != null ? Number(r.snapshot.setup.fundingTotal) : null, amounts, components: pipeline,
         levels: levelMapping(ubecVisibleSnapshot(r.snapshot, pillars)),
+        // UBEC152/154: headline deliverables of the components this viewer sees.
+        deliverables: (() => { const v = ubecVisibleSnapshot(r.snapshot, pillars); return planDeliverables({ schools: new Set(schools).size, packages: (v.infrastructure ?? []).map(l => l.package), teachers: v.teachers, curriculum: v.curriculum, tlm: v.tlm }); })(),
         corrected: Object.entries(corrections.get(r.id) ?? {}).filter(([pillar]) => pillars.includes(pillar as ImplementedPillar)).reduce((sum, [, refs]) => sum + refs.length, 0),
       };
     });

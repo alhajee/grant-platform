@@ -11,6 +11,7 @@ import { planPeriod } from '@/lib/action-plans';
 import { nationalStatusLabels, type NationalItem } from '@/lib/ubec';
 import { componentName } from '@/lib/ubec-flow';
 import { StagePill, percentOf } from './flow-bits';
+import { PlanDeliverablesLine } from './dashboard/deliverables';
 
 const date = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -34,6 +35,7 @@ export function UbecPlanCard({ item, action }: { item: NationalItem; action?: st
         <FundingGauge amounts={item.amounts ?? {}} budget={item.budget} funding={funding || item.budget} />
         <p><strong>{compactNaira.format(item.budget)}</strong> {components.length < 11 && item.status !== 'received' ? 'in your components' : 'proposed'}{funding > 0 && <span>{percentOf(item.budget, funding)}% of funding</span>}</p>
       </div>}
+      <PlanDeliverablesLine deliverables={item.deliverables} />
       <ul className="plan-pills" aria-label="Plan contents">
         <li><LayersIcon aria-hidden="true" /><b>{components.length}</b>{components.length === 1 ? 'component' : 'components'}</li>
         {item.schools.length > 0 && <li><SchoolIcon aria-hidden="true" /><b>{item.schools.length}</b>{item.schools.length === 1 ? 'school' : 'schools'}</li>}

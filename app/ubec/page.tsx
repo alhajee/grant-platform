@@ -8,6 +8,7 @@ import { RatToolsCard } from '@/components/ubec/dashboard/rat-tools';
 import { FinanceDocumentsOverview } from '@/components/ubec/dashboard/finance-documents';
 import { seesUbecFinance } from '@/lib/finance-documents';
 import { ObservationPlansCard } from '@/components/ubec/dashboard/observation-plans';
+import { DeliverablesCard } from '@/components/ubec/dashboard/deliverables';
 import { observationViewer } from '@/lib/observation-requests';
 import { LevelMappingCard } from '@/components/level-mapping-card';
 import { sumMappings } from '@/lib/level-mapping';
@@ -27,7 +28,7 @@ export default function Dashboard() {
       {isNational(d.user.role) ? <>
         <NationalHero data={d} controls={<YearControls years={d.years} year={year} onYear={setYear} onRefresh={load} loading={loading} />} />
         {/* The rest slides up over the map as the page scrolls */}
-        <div className="nh-sheet"><NationalGlance data={d} />{/* UBEC178: the plans come first, four to a row. */}<OverviewPlans data={d} />{/* Observations asked before sending to UBEC (row 156): the UBEC BEAP Chair follows them. */}{observationViewer(d.user.role, d.user.department) && <ObservationPlansCard hideEmpty />}
+        <div className="nh-sheet"><NationalGlance data={d} />{/* UBEC152/154/197: deliverables at a glance, for Nigeria or a state. */}<DeliverablesCard data={d} />{/* UBEC178: the plans come first, four to a row. */}<OverviewPlans data={d} />{/* Observations asked before sending to UBEC (row 156): the UBEC BEAP Chair follows them. */}{observationViewer(d.user.role, d.user.department) && <ObservationPlansCard hideEmpty />}
           {/* UBEC127/177: spending by school level, compact, on one row with the folded workload and activity. */}
           <div className="national-lower-grid ubec-overview-row"><LevelMappingCard className="ubec-level-mapping" mapping={sumMappings(d.items.flatMap(i => i.levels ? [i.levels] : []))} description={`Across the ${d.items.length} submitted ${d.items.length === 1 ? 'plan' : 'plans'}`} /><WorkloadCard data={d} defaultOpen={false} /><ActivityCard data={d} limit={12} moreHref="/ubec/activity" defaultOpen={false} /></div></div>
       </> : <>

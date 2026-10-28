@@ -242,3 +242,9 @@
 .nm-labels text { text-anchor: middle; dominant-baseline: central; font-weight: 600; fill: #1f3a38; paint-order: stroke; stroke: rgb(255 255 255 / 75%); stroke-width: 2.2px; stroke-linejoin: round; letter-spacing: .01em; }
 .nm-labels text[data-dim] { opacity: .35; }
 .dark .nm-labels text { fill: #e6efe9; stroke: rgb(0 0 0 / 55%); }
+
+/* UBEC152: a state's deliverables in its figure column. */
+.nh-state-deliverables { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
+.nh-state-deliverables li { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: 12px; background: #ffffffa8; }
+.nh-state-deliverables b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.nh-state-deliverables span { font-size: 11px; color: var(--muted-foreground); line-height: 1.2; }
