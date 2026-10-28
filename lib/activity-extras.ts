@@ -94,7 +94,19 @@ export const isRetiredActivity = (workstream: string, activity: number) => (reti
 /** Activities whose lines choose schools from the state's School list (at least one per line). */
 // ICT 0 Procurement of Digital/STEM Equipment joined on 17 October 2026: its items name the schools that receive them.
 export const lineSchoolActivities: Partial<Record<string, readonly number[]>> = { ict: [0, 2, 4, 8] };
-export const hasLineSchools = (workstream: string, activity: number) => (lineSchoolActivities[workstream] ?? []).includes(activity);
+/**
+ * ICT "Procurement of Digital/STEM Equipment" (activity 0) names its beneficiaries (UBEC160, migration 080): School,
+ * SUBEB or LGA. Only School lines choose schools, and they share the line's quantity across them.
+ */
+export const beneficiaryActivity = 0;
+export const beneficiaryTypes = ['school', 'subeb', 'lga'] as const;
+export type Beneficiary = typeof beneficiaryTypes[number];
+export const beneficiaryLabels: Record<Beneficiary, string> = { school: 'Schools', subeb: 'SUBEB', lga: 'LGA' };
+export const needsBeneficiary = (workstream: string, activity: number) => workstream === 'ict' && activity === beneficiaryActivity;
+/** Whether a line chooses schools: the listed activities, except ICT procurement for SUBEB or an LGA. */
+export const hasLineSchools = (workstream: string, activity: number, beneficiary?: string | null) => (lineSchoolActivities[workstream] ?? []).includes(activity) && !(needsBeneficiary(workstream, activity) && beneficiary && beneficiary !== 'school');
+/** Lines whose chosen schools each get a quantity that adds up to the line's quantity (UBEC160). */
+export const allocatesToSchools = (workstream: string, activity: number, beneficiary?: string | null) => needsBeneficiary(workstream, activity) && beneficiary === 'school';
 /** Activities delivered one per school (ICT 4 Establishment of DLC, UBEC89): the quantity is the number of schools chosen. */
 export const quantityFromSchoolsActivities: Partial<Record<string, readonly number[]>> = { ict: [4] };
 export const quantityFromSchools = (workstream: string, activity: number) => (quantityFromSchoolsActivities[workstream] ?? []).includes(activity);
@@ -150,5 +162,6 @@ export const missingLineDocument = (workstream: string, activity: number, docume
 export const maxLineDocumentBytes = 5 * 1024 * 1024;
 export const maxLineDocuments = 10;
 
-export type LineSchool = { id: number; name: string; lga: string; level: string };
+/** `quantity`: the items for this school, on ICT procurement lines for schools (UBEC160); otherwise absent. */
+export type LineSchool = { id: number; name: string; lga: string; level: string; quantity?: number | null };
 export type LineDocument = { id: string; name: string; size: number; /** Which slot (migration 065); 'document' for all but TLM. */ kind?: string };

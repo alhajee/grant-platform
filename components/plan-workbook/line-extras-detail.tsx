@@ -1,7 +1,7 @@
 'use client';
 import { DocumentFiles } from '@/components/document-files';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { lineDocumentSlots } from '@/lib/activity-extras';
+import { lineDocumentSlots, beneficiaryLabels, type Beneficiary } from '@/lib/activity-extras';
 import type { ActivitySnapshotLine } from '@/lib/activity-plans';
 
 /**
@@ -10,6 +10,8 @@ import type { ActivitySnapshotLine } from '@/lib/activity-plans';
  */
 export function LineExtrasDetail({ workstream, line }: { workstream: 'sbmc' | 'tlm' | 'monitoring' | 'curriculum' | 'quality' | 'ict' | 'teachers' | 'planning'; line: ActivitySnapshotLine }) {
   const schools = line.schools ?? [], documents = line.documents ?? [];
+  // UBEC160: ICT procurement for schools shows each school's items.
+  const withItems = schools.some(s => s.quantity);
   // One group per upload slot (TLM: BOQ and Sample of the item); optional slots only when they hold documents.
   const slots = lineDocumentSlots(workstream, line.activity);
   const groups = slots.map(slot => ({ label: slot.label, governed: slot.governed, docs: documents.filter(d => (d.kind ?? 'document') === slot.kind) }))
@@ -18,15 +20,15 @@ export function LineExtrasDetail({ workstream, line }: { workstream: 'sbmc' | 't
   if (earlier.length) groups.push({ label: 'Earlier documents', governed: false, docs: earlier });
   const label = groups.length > 0;
   const facts = [
-    ['Category', line.equipment_category], ['Equipment type', line.equipment_type], ['Subscription types', line.subscription_types?.join(', ')], ['Website type', line.website_type],
+    ['Beneficiaries', line.beneficiary ? beneficiaryLabels[line.beneficiary as Beneficiary] : ''], ['Category', line.equipment_category], ['Equipment type', line.equipment_type], ['Subscription types', line.subscription_types?.join(', ')], ['Website type', line.website_type],
     ...(workstream === 'teachers' ? [['Description', line.description]] : []),
   ].filter((fact): fact is [string, string] => Boolean(fact[1]));
   return <>
     {facts.length > 0 && <dl className="review-facts">{facts.map(([term, value]) => <div key={term}><dt>{term}</dt><dd>{value}</dd></div>)}</dl>}
     {groups.map(group => <div key={group.label}><h3>{group.label}</h3>{group.docs.length ? <DocumentFiles compact documents={group.docs.map(doc => ({ ...doc, url: `/api/activities/line-documents?id=${doc.id}`, description: group.label }))} /> : <p className="review-comment">No document uploaded</p>}</div>)}
     {schools.length > 0 && <><div className="review-allocation-heading"><h3>Schools</h3><span>{schools.length.toLocaleString()} school{schools.length === 1 ? '' : 's'}</span></div>
-      <Table aria-label={`Schools for ${line.description}`}><TableHeader><TableRow><TableHead>School</TableHead><TableHead>LGA</TableHead><TableHead>Level</TableHead></TableRow></TableHeader><TableBody>
-        {schools.map(s => <TableRow key={s.id}><TableCell className="whitespace-normal">{s.name}</TableCell><TableCell>{s.lga}</TableCell><TableCell>{s.level}</TableCell></TableRow>)}
+      <Table aria-label={`Schools for ${line.description}`}><TableHeader><TableRow><TableHead>School</TableHead><TableHead>LGA</TableHead><TableHead>Level</TableHead>{withItems && <TableHead className="text-right">Items</TableHead>}</TableRow></TableHeader><TableBody>
+        {schools.map(s => <TableRow key={s.id}><TableCell className="whitespace-normal">{s.name}</TableCell><TableCell>{s.lga}</TableCell><TableCell>{s.level}</TableCell>{withItems && <TableCell className="text-right tabular-nums">{s.quantity?.toLocaleString() ?? '—'}</TableCell>}</TableRow>)}
       </TableBody></Table></>}
     {!facts.length && !label && !schools.length && <p className="review-comment">No further details</p>}
   </>;

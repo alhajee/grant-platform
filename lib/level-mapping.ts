@@ -62,7 +62,9 @@ export function levelMapping(snapshot: Snapshot): LevelMapping {
   for (const pillar of activityComponents) {
     for (const line of snapshot[pillar] ?? []) {
       const kobo = koboOf(line);
-      if (line.schools?.length) add(share(kobo, count(line.schools.map(s => s.level))));
+      // UBEC160: items allocated per school weigh by their quantity; otherwise each school counts once.
+      if (line.schools?.some(s => s.quantity)) add(share(kobo, line.schools.reduce<Weights>((w, s) => { const key = levelOf(s.level); return { ...w, [key]: (w[key] ?? 0) + (s.quantity ?? 0) }; }, {})));
+      else if (line.schools?.length) add(share(kobo, count(line.schools.map(s => s.level))));
       else if (line.textbook_classes?.length) add(share(kobo, count(line.textbook_classes)));
       else if (pillar === 'teachers' && line.school_levels?.length) add(share(kobo, count(line.school_levels)));
       else if (distribution[pillar]?.length) add(share(kobo, count(distribution[pillar]!.map(s => s.level))));

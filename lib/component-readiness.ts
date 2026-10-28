@@ -10,7 +10,7 @@ import type { Snapshot } from './plan-review';
 // line that needs a document has one (only while the Super Admin requires supporting documents, migration 052),
 // and Teacher Development has its share of the shared budget set.
 // Shared by the editor, the plan page and every send step on the server.
-type ReadinessLine = { id: number; activity: number; description: string; custom_activity?: string; customActivity?: string; schools?: readonly unknown[]; documents?: readonly { kind?: string }[] };
+type ReadinessLine = { id: number; activity: number; description: string; custom_activity?: string; customActivity?: string; beneficiary?: string | null; schools?: readonly unknown[]; documents?: readonly { kind?: string }[] };
 /** The plan setup fields readiness reads (a snapshot's setup or an ActionPlan). */
 type ReadinessSetup = { ictAllocation?: string | null; qualityActivities?: readonly number[] | null; ictConnect?: 'has' | 'needs' | null; ictConnectWaivers?: number } | null | undefined;
 /** Platform settings readiness depends on: whether supporting documents (ICT, Teacher Development, Infrastructure except land documents) are required (migration 052). */
@@ -58,7 +58,7 @@ export function componentReadinessProblem(workstream: string, lines: readonly Re
   if (missing.length) return `Add at least one budget line to each compulsory activity before sending: ${compulsoryNames(workstream, missing).join('; ')}.`;
   if (workstream === 'quality' && setup && setup.qualityActivities === null) return 'Choose the Quality Assurance activities before sending';
   if (workstream === 'teachers' && lines.length && setup && setup.ictAllocation == null) return 'Ask the BEAP Chair to set how much of the shared Teacher Development & ICT budget Teacher Development will use before sending';
-  const noSchools = lines.find(line => hasLineSchools(workstream, line.activity) && !line.schools?.length);
+  const noSchools = lines.find(line => hasLineSchools(workstream, line.activity, line.beneficiary) && !line.schools?.length);
   if (noSchools) return `Choose the schools for “${lineName(workstream, noSchools)}” before sending`;
   if (!options.documentsRequired) return null;
   // Only the governed documents; optional supporting documents (migration 057) never block a send.

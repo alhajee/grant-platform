@@ -180,13 +180,18 @@ try {
   fails(await api('ict', url('ict'), line('ict', 6, 100)), 400, /website type/);
   ok(await api('ict', url('ict'), line('ict', 6, 400000, { websiteType: 'Hosting only' })));
   // Required activities first: optional ICT activities (0, 4, 7, 8, Others) wait until 1, 2, 3, 5 and 6 each have an item.
-  const early = fails(await api('ict', url('ict'), line('ict', 0, 1000000, { schoolIds: [schoolA] })), 409, /Budget the required activities first/);
+  const early = fails(await api('ict', url('ict'), line('ict', 0, 1000000, { beneficiary: 'school', schoolIds: [schoolA], schoolQuantities: { [schoolA]: 1 } })), 409, /Budget the required activities first/);
   assert.match(early.error, /Compliance with Data Protection & Cybersecurity Policy \(NDPA\); Maintenance of UBEC-SUBEB Connect/);
   const connect = ok(await api('ict', url('ict'), line('ict', 3, 300000)));
   ok(await api('ict', url('ict'), line('ict', 1, 100000)));
-  // Procurement of Digital/STEM Equipment (activity 0) names the schools that receive the items (17 October 2026).
-  fails(await api('ict', url('ict'), line('ict', 0, 1000000)), 400, /at least one school/);
-  const spec = ok(await api('ict', url('ict'), line('ict', 0, 1000000, { schoolIds: [schoolA, schoolB] })));
+  // Procurement of Digital/STEM Equipment (activity 0) names its beneficiaries (UBEC160): School lines choose their schools
+  // and share the quantity across them; SUBEB and LGA lines have no schools.
+  fails(await api('ict', url('ict'), line('ict', 0, 1000000)), 400, /Choose who benefits/);
+  fails(await api('ict', url('ict'), line('ict', 0, 1000000, { beneficiary: 'school' })), 400, /at least one school/);
+  fails(await api('ict', url('ict'), line('ict', 0, 500000, { beneficiary: 'school', quantity: 2, schoolIds: [schoolA, schoolB], schoolQuantities: { [schoolA]: 1 } })), 400, /Give each school its number of items/);
+  fails(await api('ict', url('ict'), line('ict', 0, 500000, { beneficiary: 'school', quantity: 2, schoolIds: [schoolA, schoolB], schoolQuantities: { [schoolA]: 1, [schoolB]: 2 } })), 400, /Share all 2 items across the schools: 3 allocated/);
+  fails(await api('ict', url('ict'), line('ict', 0, 1000000, { beneficiary: 'subeb', schoolIds: [schoolA] })), 400, /Schools only apply/);
+  const spec = ok(await api('ict', url('ict'), line('ict', 0, 500000, { beneficiary: 'school', quantity: 2, schoolIds: [schoolA, schoolB], schoolQuantities: { [schoolA]: 1, [schoolB]: 1 } })));
   // Establishment of DLC (activity 4): one per school, so the quantity is the number of schools chosen (UBEC89).
   fails(await api('ict', url('ict'), { ...line('ict', 4, 1000000, { schoolIds: [schoolA, schoolB] }), quantity: 3 }), 400, /number of schools chosen \(2\)/);
   const dlc = ok(await api('ict', url('ict'), line('ict', 4, 2000000, { schoolIds: [schoolB] })));
@@ -195,6 +200,8 @@ try {
   let ict = ok(await api('ict', url('ict')));
   assert.equal(ict.lines.length, 9);
   assert.deepEqual(ict.lines.find(l => l.id === smart.id).schools.map(s => s.id), [schoolA]);
+  const procured = ict.lines.find(l => l.id === spec.id);
+  assert.equal(procured.beneficiary, 'school'); assert.deepEqual(procured.schoolQuantities, { [schoolA]: 1, [schoolB]: 1 });
   assert.deepEqual(ict.lines.find(l => l.activity === 5).subscriptionTypes, ['Starlink', 'MTN', 'Fibre', 'Smile']);
   assert.equal(ict.lines.find(l => l.activity === 6).websiteType, 'Hosting only');
   assert.ok(ict.schools.some(s => s.id === schoolA) && !ict.schools.some(s => s.id === foreign));

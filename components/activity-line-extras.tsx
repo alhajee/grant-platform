@@ -11,9 +11,10 @@ import { Input } from '@/components/ui/input';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { FieldHelp } from '@/components/field-help';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isQualityEquipmentActivity, ictSupportingDocumentHelp, lineDocumentSlots, type LineDocumentSlot, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { allocatesToSchools, beneficiaryLabels, beneficiaryTypes, needsBeneficiary, type Beneficiary, censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isQualityEquipmentActivity, ictSupportingDocumentHelp, lineDocumentSlots, type LineDocumentSlot, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
@@ -24,7 +25,7 @@ import { SchoolLevelFilter, allLevels, filterByLevel, type SchoolLevelChoice } f
 const count = new Intl.NumberFormat('en-NG');
 const pickerLimit = 200;
 const required = <span className="text-destructive" aria-label="required">*</span>;
-export type ExtraDraft = { activity: string; equipmentCategory: '' | typeof equipmentCategories[number]; equipmentType: string; subscriptionTypes: string[]; websiteType: string; item: string; censusType: string; schoolIds: number[] };
+export type ExtraDraft = { activity: string; equipmentCategory: '' | typeof equipmentCategories[number]; equipmentType: string; subscriptionTypes: string[]; websiteType: string; item: string; censusType: string; schoolIds: number[]; /** ICT procurement (UBEC160). */ beneficiary?: string; schoolQuantities?: Record<string, number> };
 
 /** The "Required" badge for a compulsory activity. */
 export function RequiredBadge({ workstream, activity, setup }: { workstream: ActivityWorkstream; activity: number; setup?: { ictConnect?: 'has' | 'needs' | null } | null }) {
@@ -123,9 +124,21 @@ export function LineExtraFields({ workstream, draft, onChange }: { workstream: A
 }
 
 /** Multi-select of schools from the state's School list for one line. */
-export function LineSchoolPicker({ workstream, draft, schools, onChange, disabled }: { workstream: ActivityWorkstream; draft: ExtraDraft; schools: DistributionSchool[]; onChange: (schoolIds: number[]) => void; disabled: boolean }) {
+/** UBEC160: who an ICT procurement item is for. Choosing SUBEB or LGA clears the schools. */
+export function BeneficiaryField({ workstream, draft, disabled, onChange }: { workstream: ActivityWorkstream; draft: ExtraDraft; disabled: boolean; onChange: (beneficiary: Beneficiary) => void }) {
+  if (!needsBeneficiary(workstream, Number(draft.activity))) return null;
+  return <Field><FieldLabel>Beneficiaries {required}</FieldLabel>
+    <ToggleGroup type="single" variant="outline" value={draft.beneficiary || undefined} disabled={disabled} onValueChange={value => { if (value) onChange(value as Beneficiary); }} aria-label="Beneficiaries" className="justify-start">
+      {beneficiaryTypes.map(type => <ToggleGroupItem key={type} value={type} className="px-4">{beneficiaryLabels[type]}</ToggleGroupItem>)}
+    </ToggleGroup>
+    <FieldDescription>{draft.beneficiary === 'school' ? 'Choose the schools and share the quantity across them' : draft.beneficiary ? `Procured for the ${beneficiaryLabels[draft.beneficiary as Beneficiary]}: no schools` : 'Who the equipment is for'}</FieldDescription>
+  </Field>;
+}
+
+export function LineSchoolPicker({ workstream, draft, schools, onChange, disabled, quantity, onQuantities }: { workstream: ActivityWorkstream; draft: ExtraDraft; schools: DistributionSchool[]; onChange: (schoolIds: number[]) => void; disabled: boolean; /** UBEC160: the line's quantity, shared across the chosen schools. */ quantity?: number; onQuantities?: (quantities: Record<string, number>) => void }) {
   const [query, setQuery] = useState(''), [level, setLevel] = useState<SchoolLevelChoice>(allLevels);
-  if (!hasLineSchools(workstream, Number(draft.activity))) return null;
+  if (!hasLineSchools(workstream, Number(draft.activity), draft.beneficiary)) return null;
+  const allocating = allocatesToSchools(workstream, Number(draft.activity), draft.beneficiary) && !!onQuantities;
   const chosen = new Set(draft.schoolIds), needle = query.trim().toLowerCase();
   // Chosen schools first so they stay visible; then the rest of the list.
   const matches = filterByLevel(schools, level).filter(s => !needle || `${s.name} ${s.lga} ${s.level}`.toLowerCase().includes(needle)).sort((a, b) => Number(chosen.has(b.id)) - Number(chosen.has(a.id)));
@@ -140,7 +153,20 @@ export function LineSchoolPicker({ workstream, draft, schools, onChange, disable
       {!matches.length && <p className="school-pick-empty">{schools.length ? 'No schools match your search' : 'No schools are available in your state register'}</p>}
       {matches.length > pickerLimit && <p className="school-pick-empty">Showing {pickerLimit} of {count.format(matches.length)} schools. Search to narrow the list.</p>}
     </div>
+    {allocating && chosen.size > 0 && <SchoolQuantities schools={schools.filter(s => chosen.has(s.id))} quantities={draft.schoolQuantities ?? {}} total={quantity ?? 0} disabled={disabled} onChange={onQuantities!} />}
   </Field>;
+}
+
+/** UBEC160: the items each chosen school gets; together they must make the line's quantity. "Share evenly" splits it. */
+function SchoolQuantities({ schools, quantities, total, disabled, onChange }: { schools: DistributionSchool[]; quantities: Record<string, number>; total: number; disabled: boolean; onChange: (quantities: Record<string, number>) => void }) {
+  const allocated = schools.reduce((sum, s) => sum + (quantities[String(s.id)] ?? 0), 0);
+  const even = () => { const base = Math.floor(total / schools.length), extra = total % schools.length; onChange(Object.fromEntries(schools.map((s, i) => [String(s.id), base + (i < extra ? 1 : 0)]).filter(([, q]) => Number(q) > 0))); };
+  return <div className="school-quantities" data-off={allocated !== total || undefined}>
+    <div className="school-quantities-head"><strong>Items per school</strong><span>{count.format(allocated)} of {count.format(total)} allocated</span>{total >= schools.length && <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={even}>Share evenly</Button>}</div>
+    <ul>{schools.map(s => <li key={s.id}><span><b>{s.name}</b><small>{s.lga} · {s.level}</small></span>
+      <Input type="number" min={1} step={1} inputMode="numeric" aria-label={`Items for ${s.name}`} disabled={disabled} value={quantities[String(s.id)] ?? ''} onChange={e => { const n = Math.max(0, Math.floor(Number(e.target.value) || 0)); const next = { ...quantities }; if (n) next[String(s.id)] = n; else delete next[String(s.id)]; onChange(next); }} /></li>)}</ul>
+    {allocated !== total && <p role="status">{allocated < total ? `${count.format(total - allocated)} more to allocate` : `${count.format(allocated - total)} more than the quantity`}</p>}
+  </div>;
 }
 
 /** A file chosen for a line that is not saved yet, with the slot it goes to (migration 065). */

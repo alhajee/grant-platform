@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, quantityFromSchools, lineHasItem, needsCensusType, needsFrequency, maxFrequency, censusTypes, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, equipmentCategories, isQualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
+import { ictActivityNames, planningActivityNames, qualityActivityNames, hasLineSchools, allocatesToSchools, needsBeneficiary, beneficiaryTypes, quantityFromSchools, lineHasItem, needsCensusType, needsFrequency, maxFrequency, censusTypes, maxTypeNameLength, ictSubscriptionActivity, ictWebsiteActivity, maxLineSchools, equipmentCategories, isQualityEquipmentActivity, subscriptionTypes, type LineDocument, type LineSchool } from './activity-extras.ts';
 import { maxActivityNameLength, othersActivityName, teacherActivityInfo, teacherActivityNames } from './teacher-development.ts';
 import { teacherTrainingIssues, teacherTrainingShape } from './teacher-training-schema.ts';
 import { lineQuartersSchema } from './line-quarters.ts';
@@ -164,6 +164,9 @@ export const activityLineSchema = z.object({
   /** The Procurement price-list item the line buys (migration 074); the unit cost is its list price. */
   priceItemId: z.number().int().positive().nullable().default(null),
   schoolIds: z.array(z.number().int().positive()).max(maxLineSchools, `Choose up to ${maxLineSchools.toLocaleString()} schools`).default([]),
+  /** ICT procurement (UBEC160, migration 080): who benefits, and for schools the items each school gets (by school id). */
+  beneficiary: z.enum(['', ...beneficiaryTypes]).default(''),
+  schoolQuantities: z.record(z.string().regex(/^\d+$/), z.number().int().min(1, 'Give each school at least 1 item').max(1000000)).default({}),
   ...teacherTrainingShape,
   /** Timeline: implementation quarters within the plan's quarters (migration 050); omitted = the plan's quarters. */
   quarters: lineQuartersSchema.optional(),
@@ -198,7 +201,16 @@ export const activityLineSchema = z.object({
   // An allowance line without a frequency (older clients, lines saved before migration 078) is one visit.
   if(!visits&&v.frequency!=null)ctx.addIssue({code:'custom',path:['frequency'],message:'Frequency only applies to Allowances for monitoring officers'});
   if(visits&&v.frequency!=null&&v.quantity%v.frequency!==0)ctx.addIssue({code:'custom',path:['quantity'],message:'Edit the item to change the number of officers or visits'});
-  const needsSchools=hasLineSchools(v.workstream,v.activity);
+  const beneficiaryNeeded=needsBeneficiary(v.workstream,v.activity);
+  if(beneficiaryNeeded&&!v.beneficiary)ctx.addIssue({code:'custom',path:['beneficiary'],message:'Choose who benefits: Schools, SUBEB or LGA'});
+  if(!beneficiaryNeeded&&v.beneficiary)ctx.addIssue({code:'custom',path:['beneficiary'],message:'Beneficiaries only apply to Procurement of Digital/STEM Equipment'});
+  if(allocatesToSchools(v.workstream,v.activity,v.beneficiary)){
+   const missing=v.schoolIds.filter(id=>!v.schoolQuantities[String(id)]);
+   const shared=v.schoolIds.reduce((sum,id)=>sum+(v.schoolQuantities[String(id)]??0),0);
+   if(v.schoolIds.length&&missing.length)ctx.addIssue({code:'custom',path:['schoolQuantities'],message:`Give each school its number of items (${missing.length} ${missing.length===1?'school has':'schools have'} none)`});
+   else if(v.schoolIds.length&&shared!==v.quantity)ctx.addIssue({code:'custom',path:['schoolQuantities'],message:`Share all ${v.quantity.toLocaleString('en-NG')} items across the schools: ${shared.toLocaleString('en-NG')} allocated`});
+  }else if(Object.keys(v.schoolQuantities).length)ctx.addIssue({code:'custom',path:['schoolQuantities'],message:'Items per school only apply to Procurement of Digital/STEM Equipment for schools'});
+  const needsSchools=hasLineSchools(v.workstream,v.activity,v.beneficiary);
   if(needsSchools&&!v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose at least one school'});
   if(!needsSchools&&v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Schools only apply to activities that target schools'});
   if(new Set(v.schoolIds).size!==v.schoolIds.length)ctx.addIssue({code:'custom',path:['schoolIds'],message:'Choose each school once'});
@@ -216,7 +228,7 @@ export const activityLineSchema = z.object({
   if(!Number.isSafeInteger(Math.round(v.unitCost*100)*v.quantity))ctx.addIssue({code:'custom',path:['unitCost'],message:'Line total is too large'});
 });
 export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number;/** Reference code set by the database (migration 053), e.g. UBEC/SUBEB/SBMC/012/2026 · Q1–Q4. */code?:string;/** The client key the line was created with (migration 058), null for older lines. */clientKey?:string|null;schools?:LineSchool[];documents?:LineDocument[]};
-export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'|'equipmentCategory'|'equipmentType'|'subscriptionTypes'|'websiteType'|'item'|'censusType'|'frequency'|'schoolIds'|'trainingProvider'|'targetParticipants'|'schoolLevels'|'trainingDays'|'venueType'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string;equipment_category?:string;equipment_type?:string;subscription_types?:string[];website_type?:string;item?:string;census_type?:string;/** Visits (migration 078), monitoring officer allowances only. */frequency?:number|null;
+export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'|'equipmentCategory'|'equipmentType'|'subscriptionTypes'|'websiteType'|'item'|'censusType'|'frequency'|'schoolIds'|'beneficiary'|'schoolQuantities'|'trainingProvider'|'targetParticipants'|'schoolLevels'|'trainingDays'|'venueType'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string;equipment_category?:string;equipment_type?:string;subscription_types?:string[];website_type?:string;item?:string;census_type?:string;/** Visits (migration 078), monitoring officer allowances only. */frequency?:number|null;/** ICT procurement beneficiaries (migration 080). */beneficiary?:string|null;
   /** Teacher Development training details (migration 040). */
   training_provider?:string;target_participants?:string;school_levels?:string[];training_days?:number|null;venue_type?:string};
 export type ComponentDocument = {id:string;component:typeof documentWorkstreams[number];name:string;size:number};

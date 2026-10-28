@@ -46,7 +46,8 @@ export function assessmentItems(snapshot: Snapshot, pillar: ImplementedPillar): 
       { label: 'Item', value: line.item }, { label: 'Classes', value: line.textbook_classes?.join(', ') }, { label: 'Equipment', value: line.equipment_type },
       { label: 'Census', value: line.census_type }, { label: 'Training provider', value: line.training_provider }, { label: 'Participants', value: line.target_participants },
       { label: 'School levels', value: line.school_levels?.join(', ') }, { label: 'Training days', value: line.training_days ? String(line.training_days) : '' },
-      { label: 'Schools', value: line.schools?.length ? line.schools.map(s => s.name).join(', ') : '' }, ...timeline(line.quarters, (line as { start_date?: string | null }).start_date, (line as { due_date?: string | null }).due_date)]),
+      { label: 'Beneficiaries', value: line.beneficiary === 'subeb' ? 'SUBEB' : line.beneficiary === 'lga' ? 'LGA' : '' },
+      { label: 'Schools', value: line.schools?.length ? line.schools.map(s => s.quantity ? `${s.name} (${s.quantity.toLocaleString('en-NG')})` : s.name).join(', ') : '' }, ...timeline(line.quarters, (line as { start_date?: string | null }).start_date, (line as { due_date?: string | null }).due_date)]),
     documents: (line.documents ?? []).map(d => ({ id: d.id, name: d.name, size: d.size, href: `/api/activities/line-documents?id=${d.id}`, label: documentKinds[d.kind ?? 'document'] || undefined })),
   }));
 }

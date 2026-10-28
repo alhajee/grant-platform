@@ -82,3 +82,15 @@
 .textbook-allocation[data-state=open] .textbook-allocation-chevron { transform:rotate(90deg); }
 .textbook-allocation-chevron { transition:transform 160ms ease; }
 .textbook-allocation-table { font-size:13px; }
+
+/* UBEC160: items per school on ICT procurement for schools (components/activity-line-extras.tsx). */
+.school-quantities { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.school-quantities[data-off] { border-color: #f0d27a; background: color-mix(in srgb, #f5c542 8%, var(--card)); }
+.school-quantities-head { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.school-quantities-head span { color: var(--muted-foreground); }
+.school-quantities-head button { margin-left: auto; }
+.school-quantities ul { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.school-quantities li { display: grid; grid-template-columns: minmax(0, 1fr) 96px; align-items: center; gap: 10px; }
+.school-quantities li span { display: flex; flex-direction: column; min-width: 0; font-size: 13px; }
+.school-quantities li small { color: var(--muted-foreground); font-size: 12px; }
+.school-quantities p { margin: 0; font-size: 12.5px; color: #8a5300; }
