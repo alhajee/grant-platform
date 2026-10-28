@@ -8,7 +8,7 @@ import { infrastructureDocumentProblem } from './infrastructure-documents';
 import { componentReadinessProblem, readinessWorkstreams, hasReadinessRules, splitReadinessPillars, splitReadinessProblem, type ReadinessOptions } from './component-readiness';
 import type { DepartmentAccess } from './user-departments';
 import type { UbecSubmissionMode } from './workflow-settings';
-import { distributionSnapshotKeys, distributionWorkstreams, emptyDistributionMessage, hasDistribution } from './distribution-lists';
+import { distributionSnapshotKeys, distributionWorkstreams, emptyDistributionMessage, hasDistribution, pheDistributionProblem } from './distribution-lists';
 import { sportsSnapshotProblem } from './sports';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'beap_review' | 'chairman_ready';
@@ -44,6 +44,7 @@ export function ubecSubmissionSnapshot(snapshot: Snapshot, reviews: PillarReview
     infrastructure: sent.includes('infrastructure') ? snapshot.infrastructure : [],
     ...(sent.includes('infrastructure') ? { infrastructureDocuments: snapshot.infrastructureDocuments } : {}),
     sports: sent.includes('sports') ? snapshot.sports : [],
+    ...(snapshot.pheDistribution ? { pheDistribution: sent.includes('sports') ? snapshot.pheDistribution : [] } : {}),
     sbmc: sent.includes('sbmc') ? snapshot.sbmc ?? [] : [],
     tlm: sent.includes('tlm') ? snapshot.tlm ?? [] : [],
     tlmDistribution: sent.includes('tlm') ? snapshot.tlmDistribution ?? [] : [],
@@ -83,7 +84,7 @@ export function executiveChairmanProblem(reviews: PillarReview[], snapshot: Snap
 const componentNames: Record<ImplementedPillar, string> = { infrastructure: 'Infrastructure', tlm: 'TLM', sports: 'Sports, Quiz & Debate', sbmc: 'SBMC', monitoring: 'Supervision & Monitoring', gscci: 'Greening', curriculum: 'Curriculum', quality: 'Quality Assurance', teachers: 'Teacher Development', ict: 'ICT', planning: 'Planning' };
 function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
   return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot, options)
-    && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup, options)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup)
+    && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup, options)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup) && !pheDistributionProblem(snapshot)
     && splitReadinessPillars.every(p => !splitReadinessProblem(p, snapshot));
 }
 /**
@@ -97,7 +98,7 @@ function componentRulesProblem(pillar: ImplementedPillar, snapshot: Snapshot, op
   // TLM, Greening and Curriculum need at least one school on their distribution list, as at every state send step.
   if (hasDistribution(pillar) && !(snapshot[distributionSnapshotKeys[pillar]]?.length ?? 0)) return emptyDistributionMessage(pillar);
   if (hasReadinessRules(pillar)) return componentReadinessProblem(pillar, snapshot[pillar] ?? [], snapshot.setup, options) ?? splitReadinessProblem(pillar, snapshot);
-  if (pillar === 'sports') return sportsSnapshotProblem(snapshot.sports, snapshot.setup);
+  if (pillar === 'sports') return pheDistributionProblem(snapshot) ?? sportsSnapshotProblem(snapshot.sports, snapshot.setup);
   return splitReadinessProblem(pillar, snapshot);
 }
 /** Components with the Executive Chairman that are not ready to reach UBEC (distribution lists, compulsory activities, line schools and documents, the Teacher Development and Infrastructure & TLM splits, Sports caps). */

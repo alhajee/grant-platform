@@ -7,6 +7,7 @@ import { sportsSections } from '@/lib/sports';
 import { formatQuarters } from '@/lib/line-quarters';
 import { formatLineDates } from '@/lib/line-dates';
 import { frequencyLabel } from '@/lib/activity-extras';
+import { isPheTrainingLine } from '@/lib/distribution-lists';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { SchoolMapDialog } from '@/components/school-map-dialog';
@@ -137,11 +138,24 @@ function distributionSheet(component: DistributionWorkstream, schools: NonNullab
   };
 }
 
+/** UBEC74: the schools of the PHE officer training (Sports, Quiz & Debate), shown when the plan has a list or training lines. */
+function pheDistributionSheet(schools: NonNullable<Snapshot['pheDistribution']>, editHref?: string): WorkbookSheet {
+  const byId = new Map(schools.map(s => [s.id, s]));
+  return {
+    key: 'pheDistribution', label: 'PHE training schools', hash: 'review-sports-phe', icon: School, itemLabel: 'schools', empty: 'No PHE training schools', editHref, editLabel: 'PHE training schools',
+    columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true),
+      { ...text('coordinates', 'Coordinates', 210), cell: r => { const s = byId.get(Number(r.id)); return s?.latitude && s.longitude ? <SchoolMapDialog variant="inline" name={s.name} lga={s.lga} latitude={s.latitude} longitude={s.longitude} /> : null; } },
+      qty('learners', 'Learners', true)],
+    rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, coordinates: s.latitude && s.longitude ? `${s.latitude}, ${s.longitude}` : '', learners: s.enrolment ?? '' })),
+  };
+}
+
 /** Builds one sheet per visible component; the TLM, GSCCI and Curriculum distribution lists are their own sheets after the component. */
 export function buildSheets(snapshot: Snapshot, visiblePillars: readonly string[], links: SheetLinks): WorkbookSheet[] {
   const sheets: WorkbookSheet[] = [];
   if (visiblePillars.includes('infrastructure')) sheets.push(infrastructureSheet(snapshot, links.infrastructureEditHref));
   if (visiblePillars.includes('sports')) sheets.push(sportsSheet(snapshot, links.sportsEditHref));
+  if (visiblePillars.includes('sports') && (snapshot.pheDistribution?.length || snapshot.sports.some(isPheTrainingLine))) sheets.push(pheDistributionSheet(snapshot.pheDistribution ?? [], links.sportsEditHref));
   if (visiblePillars.includes('sbmc') && snapshot.sbmc) sheets.push(activitySheet('sbmc', snapshot.sbmc, links.sbmcEditHref));
   if (visiblePillars.includes('tlm') && snapshot.tlm) sheets.push(activitySheet('tlm', snapshot.tlm, links.tlmEditHref), distributionSheet('tlm', snapshot.tlmDistribution ?? [], snapshot.tlm, links.tlmEditHref));
   if (visiblePillars.includes('monitoring') && snapshot.monitoring) sheets.push(activitySheet('monitoring', snapshot.monitoring, links.monitoringEditHref));

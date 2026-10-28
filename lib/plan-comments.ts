@@ -13,10 +13,10 @@ import { qualityIctActivityNames } from './activity-extras';
 // on return (migration 029, lib/ubec-comments.ts). scope 'observation' threads are written by UBEC Audit, Procurement and
 // Finance on the working plan when the Executive Chairman asks for observations before sending it (migration 075).
 
-export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution', 'monitoring', 'gscci', 'gscciDistribution', 'curriculum', 'curriculumDistribution', 'quality', 'ict', 'teachers', 'planning'] as const;
+export const commentSheets = ['infrastructure', 'sports', 'sbmc', 'tlm', 'distribution', 'monitoring', 'gscci', 'gscciDistribution', 'curriculum', 'curriculumDistribution', 'quality', 'ict', 'teachers', 'planning', 'pheDistribution'] as const;
 export type CommentSheet = typeof commentSheets[number];
 /** The component each sheet belongs to; each distribution list is part of its component (TLM, GSCCI, Curriculum). */
-export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm', monitoring: 'monitoring', gscci: 'gscci', gscciDistribution: 'gscci', curriculum: 'curriculum', curriculumDistribution: 'curriculum', quality: 'quality', ict: 'ict', teachers: 'teachers', planning: 'planning' };
+export const sheetPillar: Record<CommentSheet, ImplementedPillar> = { infrastructure: 'infrastructure', sports: 'sports', sbmc: 'sbmc', tlm: 'tlm', distribution: 'tlm', monitoring: 'monitoring', gscci: 'gscci', gscciDistribution: 'gscci', curriculum: 'curriculum', curriculumDistribution: 'curriculum', quality: 'quality', ict: 'ict', teachers: 'teachers', planning: 'planning', pheDistribution: 'sports' };
 export const commentBodyLimit = 2000;
 export const commentScopes = ['state', 'ubec', 'observation'] as const;
 export type CommentScope = typeof commentScopes[number];
@@ -35,6 +35,7 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   monitoring: { ...activityColumns, frequency: 'Frequency', ...activityTail },
   gscci: { ...activityColumns, item: 'Item', ...activityTail },
   gscciDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', allocation: 'Allocation' },
+  pheDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners' },
   curriculum: { ...activityColumns, share: 'Activity share', ...activityTail },
   curriculumDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', allocation: 'Allocation' },
   quality: { ...activityColumns, equipment: 'Equipment', ...activityTail },
@@ -57,6 +58,7 @@ export function sheetRows(snapshot: Snapshot, sheet: CommentSheet): Map<string, 
     sheet === 'distribution' ? (snapshot.tlmDistribution ?? []).map(school => [String(school.id), school.name]) :
     sheet === 'gscciDistribution' ? (snapshot.gscciDistribution ?? []).map(school => [String(school.id), school.name]) :
     sheet === 'curriculumDistribution' ? (snapshot.curriculumDistribution ?? []).map(school => [String(school.id), school.name]) :
+    sheet === 'pheDistribution' ? (snapshot.pheDistribution ?? []).map(school => [String(school.id), school.name]) :
     // Teacher Development descriptions are optional, so its rows fall back to the activity name.
     (snapshot[sheet] ?? []).map(line => [String(line.id), line.description || line.custom_activity || qualityIctActivityNames[sheet]?.[line.activity] || `Line ${line.id}`]);
   return new Map(pairs);

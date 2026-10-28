@@ -16,6 +16,7 @@ export function visibleSnapshot(snapshot: Snapshot, visible: readonly Implemente
     infrastructure: can('infrastructure') ? snapshot.infrastructure : [],
     ...(can('infrastructure') ? { infrastructureDocuments: snapshot.infrastructureDocuments } : {}),
     sports: can('sports') ? snapshot.sports : [],
+    ...(can('sports') && snapshot.pheDistribution ? { pheDistribution: snapshot.pheDistribution } : {}),
     ...(can('sbmc') ? { sbmc: snapshot.sbmc ?? [] } : {}),
     ...(can('tlm') ? { tlm: snapshot.tlm ?? [], tlmDistribution: snapshot.tlmDistribution ?? [] } : {}),
     ...(can('monitoring') ? { monitoring: snapshot.monitoring ?? [] } : {}),

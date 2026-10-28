@@ -23,6 +23,7 @@ import { implementedPillars } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, emptyDistributionMessage, hasDistribution } from '@/lib/activity-plans';
 import { componentReadinessProblem, hasReadinessRules, splitReadinessProblem } from '@/lib/component-readiness';
 import { sportsSnapshotProblem } from '@/lib/sports';
+import { pheDistributionProblem } from '@/lib/distribution-lists';
 import { subebComponentDepartments as pillarDepartments } from '@/lib/beap-pillars';
 import { readObservationStatus } from '@/lib/observation-requests-db';
 import { aggregateReviewStatus, executiveChairmanProblem, readPillarReviews, readyForExecutiveChairman, readyForUbecSubmission, statePlanOpen, type PillarReviewStatus } from '@/lib/pillar-review';
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
       // Shared-pool mode: Infrastructure and TLM share one pool, so neither is sent while their combined proposals exceed it.
       if (input.action !== 'request_changes' && isPoolComponent(input.pillar) && !isSplitMode(plan)) { const problem=infrastructurePoolProblem(plan,{infrastructure:(snapshot.infrastructure??[]).reduce((sum,item)=>sum+lineKobo(item),BigInt(0)),tlm:(snapshot.tlm??[]).reduce((sum,line)=>sum+lineKobo(line),BigInt(0))}); if(problem)return error(problem,409); }
       // Sports: the envelope and each section's share of it are caps at every send step.
-      if (input.action !== 'request_changes' && input.pillar === 'sports') { const problem=sportsSnapshotProblem(snapshot.sports,plan); if(problem)return error(problem,409); }
+      if (input.action !== 'request_changes' && input.pillar === 'sports') { const problem=pheDistributionProblem(snapshot)??sportsSnapshotProblem(snapshot.sports,plan); if(problem)return error(problem,409); }
       // UBEC79: the component (and every share inside it) must use its whole allocation (Super Admin setting, migration 076).
       if (input.action !== 'request_changes' && readiness.fullAllocation) { const problem=allocationUseProblem(input.pillar,snapshot); if(problem)return error(problem,409); }
       if (input.action !== 'request_changes' && (isCappedFor(input.pillar, plan) || input.pillar === 'sbmc')) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,kobo:lineKobo(line)})),plan); if(problem)return error(problem); }

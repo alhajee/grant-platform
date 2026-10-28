@@ -7,6 +7,7 @@ import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, PencilIcon, Plus
 import { toast } from "sonner";
 import { SportsAllocationFields, SportsBudgetFields, emptyAllocation, emptyBudget, type AllocationDraft, type BudgetDraft, type FormErrors } from "@/components/sports-plan-forms";
 import { SportsBeneficiaryPreview, SportsBudgetPreview, type SportsTarget } from "@/components/sports-plan-preview";
+import { PheTrainingSchools } from "@/components/phe-training-schools";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { DiscardChangesDialog } from "@/components/discard-changes-dialog";
@@ -314,6 +315,8 @@ export default function SportsPage() {
       {(plan.lines.length > 0 || envelope != null) && <dl className="sports-breakdown" aria-label="Budget by section">{sectionBudgets.map(({ section, proposed, cap }) => <div key={section.id}><dt>{section.label}</dt><dd>{cap == null
         ? <>{money.format(Number(proposed) / 100)}<small className="block font-normal text-muted-foreground">Up to {section.share}% of the sports budget</small></>
         : <EnvelopeMeter compact label={`Up to ${section.share}%`} envelope={Number(cap) / 100} used={Number(proposed) / 100} />}</dd></div>)}</dl>}
+      {/* UBEC74: the PHE officer training distribution list, while the plan has training lines (or a list already). */}
+      {(plan.lines.some(isPheTraining) || (plan.trainingSchools?.length ?? 0) > 0) && <PheTrainingSchools planHref={currentPlanHref} schools={plan.schools} listed={plan.trainingSchools ?? []} disabled={disabled} required={plan.lines.some(isPheTraining)} onChanged={loadPlan} />}
       <div className="line-panel"><SportsBudgetPreview plan={plan} disabled={disabled} selectedSection={budget.section} selectedType={budget.activityType} editingId={budget.id} dirtyId={budgetDirty ? budget.id : undefined}
         flashId={flashId} mode={panel.mode} onShowAll={() => panel.setMode("all")} query={query} onEdit={edit} onRemove={setRemoveTarget} onSaveCell={saveCell} onStart={startSection} /></div>
     </>}

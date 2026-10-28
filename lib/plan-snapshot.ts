@@ -19,7 +19,7 @@ export async function readPlanSnapshot(db: { query<R extends QueryResultRow>(sql
   const extras = await readLineExtras(db, planId);
   const withExtras = (workstream: string) => lines(workstream).map(line => ({ ...line, schools: extras.schools.get(line.id) ?? [], documents: extras.documents.get(line.id) ?? [] }));
   // Every activity component but Greening carries its lines' documents (supporting documents, migration 057).
-  return { setup, infrastructureDocuments, infrastructure: infrastructure.rows.map(r => r.item), sports: sports.rows.map(r => r.item), sbmc: withExtras('sbmc'), tlm: withExtras('tlm'), tlmDistribution: listFor('tlm'),
+  return { setup, infrastructureDocuments, infrastructure: infrastructure.rows.map(r => r.item), sports: sports.rows.map(r => r.item), pheDistribution: listFor('phe'), sbmc: withExtras('sbmc'), tlm: withExtras('tlm'), tlmDistribution: listFor('tlm'),
     monitoring: withExtras('monitoring'), gscci: lines('gscci'), gscciDistribution: listFor('gscci'), curriculum: withExtras('curriculum'), curriculumDistribution: listFor('curriculum'), componentDocuments,
     quality: withExtras('quality'), ict: withExtras('ict'), teachers: withExtras('teachers'), planning: withExtras('planning') };
 }

@@ -32,3 +32,6 @@ export const seesUbecFinance = (viewer: Viewer) => (viewer.role === ubecRoles.ov
 
 export const missingFinanceDocuments = (documents: readonly { kind: FinanceDocumentKind }[]) =>
   financeDocumentKinds.filter(kind => !documents.some(d => d.kind === kind)).map(kind => financeDocumentLabels[kind]);
+
+/** A plan sent to UBEC with its Finance documents, for UBEC Finance's overview (UBEC94, app/api/ubec/finance-documents). */
+export type FinancePlan = { planId: number; state: string; period: string; submittedAt: string; status: string; documents: { id: string; kind: FinanceDocumentKind; label: string; name: string; size: number }[]; missing: string[] };

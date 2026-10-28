@@ -5,6 +5,8 @@ import { UbecPageFrame, YearControls } from '@/components/ubec/dashboard/page-fr
 import { ActivityCard, OverviewPlans, WorkloadCard, isNational } from '@/components/ubec/dashboard/sections';
 import { useUbecDashboard } from '@/components/ubec/dashboard/use-dashboard';
 import { RatToolsCard } from '@/components/ubec/dashboard/rat-tools';
+import { FinanceDocumentsOverview } from '@/components/ubec/dashboard/finance-documents';
+import { seesUbecFinance } from '@/lib/finance-documents';
 import { ObservationPlansCard } from '@/components/ubec/dashboard/observation-plans';
 import { observationViewer } from '@/lib/observation-requests';
 import { LevelMappingCard } from '@/components/level-mapping-card';
@@ -31,6 +33,8 @@ export default function Dashboard() {
       </> : <>
         {/* UBEC Planning (DPRS) downloads each submitted plan's RAT tool (UBEC139). */}
         {downloadsRatTools(d.user.role, d.user.department) && <RatToolsCard />}
+        {/* UBEC94: UBEC Finance downloads every plan's SUBEB Finance documents, like the RAT tools. */}
+        {seesUbecFinance({ role: d.user.role, department: d.user.department }) && <FinanceDocumentsOverview />}
         {/* Audit, Procurement and Finance: observations an Executive Chairman asked for before sending (row 156). */}
         {observationViewer(d.user.role, d.user.department) && <ObservationPlansCard />}
         {/* UBEC178: the assigned plans first, four to a row; UBEC177: the spending card is compact, beside workload and activity. */}

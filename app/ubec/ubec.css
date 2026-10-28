@@ -105,6 +105,8 @@
 .national-section-heading h2 { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
 .national-section-heading > span { font-size: 14px; color: var(--muted-foreground); }
 .national-table-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; justify-content: space-between; padding: 0 22px 18px; }
+/* The search on the left, the stage and state filters together on the right (client, 28 October 2026). */
+.national-table-tools > [data-slot=input-group] { margin-right: auto; }
 .national-panel th { background: #faf9fc; color: var(--muted-foreground); font-size: 14px; font-weight: 500; padding: 12px 20px; }
 .national-panel td { padding: 16px 20px; font-size: 14px; }
 .national-panel td strong { font-weight: 500; }

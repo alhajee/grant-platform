@@ -1,4 +1,5 @@
 import type { Snapshot } from './plan-review';
+import { isPheTrainingLine } from './distribution-lists.ts';
 
 // Resource mapping by school level (UBEC127, client 26 October 2026): how much of a plan's proposed budget goes to ECCDE,
 // Primary and JSS, and how much is not school-specific (training, census, equipment, SUBEB activities…). Shown on the plan
@@ -51,6 +52,8 @@ export function levelMapping(snapshot: Snapshot): LevelMapping {
   for (const line of snapshot.sports ?? []) {
     const kobo = koboOf(line), allocated = (line.allocations ?? []).reduce((sum, a) => sum + Number(a.quantity), 0);
     const weights = (line.allocations ?? []).reduce<Weights>((w, a) => { const key = levelOf(a.school?.level); return { ...w, [key]: (w[key] ?? 0) + Number(a.quantity) }; }, {});
+    // UBEC74: PHE officer training is shared across the levels of its training schools.
+    if (isPheTrainingLine(line) && snapshot.pheDistribution?.length) { add(share(kobo, count(snapshot.pheDistribution.map(s => s.level)))); continue; }
     // Equipment not yet allocated to schools stays not school-specific.
     const unallocated = Math.max(Number(line.quantity) - allocated, 0);
     add(share(kobo, unallocated > 0 ? { ...weights, none: (weights.none ?? 0) + unallocated } : weights));

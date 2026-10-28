@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
     const state = sqlText(workspace.stateCode);
     const db = getPostgres();
     if (!(await readStageVisibility(db, workspace, plan.id)).includes('sports')) return error(notSentYetMessage, 403);
+    // UBEC74: the schools of the PHE officer training (migration 079).
+    const trainingSchools = (await db.query(`SELECT s.id, s.name, s.lga, s.level, s.location FROM tlm_distribution d JOIN schools s ON s.id = d.school_id WHERE d.plan_id = $1 AND d.workstream = 'phe' ORDER BY s.name`, [plan.id])).rows;
     const [lines, allocations, schools] = await Promise.all([
       db.query(`SELECT id, code, section, activity_type AS "activityType", description, quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey"
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),
@@ -38,7 +40,7 @@ export async function GET(request: NextRequest) {
         WHERE b.state_code = ${state} AND b.plan_id = ${plan.id} AND s.state_code = ${state} ORDER BY s.name, a.id`),
       cachedSchoolList(workspace.stateCode, 'sports', async () => (await db.query(`SELECT id, name, lga, level, location FROM schools WHERE state_code = ${state} ORDER BY name`)).rows),
     ]);
-    return NextResponse.json({ plan, envelope: componentEnvelope(plan, "sports"), canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, schools }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ plan, envelope: componentEnvelope(plan, "sports"), canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, trainingSchools, schools }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Unable to load sports plan", cause);
     return error("Your sports plan could not be loaded. Please try again.", 503);

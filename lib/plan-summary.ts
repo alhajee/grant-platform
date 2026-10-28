@@ -21,7 +21,8 @@ const summarize = (lines: readonly Costed[], schools: readonly string[] = []): P
 export function summarizeSnapshot(snapshot: Snapshot): PlanTotals {
   const schools: Record<ImplementedPillar, string[]> = {
     infrastructure: snapshot.infrastructure.map(line => schoolKey(line.school)),
-    sports: snapshot.sports.flatMap(line => line.allocations.map(allocation => schoolKey(allocation.school))),
+    // Sports: schools allocated equipment, and the PHE training schools (UBEC74).
+    sports: [...snapshot.sports.flatMap(line => line.allocations.map(allocation => schoolKey(allocation.school))), ...(snapshot.pheDistribution ?? []).map(schoolKey)],
     tlm: (snapshot.tlmDistribution ?? []).map(schoolKey),
     curriculum: (snapshot.curriculumDistribution ?? []).map(schoolKey),
     gscci: (snapshot.gscciDistribution ?? []).map(schoolKey),

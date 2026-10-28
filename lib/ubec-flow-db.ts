@@ -47,7 +47,7 @@ export function ubecVisibleSnapshot(snapshot: Snapshot, visible: readonly Implem
   return {
     setup: snapshot.setup,
     infrastructure: can('infrastructure') ? snapshot.infrastructure : [], infrastructureDocuments: can('infrastructure') ? snapshot.infrastructureDocuments : undefined,
-    sports: can('sports') ? snapshot.sports : [], sbmc: can('sbmc') ? snapshot.sbmc ?? [] : [],
+    sports: can('sports') ? snapshot.sports : [], ...(snapshot.pheDistribution ? { pheDistribution: can('sports') ? snapshot.pheDistribution : [] } : {}), sbmc: can('sbmc') ? snapshot.sbmc ?? [] : [],
     tlm: can('tlm') ? snapshot.tlm ?? [] : [], tlmDistribution: can('tlm') ? snapshot.tlmDistribution ?? [] : [],
     monitoring: can('monitoring') ? snapshot.monitoring ?? [] : [], gscci: can('gscci') ? snapshot.gscci ?? [] : [], gscciDistribution: can('gscci') ? snapshot.gscciDistribution ?? [] : [],
     curriculum: can('curriculum') ? snapshot.curriculum ?? [] : [], curriculumDistribution: can('curriculum') ? snapshot.curriculumDistribution ?? [] : [],

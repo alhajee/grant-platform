@@ -9,3 +9,15 @@ export const distributionSnapshotKeys = { tlm: 'tlmDistribution', curriculum: 'c
 export const distributionNames: Record<DistributionWorkstream, string> = { tlm: 'TLM', curriculum: 'Curriculum', gscci: 'Greening' };
 /** The send-step error when a component's distribution list is empty. */
 export const emptyDistributionMessage = (workstream: DistributionWorkstream) => `Add at least one school to the ${distributionNames[workstream]} distribution list before sending it`;
+
+/**
+ * UBEC74 (migration 079): Training of PHE Officers lines (Sports, Quiz & Debate) name the schools the training is for, a
+ * list like TLM's kept in tlm_distribution with workstream 'phe'. Required while the plan has training lines; snapshots
+ * from before the list (no pheDistribution) are not checked.
+ */
+export const pheTrainingName = 'Training of PHE Officers';
+export const isPheTrainingLine = (line: { section: string; activity_type: string }) => line.section === 'equipment' && line.activity_type.trim().toLowerCase() === pheTrainingName.toLowerCase();
+export function pheDistributionProblem(snapshot: { sports?: readonly { section: string; activity_type: string }[]; pheDistribution?: readonly unknown[] }): string | null {
+  if (snapshot.pheDistribution === undefined) return null;
+  return (snapshot.sports ?? []).some(isPheTrainingLine) && !snapshot.pheDistribution.length ? 'Add at least one school to the PHE training distribution list before sending it' : null;
+}

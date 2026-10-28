@@ -13,6 +13,8 @@ export type Snapshot = {
   monitoring?: import('./activity-plans').ActivitySnapshotLine[];
   gscci?: import('./activity-plans').ActivitySnapshotLine[];
   gscciDistribution?: import('./activity-plans').DistributionSchool[];
+  /** UBEC74: the schools of the PHE officer training (migration 079). */
+  pheDistribution?: import('./activity-plans').DistributionSchool[];
   curriculum?: import('./activity-plans').ActivitySnapshotLine[];
   curriculumDistribution?: import('./activity-plans').DistributionSchool[];
   /** Quality Assurance and ICT lines carry their chosen schools and documents (migration 038); SBMC, TLM, Monitoring, Curriculum and Planning lines carry their supporting documents (migration 057). */

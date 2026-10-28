@@ -100,6 +100,10 @@ try {
   assert.equal(ok(await api('financeOfficer', path)).canEdit, false);
   assert.equal(ok(await api('financeOfficer', `${path}&id=${doc.id}`)).type, 'application/pdf');
   fails(await api('auditOfficer', path), 403); fails(await api('ubecChair', path), 403);
+  // UBEC94: like the RAT tools, UBEC Finance lists every plan sent to UBEC with its Finance documents.
+  const overview = ok(await api('financeOfficer', '/api/ubec/finance-documents')).plans.find(p => p.planId === planId);
+  assert.deepEqual(overview.documents.map(d => d.kind).sort(), ['bank_statement', 'lodgement_notification', 'utilisation_report']); assert.deepEqual(overview.missing, []);
+  fails(await api('auditOfficer', '/api/ubec/finance-documents'), 403);
   ok(await upload('finance', 'lodgement_notification', 'lodgement-v2.pdf'));
   step('at UBEC only the Finance Oversight Director and Finance Assessment Officers see them; Finance can still upload while the plan is with UBEC');
   console.log(`\nPASS: ${passed} Finance document checks`);
