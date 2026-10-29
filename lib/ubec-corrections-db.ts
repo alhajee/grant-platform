@@ -13,6 +13,12 @@ export async function readReturnedRound(db: Db, planId: number): Promise<{ id: n
   return { id: round.id, snapshot: round.snapshot, rejected };
 }
 
+/** UBEC199: whether UBEC has returned the plan and it has not been resubmitted yet (its latest round is returned). */
+export async function returnedByUbec(db: Db, planId: number): Promise<boolean> {
+  const round = (await db.query<{ status: string }>('SELECT status FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC LIMIT 1', [planId])).rows[0];
+  return round?.status === 'returned';
+}
+
 /** The rejected items of the returned round still unchanged in the working plan, per component ({} when none). */
 export async function readOpenRejections(db: Db, planId: number, current: Snapshot): Promise<Partial<Record<ImplementedPillar, string[]>>> {
   const returned = await readReturnedRound(db, planId);

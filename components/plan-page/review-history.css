@@ -39,3 +39,5 @@
 /* Glyph colour on the icon itself (a global svg colour rule would otherwise win): white on the solid latest circle. */
 .review-history .trail-entry .trail-dot > svg { color: var(--dot) !important; stroke: var(--dot) !important; }
 .review-history .trail-entry[data-latest] .trail-dot > svg { color: #fff !important; stroke: #fff !important; }
+/* UBEC201: a fixed height with its own scroll bar, so a long history no longer stretches the page. */
+.review-history > [data-slot=card-content] { max-height: min(560px, 70vh); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-top: 6px; }

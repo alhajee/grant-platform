@@ -201,6 +201,10 @@ try {
   for (const who of ['ec', 'subebChair']) assert.ok(await notified(who, 'request_changes'), `${who} is notified of the return`);
   for (const who of ['dirA', 'desA', 'desS']) assert.equal(await notified(who, 'request_changes'), false, `${who} is not notified until the BEAP Chair returns it`);
   fails(await api('desA', sports, { ...budget, action: 'update', id: sportsLine, quantity: 6 }), 409);
+  // UBEC199: neither the Executive Chairman nor the BEAP Chair edits the plan details while it is back for corrections.
+  const setup = ok(await api('ec', `/api/plans/setup?plan=${planId}`));
+  assert.equal(setup.canEdit, false); assert.match(setup.lockedReason, /back from UBEC/);
+  for (const who of ['ec', 'subebChair']) assert.match(fails(await api(who, '/api/plans/setup', { plan: planId, version: setup.plan.version, planningYear: setup.plan.startYear, implementationYear: setup.plan.implementationYear ?? setup.plan.startYear, quarters: setup.plan.fundingQuarters ?? [1, 2, 3, 4], stateLodgment: setup.plan.stateLodgment, fundingSources: setup.plan.fundingSources ?? [] }, 'PATCH'), 409).error, /back from UBEC/);
   await stateStep('subebChair', 'request_changes', 'sports', 'UBEC asked to revise the equipment quantity.');
   await stateStep('dirA', 'request_changes', 'sports', 'Please revise the quantity.');
   assert.ok(await notified('desA', 'request_changes'), 'Data Entry hears once the Director returns it');

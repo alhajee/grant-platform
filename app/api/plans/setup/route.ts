@@ -15,6 +15,7 @@ import type { ActionPlan } from '@/lib/action-plans';
 import { quarterRemovalProblem } from '@/lib/line-quarters';
 import { readQuarterUsage } from '@/lib/line-quarters-db';
 import { deletePlan, planSentToUbec, sentToUbecMessage } from '@/lib/plan-delete';
+import { returnedByUbec } from '@/lib/ubec-corrections-db';
 import { z } from 'zod';
 import { nairaFormat } from '@/lib/money-format';
 
@@ -24,6 +25,8 @@ type Db = { query<R extends QueryResultRow>(sql: string, values?: unknown[]): Pr
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } });
 const money = nairaFormat;
 const lockedMessage = (status: string) => status === 'ubec_approved' ? 'Plan details are locked because UBEC has approved this plan' : 'Plan details are locked while the plan is with UBEC. They can be edited again if UBEC returns it.';
+// UBEC199: while UBEC's corrections are open the plan's period and funding stay as UBEC assessed them.
+const returnedMessage = 'Plan details are locked while the plan is back from UBEC for corrections. Correct the rejected items and resubmit';
 const notAllowed = 'Only the Executive Chairman, the BEAP Chair or a colleague authorised to create plans can edit plan details';
 
 async function proposedByComponent(db: Db, planId: number) {
@@ -46,8 +49,8 @@ export async function GET(request: NextRequest) {
     const plan = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id=$1 AND state_code=$2`, [Number(id), workspace.stateCode])).rows[0];
     if (!plan) return error('Action plan not found', 404);
     const allowed = canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair);
-    const lockedReason = !allowed ? notAllowed : !statePlanOpen(plan.status) ? lockedMessage(plan.status) : null;
-    const [reserved, allProposed, quarterUsage, visible, sentToUbec] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id), readQuarterUsage(db, plan.id), readStageVisibility(db, workspace, plan.id), planSentToUbec(db, plan.id)]);
+    const [reserved, allProposed, quarterUsage, visible, sentToUbec, returned] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id), readQuarterUsage(db, plan.id), readStageVisibility(db, workspace, plan.id), planSentToUbec(db, plan.id), returnedByUbec(db, plan.id)]);
+    const lockedReason = !allowed ? notAllowed : !statePlanOpen(plan.status) ? lockedMessage(plan.status) : returned ? returnedMessage : null;
     // Plan creators may delete a plan until it first reaches UBEC.
     const deleteBlockedReason = !allowed ? null : sentToUbec ? sentToUbecMessage : null;
     // Proposed amounts only for components that have reached the viewer (lib/stage-visibility.ts); the save still checks them all.
@@ -87,6 +90,7 @@ export async function PATCH(request: NextRequest) {
       const plan = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id=$1 AND state_code=$2 FOR UPDATE`, [input.plan, workspace.stateCode])).rows[0];
       if (!plan) return error('Action plan not found', 404);
       if (!statePlanOpen(plan.status)) return error(lockedMessage(plan.status), 409);
+      if (await returnedByUbec(db, plan.id)) return error(returnedMessage, 409);
       if (plan.version !== input.version) return error('This plan has changed since you opened it. Close the dialog, refresh and try again.', 409);
       const changes = describeChanges(plan, input);
       if (!changes.length) return NextResponse.json({ plan, changed: false });

@@ -7,6 +7,7 @@ import states from '@/lib/nigeria-map.json';
 import { implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork, StatesArtwork } from '@/components/metric-artwork';
 import { DepartmentArt } from '@/components/ubec/department-art';
+import { deliverableIcons, deliverableOrder } from '@/components/ubec/dashboard/deliverables';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { componentName } from '@/lib/ubec-flow';
 import { NationalMap, stageOf } from '@/components/ubec/dashboard/national-map';
@@ -29,6 +30,8 @@ export function NationalHero({ data, controls }: { data: UbecDashboard; /** The 
   return <div className="nh nh-hero-wrap">
     <section className="nh-hero" aria-label="National overview">
       <div className="nh-map"><NationalMap data={data} selected={selected} onSelect={setSelected} /></div>
+      {/* UBEC202: the deliverables as a list beside the map, for Nigeria or the state chosen on it. */}
+      <HeroDeliverables data={data} code={selected} />
       <div className="nh-side" data-mode={selected ? 'state' : 'national'}>
         {selected ? <StateFigures key={selected} data={data} code={selected} onBack={() => setSelected(null)} /> : <>
         {controls && <div className="nh-controls">{controls}</div>}
@@ -60,6 +63,19 @@ export function NationalHero({ data, controls }: { data: UbecDashboard; /** The 
     </section>
 
   </div>;
+}
+
+const deliverableTones = ['ivory', 'sage', 'sky', 'lilac'] as const;
+
+/** UBEC152/202: what the plans will deliver, for all of Nigeria or the state chosen on the map, in the figure cards' colours. */
+function HeroDeliverables({ data, code }: { data: UbecDashboard; code: string | null }) {
+  const items = code ? data.items.filter(i => normalizeStateCode(i.stateCode) === code) : data.items;
+  const totals = sumPlanDeliverables(items.map(i => i.deliverables));
+  const place = code ? states.find(st => st.code === code)?.name ?? code : 'Nigeria';
+  return <section className="nh-deliv" aria-labelledby="nh-deliv-title">
+    <header><h3 id="nh-deliv-title">Deliverables</h3><small>{place} · {items.length} {items.length === 1 ? 'plan' : 'plans'}</small></header>
+    <ul>{deliverableOrder.map((key, index) => { const Icon = deliverableIcons[key]; return <li key={key} data-tone={deliverableTones[index % deliverableTones.length]}><Icon aria-hidden="true" /><span>{planDeliverableLabels[key]}</span><strong>{count.format(totals[key])}</strong></li>; })}</ul>
+  </section>;
 }
 
 /** The cards under the map: the next step, the review pipeline and the latest plans. */
@@ -111,8 +127,6 @@ function StateFigures({ data, code, onBack }: { data: UbecDashboard; code: strin
       <article className="nh-stat nh-in" data-tone="sky" data-alert={s.returned > 0 || undefined} style={{ '--i': 4 } as CSSProperties}><span className="nh-stat-art"><StatesArtwork /></span><span>Returned</span><strong>{count.format(s.returned)}</strong></article>
       <article className="nh-stat nh-stat-wide nh-in nh-state-more" data-tone="lilac" style={{ '--i': 5 } as CSSProperties}>
         {items.length ? <>
-          {/* UBEC152: the state's deliverables, beside its component mix. */}
-          {(() => { const d = sumPlanDeliverables(items.map(i => i.deliverables)); return <ul className="nh-state-deliverables">{(['schools', 'classrooms', 'teachers', 'curriculum', 'tlm'] as const).map(k => <li key={k}><b>{count.format(d[k])}</b><span>{planDeliverableLabels[k]}</span></li>)}</ul>; })()}
           {mix.length > 0 && <>
             <div className="nh-mix-bar" aria-hidden="true">{mix.map(a => <span key={a.p} style={{ flexGrow: a.v / total, background: componentPalette[a.p as ImplementedPillar].fill } as CSSProperties} />)}</div>
             <ul className="nh-mix">{mix.slice(0, 3).map(a => <li key={a.p}><i style={{ background: componentPalette[a.p as ImplementedPillar].fill }} /><span>{componentName(a.p)}</span><b>{money.format(a.v)}</b></li>)}{mix.length > 3 && <li className="nh-mix-more">+{mix.length - 3} more components</li>}</ul>
