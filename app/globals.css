@@ -797,5 +797,18 @@
 
 /* LinkedIn-style surfaces (29 October 2026): white cards with a hairline outline and no drop shadow on the warm page. */
 [data-slot=card] { border-color: #e0dfdc; box-shadow: 0 0 0 0 transparent; }
-/* Editors: forms and previews are white; the page colour is only outside them */
-.workspace-pane.editor-pane, .workspace-pane.preview-pane { background: #ffffff; }
+/* Editors keep their earlier look: white header and form, the preview on the quiet graph-paper texture. */
+.workspace-header, .workspace-pane.editor-pane { background: var(--background); }
+.workspace-pane.preview-pane {
+  --canvas-grid-major: color-mix(in srgb, var(--border) 18%, transparent);
+  --canvas-grid-minor: color-mix(in srgb, var(--border) 7%, transparent);
+  background-color: var(--muted);
+  background-image:
+    linear-gradient(90deg, transparent, var(--canvas-grid-major) 1px, transparent 3px),
+    linear-gradient(0deg, transparent, var(--canvas-grid-major) 1px, transparent 3px),
+    linear-gradient(90deg, var(--canvas-grid-minor) 1px, transparent 1px),
+    linear-gradient(0deg, var(--canvas-grid-minor) 1px, transparent 1px);
+  background-size: 96px 96px, 96px 96px, 48px 48px, 48px 48px;
+  background-position: -1px -1px;
+}
+@media print, (forced-colors: active) { .workspace-pane.preview-pane { background-image: none; } }
