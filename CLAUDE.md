@@ -571,7 +571,7 @@ Then audit production/reference integrity:
 
 - Keep language plain and role-specific. Buttons should name the actual recipient, e.g. “Send to BEAP Chair” and “Send to Executive Chairman”.
 - Prefer shadcn components and established page patterns.
-- Dashboard-style grid background and header spacing should remain consistent across pages.
+- Page background (29 October 2026, LinkedIn style): one flat `--page: #F4F2EE` (`app/globals.css`) on every SUBEB, UBEC and admin page and the editor canvases (the graph-paper texture is gone), white cards with a hairline `#e0dfdc` outline and no shadow, LinkedIn's system font stack. Header spacing stays consistent across pages.
 - Avoid redundant cards and excessively wide controls.
 - Table rows themselves should be actionable when that is the established interaction.
 - Validate required fields visibly and block progression when data is incomplete.

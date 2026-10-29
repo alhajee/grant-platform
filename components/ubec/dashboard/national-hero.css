@@ -88,9 +88,9 @@
 .nh-hero-wrap { position: sticky; top: 12px; z-index: 0; }
 /* The sheet spans the whole window (its surface is a pseudo-element reaching the viewport edges); content keeps the page width */
 .nh-sheet { position: relative; z-index: 1; isolation: isolate; margin-top: 8px; padding: 26px 0 12px; }
-.nh-sheet::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(50% - 50vw); right: calc(50% - 50vw); background: linear-gradient(180deg, #ffffff 0, #f8faf9 280px, var(--ubec-canvas, #e8eaec) 100%); border-top: 1px solid #ffffff; border-radius: 36px 36px 0 0; box-shadow: 0 -1px 0 rgb(25 63 61 / 5%), 0 -28px 60px -30px rgb(25 63 61 / 34%); }
+.nh-sheet::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(50% - 50vw); right: calc(50% - 50vw); background: var(--page); border-top: 1px solid #e0dfdc; border-radius: 28px 28px 0 0; box-shadow: 0 -18px 40px -28px rgb(0 0 0 / 18%); }
 .nh-sheet .nh-row { margin-top: 0; }
-.nh-sheet .nh-card, .nh-sheet .national-lower-grid > [data-slot=card] { background: #ffffff; border: 1px solid #e6ece9; box-shadow: 0 1px 2px rgb(25 63 61 / 4%); }
+.nh-sheet .nh-card, .nh-sheet .national-lower-grid > [data-slot=card] { background: #ffffff; border: 1px solid #e0dfdc; box-shadow: none; }
 .nh-sheet .ubec-empty svg { max-height: 70px; }
 .nh-sheet .national-lower-grid { margin-top: 0; }
 @supports (animation-timeline: scroll()) {

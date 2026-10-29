@@ -6,7 +6,7 @@
   --background: #fff; --foreground: #252531; --muted: #f4f3f7; --muted-foreground: #72717c; --border: #e9e7ee;
   color: var(--foreground);
 }
-.national-theme { background: #f6f5f8; min-height: 100dvh; }
+.national-theme { background: var(--page); min-height: 100dvh; }
 .national-shell { display: flex; min-height: 100dvh; }
 .national-sidebar { width: 224px; flex-shrink: 0; background: #222129; color: #e5e3eb; padding: 32px 20px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100dvh; }
 .national-brand { display: flex; align-items: center; gap: 12px; padding: 0 10px; }
@@ -167,7 +167,7 @@
   --national-lavender: #d6c9fb;
   --national-lime: #e3fc9d;
   --national-chart-hover: #ffffff0d;
-  background: #f5f5f3;
+  background: var(--page);
 }
 .national-sidebar { background: #1d1e20; width: 216px; padding: 30px 18px; }
 .national-sidebar nav a { border-radius: 28px; padding: 14px 18px; }
@@ -261,8 +261,8 @@
   --map-high: #5e86c1;
   --map-max: #365f9f;
   --map-selected: #193c6b;
-  /* A cool, light neutral so the teal map and white cards stand out */
-  --ubec-canvas: #e8eaec;
+  /* The shared page colour (#F4F2EE) under the map and white cards */
+  --ubec-canvas: var(--page);
   background: var(--ubec-canvas);
   --workspace-surface: #ffffffc4;
   --workspace-edge: #ffffffde;
