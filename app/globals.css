@@ -797,3 +797,5 @@
 
 /* LinkedIn-style surfaces (29 October 2026): white cards with a hairline outline and no drop shadow on the warm page. */
 [data-slot=card] { border-color: #e0dfdc; box-shadow: 0 0 0 0 transparent; }
+/* Editors: forms and previews are white; the page colour is only outside them */
+.workspace-pane.editor-pane, .workspace-pane.preview-pane { background: #ffffff; }

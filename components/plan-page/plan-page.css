@@ -174,7 +174,7 @@
 .plan-records .plan-documents-group li { border-top-color: rgb(0 50 40 / 7%); }
 .plan-records .plan-document-name { font-size: 13px; }
 /* The plan page sits on plain soft grey (no graph-paper texture), so its white cards stand out. */
-.beap-page.beap-review-page { background-color: #f1f2f1; background-image: none; }
+.beap-page.beap-review-page { background-color: var(--page); background-image: none; }
 /* Funding card flip: the card shell is transparent; each face is a full white card that turns on its vertical axis. */
 .plan-summary[data-slot=card]:has(.flip-card) { padding: 0; background: transparent; box-shadow: none; overflow: visible; }
 .plan-summary:has(.flip-card) > [data-slot=card-content] { padding: 0; }

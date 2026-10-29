@@ -261,8 +261,8 @@
   --map-high: #5e86c1;
   --map-max: #365f9f;
   --map-selected: #193c6b;
-  /* The shared page colour (#F4F2EE) under the map and white cards */
-  --ubec-canvas: var(--page);
+  /* A cool, light neutral so the teal map and white cards stand out */
+  --ubec-canvas: #e8eaec;
   background: var(--ubec-canvas);
   --workspace-surface: #ffffffc4;
   --workspace-edge: #ffffffde;
