@@ -122,7 +122,6 @@ try {
   step('validation against the round snapshot (400), same origin (403), state roles refused (403), anonymous (401), unknown plan (404)');
 
   const visible = async who => ok(await api(who, ubec)).threads;
-  const bodies = threads => threads.map(t => t.body);
   const esView = await visible('es'), revAView = await visible('revA'), revSView = await visible('revS');
   assert.equal(esView.length, 6); assert.ok(esView.every(t => t.scope === 'ubec' && t.sharedAt === null));
   // UBEC149: officers see every released component's threads (their own and the ones they observe).
