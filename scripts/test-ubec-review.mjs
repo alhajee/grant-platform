@@ -101,16 +101,16 @@ try {
   ok(await act('ubecChair', 'release', { comment: 'Released for assessment.' }));
   assert.equal(ok(await api('ec', path)).plan.status, 'ubec_review');
 
-  // Department isolation once released.
+  // UBEC149: every unit sees every released component, but assigns only its own.
   const dpp = ok(await api('dpp', path)), dacs = ok(await api('dacs', path));
-  assert.equal(dpp.round.snapshot.sports.length, 0); assert.equal(dpp.round.snapshot.monitoring.length, 1);
-  assert.equal(dacs.round.snapshot.monitoring.length, 0); assert.equal(dacs.round.snapshot.sports.length, 1);
-  assert.equal((await api('dsm', path)).status, 404, 'a Director with no released component sees nothing');
-  assert.equal((await api('physical', path)).status, 404, 'officers see nothing until assigned');
+  assert.equal(dpp.round.snapshot.sports.length, 1); assert.equal(dpp.round.snapshot.monitoring.length, 1);
+  assert.deepEqual(dpp.flow.abilities.assign, ['monitoring']); assert.deepEqual(dacs.flow.abilities.assign, ['sports']);
+  assert.deepEqual(ok(await api('dsm', path)).flow.abilities.assign, [], 'a Director with no released component observes only');
+  assert.deepEqual(ok(await api('physical', path)).flow.abilities.assess, [], 'UBEC149: officers observe, but assess only once assigned');
   assert.equal(ok(await api('ec', path)).assignments.length, 0, 'nothing is released to the state yet');
   assert.equal((await api('dacs', components, { action: 'assign_officers', roundId: dacs.round.id, pillar: 'monitoring', officerIds: [ids.physical], comment: 'x' })).status, 403);
   await assess('monitoring', 'dpp', 'physical', 'accept');
-  assert.equal(ok(await api('physical', path)).round.snapshot.sports.length, 0, 'officers see only assigned components');
+  assert.deepEqual(ok(await api('physical', path)).flow.abilities.assess, [], 'officers assess only assigned components (UBEC149: they observe the rest)');
   assert.equal((await act('ubecChair', 'approve', { comment: 'Still waiting' })).status, 409);
   await assess('sports', 'dacs', 'academic', 'reject');
   assert.equal((await act('ubecChair', 'approve', { comment: 'Rejected item' })).status, 409);
@@ -131,8 +131,9 @@ try {
   assert.equal(second.round.number, 2); assert.equal(second.round.snapshot.sports[0].quantity, 6);
   assert.equal(second.round.snapshot.monitoring.length, 0, 'Components that did not reach the Executive Chairman are left out');
   ok(await act('ubecChair', 'release', { comment: 'Resubmission released.' }));
-  assert.equal(ok(await api('dpp', path)).round.number, 1, 'a Director without a component in round 2 still sees round 1');
-  assert.equal(ok(await api('physical', path)).round.number, 1, 'officers only see rounds assigned to them');
+  // UBEC149: they observe round 2 (Sports) with nothing of their own to do.
+  { const d = ok(await api('dpp', path)); assert.equal(d.round.number, 2); assert.deepEqual(d.flow.abilities.assign, []); }
+  { const o = ok(await api('physical', path)); assert.equal(o.round.number, 2); assert.deepEqual(o.flow.abilities.assess, []); }
   await assess('sports', 'dacs', 'academic', 'accept');
   const ready = ok(await api('ubecChair', path));
   const decision = { action: 'approve', version: ready.plan.version, roundId: ready.round.id, comment: 'All components assessed.' };

@@ -180,7 +180,7 @@ try {
   ok(await api('dtpd', `/api/ubec/components?plan=${planId}`, { action: 'assign_officers', roundId: esView.round.id, pillar: 'teachers', officerIds: [revTeachersId], comment: 'Assess Teacher Development.' }));
   assert.equal(ok(await api('revTeachers', ubecPath)).round.snapshot.teachers.length, 2);
   ok(await api('revTeachers', `/api/activities/line-documents?id=${mou.id}`));
-  fails(await api('revQuality', `/api/activities/line-documents?id=${mou.id}`), 404);
+  assert.equal((await api('revQuality', `/api/activities/line-documents?id=${mou.id}`)).status, 200, 'UBEC149: every UBEC unit sees the whole released plan');
   fails(await upload('tpd', literacy.id, 'late.pdf', pdf), 409);
   step('Teacher Development flows Director → BEAP Chair → Executive Chairman → UBEC released by the UBEC BEAP Chair and assigned by the Teacher Professional Development Director');
   console.log(`PASS: ${passed} teacher-development checks.`);

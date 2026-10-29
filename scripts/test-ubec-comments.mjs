@@ -105,8 +105,9 @@ try {
   const t3 = ok(await cell('revP', kits, null, 'REV-P-INTERNAL: draft thought, do not send.'), 201).id;
   const t4 = ok(await cell('revP', balls, 'quantity', 'REV-P-RESOLVED: quantity checked.'), 201).id;
   const t5 = ok(await cell('uchair', kits, 'amount', 'ES-SHARED-2: finals amount should be split by zone.'), 201).id;
-  expect(await cell('revA', sbmcLine, 'rationale', 'not mine', 'sbmc'), 403, /not assigned/);
-  expect(await cell('revS', balls, 'code', 'not mine'), 403, /not assigned/);
+  // UBEC149: officers may leave observative comments on other components (they never hold the review up).
+  const observed = ok(await cell('revA', sbmcLine, 'approach', 'REV-A-OBSERVATION: for information.', 'sbmc'), 201).id;
+  await db.query('DELETE FROM plan_comments WHERE id=$1', [observed]);
   ok(await cell('revS', sbmcLine, 'rationale', 'REV-S-INTERNAL: rationale is thin.', 'sbmc'), 201);
   expect(await cell('revP', balls, 'unitCost', 'second thread'), 409, /already has an open comment/);
   step('officers start threads only on assigned components (403 otherwise); one open UBEC thread per cell (409)');
@@ -124,22 +125,25 @@ try {
   const bodies = threads => threads.map(t => t.body);
   const esView = await visible('es'), revAView = await visible('revA'), revSView = await visible('revS');
   assert.equal(esView.length, 6); assert.ok(esView.every(t => t.scope === 'ubec' && t.sharedAt === null));
-  assert.deepEqual(new Set(revAView.map(t => t.id)), new Set([t1, t3, t4, t5])); assert.deepEqual(new Set(bodies(revSView)), new Set(['ES-SHARED: the SBMC line needs a community needs assessment.', 'REV-S-INTERNAL: rationale is thin.']));
+  // UBEC149: officers see every released component's threads (their own and the ones they observe).
+  assert.equal(revAView.length, 6); assert.equal(revSView.length, 6);
   for (const view of [esView, revAView, revSView]) assert.ok(!JSON.stringify(view).includes('STATE-INTERNAL'), 'UBEC must never see state-scope comments');
-  assert.equal(ok(await api('revA', ubec)).abilities.sbmc, undefined); assert.equal(ok(await api('revA', ubec)).abilities.sports.start, true);
+  assert.deepEqual(ok(await api('revA', ubec)).abilities.sbmc, { start: true, reply: true, resolveAny: false, reopen: false }, 'observers comment but do not resolve or reopen'); assert.equal(ok(await api('revA', ubec)).abilities.sports.resolveAny, true);
   assert.equal(ok(await api('uchair', ubec)).threads.length, 6);
   assert.deepEqual(ok(await api('es', ubec)).abilities.sports, { start: false, reply: false, resolveAny: false, reopen: false }, 'the ES is read-only');
-  step('visibility: the ES and UBEC BEAP Chair see all 6 threads; officers see every thread on their components (other reviewers and ES too), nothing else; no state-scope text');
+  step('visibility: the ES and UBEC BEAP Chair see all 6 threads; officers see every thread, and on other units\' components they only comment (UBEC149); no state-scope text');
 
   ok(await api('revA', ubec, { parentId: t5, body: 'REV-A-REPLY: agreed with the ES.' }), 201);
   ok(await api('revA', ubec, { parentId: t1, body: 'REV-A-REPLY-BEFORE-SHARE: please attach quotations.' }), 201);
-  expect(await api('revA', ubec, { parentId: esSbmc, body: 'x' }), 404); expect(await api('revA', ubec, { parentId: stateThread, body: 'x' }), 404);
+  // UBEC149: an observer may reply on another unit's component too.
+  { const reply = ok(await api('revA', ubec, { parentId: esSbmc, body: 'observer reply' }), 201).id; await db.query('DELETE FROM plan_comments WHERE id=$1', [reply]); }
+  expect(await api('revA', ubec, { parentId: stateThread, body: 'x' }), 404);
   ok(await api('revA', ubec, { id: t4, action: 'resolve' }, { method: 'PATCH' }));
   expect(await api('revA', ubec, { parentId: t4, body: 'x' }), 409, /Reopen/);
   expect(await api('es', ubec, { id: t4, action: 'resolve' }, { method: 'PATCH' }), 403, /read-only/);
   expect(await api('es', ubec, { parentId: t5, body: 'ES reply' }), 403, /read-only/);
   ok(await api('revP', ubec, { id: t4, action: 'reopen' }, { method: 'PATCH' })); ok(await api('uchair', ubec, { id: t4, action: 'resolve' }, { method: 'PATCH' }));
-  expect(await api('revS', ubec, { id: t1, action: 'resolve' }, { method: 'PATCH' }), 404);
+  expect(await api('revS', ubec, { id: t1, action: 'resolve' }, { method: 'PATCH' }), 403, /own unit/);
   step('replies, resolve and reopen by any UBEC reviewer who can see the thread (the ES 403); other components and state threads are 404');
 
   // Nothing UBEC wrote reaches the state while it is internal.
@@ -243,7 +247,7 @@ try {
   expect(await api('revA', ubec, { id: t1, action: 'reopen' }, { method: 'PATCH' }), 409, /Another open comment/);
   ok(await api('revA', ubec, { id: t5, action: 'resolve' }, { method: 'PATCH' }));
   ok(await api('uchair', ubec, { id: esSbmc, action: 'resolve' }, { method: 'PATCH' }));
-  expect(await api('revS', ubec, { id: t5, action: 'resolve' }, { method: 'PATCH' }), 404);
+  expect(await api('revS', ubec, { id: t5, action: 'resolve' }, { method: 'PATCH' }), 403, /own unit/);
   step('round 2 officers see the state replies; a reopen that would duplicate an open cell thread is refused (409); UBEC resolves the threads the state answered');
 
   // Approval never shares.

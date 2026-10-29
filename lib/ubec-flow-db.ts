@@ -2,7 +2,7 @@ import type { QueryResult, QueryResultRow } from 'pg';
 import { readCorrections } from './ubec-corrections-db';
 import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
-import { activePillars, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound, oversightList } from './ubec';
+import { activePillars, componentDepartments, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound, oversightList } from './ubec';
 import { componentAmount, componentItems, decisionCounts, superAdminRole, type FlowAbilities, type FlowComponent, type ItemDecision, type ObserverAssignment, type OfficerAssignment, type OversightReview, type UbecFlow } from './ubec-flow';
 import { readDefaultOfficers } from './ubec-officer-limits';
 
@@ -18,10 +18,16 @@ export const seesEverything = (role: string) => role === ubecRoles.es || role ==
 /**
  * SQL condition: the UBEC viewer may see component `pillar` (SQL expression; NULL = any component) of round `r`.
  * Parameters: role, user id and department placeholders (e.g. '$4', '$5', '$6').
+ * UBEC149 (client, 29 October 2026): every UBEC unit sees every released component and may leave observative comments
+ * that never hold the process up. `wide` (default) adds that for component Directors and their Assessment Officers;
+ * `wide: false` is their own work only (their department's components, their assignments), used by the dashboards.
  */
-export function ubecSeesPillarSql(round: string, pillar: string, role: string, userId: string, department: string) {
+export function ubecSeesPillarSql(round: string, pillar: string, role: string, userId: string, department: string, { wide = true } = {}) {
   const match = `(${pillar} IS NULL OR rc.pillar=${pillar})`;
-  return `(${role} IN ('${ubecRoles.es}','${ubecRoles.chair}')
+  const units = componentDepartments.map(d => `'${d.id}'`).join(',');
+  const anyUnit = wide ? `
+    OR (${role} IN ('${ubecRoles.director}','${ubecRoles.officer}') AND ${department} IN (${units}) AND EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match}))` : '';
+  return `(${role} IN ('${ubecRoles.es}','${ubecRoles.chair}')${anyUnit}
     OR (${role}='${ubecRoles.director}' AND (EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match} AND rc.department=${department})
       OR EXISTS(SELECT 1 FROM ubec_assignments la WHERE la.round_id=${round}.id AND (${pillar} IS NULL OR la.pillar=${pillar}) AND la.department=${department})))
     OR (${role}='${ubecRoles.oversight}' AND EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match} AND rc.sent_to_oversight_at IS NOT NULL))
@@ -35,9 +41,9 @@ export async function readViewerRounds(db: Db, planId: number | string, viewer: 
 }
 
 /** Components of `round` the viewer sees (stage-gated). */
-export async function viewerPillars(db: Db, round: UbecRound, viewer: UbecViewer): Promise<ImplementedPillar[]> {
+export async function viewerPillars(db: Db, round: UbecRound, viewer: UbecViewer, { wide = true } = {}): Promise<ImplementedPillar[]> {
   if (seesEverything(viewer.role)) return activePillars(round.snapshot);
-  const rows = (await db.query<{ pillar: ImplementedPillar }>(`SELECT p.pillar FROM unnest($5::text[]) AS p(pillar), (SELECT $1::int AS id) AS r WHERE ${ubecSeesPillarSql('r', 'p.pillar', '$2::text', '$3::int', '$4::text')}`, [round.id, viewer.role, viewer.id, viewer.department, implementedPillars])).rows;
+  const rows = (await db.query<{ pillar: ImplementedPillar }>(`SELECT p.pillar FROM unnest($5::text[]) AS p(pillar), (SELECT $1::int AS id) AS r WHERE ${ubecSeesPillarSql('r', 'p.pillar', '$2::text', '$3::int', '$4::text', { wide })}`, [round.id, viewer.role, viewer.id, viewer.department, implementedPillars])).rows;
   return implementedPillars.filter(pillar => rows.some(row => row.pillar === pillar));
 }
 

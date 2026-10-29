@@ -145,7 +145,7 @@ try {
   ok(await api('ubecChair', ubecPath, { action: 'release', version: esView.plan.version, roundId: esView.round.id, comment: 'Released for assessment.' }));
   ok(await api('dprs', `/api/ubec/components?plan=${planId}`, { action: 'assign_officers', roundId: esView.round.id, pillar: 'planning', officerIds: [userIds[userIds.length - 2]], comment: 'Assess the planning lines.' }));
   assert.equal(ok(await api('revPlanning', ubecPath)).round.snapshot.planning.length, 5);
-  fails(await api('revQuality', ubecPath), 404, /No assigned submission/);
+  assert.equal((await api('revQuality', ubecPath)).status, 200, 'UBEC149: every UBEC unit sees the whole released plan');
   fails(await api('prs', url(), line(4, 100)), 409);
   step('Planning flows Director → BEAP Chair → Executive Chairman → UBEC, released by the UBEC BEAP Chair and assigned by the Planning, EMIS & Data Platform Director');
   console.log(`PASS: ${passed} planning checks.`);

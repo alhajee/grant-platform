@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const viewer = { id: user.userId, role: user.role, department: user.department };
     const db = getPostgres();
     const all = (await db.query<RoundRow>(`SELECT r.*,p.state_code,p.start_year,p.end_year,p.funding_quarters FROM ubec_rounds r JOIN action_plans p ON p.id=r.plan_id
-      WHERE r.number=(SELECT MAX(number) FROM ubec_rounds WHERE plan_id=r.plan_id) AND ${ubecSeesPillarSql('r', 'NULL::text', '$1::text', '$2::int', '$3::text')} ORDER BY r.submitted_at DESC`, [viewer.role, viewer.id, viewer.department])).rows;
+      WHERE r.number=(SELECT MAX(number) FROM ubec_rounds WHERE plan_id=r.plan_id) AND ${ubecSeesPillarSql('r', 'NULL::text', '$1::text', '$2::int', '$3::text', { wide: false })} ORDER BY r.submitted_at DESC`, [viewer.role, viewer.id, viewer.department])).rows;
     const years = [...new Set(all.flatMap(r => Array.from({ length: r.end_year - r.start_year + 1 }, (_, i) => r.start_year + i)))].sort((a, b) => b - a);
     const rounds = all.filter(r => coversPlanningYear(r.start_year, r.end_year, year));
     const roundIds = rounds.map(r => r.id), planIds = rounds.map(r => r.plan_id);
@@ -106,7 +106,13 @@ export async function GET(request: NextRequest) {
       .slice(0, 8).map(e => ({ id: e.id, plan_id: e.plan_id, action: e.action, actor: e.actor, created_at: e.created_at, pillar: e.pillar, stateName: stateDisplayName(e.state_code) }));
     const monthly = (await db.query<{ month: string; submissions: number }>(`SELECT to_char(m.month,'Mon YYYY') AS month,COUNT(r.id)::int AS submissions FROM generate_series(date_trunc('month',NOW())-interval '5 months',date_trunc('month',NOW()),interval '1 month') AS m(month)
       LEFT JOIN ubec_rounds r ON r.submitted_at>=m.month AND r.submitted_at<m.month+interval '1 month' AND r.plan_id=ANY($1::int[]) GROUP BY m.month ORDER BY m.month`, [planIds])).rows;
-    const body: UbecDashboard = { user: { name: user.name, role: user.role, department: user.department }, items, queue, workload, activity, monthly, years };
+    // UBEC149: plans of other units this viewer may observe and comment on (latest round, released, not their own work).
+    const own = new Set(all.map(r => r.id));
+    const observing = viewer.role === ubecRoles.director || viewer.role === ubecRoles.officer ? (await db.query<RoundRow>(`SELECT r.*,p.state_code,p.start_year,p.end_year,p.funding_quarters FROM ubec_rounds r JOIN action_plans p ON p.id=r.plan_id
+      WHERE r.number=(SELECT MAX(number) FROM ubec_rounds WHERE plan_id=r.plan_id) AND r.status IN ('reviewing','returned','approved') AND ${ubecSeesPillarSql('r', 'NULL::text', '$1::text', '$2::int', '$3::text')} ORDER BY r.submitted_at DESC`, [viewer.role, viewer.id, viewer.department])).rows
+      .filter(r => !own.has(r.id) && coversPlanningYear(r.start_year, r.end_year, year))
+      .map(r => ({ planId: r.plan_id, state: stateDisplayName(r.state_code), period: planPeriod({ startYear: r.start_year, endYear: r.end_year, fundingQuarters: r.funding_quarters }), status: r.status, round: r.number })) : [];
+    const body: UbecDashboard = { user: { name: user.name, role: user.role, department: user.department }, items, queue, workload, activity, monthly, years, observing };
     return NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });
   } catch (cause) { console.error(cause); return NextResponse.json({ error: 'Unable to load the UBEC dashboard' }, { status: 503 }); }
 }

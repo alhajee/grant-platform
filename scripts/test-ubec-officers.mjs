@@ -147,7 +147,7 @@ try {
   assert.deepEqual(released.officers, [], 'release goes to the Director first: nobody is assigned');
   assert.equal(await notified('offP1', 'default_officers'), false, 'the default officer hears nothing on release');
   assert.equal((await db.query("SELECT 1 FROM ubec_events WHERE plan_id=$1 AND action='default_officers'", [planId])).rowCount, 0);
-  fails(await api('offP1', path), 404, /No assigned submission/);
+  assert.deepEqual(ok(await api('offP1', path)).flow.abilities.assess, [], 'UBEC149: the unassigned officer observes but cannot assess');
   assert.deepEqual((await view('dpp')).flow.defaultOfficers, { monitoring: [users.offP1] }, 'the Director gets the default to pre-tick');
   assert.deepEqual((await view('chair')).flow.defaultOfficers, {}, 'only viewers who assign get the defaults');
   step('release assigns nobody: the component waits with its Director, who gets the Admin default officers to pre-tick');
@@ -162,7 +162,7 @@ try {
   ok(await assign('dpp', [users.offP2]));
   ok(await remove('dpp', (await view('dpp')).flow.components[0].officers.find(o => o.officerId === users.offP1).id));
   assert.deepEqual((await view('dpp')).flow.components[0].officers.map(o => o.officerId), [users.offP2]);
-  fails(await api('offP1', path), 404, /No assigned submission/);
+  assert.deepEqual(ok(await api('offP1', path)).flow.abilities.assess, [], 'UBEC149: a removed officer observes but cannot assess');
   step('the Director assigns the default officer, adds and removes officers');
 
   // Super Admin reassign.

@@ -13,7 +13,7 @@ import { readRoundRoot, readRoundRows, readViewerRounds, roundCellTaken, roundCu
 // Threads stay internal to UBEC until the UBEC BEAP Chair shares them when returning the plan. State users are refused.
 
 type Actor = { id: number; role: string; department: string | null; full_name: string };
-type Context = { planId: number; round: UbecRound; pillars: string[]; actor: Actor };
+type Context = { planId: number; round: UbecRound; pillars: string[]; actor: Actor; /** The components that are the viewer's own work (UBEC149); the rest they only observe. */ own: string[] };
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const noStore = { 'Cache-Control': 'no-store' };
 const ubecOnly = 'UBEC comments are available to UBEC reviewers only';
@@ -36,7 +36,9 @@ export async function GET(request: NextRequest) {
       // A round picked in the history selector is always read-only, even when it is the open one.
       const pillars = await viewerPillars(db, round, viewer), open = roundOpen(round, latest) && selected === undefined, cutoff = roundCutoff(round, latest);
       const rows = await readRoundRows(db, planId, round, pillars, cutoff);
-      const abilities = Object.fromEntries(implementedPillars.filter(p => pillars.includes(p)).map(p => [p, ubecAbilities(true, open, user.role)]));
+      // UBEC149: on components outside their own work, units leave observative comments: start and reply only.
+      const own = await viewerPillars(db, round, viewer, { wide: false });
+      const abilities = Object.fromEntries(implementedPillars.filter(p => pillars.includes(p)).map(p => { const a = ubecAbilities(true, open, user.role); return [p, own.includes(p) ? a : { ...a, resolveAny: false, reopen: false }]; }));
       return NextResponse.json({ threads: toThreads(rows, user.userId, round.snapshot, { cutoff, withSharing: true }), locked: !open, abilities, scope: 'ubec', roundId: round.id }, { headers: noStore });
     });
   } catch (cause) { console.error('UBEC comments could not be loaded', cause); return error('Unable to load comments. Please try again.', 503); }
@@ -61,7 +63,7 @@ async function withOpenRound(request: NextRequest, run: (db: Db, context: Contex
     if ((selected && selected !== round.id) || !roundOpen(round, latest)) return error('This submission is no longer open for review, so its comments are read-only', 409);
     const pillars = await viewerPillars(db, round, actor);
     if (!pillars.length) return error('No component of this submission has reached you', 403);
-    return run(db, { planId, round, pillars, actor });
+    return run(db, { planId, round, pillars, actor, own: await viewerPillars(db, round, actor, { wide: false }) });
   });
 }
 
@@ -99,9 +101,11 @@ export async function PATCH(request: NextRequest) {
     const parsed = updateCommentSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return error('Choose a comment to resolve or reopen');
     const input = parsed.data;
-    return await withOpenRound(request, async (db, { planId, round, pillars, actor }) => {
+    return await withOpenRound(request, async (db, { planId, round, pillars, actor, own }) => {
       const root = await readRoundRoot(db, planId, round, pillars, input.id);
       if (!root) return error('Comment not found', 404);
+      // UBEC149: observers of another unit's component resolve only their own comments and never reopen.
+      if (!own.includes(root.pillar) && (input.action === 'reopen' || root.author_id !== actor.id)) return error('Only the component\'s own unit resolves or reopens its comments. Your observations are for information', 403);
       if (input.action === 'resolve') {
         if (root.resolved_at) return error('This comment is already resolved', 409);
         await db.query('UPDATE plan_comments SET resolved_at=NOW(), resolved_by_name=$1 WHERE id=$2', [actor.full_name, root.id]);

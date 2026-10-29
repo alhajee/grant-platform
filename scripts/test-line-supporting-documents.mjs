@@ -152,9 +152,9 @@ try {
   ok(await api('dqa', `/api/ubec/components?plan=${planId}`, { action: 'assign_officers', roundId: esView.round.id, pillar: 'quality', officerIds: [revQualityId], comment: 'Assess Quality Assurance.' }));
   const officer = await download('revQuality', qaPhoto.id);
   assert.equal(officer.status, 200); assert.deepEqual(officer.bytes, png);
-  fails(await download('revAcademic', qaPhoto.id), 404);
-  fails(await download('revQuality', tlmDoc.id), 404);
-  step('Snapshots carry the documents (BEAP Chair view, SBMC state view, UBEC round); the ES and the assigned Quality Assurance officer download from the round, another department\'s officer and unsent components do not (404)');
+  assert.equal((await download('revAcademic', qaPhoto.id)).status, 200, 'UBEC149: every UBEC unit sees the whole released plan');
+  fails(await download('revQuality', tlmDoc.id), 404); // TLM was not sent to UBEC
+  step('Snapshots carry the documents (BEAP Chair view, SBMC state view, UBEC round); the ES and the assigned Quality Assurance officer download from the round, any UBEC unit officer downloads too (UBEC149); unsent components do not (404)');
   console.log(`PASS: ${passed} line supporting document checks.`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2, component_documents_required=$3, infrastructure_tlm_mode=$4 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode, settings.component_documents_required, settings.infrastructure_tlm_mode]);

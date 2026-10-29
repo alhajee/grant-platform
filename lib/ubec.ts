@@ -111,6 +111,7 @@ export type UbecQueueItem = { planId: number; state: string; label: string; deta
 export type UbecDashboard = {
   user: { name: string; role: string; department: string | null };
   items: NationalItem[]; queue: UbecQueueItem[];
+  /** UBEC149: other units' plans the viewer may observe and comment on. */ observing?: { planId: number; state: string; period: string; status: string; round: number }[];
   activity: { id: number; plan_id: number; action: string; actor: string; created_at: string; stateName: string; pillar?: string | null }[];
   workload: { department: string; pending: number; completed: number }[]; monthly: { month: string; submissions: number }[]; years: number[];
 };

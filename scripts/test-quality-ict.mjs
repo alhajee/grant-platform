@@ -312,9 +312,9 @@ try {
   ok(await api('dme', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'quality', officerIds: [revQualityId], comment: 'Assess Quality Assurance.' }));
   ok(await api('dddpa', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'ict', officerIds: [revIctId], comment: 'Assess ICT.' }));
   const teachersView = ok(await api('revTeachers', ubecPath));
-  assert.equal(teachersView.round.snapshot.ict.length, 9); assert.deepEqual(teachersView.round.snapshot.quality, []);
+  assert.equal(teachersView.round.snapshot.ict.length, 9); assert.equal(teachersView.round.snapshot.quality.length, 8, 'UBEC149: officers see every released component');
   ok(await api('revTeachers', `/api/activities/line-documents?id=${boq.id}`));
-  fails(await api('revQuality', `/api/activities/line-documents?id=${boq.id}`), 404);
+  assert.equal((await api('revQuality', `/api/activities/line-documents?id=${boq.id}`)).status, 200, 'UBEC149: every UBEC unit sees the whole released plan');
   assert.equal(ok(await api('revQuality', ubecPath)).round.snapshot.quality.length, 8);
   fails(await upload('ict', spec.id, 'late.pdf', pdf), 409);
   step('Quality Assurance and ICT flow Director → BEAP Chair → Executive Chairman → UBEC released by the UBEC BEAP Chair and assigned to DME and DDDPA officers; snapshots carry line schools, documents and extras once sent to the BEAP Chair; Executive Chairman documents and totals once sent to them');

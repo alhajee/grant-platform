@@ -255,16 +255,17 @@ try {
   ok(await api('dpp', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'monitoring', officerIds: [revPhysicalId], comment: 'Assess monitoring.' }));
   ok(await api('dacs', components, { action: 'assign_officers', roundId: esView.round.id, pillar: 'curriculum', officerIds: [revAcademicId], comment: 'Assess curriculum.' }));
   const physicalReview = ok(await api('revPhysical', ubecPath));
-  assert.equal(physicalReview.round.snapshot.monitoring.length, 2); assert.deepEqual(physicalReview.round.snapshot.curriculum, []);
+  // UBEC149: officers see every released component (and assess only their own).
+  assert.equal(physicalReview.round.snapshot.monitoring.length, 2); assert.ok(physicalReview.round.snapshot.curriculum.length > 0); assert.deepEqual(physicalReview.flow.abilities.assess, ['monitoring']);
   assert.equal(physicalReview.round.snapshot.componentDocuments.length, 1);
   ok(await api('revPhysical', `/api/activities/documents?id=${kept.id}`));
   const academicReview = ok(await api('revAcademic', ubecPath));
-  assert.equal(academicReview.round.snapshot.curriculumDistribution.length, 2); assert.deepEqual(academicReview.round.snapshot.componentDocuments, []);
+  assert.equal(academicReview.round.snapshot.curriculumDistribution.length, 2); assert.equal(academicReview.round.snapshot.componentDocuments.length, 1);
   // A round saved before coordinates were kept still shows them, read from the School list.
   await db.query("UPDATE ubec_rounds SET snapshot=jsonb_set(snapshot,'{curriculumDistribution}',(SELECT jsonb_agg(e - 'latitude' - 'longitude') FROM jsonb_array_elements(snapshot->'curriculumDistribution') e)) WHERE id=$1", [esView.round.id]);
   await db.query("UPDATE schools SET latitude='5.1', longitude='6.3' WHERE id = ANY($1::int[])", [ok(await api('revAcademic', ubecPath)).round.snapshot.curriculumDistribution.map(s => s.id)]);
   assert.ok(ok(await api('revAcademic', ubecPath)).round.snapshot.curriculumDistribution.every(s => s.latitude === '5.1' && s.longitude === '6.3'), 'older rounds are filled from the School list');
-  fails(await api('revAcademic', `/api/activities/documents?id=${kept.id}`), 404);
+  assert.equal((await api('revAcademic', `/api/activities/documents?id=${kept.id}`)).status, 200, 'UBEC149: every UBEC unit sees the whole released plan');
   fails(await upload('physical', 'late.pdf', pdf), 409);
   step('UBEC round: Monitoring and Curriculum sent with distribution and proforma; release, officer assignment and officer isolation');
   console.log(`PASS: ${passed} activity-component checks.`);

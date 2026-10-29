@@ -96,10 +96,21 @@ try {
   step('release: only the UBEC BEAP Chair, with a comment, same origin, once; the ES and Directors cannot; component Directors notified');
 
   const dppView = await view('dpp');
-  assert.equal(dppView.round.snapshot.monitoring.length, 1); assert.equal(dppView.round.snapshot.sports.length, 0);
-  assert.deepEqual(dppView.flow.components.map(c => c.pillar), ['monitoring']); assert.deepEqual(dppView.flow.abilities.assign, ['monitoring']);
+  // UBEC149: every unit sees every released component, but acts only on its own.
+  assert.equal(dppView.round.snapshot.monitoring.length, 1); assert.equal(dppView.round.snapshot.sports.length, 1);
+  assert.deepEqual(dppView.flow.components.map(c => c.pillar).sort(), ['monitoring', 'sports']); assert.deepEqual(dppView.flow.abilities.assign, ['monitoring']);
   assert.ok(dppView.flow.officers.some(o => o.id === users.offP1) && !dppView.flow.officers.some(o => o.id === users.offA), 'a Director chooses among their own officers');
-  fails(await api('dprs', path), 404);
+  const dprsView = await view('dprs');
+  assert.deepEqual(dprsView.flow.abilities.assign, []); assert.deepEqual(dprsView.flow.abilities.assess, []);
+  fails(await step2('dprs', 'assign_officers', 'sports', { officerIds: [users.offA], comment: 'x' }), 403);
+  const dprsComments = ok(await api('dprs', `/api/ubec/comments${q}`));
+  assert.deepEqual(dprsComments.abilities.sports, { start: true, reply: true, resolveAny: false, reopen: false }, 'observers comment but do not resolve others or reopen');
+  const observation = ok(await api('dprs', `/api/ubec/comments${q}`, { sheet: 'sports', rowRef: String(sportsLine), columnId: null, body: 'DPRS observation: check the football count against enrolment.' }), 201).id;
+  const dacsThread = ok(await api('dacs', `/api/ubec/comments${q}`, { sheet: 'sports', rowRef: String(sportsLine), columnId: 'amount', body: 'DACS note.' }), 201).id;
+  fails(await api('dprs', `/api/ubec/comments${q}`, { id: dacsThread, action: 'resolve' }, 'PATCH'), 403, /own unit/);
+  ok(await api('dprs', `/api/ubec/comments${q}`, { id: observation, action: 'resolve' }, 'PATCH'));
+  ok(await api('dacs', `/api/ubec/comments${q}`, { id: dacsThread, action: 'resolve' }, 'PATCH'));
+  assert.ok(!ok(await api('dprs', '/api/ubec/dashboard')).items.some(i => i.planId === planId), 'the dashboard lists only their own work');
   fails(await step2('dpp', 'assign_officers', 'monitoring', { officerIds: [users.offP1] }), 400, /comment/);
   fails(await step2('dacs', 'assign_officers', 'sports', { officerIds: [users.offP1], comment: 'x' }), 400, /your department/);
   fails(await step2('dpp', 'assign_officers', 'sports', { officerIds: [users.offP1], comment: 'x' }), 403, /another department/);
@@ -112,7 +123,9 @@ try {
   step('Directors assign their own officers with a required comment (other departments 403, wrong department officers 400, ES and oversight 403); officers notified');
 
   const offP1View = await view('offP1');
-  assert.deepEqual(offP1View.flow.components.map(c => c.pillar), ['monitoring']); assert.equal(offP1View.round.snapshot.sports.length, 0);
+  // UBEC149: an officer sees the other released components too, but assesses only what is assigned.
+  assert.deepEqual(offP1View.flow.components.map(c => c.pillar).sort(), ['monitoring', 'sports']); assert.deepEqual(offP1View.flow.abilities.assess, ['monitoring']);
+  fails(await decide('offP1', 'sports', String(sportsLine), 'accept'), 403, /not assigned/);
   fails(await api('audit', path), 404, /No assigned submission/);
   fails(await decide('offA', 'monitoring', monitoringLine, 'accept'), 403, /not assigned/);
   fails(await decide('audit', 'monitoring', monitoringLine, 'accept'), 403, /cannot accept or reject/);
@@ -131,8 +144,8 @@ try {
   ok(await decide('dpp', 'monitoring', monitoringLine, 'reject', 'Unit cost too high'));
   assert.match((await view('dpp')).flow.decisions.find(d => d.rowRef === monitoringLine).officerName, /\(Director\)$/);
   ok(await decide('dpp', 'monitoring', monitoringLine, 'accept'));
-  const offP1Assignment = (await view('dpp')).flow.components[0].officers.find(o => o.officerId === users.offP1).id;
-  const offP2Open = (await view('dpp')).flow.components[0].officers.find(o => o.officerId === users.offP2).id;
+  const offP1Assignment = (await view('dpp')).flow.components.find(c => c.pillar === 'monitoring').officers.find(o => o.officerId === users.offP1).id;
+  const offP2Open = (await view('dpp')).flow.components.find(c => c.pillar === 'monitoring').officers.find(o => o.officerId === users.offP2).id;
   fails(await step2('dpp', 'reopen_assessment', 'monitoring', { assignmentId: offP1Assignment }), 400, /look at again/);
   fails(await step2('dacs', 'reopen_assessment', 'monitoring', { assignmentId: offP1Assignment, comment: 'x' }), 403, /another department/);
   fails(await step2('offP1', 'reopen_assessment', 'monitoring', { assignmentId: offP1Assignment, comment: 'x' }), 403);
@@ -144,9 +157,9 @@ try {
   step('the Director changes a decision (recorded as the Director) and sends a completed assessment back with a comment; the officer is notified and completes again');
   assert.ok(await notified('dpp', 'complete_assessment'));
   fails(await step2('dpp', 'send_oversight', 'monitoring', { comment: 'x' }), 409, /still working/);
-  const offP2Assignment = (await view('dpp')).flow.components[0].officers.find(o => o.officerId === users.offP2).id;
+  const offP2Assignment = (await view('dpp')).flow.components.find(c => c.pillar === 'monitoring').officers.find(o => o.officerId === users.offP2).id;
   ok(await step2('dpp', 'unassign_officer', 'monitoring', { assignmentId: offP2Assignment }));
-  fails(await api('offP2', path), 404, 'a removed officer no longer sees the component');
+  assert.deepEqual(ok(await api('offP2', path)).flow.abilities.assess, [], 'a removed officer can no longer assess (UBEC149: they still observe)');
   fails(await step2('dpp', 'send_oversight', 'monitoring'), 400, /comment/);
   ok(await step2('dpp', 'send_oversight', 'monitoring', { comment: 'Monitoring assessed and endorsed.' }));
   fails(await step2('dpp', 'assign_officers', 'monitoring', { officerIds: [users.offP2], comment: 'late' }), 409, /Oversight Departments/);
@@ -210,7 +223,7 @@ try {
   assert.equal(second.round.number, 2); assert.equal(second.round.status, 'received'); assert.ok(second.flow.previousDecisions.some(d => d.pillar === 'sports' && d.decision === 'reject'));
   assert.deepEqual(second.flow.corrected, { sports: [String(sportsLine)] }, 'UBEC sees the rejected item as corrected (UBEC195)');
   ok(await act('chair', 'release', { comment: 'Resubmission received.' }));
-  assert.equal((await view('dpp')).round.number, 1, 'round 2 has no Physical Planning component, so its Director sees only round 1 history');
+  { const dppRound2 = await view('dpp'); assert.equal(dppRound2.round.number, 2, 'UBEC149: the Physical Planning Director observes round 2 too'); assert.deepEqual(dppRound2.flow.abilities.assign, [], 'but has nothing of their own to assign'); }
   ok(await step2('dacs', 'assign_officers', 'sports', { officerIds: [users.offA], comment: 'Check the revision.' }));
   assert.ok((await view('offA')).flow.previousDecisions.some(d => d.rowRef === String(sportsLine) && d.note === 'Quantity is too high.'), 'officers see the previous round\'s decisions');
   assert.ok(ok(await api('offA', '/api/ubec/dashboard')).queue.some(i => i.kind === 'assess' && i.planId === planId));
