@@ -14,7 +14,6 @@ import { componentDocumentKinds, documentWorkstreams } from '@/lib/activity-plan
 // the ICT UBEC-SUBEB Connect waiver from UBEC HQ.
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 const component=z.enum(documentWorkstreams);
-const perComponentLimit=20;
 const types:Record<string,string>={pdf:'application/pdf',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',xls:'application/vnd.ms-excel',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg'};
 function validContent(ext:string,bytes:Buffer){
  const hex=(n:number)=>bytes.subarray(0,n).toString('hex');
@@ -31,8 +30,7 @@ export async function POST(req:NextRequest){
   const bytes=Buffer.from(await file.arrayBuffer());
   if(!types[ext]||!validContent(ext,bytes))return error('Use a valid PDF, DOCX, XLSX, XLS, PNG or JPEG file');
   return await mutatePlan(user,plan,workstream.data,async db=>{
-   const count=(await db.query('SELECT COUNT(*)::int AS count FROM component_documents WHERE plan_id=$1 AND component=$2 AND removed_at IS NULL',[plan.id,workstream.data])).rows[0].count;
-   if(count>=perComponentLimit)return error(`This component has reached its ${perComponentLimit}-document limit`);
+   // No limit on how many files (client, 30 October 2026: Katsina hit the old cap with over 100 BOQs); each file keeps its size limit.
    const id=crypto.randomUUID();
    await db.query("INSERT INTO component_documents(id,plan_id,component,kind,name,media_type,content,size) VALUES($1,$2,$3,$4,$5,$6,decode($7,'hex'),$8)",[id,plan.id,workstream.data,componentDocumentKinds[workstream.data],name,types[ext],bytes.toString('hex'),bytes.length]);
    return NextResponse.json({id,name,size:bytes.length});

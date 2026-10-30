@@ -40,8 +40,7 @@ export async function POST(req:NextRequest){
   if(!ext||!allowed.includes(ext)||!types[ext]||!valid)return error(kind.data==='boq'?'Upload the BOQ as a valid Excel (.xls or .xlsx) or PDF file':kind.data==='drawings'?'Upload drawings as a valid PDF, PNG or JPEG file':'Use a valid PDF, DOCX, XLSX, PNG or JPEG file');
   return await mutatePlan(user,plan,'infrastructure',async db=>{
    if(!(await db.query('SELECT id FROM schools WHERE id=$1 AND state_code=$2',[schoolId,user.stateCode])).rowCount)return error('School not found in your state',404);
-   const count=(await db.query('SELECT COUNT(*)::int AS count FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL',[plan.id])).rows[0].count;
-   if(count>=100)return error('This plan has reached its 100-document limit');
+   // No limit on how many files (client, 30 October 2026: Katsina hit the old cap with over 100 BOQs); each file keeps its size limit.
    const id=crypto.randomUUID();await db.query("INSERT INTO infrastructure_documents(id,plan_id,kind,name,media_type,content,size,school_id) VALUES($1,$2,$3,$4,$5,decode($6,'hex'),$7,$8)",[id,plan.id,kind.data,name,types[ext],bytes.toString('hex'),bytes.length,schoolId]);
    return NextResponse.json({id,kind:kind.data,name,size:bytes.length,schoolId});
   });

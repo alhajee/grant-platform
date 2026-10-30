@@ -14,7 +14,7 @@ import { safeFileName, supportingDocumentTypeError, supportingDocumentTypes, val
 // their assessment. Upload and removal only by that officer while the component is with its Director; downloads by
 // anyone who can see the component in that round (ubecSeesPillarSql), like the other UBEC documents.
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
-const maxBytes = 10 * 1024 * 1024, maxPerOfficer = 10;
+const maxBytes = 10 * 1024 * 1024;
 const planParam = (request: NextRequest) => { const plan = request.nextUrl.searchParams.get('plan'); return plan && /^[1-9]\d{0,9}$/.test(plan) ? plan : null; };
 
 /** The officer's open assignment on a component at the Director stage of the plan's latest round, or an error. */
@@ -55,8 +55,7 @@ export async function POST(request: NextRequest) {
       if (actor.role !== ubecRoles.officer) return error('Only the assigned Assessment Officer uploads the Validation Report', 403);
       const open = await openAssignment(db, planId, fields.data.roundId, fields.data.pillar, actor.id);
       if (open.problem) return open.problem;
-      const count = (await db.query<{ n: number }>('SELECT COUNT(*)::int AS n FROM ubec_validation_reports WHERE round_component_id=$1 AND officer_id=$2 AND removed_at IS NULL', [open.componentId, actor.id])).rows[0].n;
-      if (count >= maxPerOfficer) return error(`Attach up to ${maxPerOfficer} files`, 409);
+      // No limit on how many files (client, 30 October 2026: Katsina hit the old cap with over 100 BOQs); each file keeps its size limit.
       const id = crypto.randomUUID();
       await db.query("INSERT INTO ubec_validation_reports(id,round_component_id,officer_id,officer_name,name,media_type,content,size) VALUES($1,$2,$3,$4,$5,$6,decode($7,'hex'),$8)", [id, open.componentId, actor.id, actor.full_name, name, supportingDocumentTypes[ext], bytes.toString('hex'), bytes.length]);
       return NextResponse.json({ id, name, size: bytes.length });

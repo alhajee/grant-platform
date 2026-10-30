@@ -160,7 +160,6 @@ export function lineDocumentSlots(workstream: string, activity: number): readonl
 export const missingLineDocument = (workstream: string, activity: number, documents: readonly { kind?: string }[] | undefined) =>
   lineDocumentSlots(workstream, activity).find(slot => slot.governed && !(documents ?? []).some(d => (d.kind ?? 'document') === slot.kind)) ?? null;
 export const maxLineDocumentBytes = 5 * 1024 * 1024;
-export const maxLineDocuments = 10;
 
 /** `quantity`: the items for this school, on ICT procurement lines for schools (UBEC160); otherwise absent. */
 export type LineSchool = { id: number; name: string; lga: string; level: string; quantity?: number | null };

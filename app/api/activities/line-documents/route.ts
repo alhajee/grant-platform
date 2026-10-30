@@ -8,7 +8,7 @@ import { getPostgres } from '@/lib/postgres';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { readStageVisibility } from '@/lib/stage-visibility';
 import { planFormData, PlanInputError } from '@/lib/plan-upload';
-import { lineDocumentSlots, lineDocumentWorkstreams, maxLineDocumentBytes, maxLineDocuments, type LineDocumentWorkstream } from '@/lib/activity-extras';
+import { lineDocumentSlots, lineDocumentWorkstreams, maxLineDocumentBytes, type LineDocumentWorkstream } from '@/lib/activity-extras';
 import { lineDocumentTypeError, lineDocumentTypes, safeFileName, supportingDocumentTypeError, supportingDocumentTypes, validLineDocument } from '@/lib/line-document-upload';
 
 // Documents attached to one budget line (activity_line_documents): the governed ICT and Teacher Development documents
@@ -39,8 +39,7 @@ export async function POST(req: NextRequest) {
       // Word and image files only where the slot takes them (supporting documents, TLM samples); the rest stay PDF/Excel.
       if (slot.accept.includes('.docx')) { if (!valid) return error(supportingDocumentTypeError); }
       else if (!valid || !lineDocumentTypes[ext]) return error(lineDocumentTypeError);
-      const count = (await db.query('SELECT COUNT(*)::int AS count FROM activity_line_documents WHERE line_id=$1 AND removed_at IS NULL', [line.data])).rows[0].count;
-      if (count >= maxLineDocuments) return error(`This budget line has reached its ${maxLineDocuments}-document limit`);
+      // No limit on how many files (client, 30 October 2026: Katsina hit the old cap with over 100 BOQs); each file keeps its size limit.
       const id = crypto.randomUUID();
       await db.query("INSERT INTO activity_line_documents(id,plan_id,line_id,component,name,media_type,content,size,kind) VALUES($1,$2,$3,$4,$5,$6,decode($7,'hex'),$8,$9)", [id, plan.id, line.data, workstream.data, name, supportingDocumentTypes[ext], bytes.toString('hex'), bytes.length, slot.kind]);
       return NextResponse.json({ id, name, size: bytes.length, kind: slot.kind });
