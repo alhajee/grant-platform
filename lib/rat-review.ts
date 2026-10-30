@@ -1,6 +1,7 @@
 // RAT tool review (UBEC205, bug round 10, 30 October 2026): UBEC Planning (DPRS) accepts or rejects the RAT tool sent
 // with each UBEC submission, with a comment (required to reject). A rejection holds the UBEC BEAP Chair's approval; once
-// the plan is returned the SUBEB sees the comment and must upload a new RAT (Edit plan, UBEC204) before resubmitting.
+// the plan is returned the SUBEB sees the comment and must upload a new RAT (Edit plan, UBEC204) before the BEAP Chair
+// sends on to the Executive Chairman or the plan goes back to UBEC.
 
 export type RatDecision = 'accept' | 'reject';
 export type RatReview = { decision: RatDecision; comment: string; reviewerName: string; decidedAt: string };

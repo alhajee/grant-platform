@@ -124,7 +124,7 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
                 {errors.fundingSources && <FieldError>{errors.fundingSources}</FieldError>}
               </FieldGroup></FieldSet>
             </FieldGroup>
-            {/* UBEC204: the RAT tool stays replaceable when the rest is locked (plan back from UBEC). */}
+            {/* UBEC204: a new RAT can still be uploaded when the rest is locked (plan back from UBEC). */}
             <PlanRatField plan={data.plan} canReplace={!!data.canReplaceRat} review={data.ratReview ?? null} replaced={!!data.ratReplaced} onReplaced={plan => { setData({ ...data, plan, ratReplaced: true }); onSaved?.(plan); }} />
             {ictProblem && <Alert variant="destructive"><AlertTitle>Funding is below an allocation</AlertTitle><AlertDescription>{ictProblem}</AlertDescription></Alert>}
             {shortfalls.length > 0 && <Alert variant="destructive"><AlertTitle>Funding is below what is already proposed</AlertTitle><AlertDescription><ul className="list-disc pl-4">{shortfalls.map(s => <li key={s.component}>{shortfallMessage(s)}</li>)}</ul></AlertDescription></Alert>}

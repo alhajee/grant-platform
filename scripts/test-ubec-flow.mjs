@@ -63,8 +63,7 @@ try {
   const replaceRat = async (who, name) => { const body = new FormData(); const v = ok(await api('ec', `/api/plans/setup?plan=${planId}`)).plan.version; body.set('plan', String(planId)); body.set('version', String(v)); body.append('rat', new Blob([await rat.xlsx.writeBuffer()]), name); return api(who, '/api/plans/rat', body); };
   const ratNames = async () => ok(await api('ec', `/api/plans/setup?plan=${planId}`)).plan.documents.map(d => d.name);
   ok(await replaceRat('ec', 'rat-v2.xlsx'));
-  assert.deepEqual(await ratNames(), ['rat-v2.xlsx'], 'the new RAT replaces the first one');
-  assert.equal((await db.query('SELECT count(*)::int AS n FROM plan_documents WHERE plan_id=$1 AND removed_at IS NOT NULL', [planId])).rows[0].n, 1, 'the replaced file is kept, marked removed');
+  assert.deepEqual(await ratNames(), ['rat-v2.xlsx', 'rat.xlsx'], 'a new RAT is added beside the first one, newest first (UBEC205: never overwritten)');
   const q = `?plan=${planId}`, statePath = `/api/plans/review${q}`, path = `/api/ubec/review${q}`, components = `/api/ubec/components${q}`, decisions = `/api/ubec/decisions${q}`, sports = `/api/sports${q}`;
   const school = (await db.query("INSERT INTO schools(name,lga,level,location,state_code) VALUES($1,'QA','Primary','Urban',$1) RETURNING id", [marker])).rows[0].id;
   const budget = { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'QA equipment', quantity: 5, unitCost: 100 };
@@ -89,7 +88,7 @@ try {
     fails(await api('dprs', '/api/ubec/rat-review', { roundId: round1, decision: 'reject' }), 400, /Say why/);
     ok(await api('dprs', '/api/ubec/rat-review', { roundId: round1, decision: 'reject', comment: 'The LGA totals do not add up.' }));
     const listed = ok(await api('dprs', '/api/ubec/rat-tools')).plans.find(p => p.planId === planId);
-    assert.equal(listed.review.decision, 'reject'); assert.deepEqual(listed.documents.map(d => d.name), ['rat-v2.xlsx']);
+    assert.equal(listed.review.decision, 'reject'); assert.deepEqual(listed.documents.map(d => d.name), ['rat-v2.xlsx', 'rat.xlsx']);
     fails(await replaceRat('ec', 'too-late.xlsx'), 409, /back at the SUBEB/);
   }
   step('SUBEB submits Sports + Monitoring; the UBEC BEAP Chair and ES are notified; UBEC Planning rejects the RAT tool with a comment');
@@ -236,19 +235,21 @@ try {
   assert.deepEqual(ok(await api('desA', statePath)).ubecOpenRejections, { sports: [String(sportsLine)] });
   ok(await api('desA', sports, { ...budget, action: 'update', id: sportsLine, quantity: 6, description: 'Revised equipment' }));
   assert.deepEqual(ok(await api('desA', statePath)).ubecOpenRejections, {}, 'a changed item no longer blocks');
-  await throughState('sports', 'desA', 'dirA', 'Quantity reduced.');
+  await stateStep('desA', 'submit', 'sports', 'Quantity reduced.'); await stateStep('dirA', 'endorse', 'sports');
   { // UBEC204/205: the SUBEB sees the RAT rejection, cannot resubmit until a new RAT is uploaded, and only the RAT is editable.
     const results = ok(await api('ec', `/api/ubec/results${q}`));
     assert.equal(results.rat.review.decision, 'reject'); assert.equal(results.rat.replacedSince, false);
     assert.match(ok(await api('ec', statePath)).ratProblem, /rejected the RAT tool/);
     const setup = ok(await api('ec', `/api/plans/setup?plan=${planId}`));
     assert.equal(setup.canEdit, false); assert.equal(setup.canReplaceRat, true); assert.equal(setup.ratReview.decision, 'reject');
-    fails(await api('ec', path, { action: 'submit', version: ok(await api('ec', path)).plan.version, comment: 'Resubmitting.' }), 409, /Upload a corrected RAT/);
+    // UBEC205: the BEAP Chair cannot send on until a new RAT is uploaded (nor can the Executive Chairman resubmit).
+    fails(await api('subebChair', statePath, { action: 'forward', pillar: 'sports', version: ok(await api('ec', statePath)).plan.version, comment: '' }), 409, /Upload a corrected RAT/);
     fails(await replaceRat('desA', 'rat-v3.xlsx'), 403);
     ok(await replaceRat('subebChair', 'rat-v3.xlsx'));
     assert.equal(ok(await api('ec', `/api/plans/setup?plan=${planId}`)).ratReplaced, true);
     assert.equal(ok(await api('ec', statePath)).ratProblem, null);
   }
+  await stateStep('subebChair', 'forward', 'sports');
   ok(await api('ec', path, { action: 'submit', version: ok(await api('ec', path)).plan.version, comment: 'Revised the equipment specification.' }));
   const second = await view('chair');
   assert.equal(second.round.number, 2); assert.equal(second.round.status, 'received'); assert.ok(second.flow.previousDecisions.some(d => d.pillar === 'sports' && d.decision === 'reject'));

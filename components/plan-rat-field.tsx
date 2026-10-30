@@ -16,7 +16,8 @@ type Props = { plan: ActionPlan; canReplace: boolean; review: RatReview | null; 
 
 /**
  * UBEC204/205: the plan's RAT tool in Edit plan. While the plan is at the SUBEB (before it goes to UBEC, and when UBEC
- * returns it) the RAT can be replaced with new files; UBEC Planning's rejection, with its comment, is shown above.
+ * returns it) a new RAT can be uploaded; it is added beside the earlier files (newest first), never replacing them.
+ * UBEC Planning's rejection, with its comment, is shown above.
  */
 export function PlanRatField({ plan, canReplace, review, replaced, onReplaced }: Props) {
   const [files, setFiles] = useState<File[]>([]), [error, setError] = useState(''), [saving, setSaving] = useState(false);
@@ -39,9 +40,9 @@ export function PlanRatField({ plan, canReplace, review, replaced, onReplaced }:
       files.forEach(file => body.append('rat', file));
       const response = await fetch('/api/plans/rat', { method: 'POST', body });
       const result = await response.json().catch(() => ({})) as { plan?: ActionPlan; error?: string };
-      if (!response.ok || !result.plan) throw new Error(result.error || 'The RAT tool could not be replaced');
-      setFiles([]); toast.success('RAT tool replaced'); onReplaced(result.plan);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'The RAT tool could not be replaced'); }
+      if (!response.ok || !result.plan) throw new Error(result.error || 'The RAT tool could not be uploaded');
+      setFiles([]); toast.success('RAT tool uploaded'); onReplaced(result.plan);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'The RAT tool could not be uploaded'); }
     finally { pending.current = false; setSaving(false); }
   }
 
@@ -52,11 +53,11 @@ export function PlanRatField({ plan, canReplace, review, replaced, onReplaced }:
       {!current.length && <FieldDescription>No RAT uploaded</FieldDescription>}
     </Field>
     {canReplace ? <Field data-invalid={!!error}>
-      <FieldDescription>Upload new files to replace the current RAT · Excel (.xlsx), up to 3 files</FieldDescription>
+      <FieldDescription>Upload a new or corrected RAT · Excel (.xlsx), up to 3 files. Earlier files are kept</FieldDescription>
       <FileUpload compact id="replace-rat" label="New RAT Excel files" multiple accept={ratFileAccept} disabled={saving} onFiles={add} />
       <DocumentFiles compact documents={files.map((file, i) => ({ id: String(i), name: file.name, size: file.size, file }))} disabled={saving} onRemove={id => setFiles(list => list.filter((_, i) => String(i) !== id))} />
       {error && <FieldError>{error}</FieldError>}
-      <div><Button type="button" className="rounded-full" disabled={!files.length || saving} onClick={() => void replace()}>{saving && <Spinner data-icon="inline-start" />}{saving ? 'Replacing…' : 'Replace RAT'}</Button></div>
-    </Field> : <FieldDescription>The RAT tool can be replaced while the plan is at the SUBEB</FieldDescription>}
+      <div><Button type="button" className="rounded-full" disabled={!files.length || saving} onClick={() => void replace()}>{saving && <Spinner data-icon="inline-start" />}{saving ? 'Uploading…' : 'Upload RAT'}</Button></div>
+    </Field> : <FieldDescription>A new RAT can be uploaded while the plan is at the SUBEB</FieldDescription>}
   </FieldSet>;
 }

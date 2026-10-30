@@ -27,7 +27,7 @@ const error = (message: string, status = 400) => NextResponse.json({ error: mess
 const money = nairaFormat;
 const lockedMessage = (status: string) => status === 'ubec_approved' ? 'Plan details are locked because UBEC has approved this plan' : 'Plan details are locked while the plan is with UBEC. They can be edited again if UBEC returns it.';
 // UBEC199: while UBEC's corrections are open the plan's period and funding stay as UBEC assessed them.
-const returnedMessage = 'Plan details are locked while the plan is back from UBEC for corrections. Only the RAT tool can be replaced';
+const returnedMessage = 'Plan details are locked while the plan is back from UBEC for corrections. Only a new RAT tool can be uploaded';
 const notAllowed = 'Only the Executive Chairman, the BEAP Chair or a colleague authorised to create plans can edit plan details';
 
 async function proposedByComponent(db: Db, planId: number) {

@@ -128,7 +128,8 @@ export default function PlanPage() {
     // Nothing saved yet means nothing to send: the card then only offers its editor.
     if (data.role === 'Data Entry Staff' && owns && ['draft', 'changes_requested'].includes(status)) return nothingToSend(data, pillar) ? actions : { ...actions, step: { label: 'Send to Director', run: () => setRequest({ action: 'submit', pillar }), blocked: readiness(data, pillar) } };
     if (data.role === 'Director' && !data.isBeapChair && owns && status === 'director_review') return { ...actions, step: { label: 'Send to BEAP Chair', run: () => setRequest({ action: 'endorse', pillar }), blocked: readiness(data, pillar) } };
-    if (data.role === 'Director' && data.isBeapChair && status === 'beap_review' && data.beapChairSubmissionMode === 'individual_components') return { ...actions, step: { label: 'Send to Executive Chairman', run: () => setRequest({ action: 'forward', pillar }), blocked: readiness(data, pillar) } };
+    // UBEC205: a RAT UBEC rejected holds the BEAP Chair's send until a new one is uploaded.
+    if (data.role === 'Director' && data.isBeapChair && status === 'beap_review' && data.beapChairSubmissionMode === 'individual_components') return { ...actions, step: { label: 'Send to Executive Chairman', run: () => setRequest({ action: 'forward', pillar }), blocked: data.ratProblem ?? readiness(data, pillar) } };
     return actions;
   };
   // UBEC107: the editor's Review & send summary continues here with #send-<component>, which opens that component's send
@@ -170,7 +171,7 @@ export default function PlanPage() {
           <section className="plan-components plan-glance-main" id="plan-components" aria-labelledby="plan-components-title">
             {data.pillarReviews.length ? <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} ubec={ubecResults} /> : selected === 'current' && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
             <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} onSendToUbec={() => setSendingToUbec(true)} onSendSeveral={() => setSendingSeveral(true)} onRequestObservations={observations.data?.canRequest ? () => setAskingObservations(true) : undefined} />
-            <SendSeveralDialog open={sendingSeveral} onOpenChange={setSendingSeveral} data={data} problemFor={pillar => nothingToSend(data, pillar) ? 'Nothing saved in this component yet' : readiness(data, pillar)} onDone={async () => { await load(); }} />
+            <SendSeveralDialog open={sendingSeveral} onOpenChange={setSendingSeveral} data={data} problemFor={pillar => nothingToSend(data, pillar) ? 'Nothing saved in this component yet' : data.ratProblem ?? readiness(data, pillar)} onDone={async () => { await load(); }} />
           </section>
           <aside className="plan-glance-side" aria-label="Plan funding and status">
             <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
