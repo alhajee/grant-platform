@@ -59,6 +59,8 @@ try {
   form.set('setup', JSON.stringify({ planningYear: 2026, implementationYear: 2026, quarters: [1, 2, 3, 4], stateLodgment: '100000000', fundingSources: [] }));
   form.append('rat', new Blob([await rat.xlsx.writeBuffer()]), 'rat.xlsx');
   planId = ok(await api('ec', '/api/plans', form), 201).plan.id;
+  // UBEC167: Sports is sent only once its Debate amount is set (₦0 here).
+  await db.query('UPDATE action_plans SET debate_allocation=0 WHERE id=$1', [planId]);
   // UBEC204: the RAT tool is replaced (not edited in place) through Edit plan while the plan is at the SUBEB.
   const replaceRat = async (who, name) => { const body = new FormData(); const v = ok(await api('ec', `/api/plans/setup?plan=${planId}`)).plan.version; body.set('plan', String(planId)); body.set('version', String(v)); body.append('rat', new Blob([await rat.xlsx.writeBuffer()]), name); return api(who, '/api/plans/rat', body); };
   const ratNames = async () => ok(await api('ec', `/api/plans/setup?plan=${planId}`)).plan.documents.map(d => d.name);

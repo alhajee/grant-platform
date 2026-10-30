@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { sportsSections, type SportsSection } from "@/lib/sports";
 
-const initials: Record<SportsSection, string> = { equipment: "SE", competitions: "SC", publicity: "PA", supervision: "SV" };
+const initials: Record<SportsSection, string> = { equipment: "SE", competitions: "SC", publicity: "PA", supervision: "SV", debate: "DB" };
 
 function SectionIdentity({ section }: { section: typeof sportsSections[number] }) {
   return (
@@ -13,7 +13,7 @@ function SectionIdentity({ section }: { section: typeof sportsSections[number] }
         <AvatarImage src={`/sports-sections/${section.id}.svg`} alt="" width={48} height={48} />
         <AvatarFallback className="rounded-lg">{initials[section.id]}</AvatarFallback>
       </Avatar>
-      <span className="flex min-w-0 flex-col whitespace-normal text-left"><span>{section.label}</span><small className="text-muted-foreground">Up to {section.share}% of the sports budget</small></span>
+      <span className="flex min-w-0 flex-col whitespace-normal text-left"><span>{section.label}</span><small className="text-muted-foreground">{section.id === "debate" ? "The amount set aside for Debate" : `Up to ${section.share}% of the rest of the sports budget`}</small></span>
     </span>
   );
 }

@@ -19,9 +19,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { isPheTraining, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsLine, type SportsPlan } from "@/lib/sports";
+import { debateKobo, isPheTraining, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsLine, type SportsPlan } from "@/lib/sports";
 import { toKobo } from "@/lib/funding-policy";
 import { EnvelopeMeter } from "@/components/envelope-meter";
+import { SportsDebatePanel } from "@/components/sports-debate-panel";
 import { PanelSummary, PanelToolbar } from "@/components/line-panel/line-section";
 import type { InlineField } from "@/components/line-panel/line-table";
 import { scrollLineIntoView, useLineFlash, usePanelMode } from "@/components/line-panel/use-line-panel";
@@ -81,12 +82,15 @@ export default function SportsPage() {
   // its section's cost may not take the section or the whole budget past them. Lowering is always allowed.
   const envelopeKobo = envelope == null ? null : toKobo(envelope);
   const savedLines = plan.lines.map((line) => ({ id: line.id, section: line.section, kobo: sportsLineKobo(line), activityType: line.activityType }));
-  const sectionBudgets = sportsSectionBudgets(savedLines, envelopeKobo);
+  // UBEC167: the Debate amount; the other sections' shares apply to the rest of the Sports allocation.
+  const debate = debateKobo(actionPlan);
+  const sectionBudgets = sportsSectionBudgets(savedLines, envelopeKobo, debate);
+  const debateUsed = savedLines.filter((line) => line.section === "debate").reduce((sum, line) => sum + line.kobo, BigInt(0));
   const draftQuantity = Number(budget.quantity), draftUnitCost = Number(budget.unitCost);
   const draftKobo = Number.isSafeInteger(draftQuantity) && draftQuantity >= 0 && draftQuantity <= 1000000 && draftUnitCost >= 0 && draftUnitCost <= 999999999999.99 ? sportsLineKobo({ unitCost: draftUnitCost, quantity: draftQuantity }) : BigInt(0);
   const savedDraft = budget.id ? savedLines.find((line) => line.id === budget.id) : undefined;
   const beforeKobo = savedDraft && savedDraft.section === budget.section && savedDraft.activityType === budget.activityType.trim() ? savedDraft.kobo : BigInt(0);
-  const budgetProblem = view === "budget" && draftKobo > beforeKobo ? sportsCapProblem([...savedLines.filter((line) => line.id !== budget.id), { section: budget.section, kobo: draftKobo, activityType: budget.activityType.trim() }], envelopeKobo, budget.section, budget.activityType.trim()) : null;
+  const budgetProblem = view === "budget" && draftKobo > beforeKobo ? sportsCapProblem([...savedLines.filter((line) => line.id !== budget.id), { section: budget.section, kobo: draftKobo, activityType: budget.activityType.trim() }], envelopeKobo, budget.section, budget.activityType.trim(), debate) : null;
   // Timeline: a new line starts with all of the plan's quarters (migration 050).
   const availableQuarters = actionPlan ? planQuarters(actionPlan) : [];
 
@@ -312,9 +316,10 @@ export default function SportsPage() {
       <PanelToolbar mode={panel.mode} onMode={panel.setMode} focusLabel="This section" allLabel={`All sections${otherLines ? ` · ${otherLines} more` : ""}`} query={query} onQuery={setQuery} searchLabel="Search sports lines" />
     </PanelSummary>
     {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : <>
+      <SportsDebatePanel envelope={envelope} amount={actionPlan?.debateAllocation ?? null} used={debateUsed} disabled={disabled} planHref={currentPlanHref} onSaved={loadPlan} />
       {(plan.lines.length > 0 || envelope != null) && <dl className="sports-breakdown" aria-label="Budget by section">{sectionBudgets.map(({ section, proposed, cap }) => <div key={section.id}><dt>{section.label}</dt><dd>{cap == null
-        ? <>{money.format(Number(proposed) / 100)}<small className="block font-normal text-muted-foreground">Up to {section.share}% of the sports budget</small></>
-        : <EnvelopeMeter compact label={`Up to ${section.share}%`} envelope={Number(cap) / 100} used={Number(proposed) / 100} />}</dd></div>)}</dl>}
+        ? <>{money.format(Number(proposed) / 100)}<small className="block font-normal text-muted-foreground">{section.id === "debate" ? "The amount set aside for Debate" : `Up to ${section.share}% of the sports budget`}</small></>
+        : <EnvelopeMeter compact label={section.id === "debate" ? "Debate amount" : `Up to ${section.share}%`} envelope={Number(cap) / 100} used={Number(proposed) / 100} />}</dd></div>)}</dl>}
       {/* UBEC74: the PHE officer training distribution list, while the plan has training lines (or a list already). */}
       {(plan.lines.some(isPheTraining) || (plan.trainingSchools?.length ?? 0) > 0) && <PheTrainingSchools planHref={currentPlanHref} schools={plan.schools} listed={plan.trainingSchools ?? []} disabled={disabled} required={plan.lines.some(isPheTraining)} onChanged={loadPlan} />}
       <div className="line-panel"><SportsBudgetPreview plan={plan} disabled={disabled} selectedSection={budget.section} selectedType={budget.activityType} editingId={budget.id} dirtyId={budgetDirty ? budget.id : undefined}

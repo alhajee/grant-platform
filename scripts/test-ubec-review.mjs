@@ -60,6 +60,8 @@ try {
   form.set('setup', JSON.stringify({ planningYear: 2025, implementationYear: 2025, quarters: [1, 2, 3, 4], stateLodgment: '100000000', fundingSources: [] }));
   form.append('rat', new Blob([await ratWorkbook.xlsx.writeBuffer()]), 'rat.xlsx');
   planId = ok(await api('ec', '/api/plans', form), 201).plan.id;
+  // UBEC167: Sports is sent only once its Debate amount is set (₦0 here).
+  await db.query('UPDATE action_plans SET debate_allocation=0 WHERE id=$1', [planId]);
   const q = `?plan=${planId}`, statePath = `/api/plans/review${q}`, path = `/api/ubec/review${q}`, sports = `/api/sports${q}`, components = `/api/ubec/components${q}`;
   const school = (await db.query("INSERT INTO schools(name,lga,level,location,state_code) VALUES($1,'QA','Primary','Urban',$1) RETURNING id", [marker])).rows[0].id;
   const budget = { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'QA equipment', quantity: 5, unitCost: 100 };

@@ -12,7 +12,15 @@ export const sportsSections = [
   { id: "competitions", label: "Sports Competitions", shortLabel: "Competitions", share: 30, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose a competition…" },
   { id: "publicity", label: "Publicity & Administration", shortLabel: "Publicity & admin", share: 5, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose an activity…" },
   { id: "supervision", label: "Supervision, Assessment and Verification", shortLabel: "Supervision", share: 5, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose a sub-activity…" },
+  // UBEC167 (migration 084): no share; its cap is the amount the SUBEB set aside for Debate (`debateAllocation`).
+  { id: "debate", label: "Debate", shortLabel: "Debate", share: 0, typeLabel: "Activity", itemLabel: "Activity / item description", placeholder: "" },
 ] as const;
+
+/** UBEC167: Debate lines all carry this activity type; the section's cap is the plan's Debate amount. */
+export const debateActivity = "Debate";
+export const debateNotSet = "Set how much of the Sports allocation goes to Debate first (₦0 if none)";
+/** The plan's Debate amount in kobo, or null until set. */
+export const debateKobo = (plan: { debateAllocation?: string | null } | null | undefined) => plan?.debateAllocation == null ? null : toKobo(plan.debateAllocation);
 
 /** Procurement: at most this many distinct sports per plan (QA UBEC19). */
 export const maxEquipmentSports = 3;
@@ -84,7 +92,7 @@ export type SportsPlan = { lines: SportsLine[]; allocations: SportsAllocation[];
 const id = z.number().int().positive();
 const quantity = z.number().int("Use a whole number").min(1, "Enter a quantity of at least 1").max(1000000, "Use a quantity of 1,000,000 or less");
 export const sportsLineSchema = z.object({
-  section: z.enum(["equipment", "competitions", "publicity", "supervision"]),
+  section: z.enum(["equipment", "competitions", "publicity", "supervision", "debate"]),
   activityType: z.string().trim().min(1, "Choose a sport or sub-activity").max(160),
   description: z.string().trim().min(1, "Enter an item or activity description").max(1000),
   quantity,
@@ -95,7 +103,8 @@ export const sportsLineSchema = z.object({
   /** Expected start and due dates inside the timeline (migration 059); omitted = kept or the whole timeline. */
   ...lineDatesShape,
 }).refine((line) => Number.isSafeInteger(Math.round(line.unitCost * 100) * line.quantity), { path: ["unitCost"], message: "This line total is too large" })
-  .transform((line) => line.section === "supervision" ? { ...line, activityType: supervisionActivity } : line);
+  // Supervision lines keep the sub-activity chosen (UBEC166); one not on the list takes the section name, as before.
+  .transform((line) => line.section === "supervision" && !sportsSubActivities.supervision.some((item) => item.name === line.activityType) ? { ...line, activityType: supervisionActivity } : line.section === "debate" ? { ...line, activityType: debateActivity } : line);
 
 const coordinate = (limit: number) => z.string().trim().max(30).default("").refine((value) => value === "" || (/^-?\d+(\.\d+)?$/.test(value) && Math.abs(Number(value)) <= limit), `Enter a coordinate between -${limit} and ${limit}.`);
 export const sportsAllocationSchema = z.object({
@@ -138,20 +147,22 @@ export function subActivityShare(section: string, activityType: string | undefin
 /** A sub-activity's cap: its share of the section's cap, rounded to the kobo. */
 export const subActivityCapKobo = (sectionCap: bigint, share: number) => sportsSectionCapKobo(sectionCap, share);
 /** The cap, proposed total and share of one sub-activity (null when it has no share or the plan has no funding). */
-export function subActivityBudget(lines: readonly SportsBudgetLine[], envelope: bigint | null, section: string, activityType: string | undefined) {
+export function subActivityBudget(lines: readonly SportsBudgetLine[], envelope: bigint | null, section: string, activityType: string | undefined, debate: bigint | null = null) {
   const share = subActivityShare(section, activityType), sectionShare = sportsSections.find((item) => item.id === section)?.share;
   if (share == null || sectionShare == null || envelope == null) return null;
-  const cap = subActivityCapKobo(sportsSectionCapKobo(envelope, sectionShare), share);
+  const cap = subActivityCapKobo(sportsSectionCapKobo(sharedSportsKobo(envelope, debate), sectionShare), share);
   const proposed = lines.filter((line) => line.section === section && line.activityType === activityType).reduce((sum, line) => sum + line.kobo, BigInt(0));
   return { share, cap, proposed };
 }
 export type SportsSectionBudget = { section: typeof sportsSections[number]; proposed: bigint; cap: bigint | null };
-/** Proposed total and cap of every section (cap null until the plan has funding). */
-export function sportsSectionBudgets(lines: readonly SportsBudgetLine[], envelope: bigint | null): SportsSectionBudget[] {
+/** The part of the Sports allocation the section shares apply to: the whole of it less the Debate amount (UBEC167). */
+export const sharedSportsKobo = (envelope: bigint, debate: bigint | null) => envelope > (debate ?? BigInt(0)) ? envelope - (debate ?? BigInt(0)) : BigInt(0);
+/** Proposed total and cap of every section (cap null until the plan has funding). Debate's cap is its amount (0 until set). */
+export function sportsSectionBudgets(lines: readonly SportsBudgetLine[], envelope: bigint | null, debate: bigint | null = null): SportsSectionBudget[] {
   return sportsSections.map((section) => ({
     section,
     proposed: lines.filter((line) => line.section === section.id).reduce((sum, line) => sum + line.kobo, BigInt(0)),
-    cap: envelope == null ? null : sportsSectionCapKobo(envelope, section.share),
+    cap: envelope == null ? null : section.id === "debate" ? debate ?? BigInt(0) : sportsSectionCapKobo(sharedSportsKobo(envelope, debate), section.share),
   }));
 }
 /**
@@ -159,27 +170,36 @@ export function sportsSectionBudgets(lines: readonly SportsBudgetLine[], envelop
  * (share × envelope). No limit until the plan has funding. `only` limits the section check to one section.
  */
 export function sportsBudgetProblem(lines: readonly SportsBudgetLine[], plan: EnvelopePlan, only?: string, onlyActivity?: string): string | null {
-  return sportsCapProblem(lines, sportsEnvelopeKobo(plan), only, onlyActivity);
+  return sportsCapProblem(lines, sportsEnvelopeKobo(plan), only, onlyActivity, debateKobo(plan));
 }
 /** sportsBudgetProblem with the envelope already known (kobo, null = no funding yet), as the editor has it. */
-export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: bigint | null, only?: string, onlyActivity?: string): string | null {
+export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: bigint | null, only?: string, onlyActivity?: string, debate: bigint | null = null): string | null {
   if (envelope == null) return null;
   const total = lines.reduce((sum, line) => sum + line.kobo, BigInt(0));
   if (total > envelope) return `You have exceeded the Sports allocation (${formatKobo(envelope)}) by ${formatKobo(total - envelope)}. Reduce the budget to continue.`;
-  for (const { section, proposed, cap } of sportsSectionBudgets(lines, envelope)) {
+  if (debate != null && debate > envelope) return `The Debate amount (${formatKobo(debate)}) is more than the Sports allocation (${formatKobo(envelope)}). Lower it to continue.`;
+  for (const { section, proposed, cap } of sportsSectionBudgets(lines, envelope, debate)) {
     if (only && section.id !== only) continue;
     // `only` is set when the lines include an item being added or changed (the editor and the save API).
     const pending = Boolean(only);
+    if (section.id === "debate") {
+      if (debate == null && proposed > BigInt(0)) return debateNotSet;
+      if (cap != null && proposed > cap) return `Debate can use up to ${formatKobo(cap)} (the amount set aside for Debate). ${pending ? "With this item it would come to" : "Its items come to"} ${formatKobo(proposed)}, which is ${formatKobo(proposed - cap)} over.${pending ? "" : " Reduce them to continue."}`;
+      continue;
+    }
     if (cap != null && proposed > cap) return `‘${section.label}’ can use up to ${formatKobo(cap)} (${section.share}% of the Sports allocation). ${pending ? "With this item it would come to" : "Its items come to"} ${formatKobo(proposed)}, which is ${formatKobo(proposed - cap)} over.${pending ? "" : " Reduce them to continue."}`;
     // Each sub-activity with a share (Sports Competitions) is capped at that share of the section's cap.
     const activities = only ? [onlyActivity] : [...new Set(lines.filter((line) => line.section === section.id).map((line) => line.activityType))];
     for (const activity of activities) {
-      const budget = subActivityBudget(lines, envelope, section.id, activity);
+      const budget = subActivityBudget(lines, envelope, section.id, activity, debate);
       if (budget && budget.proposed > budget.cap) return `‘${activity}’ can use up to ${formatKobo(budget.cap)} (${budget.share}% of ${section.label}). ${pending ? "With this item it would come to" : "Its items come to"} ${formatKobo(budget.proposed)}, which is ${formatKobo(budget.proposed - budget.cap)} over.${pending ? "" : " Reduce them to continue."}`;
     }
   }
   return null;
 }
-/** sportsBudgetProblem for snapshot lines (unit_cost strings), used by every send step. */
+/**
+ * sportsBudgetProblem for snapshot lines (unit_cost strings), used by every send step. UBEC167: the Debate amount must be
+ * answered first (₦0 if none); snapshots taken before migration 084 have no `debateAllocation` field and are not asked.
+ */
 export const sportsSnapshotProblem = (lines: readonly { section: string; unit_cost: string | number; quantity: number; activity_type?: string }[] | undefined, plan: EnvelopePlan | null | undefined) =>
-  plan ? sportsBudgetProblem((lines ?? []).map((line) => ({ section: line.section, kobo: sportsLineKobo(line), activityType: line.activity_type })), plan) : null;
+  !plan ? null : "debateAllocation" in plan && plan.debateAllocation == null ? `${debateNotSet}, then send Sports, Quiz & Debate` : sportsBudgetProblem((lines ?? []).map((line) => ({ section: line.section, kobo: sportsLineKobo(line), activityType: line.activity_type })), plan);

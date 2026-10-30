@@ -3,7 +3,7 @@ import { formatKobo } from './money-format';
 import { activityNames, activityShareCaps, activityShareGroups, activityTitles, capActivities, isAdvisoryShare, type ActivityWorkstream } from './activity-plans';
 import { activityCapKobo } from './activity-budget';
 import { isChosen, planSelection } from './activity-selection';
-import { sportsSectionBudgets, subActivityBudget, sportsSubActivities } from './sports';
+import { debateKobo, sportsSectionBudgets, subActivityBudget, sportsSubActivities } from './sports';
 import type { ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
 
@@ -60,10 +60,12 @@ export function allocationUseProblem(pillar: ImplementedPillar, snapshot: Snapsh
   const name = pillar === 'infrastructure' ? 'Infrastructure' : pillar === 'sports' ? 'Sports, Quiz & Debate' : activityTitles[pillar as ActivityWorkstream];
   if (pillar === 'sports') {
     const lines = (snapshot.sports ?? []).map(l => ({ section: l.section, activityType: l.activity_type, kobo: toKobo(String(l.unit_cost)) * BigInt(l.quantity) }));
-    for (const { section, proposed, cap } of sportsSectionBudgets(lines, whole)) {
+    // UBEC167: the Debate amount is used in full too, and the other sections' shares apply to the rest.
+    const debate = debateKobo(plan);
+    for (const { section, proposed, cap } of sportsSectionBudgets(lines, whole, debate)) {
       if (cap != null && shortOf(proposed, cap)) return short(`‘${section.label}’`, cap, proposed);
       for (const sub of (sportsSubActivities as Record<string, readonly { name: string; share?: number }[]>)[section.id] ?? []) {
-        const budget = sub.share ? subActivityBudget(lines, whole, section.id, sub.name) : null;
+        const budget = sub.share ? subActivityBudget(lines, whole, section.id, sub.name, debate) : null;
         if (budget && shortOf(budget.proposed, budget.cap)) return short(`‘${sub.name}’`, budget.cap, budget.proposed);
       }
     }

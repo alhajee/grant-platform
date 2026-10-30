@@ -39,6 +39,8 @@ try {
   const form = new FormData(); form.set('setup', JSON.stringify({ planningYear: 2019, implementationYear: 2019, quarters: [1], stateLodgment: '1000000000', fundingSources: [] }));
   form.append('rat', new Blob([await book.xlsx.writeBuffer()]), 'rat.xlsx');
   planId = ok(await api('ec', '/api/plans', form), 201).plan.id;
+  // UBEC167: Sports is sent only once its Debate amount is set (₦0 here).
+  await db.query('UPDATE action_plans SET debate_allocation=0 WHERE id=$1', [planId]);
   const q = `?plan=${planId}`, review = `/api/plans/review${q}`, list = `/api/sports/training-schools${q}`;
   const [school, other] = (await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES($1,'PHE School A','QA','Primary','Rural'),($1,'PHE School B','QA','JSS','Rural') RETURNING id", [state])).rows.map(r => r.id);
   const foreign = (await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES('YO','PHE foreign school','QA','Primary','Rural') RETURNING id")).rows[0].id;

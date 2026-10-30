@@ -36,6 +36,8 @@ export type EnvelopePlan = {
   stateLodgment?: string | null; otherFunding?: string | null; fundingPolicy?: FundingPolicy | null; fundingSources?: readonly FundingSource[] | null; ictAllocation?: string | null;
   /** TLM's amount of the Infrastructure & TLM pool (migration 051); Infrastructure keeps the rest. Null until set. Ignored in shared_pool mode. */
   tlmAllocation?: string | null;
+  /** UBEC167 (migration 084): the part of the Sports allocation set aside for Debate; null until answered. */
+  debateAllocation?: string | null;
   /** The platform's Infrastructure & TLM mode when the plan was read (GLOBAL setting, migration 051). Missing (older snapshots) means shared_pool. */
   infrastructureTlmMode?: InfrastructureTlmMode | null;
   /** The optional Quality Assurance activities chosen up front (migration 061); null until chosen, missing on older snapshots. */

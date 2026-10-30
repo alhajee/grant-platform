@@ -78,6 +78,8 @@ export type PlanSetup = {
   ictAllocation?: string | null;
   /** TLM's share of the Infrastructure & TLM pool (migration 051); null until set. */
   tlmAllocation?: string | null;
+  /** UBEC167 (migration 084): the part of the Sports allocation set aside for Debate; null until answered. */
+  debateAllocation?: string | null;
   /** The platform's Infrastructure & TLM mode when read (migration 051). */
   infrastructureTlmMode?: import('./funding-policy').InfrastructureTlmMode | null;
   /** The optional Quality Assurance activities chosen up front (migration 061); null until chosen. */

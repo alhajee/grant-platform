@@ -62,6 +62,8 @@ try {
   form.set('setup', JSON.stringify({ planningYear: 2021, implementationYear: 2021, quarters: [1, 2, 3, 4], stateLodgment: '500000000', otherFunding: '0' }));
   form.append('rat', new Blob([await rat.xlsx.writeBuffer()]), 'rat.xlsx');
   planId = ok(await api('ec', '/api/plans', form), 201).plan.id;
+  // UBEC167: Sports is sent only once its Debate amount is set (₦0 here).
+  await db.query('UPDATE action_plans SET debate_allocation=0 WHERE id=$1', [planId]);
   const q = `?plan=${planId}`, reviewPath = `/api/plans/review${q}`, ubecPath = `/api/ubec/review${q}`;
   const review = async (who, action, pillar, comment = '') => ok(await api(who, reviewPath, { action, pillar, version: ok(await api(who, reviewPath)).plan.version, comment }));
   ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 10, unitCost: 15000 }), 201);

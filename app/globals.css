@@ -812,3 +812,9 @@
   background-position: -1px -1px;
 }
 @media print, (forced-colors: active) { .workspace-pane.preview-pane { background-image: none; } }
+
+/* UBEC167: the Debate amount above the Sports section breakdown (components/sports-debate-panel.tsx) */
+.sports-debate { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 14px; background: color-mix(in srgb, #6c63c4 6%, var(--background)); font-size: 13.5px; }
+.sports-debate > svg { width: 18px; height: 18px; flex: none; color: #5e55b0; }
+.sports-debate p { flex: 1; min-width: 0; margin: 0; }
+.sports-debate[data-unset] { border-color: #e6c35a; background: #fff8df; }

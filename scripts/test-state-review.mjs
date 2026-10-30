@@ -39,7 +39,10 @@ async function createPlan(who, planningYear) {
   const form = new FormData();
   form.set('setup', JSON.stringify({ planningYear, implementationYear: planningYear, quarters: [1, 2, 3, 4], stateLodgment: '100000000', fundingSources: [] }));
   form.append('rat', new Blob([rat]), 'rat.xlsx');
-  return ok(await api(who, '/api/plans', form), 201).plan;
+  const plan = ok(await api(who, '/api/plans', form), 201).plan;
+  // UBEC167: Sports is sent only once its Debate amount is set (₦0 here).
+  await db.query('UPDATE action_plans SET debate_allocation=0 WHERE id=$1', [plan.id]);
+  return plan;
 }
 
 await db.connect();

@@ -56,7 +56,11 @@ try {
   const subActivity = { competitions: "Inter School Competition", publicity: "Electronic Media", supervision: "QA supervision" };
   for (const section of ["competitions", "publicity"]) assert.equal((await api({ ...budget, section, activityType: `QA ${section}`, quantity: 2, unitCost: 100.1 })).status, 400, "Sub-activities must come from the UBEC list.");
   for (const section of ["competitions", "publicity", "supervision"]) assert.equal((await api({ ...budget, section, activityType: subActivity[section], quantity: 2, unitCost: 100.1 })).status, 201);
-  assert.equal((await api()).body.lines.find((line) => line.section === "supervision").activityType, "Supervision, Assessment and Verification", "Supervision lines carry the section name.");
+  assert.equal((await api()).body.lines.find((line) => line.section === "supervision").activityType, "Supervision, Assessment and Verification", "A supervision line without a listed sub-activity carries the section name.");
+  // UBEC166: a listed sub-activity is kept.
+  const assessment = await api({ ...budget, section: "supervision", activityType: "Assessment", quantity: 1, unitCost: 1 });
+  assert.equal(assessment.status, 201); assert.equal((await api()).body.lines.find((line) => line.id === assessment.body.id).activityType, "Assessment");
+  assert.equal((await api({ entity: "budget", action: "delete", id: assessment.body.id })).status, 200);
   // Procurement: at most three distinct sports; items outside the suggestions are allowed for every sport.
   const sportLines = [];
   for (const activityType of ["Basketball", "football"]) { const created = await api({ ...budget, activityType, description: activityType === "Basketball" ? "Shot clock" : "Footballs", quantity: 1, unitCost: 1 }); assert.equal(created.status, 201, JSON.stringify(created.body)); sportLines.push(created.body.id); }
@@ -112,8 +116,25 @@ try {
   await db.query("UPDATE action_plans SET state_lodgment = 500000, other_funding = 0 WHERE state_code = $1", [marker]);
   const envelopeKobo = Math.round(Number((await api()).body.envelope) * 100);
   assert.ok(envelopeKobo > 0, "The plan funding gives Sports an envelope.");
-  const capKobo = (id) => Math.round(envelopeKobo * sportsSections.find((section) => section.id === id).share / 100);
   const naira = (kobo) => kobo / 100;
+  // UBEC167: the Debate amount comes out of the Sports allocation (₦0 allowed); Debate lines wait for it and use at most it.
+  const debateLine = { ...budget, section: "debate", activityType: "Debate", description: "Inter-school debate", quantity: 1 };
+  const early = await api({ ...debateLine, unitCost: 10 });
+  assert.equal(early.status, 409); assert.match(early.body.error, /goes to Debate first/);
+  assert.equal((await api({ entity: "debate", action: "update", amount: String(naira(envelopeKobo + 1)) })).status, 400, "Debate cannot exceed the Sports allocation.");
+  assert.equal((await api({ entity: "debate", action: "update", amount: "-1" })).status, 400);
+  const debateKobo = Math.round(envelopeKobo / 10);
+  assert.equal((await api({ entity: "debate", action: "update", amount: naira(debateKobo).toFixed(2) })).status, 200, "10% of Sports to Debate.");
+  assert.equal((await api()).body.plan.debateAllocation, naira(debateKobo).toFixed(2));
+  const overDebate = await api({ ...debateLine, unitCost: naira(debateKobo + 1) });
+  assert.equal(overDebate.status, 409); assert.match(overDebate.body.error, /Debate can use up to/);
+  const debateSaved = await api({ ...debateLine, activityType: "anything", unitCost: naira(debateKobo) });
+  assert.equal(debateSaved.status, 201, JSON.stringify(debateSaved.body));
+  assert.equal((await api()).body.lines.find((line) => line.id === debateSaved.body.id).activityType, "Debate", "Debate lines carry the Debate activity.");
+  const below = await api({ entity: "debate", action: "update", amount: "1.00" });
+  assert.equal(below.status, 409, "The Debate amount cannot go below its items."); assert.match(below.body.error, /Debate items already come to/);
+  // The other sections' shares apply to the rest of the Sports allocation.
+  const capKobo = (id) => Math.round((envelopeKobo - debateKobo) * sportsSections.find((section) => section.id === id).share / 100);
   const volleyball = { ...budget, activityType: "Volleyball", description: "Volleyballs", quantity: 1 };
   const atCap = await api({ ...volleyball, unitCost: naira(capKobo("equipment")) });
   assert.equal(atCap.status, 201, `A section may use exactly its share: ${JSON.stringify(atCap.body)}`);
@@ -128,6 +149,8 @@ try {
   assert.match(overFinals.body.error, /‘State Finals Competition’ can use up to ₦[\d,.]+ \(40% of Sports Competitions\)/);
   const finalsLine = await api({ ...finals, unitCost: naira(finalsCap) });
   assert.equal(finalsLine.status, 201, JSON.stringify(finalsLine.body));
+  const tooMuchDebate = await api({ entity: "debate", action: "update", amount: naira(debateKobo * 2).toFixed(2) });
+  assert.equal(tooMuchDebate.status, 409, "More for Debate may not squeeze a section below its items."); assert.match(tooMuchDebate.body.error, /Procurement & Training of PHE Officers/);
   const update = { ...volleyball, action: "update", id: atCap.body.id };
   assert.equal((await api({ ...update, quantity: 2, unitCost: naira(capKobo("equipment")) })).status, 409, "Raising a line past the cap must be refused.");
   assert.equal((await api({ ...update, unitCost: naira(capKobo("equipment") - 100) })).status, 200, "Lowering is always allowed.");
@@ -144,7 +167,7 @@ try {
   const send = await api({ action: "submit", pillar: "sports", version: reviewView.body.plan.version }, true, "/api/plans/review");
   assert.equal(send.status, 409, `Sending an over-budget Sports component must be refused: ${JSON.stringify(send.body)}`);
   assert.match(send.body.error, /exceeded the Sports allocation/);
-  for (const id of [atCap.body.id, finalsLine.body.id]) assert.equal((await api({ entity: "budget", action: "delete", id })).status, 200);
+  for (const id of [atCap.body.id, finalsLine.body.id, debateSaved.body.id]) assert.equal((await api({ entity: "budget", action: "delete", id })).status, 200);
   console.log("PASS: four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, sports envelope, section and competition sub-activity caps (save and send; lowering allowed), concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
 } finally {
   await db.query("DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code = ANY($1::text[]))", [[marker, foreignMarker]]);

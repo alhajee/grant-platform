@@ -2,14 +2,17 @@ import { canViewComponent } from '@/lib/subeb-access';
 import { notSentYetMessage, readStageVisibility } from '@/lib/stage-visibility';
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { resolveActionPlan } from "@/lib/plan-workspace";
+import { planFields, resolveActionPlan } from "@/lib/plan-workspace";
+import type { ActionPlan } from "@/lib/action-plans";
 import { mutatePlan } from "@/lib/plan-mutations";
 import { readPillarReviews, mayEditPillar } from '@/lib/pillar-review';
 import { planPeriod } from "@/lib/action-plans";
 import { getPostgres } from "@/lib/postgres";
 import { cachedSchoolList } from '@/lib/school-cache';
 import { getWorkspaceState, sqlText } from "@/lib/workspace-state";
-import { pheTrainingActivity, sportsAllocationSchema, sportsBudgetProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema } from "@/lib/sports";
+import { debateNotSet, pheTrainingActivity, sportsAllocationSchema, sportsBudgetProblem, sportsCapProblem, sportsCatalogError, sportsEnvelopeKobo, sportsLineKobo, sportsLineSchema } from "@/lib/sports";
+import { toKobo } from "@/lib/funding-policy";
+import { formatKobo } from "@/lib/money-format";
 import { componentEnvelope } from "@/lib/funding-policy";
 import { resolveLineQuarters } from "@/lib/line-quarters";
 import { readPlanQuarterSetup } from "@/lib/line-quarters-db";
@@ -17,7 +20,7 @@ import { resolveSavedLineDates } from "@/lib/line-dates-db";
 import { clientKeySchema } from "@/lib/save-request";
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
-const commandSchema = z.object({ entity: z.enum(["budget", "allocation"]), action: z.enum(["create", "update", "delete"]), id: z.number().int().positive().optional(), clientKey: clientKeySchema });
+const commandSchema = z.object({ entity: z.enum(["budget", "allocation", "debate"]), action: z.enum(["create", "update", "delete"]), id: z.number().int().positive().optional(), clientKey: clientKeySchema });
 
 export async function GET(request: NextRequest) {
   try {
@@ -57,6 +60,26 @@ export async function POST(request: NextRequest) {
     const command = commandSchema.safeParse(body);
     if (!command.success) return error("Choose a valid sports plan action");
     const { entity, action, id, clientKey } = command.data;
+    // UBEC167: the part of the Sports allocation set aside for Debate (₦0 allowed), asked before any Sports items.
+    if (entity === "debate") {
+      const amount = z.object({ amount: z.string().trim().regex(/^\d{1,13}(\.\d{1,2})?$/, "Enter the Debate amount in naira (₦0 if none)") }).safeParse(body);
+      if (action !== "update" || !amount.success) return error(amount.success ? "Choose a valid sports plan action" : amount.error.issues[0].message);
+      return await mutatePlan(workspace, plan, "sports", async (db) => {
+        await db.query(`SELECT pg_advisory_xact_lock(hashtext(${sqlText(`sports:${workspace.stateCode}`)}))`);
+        const current = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id = $1`, [plan.id])).rows[0];
+        const envelope = sportsEnvelopeKobo(current), debate = toKobo(amount.data.amount);
+        if (envelope == null) return error("Set the plan's funding before sharing the Sports allocation", 409);
+        if (debate > envelope) return error(`The Debate amount can be at most the Sports allocation (${formatKobo(envelope)})`, 400);
+        const lines = (await db.query(`SELECT section, activity_type AS "activityType", quantity, unit_cost::text AS unit_cost FROM sports_budget_lines WHERE plan_id = $1`, [plan.id])).rows.map((line) => ({ section: line.section, kobo: sportsLineKobo(line), activityType: line.activityType }));
+        const debateUsed = lines.filter((line) => line.section === "debate").reduce((sum, line) => sum + line.kobo, BigInt(0));
+        if (debate < debateUsed) return error(`Debate items already come to ${formatKobo(debateUsed)}. Reduce them first, or set at least that amount`, 409);
+        // The other sections share the rest, so a bigger Debate amount must still leave each of them room for its items.
+        const problem = sportsCapProblem(lines, envelope, undefined, undefined, debate);
+        if (problem) return error(`With ${formatKobo(debate)} for Debate: ${problem}`, 409);
+        await db.query("UPDATE action_plans SET debate_allocation = $1 WHERE id = $2", [amount.data.amount, plan.id]);
+        return NextResponse.json({ debateAllocation: Number(amount.data.amount).toFixed(2) });
+      });
+    }
     if (action === "create" && id !== undefined) return error("A new line cannot specify an existing ID.");
     if (action !== "create" && !id) return error("Choose the line to update");
     const state = sqlText(workspace.stateCode);
@@ -95,10 +118,13 @@ export async function POST(request: NextRequest) {
         // The sports envelope, each section's share of it and each competition sub-activity's share of its
         // section are caps. A change that raises the cost of its section or sub-activity is refused while it
         // would pass any of them; lowering is always allowed, so plans that are already over can be brought back down.
+        // The Debate amount is read under the plan lock, so a change made meanwhile is respected (UBEC167).
+        const fresh = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id = $1`, [plan.id])).rows[0];
+        if (line.section === "debate" && fresh.debateAllocation == null) return error(debateNotSet, 409);
         const cost = sportsLineKobo(line), before = existing && existing.section === line.section && existing.activity_type === line.activityType ? sportsLineKobo(existing) : BigInt(0);
         if (cost > before) {
           const lines = [...others.filter((other) => other.id !== id).map((other) => ({ section: other.section, kobo: sportsLineKobo(other), activityType: other.activityType })), { section: line.section, kobo: cost, activityType: line.activityType }];
-          const problem = sportsBudgetProblem(lines, plan, line.section, line.activityType);
+          const problem = sportsBudgetProblem(lines, fresh, line.section, line.activityType);
           if (problem) return error(problem, 409);
         }
         if (line.quantity < allocated) return error(`${allocated} items are already allocated to schools. Reduce those allocations first.`, 409);

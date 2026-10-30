@@ -66,6 +66,8 @@ try {
   form.set('setup', JSON.stringify({ planningYear: 2021, implementationYear: 2021, quarters: [1, 2, 3, 4], stateLodgment: '500000000', otherFunding: '0' }));
   form.append('rat', new Blob([await rat.xlsx.writeBuffer()]), 'rat.xlsx');
   planId = ok(await api('ec', '/api/plans', form), 201).plan.id;
+  // UBEC167: Sports is sent only once its Debate amount is set (₦0 here).
+  await db.query('UPDATE action_plans SET debate_allocation=0 WHERE id=$1', [planId]);
   const q = `?plan=${planId}`, ubec = `/api/ubec/comments${q}`, stateComments = `/api/plans/comments${q}`, reviewPath = `/api/plans/review${q}`, ubecReview = `/api/ubec/review${q}`;
   const review = async (who, action, pillar, comment = '') => ok(await api(who, reviewPath, { action, pillar, version: ok(await api(who, reviewPath)).plan.version, comment }));
   const decide = async (action, extra = {}) => { const d = ok(await api('uchair', ubecReview)); return api('uchair', ubecReview, { action, version: d.plan.version, roundId: d.round.id, comment: 'Consolidated UBEC feedback.', ...extra }); };

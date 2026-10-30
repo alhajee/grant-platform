@@ -46,7 +46,7 @@ try {
   await user('dirSocial', 'Director', ['social']);
   await user('chair', 'Director', ['physical'], true);
   await user('ec', 'Executive Chairman', []);
-  planId = (await db.query('INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding) VALUES($1,2032,2032,500000000,0) RETURNING id', [state])).rows[0].id;
+  planId = (await db.query('INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding,debate_allocation) VALUES($1,2032,2032,500000000,0,0) RETURNING id', [state])).rows[0].id;
   const q = `?plan=${planId}`, reviewPath = `/api/plans/review${q}`, comments = `/api/plans/comments${q}`;
   const review = async (who, action, pillar, comment = '') => api(who, reviewPath, { action, pillar, version: ok(await api(who, reviewPath)).plan.version, comment });
   const balls = ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 10, unitCost: 15000 }), 201).id;

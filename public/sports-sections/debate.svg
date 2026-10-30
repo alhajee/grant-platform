@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" fill="none">
+  <title>Debate</title>
+  <desc>Two speech bubbles facing each other above a lectern.</desc>
+  <defs>
+    <linearGradient id="bg" x1="12" y1="0" x2="84" y2="96" gradientUnits="userSpaceOnUse"><stop stop-color="#F1F0FB"/><stop offset="1" stop-color="#DCD8F2"/></linearGradient>
+    <linearGradient id="left" x1="14" y1="20" x2="50" y2="52" gradientUnits="userSpaceOnUse"><stop stop-color="#8E86D8"/><stop offset="1" stop-color="#5E55B0"/></linearGradient>
+    <linearGradient id="right" x1="46" y1="30" x2="82" y2="62" gradientUnits="userSpaceOnUse"><stop stop-color="#FFFEF8"/><stop offset="1" stop-color="#EDE6D6"/></linearGradient>
+    <linearGradient id="desk" x1="34" y1="60" x2="62" y2="84" gradientUnits="userSpaceOnUse"><stop stop-color="#B98A5E"/><stop offset="1" stop-color="#8A6240"/></linearGradient>
+  </defs>
+  <rect width="96" height="96" rx="18" fill="url(#bg)"/>
+  <ellipse cx="48" cy="82" rx="32" ry="6" fill="#5E55B0" opacity=".12"/>
+  <path d="M16 26a8 8 0 0 1 8-8h22a8 8 0 0 1 8 8v12a8 8 0 0 1-8 8H30l-8 7v-7h0a6 6 0 0 1-6-6z" fill="url(#left)"/>
+  <path d="M25 30H45M25 36H39" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+  <path d="M80 36a8 8 0 0 0-8-8H52a8 8 0 0 0-8 8v11a8 8 0 0 0 8 8h14l8 7v-7a6 6 0 0 0 6-6z" fill="url(#right)" stroke="#C9C0AA" stroke-width="1.5"/>
+  <path d="M53 40H71M53 46H65" stroke="#8E86D8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M36 62h24l-3 20H39z" fill="url(#desk)"/>
+  <rect x="33" y="59" width="30" height="5" rx="2" fill="#6F4D32"/>
+</svg>
