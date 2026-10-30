@@ -184,7 +184,7 @@ export default function PlanPage() {
             {selected === 'current' && data.pillarReviews.length > 0 && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
           </aside>
         </div>
-        {selected === 'current' && <UbecResultsCard data={ubecResults} editHrefFor={pillar => { const review = data.pillarReviews.find(r => r.pillar === pillar); return review ? actionsFor(review).editHref : undefined; }} />}
+        {selected === 'current' && <UbecResultsCard data={ubecResults} editHrefFor={pillar => { const review = data.pillarReviews.find(r => r.pillar === pillar); return review ? actionsFor(review).editHref : undefined; }} onEditPlan={canEditSetup ? () => setEditing(true) : undefined} />}
         <div className="review-layout">
           <PlanReviewContent showPlanReference={false} showDocuments={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} {...workbookLinks} />
           {/* Documents and the review history share a row; each takes the full width on narrow screens. */}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readReturnedRat } from '@/lib/rat-review-db';
 import { readStageVisibility } from '@/lib/stage-visibility';
 import type { QueryResult, QueryResultRow } from 'pg';
 import { getPostgres } from '@/lib/postgres';
@@ -26,7 +27,7 @@ const error = (message: string, status = 400) => NextResponse.json({ error: mess
 const money = nairaFormat;
 const lockedMessage = (status: string) => status === 'ubec_approved' ? 'Plan details are locked because UBEC has approved this plan' : 'Plan details are locked while the plan is with UBEC. They can be edited again if UBEC returns it.';
 // UBEC199: while UBEC's corrections are open the plan's period and funding stay as UBEC assessed them.
-const returnedMessage = 'Plan details are locked while the plan is back from UBEC for corrections. Correct the rejected items and resubmit';
+const returnedMessage = 'Plan details are locked while the plan is back from UBEC for corrections. Only the RAT tool can be replaced';
 const notAllowed = 'Only the Executive Chairman, the BEAP Chair or a colleague authorised to create plans can edit plan details';
 
 async function proposedByComponent(db: Db, planId: number) {
@@ -51,11 +52,14 @@ export async function GET(request: NextRequest) {
     const allowed = canCreateStatePlan(workspace.role, workspace.canCreatePlan, workspace.isBeapChair);
     const [reserved, allProposed, quarterUsage, visible, sentToUbec, returned] = await Promise.all([reservedQuarters(db, workspace.stateCode, plan.id), proposedByComponent(db, plan.id), readQuarterUsage(db, plan.id), readStageVisibility(db, workspace, plan.id), planSentToUbec(db, plan.id), returnedByUbec(db, plan.id)]);
     const lockedReason = !allowed ? notAllowed : !statePlanOpen(plan.status) ? lockedMessage(plan.status) : returned ? returnedMessage : null;
+    // UBEC204: the RAT tool stays replaceable while the plan is at the SUBEB, also when UBEC returned it.
+    const canReplaceRat = allowed && statePlanOpen(plan.status);
+    const rat = returned ? await readReturnedRat(db, plan.id) : null;
     // Plan creators may delete a plan until it first reaches UBEC.
     const deleteBlockedReason = !allowed ? null : sentToUbec ? sentToUbecMessage : null;
     // Proposed amounts only for components that have reached the viewer (lib/stage-visibility.ts); the save still checks them all.
     const proposed = Object.fromEntries(Object.entries(allProposed).filter(([component]) => (visible as readonly string[]).includes(component)));
-    return NextResponse.json({ plan, reserved, proposed, quarterUsage, allowed, canEdit: !lockedReason, lockedReason, canDelete: allowed && !deleteBlockedReason, deleteBlockedReason }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ plan, reserved, proposed, quarterUsage, allowed, canEdit: !lockedReason, lockedReason, canReplaceRat, ratReview: rat?.review ?? null, ratReplaced: rat?.replacedSince ?? false, canDelete: allowed && !deleteBlockedReason, deleteBlockedReason }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (cause) {
     console.error('Unable to load plan details', cause);
     return error('The plan details could not be loaded. Please try again.', 503);

@@ -78,7 +78,7 @@ export function ubecRoleTitle(role: string, department: string | null | undefine
  * Officers, who also assess the Planning, EMIS & Data Platform component, and their Director.
  */
 export const downloadsRatTools = (role: string, department: string | null | undefined) => department === 'planning' && (role === ubecRoles.officer || role === ubecRoles.director);
-export type RatToolPlan = { planId: number; state: string; period: string; submittedAt: string; status: string; documents: { id: string; name: string; size: number }[] };
+export type RatToolPlan = { planId: number; roundId: number; state: string; period: string; submittedAt: string; status: string; documents: { id: string; name: string; size: number }[]; /** UBEC205 */ review: import('./rat-review').RatReview | null };
 export const activePillars = (snapshot: Snapshot) => implementedPillars.filter(p => (snapshot[p]?.length ?? 0) > 0);
 export const nationalStatusLabels: Record<string, string> = { received: 'With UBEC BEAP Chair', reviewing: 'Department review', returned: 'Returned to SUBEB', approved: 'Approved by UBEC' };
 

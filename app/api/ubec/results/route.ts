@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readRatReview, readReturnedRat } from '@/lib/rat-review-db';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { subebRoles } from '@/lib/subeb-access';
@@ -30,6 +31,7 @@ export async function GET(request: NextRequest) {
     const components = (await readRoundComponents(db, round, decisions)).filter(c => visible.includes(c.pillar));
     const result: UbecResults = {
       round: { number: round.number, status: round.status, decision: round.decision, decidedAt: round.decided_at },
+      rat: await (async () => { const review = await readRatReview(db, round.id); if (!review) return null; const returned = round.status === 'returned' ? await readReturnedRat(db, Number(id)) : null; return { review, replacedSince: returned?.replacedSince ?? false }; })(),
       components: components.map(c => ({
         pillar: c.pillar, counts: c.counts, directorComment: c.directorComment, directorName: c.directorName,
         oversight: c.oversight.map(o => ({ department: o.department, reviewerName: o.reviewerName, note: o.note })),

@@ -54,6 +54,8 @@ export type UbecFlow = {
   allArrived: boolean; approvable: boolean;
   /** Open UBEC comments by Audit, Procurement and Finance (Directors and officers) on this round: resolve them before approval. */
   openOversightComments: number;
+  /** UBEC205: UBEC Planning's decision on this submission's RAT tool (a rejection holds approval). */
+  ratReview?: import('./rat-review').RatReview | null;
   /** The signed-in user, so the page can tell their own Validation Reports apart. */
   viewerId: number;
 };
@@ -98,6 +100,8 @@ export const oversightPending = (done: readonly string[]) => oversightIds.filter
 /** The SUBEB's view of a decided round (app/api/ubec/results). */
 export type UbecResults = {
   round: { number: number; status: string; decision: string; decidedAt: string | null } | null;
+  /** UBEC205: UBEC Planning's decision on the RAT tool of that submission, and whether a new RAT was uploaded since. */
+  rat?: { review: import('./rat-review').RatReview; replacedSince: boolean } | null;
   components: { pillar: string; counts: { accepted: number; rejected: number; undecided: number; total: number }; directorComment: string; directorName: string | null;
     oversight: { department: string; reviewerName: string; note: string }[]; officers: { name: string; note: string }[];
     items: { rowRef: string; title: string; detail: string; amount: number; decision: 'accept' | 'reject' | null; note: string }[] }[];

@@ -2,7 +2,8 @@
 import '@/components/ubec/ubec-flow.css';
 
 import { useEffect, useState } from 'react';
-import { CheckIcon, ChevronRightIcon, XIcon } from 'lucide-react';
+import { CheckIcon, ChevronRightIcon, FileSpreadsheetIcon, XIcon } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { compactNaira } from '@/components/dashboard/plan-figures';
 import { DecisionBar, DecisionPill } from '@/components/ubec/flow-bits';
 import { Badge } from '@/components/ui/badge';
@@ -32,14 +33,16 @@ export const itemEditHref = (editHref: string | undefined, rowRef: string) => ed
  * items with the officers' reasons (accepted ones on request); each rejected item opens in its form when the viewer may
  * edit the component. The UBEC Director's comment and the oversight notes follow.
  */
-export function UbecResultsCard({ data, editHrefFor }: { data: UbecResults | null; editHrefFor?: (pillar: string) => string | undefined }) {
+export function UbecResultsCard({ data, editHrefFor, onEditPlan }: { data: UbecResults | null; editHrefFor?: (pillar: string) => string | undefined; /** UBEC205: opens Edit plan to replace a rejected RAT */ onEditPlan?: () => void }) {
   const [showAccepted, setShowAccepted] = useState<string[]>([]);
-  if (!data?.round || !data.components.length) return null;
+  if (!data?.round || (!data.components.length && !data.rat)) return null;
   const rejected = data.components.reduce((sum, c) => sum + c.counts.rejected, 0);
   return <Card className="ubec-results" id="ubec-results">
     <CardHeader><CardTitle><h2>UBEC assessment · submission {data.round.number}</h2></CardTitle>
       <CardDescription>{data.round.status === 'returned' ? `Returned for changes${rejected ? `: ${rejected} ${rejected === 1 ? 'item was' : 'items were'} rejected` : ''}. Correct the rejected items and answer the shared UBEC comments, then resubmit.` : 'Approved by UBEC.'}</CardDescription></CardHeader>
-    <CardContent><ul className="ubec-results-list">{data.components.map(c => {
+    <CardContent>{data.rat?.review.decision === 'reject' && <Alert variant={data.rat.replacedSince ? 'default' : 'destructive'} className="ubec-results-rat"><FileSpreadsheetIcon /><AlertTitle>{data.rat.replacedSince ? 'RAT tool rejected · a new RAT has been uploaded' : 'UBEC Planning rejected the RAT tool'}</AlertTitle><AlertDescription><span>“{data.rat.review.comment}” · {data.rat.review.reviewerName}</span>{!data.rat.replacedSince && data.round.status === 'returned' && <span>Upload a corrected RAT in Edit plan before sending the plan to UBEC again{onEditPlan && <> · <Button variant="link" className="h-auto p-0" onClick={onEditPlan}>Replace the RAT</Button></>}</span>}</AlertDescription></Alert>}
+      {data.rat?.review.decision === 'accept' && <p className="ubec-results-rat-ok"><CheckIcon aria-hidden="true" />RAT tool accepted by {data.rat.review.reviewerName}</p>}
+      <ul className="ubec-results-list">{data.components.map(c => {
       const editHref = editHrefFor?.(c.pillar), open = showAccepted.includes(c.pillar);
       const items = c.items.filter(i => i.decision !== 'accept'), accepted = c.items.filter(i => i.decision === 'accept');
       return <li key={c.pillar} data-rejected={c.counts.rejected > 0 || undefined}>

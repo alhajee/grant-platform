@@ -19,9 +19,11 @@ import type { FundingComponent, FundingSource } from '@/lib/funding-policy';
 import type { ActionPlan } from '@/lib/action-plans';
 import { quarterRemovalProblem, type QuarterUsage } from '@/lib/line-quarters';
 import { nairaFormat } from '@/lib/money-format';
+import type { RatReview } from '@/lib/rat-review';
+import { PlanRatField } from '@/components/plan-rat-field';
 
 const money = nairaFormat;
-type SetupData = { plan: ActionPlan; reserved: { year: number; quarter: number }[]; proposed: Partial<Record<FundingComponent, string>>; quarterUsage?: QuarterUsage; canEdit: boolean; lockedReason: string | null };
+type SetupData = { plan: ActionPlan; reserved: { year: number; quarter: number }[]; proposed: Partial<Record<FundingComponent, string>>; quarterUsage?: QuarterUsage; canEdit: boolean; lockedReason: string | null; canReplaceRat?: boolean; ratReview?: RatReview | null; ratReplaced?: boolean };
 type Props = { planId: number; onClose: () => void; onSaved?: (plan: ActionPlan) => void };
 
 /** Edits the period and funding of an existing plan (UBEC33). The server re-checks every rule. */
@@ -122,6 +124,8 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
                 {errors.fundingSources && <FieldError>{errors.fundingSources}</FieldError>}
               </FieldGroup></FieldSet>
             </FieldGroup>
+            {/* UBEC204: the RAT tool stays replaceable when the rest is locked (plan back from UBEC). */}
+            <PlanRatField plan={data.plan} canReplace={!!data.canReplaceRat} review={data.ratReview ?? null} replaced={!!data.ratReplaced} onReplaced={plan => { setData({ ...data, plan, ratReplaced: true }); onSaved?.(plan); }} />
             {ictProblem && <Alert variant="destructive"><AlertTitle>Funding is below an allocation</AlertTitle><AlertDescription>{ictProblem}</AlertDescription></Alert>}
             {shortfalls.length > 0 && <Alert variant="destructive"><AlertTitle>Funding is below what is already proposed</AlertTitle><AlertDescription><ul className="list-disc pl-4">{shortfalls.map(s => <li key={s.component}>{shortfallMessage(s)}</li>)}</ul></AlertDescription></Alert>}
           </>}
