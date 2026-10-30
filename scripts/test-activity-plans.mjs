@@ -57,6 +57,12 @@ try{
  for(const [field,value] of [['description',''],['quantity',0],['unitCost',0],['strategy',''],['targetGroup',''],['activity',0],['activity',23],['equipment','Textbooks']]) ok(await api('academic',tlmUrl,{...tlm,[field]:value}),400);
  ok(await api('academic',tlmUrl,{...tlm,textbookClasses:[]}),400);
  ok(await api('academic',tlmUrl,{...tlm,textbookSubject:''}),400);
+ // UBEC206/207: ECCDE is a class, and a subject not listed can be typed (Others (specify)), up to 100 characters.
+ ok(await api('academic',tlmUrl,{...tlm,textbookSubject:'x'.repeat(101)}),400);
+ ok(await api('academic',tlmUrl,{...tlm,textbookClasses:['Nursery 9']}),400);
+ const typed=ok(await api('academic',tlmUrl,{...tlm,textbookClasses:['ECCDE'],textbookSubject:' Civic Education '}));
+ const typedLine=ok(await api('academic',tlmUrl)).lines.find(l=>l.id===typed.id);assert.deepEqual(typedLine.textbookClasses,['ECCDE']);assert.equal(typedLine.textbookSubject,'Civic Education');
+ ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'line',action:'delete',id:typed.id}));
  ok(await api('academic',tlmUrl,tlm));
  const savedTlm=ok(await api('academic',tlmUrl));assert.deepEqual(savedTlm.lines[0].textbookClasses,tlm.textbookClasses);assert.equal(savedTlm.lines[0].textbookSubject,tlm.textbookSubject);
  ok(await api('academic',tlmUrl,{...tlm,activity:6}),400);

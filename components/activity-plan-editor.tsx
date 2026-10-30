@@ -27,7 +27,7 @@ import { isSplitMode } from '@/lib/funding-policy';
 import { compulsoryFor, isCompulsory, lineDocumentSlots, maxFrequency, needsFrequency, quantityFromSchools } from '@/lib/activity-extras';
 import { requiredFirstProblem } from '@/lib/component-readiness';
 import { FieldHelp } from '@/components/field-help';
-import { LineDocumentsField, LineExtraFields, LineSchoolPicker, uploadLineDocuments, type PendingDocument , BeneficiaryField } from '@/components/activity-line-extras';
+import { LineDocumentsField, LineExtraFields, LineSchoolPicker, TypeSelect, uploadLineDocuments, type PendingDocument , BeneficiaryField } from '@/components/activity-line-extras';
 import { ActivityLinePanel, lineSearchText } from '@/components/activity-line-panel';
 import type { InlineField } from '@/components/line-panel/line-table';
 import { scrollLineIntoView, useLineFlash, usePanelMode } from '@/components/line-panel/use-line-panel';
@@ -223,11 +223,11 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  }
  /** Target group: one or more, kept in the draft as the stored text ("Schools, Teachers"). */
  function targetGroupPicker(){const chosen=splitTargetGroups(draft.targetGroup);return <Field><FieldLabel htmlFor="targetGroup">Target group {required}</FieldLabel><Combobox multiple items={[...targetGroups]} value={chosen} onValueChange={(groups,details)=>{if(!keepsChoices(details))setDraft({...draft,targetGroup:joinTargetGroups(groups)});}}><ComboboxChips ref={targetAnchor}><>{chosen.map(group=><ComboboxChip key={group}>{group}</ComboboxChip>)}</><ComboboxChipsInput id="targetGroup" placeholder={chosen.length?'Add another group…':'Choose one or more groups…'} aria-required="true" /></ComboboxChips><ComboboxContent anchor={targetAnchor}><ComboboxEmpty>No groups match your search</ComboboxEmpty><ComboboxList>{targetGroups.map(group=><ComboboxItem key={group} value={group}>{group}</ComboboxItem>)}</ComboboxList></ComboboxContent></Combobox></Field>;}
- function select(key:'strategy'|'textbookSubject',label:string,options:readonly string[]){
+ function select(key:'strategy',label:string,options:readonly string[]){
   // UBEC159: Non-Applicable names what is used instead ("Non-Applicable: E-payment"), typed in a box under the list.
-  const name=key==='strategy'?strategyLabel:(o:string)=>o,split=key==='strategy'?splitStrategy(draft.strategy):{strategy:draft[key],detail:''},value=split.strategy,retired=!!value&&!options.includes(value);
+  const name=strategyLabel,split=splitStrategy(draft.strategy),value=split.strategy,retired=!!value&&!options.includes(value);
   return <><Field><FieldLabel htmlFor={key}>{label} {required}</FieldLabel><NativeSelect id={key} required value={value} onChange={e=>setDraft({...draft,[key]:e.target.value})}><NativeSelectOption value="">Choose…</NativeSelectOption>{retired&&<NativeSelectOption value={value} disabled>{name(value)} (no longer offered)</NativeSelectOption>}{options.map(o=><NativeSelectOption key={o} value={o}>{name(o)}</NativeSelectOption>)}</NativeSelect></Field>
-   {key==='strategy'&&value===nonApplicableStrategy&&<Field><FieldLabel htmlFor="strategyDetail">What is used instead {required}</FieldLabel><Input id="strategyDetail" required maxLength={maxStrategyDetailLength} placeholder="e.g. E-payment/cash transfer, direct payment to vendor" value={split.detail} onChange={e=>{const typed=e.target.value.replace(/^\s+/,'').slice(0,maxStrategyDetailLength);setDraft({...draft,strategy:typed?`${nonApplicableStrategy}: ${typed}`:nonApplicableStrategy});}}/><FieldDescription>Attach the BPP waiver under Supporting documents</FieldDescription></Field>}</>;}
+   {value===nonApplicableStrategy&&<Field><FieldLabel htmlFor="strategyDetail">What is used instead {required}</FieldLabel><Input id="strategyDetail" required maxLength={maxStrategyDetailLength} placeholder="e.g. E-payment/cash transfer, direct payment to vendor" value={split.detail} onChange={e=>{const typed=e.target.value.replace(/^\s+/,'').slice(0,maxStrategyDetailLength);setDraft({...draft,strategy:typed?`${nonApplicableStrategy}: ${typed}`:nonApplicableStrategy});}}/><FieldDescription>Attach the BPP waiver under Supporting documents</FieldDescription></Field>}</>;}
  const filtered=data?.lines.filter(l=>lineSearchText(workstream,l).includes(query.trim().toLowerCase()))??[];
  // TLM has a long checklist, so only activities with saved items get a section.
  const displayActivityIndexes=[...new Set([...(workstream==='tlm'?[]:offered),...(data?.lines.map(line=>line.activity)??[])])].sort((a,b)=>a-b);
@@ -285,7 +285,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
       {!training&&<Field><FieldLabel htmlFor="description">Description {required}</FieldLabel><Textarea id="description" required maxLength={1000} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></Field>}
       {workstream==='tlm'&&Number(draft.activity)===textbookActivityIndex&&<>
        <Field><FieldLabel htmlFor="textbookClasses">Classes <span className="text-destructive" aria-label="required">*</span></FieldLabel><Combobox multiple items={[...textbookClasses]} value={draft.textbookClasses} onValueChange={(classes,details)=>{if(!keepsChoices(details))setDraft({...draft,textbookClasses:classes});}}><ComboboxChips ref={classesAnchor}><>{draft.textbookClasses.map(className=><ComboboxChip key={className}>{className}</ComboboxChip>)}</><ComboboxChipsInput id="textbookClasses" placeholder={draft.textbookClasses.length?'Add another class…':'Choose one or more classes…'} aria-required="true" /></ComboboxChips><ComboboxContent anchor={classesAnchor}><ComboboxEmpty>No classes match your search</ComboboxEmpty><ComboboxList>{textbookClasses.map(className=><ComboboxItem key={className} value={className}>{className}</ComboboxItem>)}</ComboboxList></ComboboxContent></Combobox></Field>
-       {select('textbookSubject','Subject',textbookSubjects)}
+       <TypeSelect id="textbookSubject" label="Subject" options={textbookSubjects} value={draft.textbookSubject} onChange={textbookSubject=>setDraft({...draft,textbookSubject})}/>
       </>}
       {workstream!=='quality'&&workstream!=='gscci'&&workstream!=='planning'&&<LineExtraFields workstream={workstream} draft={draft} onChange={next=>setDraft({...draft,...next})}/>}
       <BeneficiaryField workstream={workstream} draft={draft} disabled={disabled} onChange={beneficiary=>setDraft({...draft,beneficiary,...(beneficiary==='school'?{}:{schoolIds:[],schoolQuantities:{}})})}/>

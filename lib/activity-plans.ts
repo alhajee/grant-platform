@@ -102,7 +102,9 @@ export const textbookActivityIndex = 5;
 export const activityLabel = (workstream: ActivityWorkstream, activity: number, customActivity: string | null = '') => customActivityIndexes(workstream).includes(activity) && customActivity ? customActivity : activityNames[workstream]?.[activity] ?? 'Unknown activity';
 /** Material types used by legacy TLM purchase lines (activity 0). */
 export const materialTypes = ['Textbooks', 'Teachers guide', 'Interactive learning materials', 'Teaching aids & basic devices'] as const;
-export const textbookClasses = ['Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JSS 1', 'JSS 2', 'JSS 3'] as const;
+// ECCDE joined the classes on 30 October 2026 (UBEC206).
+export const textbookClasses = ['ECCDE', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JSS 1', 'JSS 2', 'JSS 3'] as const;
+/** Suggested subjects; "Others (specify)" stores a typed subject instead (UBEC207, migration 082). */
 export const textbookSubjects = ['English/literacy (Core)', 'Mathematics/Numeracy (Core)', 'Basic Science (Core)', 'Social Studies', 'Nigerian languages (one local language textbook)', 'Physical and Health Education', 'History'] as const;
 /**
  * Implementation (procurement) strategies of the activity components (client list, October 2026; Infrastructure keeps
@@ -149,7 +151,7 @@ export const activityLineSchema = z.object({
   equipment: z.string().max(100).default(''),
   customActivity: z.string().trim().max(maxActivityNameLength, `Use up to ${maxActivityNameLength} characters for the activity name`).default(''),
   textbookClasses: z.array(z.enum(textbookClasses)).max(textbookClasses.length).default([]),
-  textbookSubject: z.string().max(100).default(''),
+  textbookSubject: z.string().trim().max(100, 'Keep the subject to 100 characters').default(''),
   // Listed values or, through "Others (specify)", whatever the user types (lib/activity-extras.ts).
   equipmentCategory: z.enum(['', ...equipmentCategories]).default(''),
   equipmentType: z.string().trim().max(maxTypeNameLength, `Use up to ${maxTypeNameLength} characters`).default(''),
@@ -223,7 +225,7 @@ export const activityLineSchema = z.object({
   if(v.equipment)ctx.addIssue({code:'custom',path:['equipment'],message:'Material type no longer applies; choose the material as the activity'});
   const isTextbook=v.workstream==='tlm'&&v.activity===textbookActivityIndex;
   if(isTextbook&&!v.textbookClasses.length)ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Choose at least one class for the textbooks'});
-  if(isTextbook&&!textbookSubjects.some(subject=>subject===v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookSubject'],message:'Choose a subject for the textbooks'});
+  if(isTextbook&&!v.textbookSubject)ctx.addIssue({code:'custom',path:['textbookSubject'],message:'Choose a subject for the textbooks'});
   if(!isTextbook&&(v.textbookClasses.length||v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Class and subject only apply to textbooks'});
   if(!Number.isSafeInteger(Math.round(v.unitCost*100)*v.quantity))ctx.addIssue({code:'custom',path:['unitCost'],message:'Line total is too large'});
 });

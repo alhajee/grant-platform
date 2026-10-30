@@ -54,7 +54,7 @@ export function CompulsoryChecklist({ workstream, lines, setup }: { workstream: 
 const otherValue = '__other__';
 
 /** A listed type or, through "Others (specify)", one the user types. The typed name is stored as the value. */
-function TypeSelect({ id, label, options, value, onChange }: { id: string; label: string; options: readonly string[]; value: string; onChange: (value: string) => void }) {
+export function TypeSelect({ id, label, options, value, onChange }: { id: string; label: string; options: readonly string[]; value: string; onChange: (value: string) => void }) {
   const listed = options.includes(value);
   const [other, setOther] = useState(Boolean(value) && !listed);
   const showOther = other || (Boolean(value) && !listed);
