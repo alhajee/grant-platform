@@ -22,12 +22,12 @@ export function usePlanObservations(planId: number | undefined, enabled: boolean
   return { data, reload: load };
 }
 
-/** Where the observations asked of UBEC Audit, Procurement and Finance stand. Shown once a request has been made. */
+/** Where the observations asked of the oversight departments stand (the SUBEB's own since UBEC168). Shown once a request has been made. */
 export function ObservationsCard({ data }: { data: PlanObservations | null }) {
   if (!data?.requests.length) return null;
   const waiting = waitingDepartments(data.requests).length;
   return <Card className="plan-status-panel observations-card">
-    <CardHeader><CardTitle><h2><ScanEyeIcon aria-hidden="true" />UBEC observations</h2></CardTitle>
+    <CardHeader><CardTitle><h2><ScanEyeIcon aria-hidden="true" />Observations before UBEC</h2></CardTitle>
       <CardDescription>{waiting ? 'The plan can be sent to UBEC once every department asked replies' : data.openComments ? `${data.openComments} open ${data.openComments === 1 ? 'observation' : 'observations'} to resolve before sending to UBEC` : 'All observations are in and resolved'}</CardDescription></CardHeader>
     <CardContent className="observations-card-body"><ObservationRequests requests={data.requests} limit={3} /></CardContent>
   </Card>;

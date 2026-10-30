@@ -16,7 +16,7 @@ export function ObservationRequests({ requests, limit }: { requests: readonly Ob
     <p className="observation-request-head"><strong>{index === 0 ? 'Latest request' : 'Earlier request'}</strong><span>{request.requestedByName} · {date.format(new Date(request.createdAt))}</span></p>
     {request.comment && <blockquote>{request.comment}</blockquote>}
     <ul>{request.departments.map(d => <li key={d.department} data-done={!!d.completedAt || undefined}>
-      <span className="observation-dept">{d.completedAt ? <CheckIcon aria-hidden="true" /> : <ClockIcon aria-hidden="true" />}{observationDepartmentName(d.department)}</span>
+      <span className="observation-dept">{d.completedAt ? <CheckIcon aria-hidden="true" /> : <ClockIcon aria-hidden="true" />}{observationDepartmentName(d.department, request.audience)}</span>
       {d.completedAt ? <Badge variant="secondary" title={`Sent back by ${d.completedByName} · ${date.format(new Date(d.completedAt))}`}>Sent back {day.format(new Date(d.completedAt))}</Badge> : <Badge variant="warning">Waiting</Badge>}
       {d.note && <p className="observation-note">{d.note}</p>}
     </li>)}</ul>

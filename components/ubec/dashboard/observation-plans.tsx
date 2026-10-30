@@ -6,7 +6,7 @@ import { NoItemsArt, UbecEmpty } from '@/components/empty-art/ubec-flow';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { observationDepartmentName, type ObservationPlan } from '@/lib/observation-requests';
+import { listDepartments, type ObservationPlan } from '@/lib/observation-requests';
 import { oversightList } from '@/lib/ubec';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
@@ -17,7 +17,7 @@ type User = { name: string; role: string; department?: string | null };
  * those departments and the UBEC BEAP Chair (app/api/ubec/observations). `hideEmpty` leaves it out of the overview when
  * there is nothing to show.
  */
-export function ObservationPlansCard({ limit, hideEmpty = false, onUser }: { limit?: number; hideEmpty?: boolean; onUser?: (user: User) => void }) {
+export function ObservationPlansCard({ limit, hideEmpty = false, onUser, base = '/ubec/observations' }: { limit?: number; hideEmpty?: boolean; onUser?: (user: User) => void; /** Where a plan opens: /ubec/observations, or /beap/observations for SUBEB departments (UBEC168) */ base?: string }) {
   const [plans, setPlans] = useState<ObservationPlan[] | null>(null), [department, setDepartment] = useState<string | null>(null), [error, setError] = useState('');
   useEffect(() => {
     let active = true;
@@ -39,9 +39,9 @@ export function ObservationPlansCard({ limit, hideEmpty = false, onUser }: { lim
     {error ? <p className="text-sm text-destructive" role="alert">{error}</p>
       : !plans ? <Skeleton className="h-24 w-full rounded-xl" />
       : !plans.length ? <UbecEmpty art={<NoItemsArt />} title="No observation requests" compact>Requests appear here when an Executive Chairman asks before sending a plan</UbecEmpty>
-      : <ul className="observation-plans">{shown.map(p => <li key={p.planId}><a href={`/ubec/observations?plan=${p.planId}`}>
+      : <ul className="observation-plans">{shown.map(p => <li key={p.planId}><a href={`${base}?plan=${p.planId}`}>
         <div><strong>{p.state} · {p.period}</strong><small>Asked by {p.requestedByName} · {date.format(new Date(p.requestedAt))}</small></div>
-        <span className="observation-plan-depts">{p.departments.map(d => <Badge key={d.department} variant={d.completedAt ? 'secondary' : 'warning'}>{observationDepartmentName(d.department).replace('UBEC ', '')} · {d.completedAt ? 'Sent back' : 'Waiting'}</Badge>)}<ChevronRightIcon aria-hidden="true" className="size-4 text-muted-foreground" /></span>
+        <span className="observation-plan-depts">{p.departments.map(d => <Badge key={d.department} variant={d.completedAt ? 'secondary' : 'warning'}>{listDepartments([d.department])} · {d.completedAt ? 'Sent back' : 'Waiting'}</Badge>)}<ChevronRightIcon aria-hidden="true" className="size-4 text-muted-foreground" /></span>
       </a></li>)}</ul>}
   </CardContent></Card>;
 }

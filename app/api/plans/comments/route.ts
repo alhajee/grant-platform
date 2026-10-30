@@ -117,7 +117,7 @@ export async function PATCH(request: NextRequest) {
       if (!root || !visible.includes(root.pillar) || !can?.reply) return error('Comment not found', 404);
       if (input.action === 'resolve') {
         if (root.resolved_at) return error('This comment is already resolved', 409);
-        if (root.scope !== 'state') return error(root.scope === 'observation' ? 'The Oversight Department that made this observation resolves it. Reply to say what you changed.' : 'UBEC resolves its own comments. Reply to say what you changed.', 403);
+        if (root.scope !== 'state') return error(root.scope === 'observation' ? 'The department that made this observation resolves it. Reply to say what you changed.' : 'UBEC resolves its own comments. Reply to say what you changed.', 403);
         if (!can.resolveAny && root.author_id !== actor.id) return error('Only this department’s Data Entry Staff, the comment author or the reviewer holding the component can resolve it', 403);
         await db.query('UPDATE plan_comments SET resolved_at=NOW(), resolved_by_name=$1 WHERE id=$2', [name, root.id]);
       } else {

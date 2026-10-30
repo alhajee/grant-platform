@@ -1,8 +1,9 @@
-// Observations before sending to UBEC (bug sheet row 156, migration 075): the Executive Chairman may ask any of UBEC Audit,
-// Procurement and Finance for observations; they see the whole working plan, comment per activity (tagged with their
-// department) and their Oversight Director sends them back; the SUBEB sees a department's comments only once sent back,
-// replies to them (the department resolves them, UBEC193), and cannot send to UBEC while a department asked has not replied or an observation is open. Requests
-// can be repeated (earlier comments stay); the UBEC BEAP Chair follows read-only; the formal UBEC review never shows them.
+// Observations before sending to UBEC (bug sheet row 156, migration 075; UBEC168/194, migration 085): the Executive
+// Chairman may ask any of the SUBEB's own Audit, Procurement, Finance and Special Programmes for observations; they see the
+// whole working plan, comment per activity (tagged with their department) and their Director sends them back; the SUBEB
+// sees a department's comments only once sent back, replies to them (the department resolves them, UBEC193), and cannot
+// send to UBEC while a department asked has not replied or an observation is open. Requests can be repeated (earlier
+// comments stay); other states and UBEC do not see them; the formal UBEC review never shows them.
 // Usage: node --env-file=.env scripts/test-observation-requests.mjs [baseUrl]   (local only; throwaway state, users and plan; cleans up)
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -45,8 +46,11 @@ try {
   await user('subebChair', 'Director', ['planning'], { chair: true }); await user('ec', 'Executive Chairman', []);
   const u = { state: 'UBEC' };
   await user('chair', 'UBEC BEAP Chair', [], u); await user('dpp', 'UBEC Director', ['physical'], u);
-  for (const d of ['audit', 'procurement', 'finance']) await user(d, 'UBEC Oversight Director', [d], u);
-  await user('auditOff', 'UBEC Assessment Officer', ['audit'], u);
+  await user('ubecAudit', 'UBEC Oversight Director', ['audit'], u);
+  // The SUBEB's own oversight departments (UBEC168): a Director each, and a Data Entry Officer in Audit.
+  for (const d of ['audit', 'procurement', 'finance']) await user(d, 'Director', [d]);
+  await user('auditOff', 'Data Entry Staff', ['audit']);
+  await user('otherAudit', 'Director', ['audit'], { state: `${marker.slice(0, 9)}Y` });
 
   const rat = new ExcelJS.Workbook(); rat.addWorksheet('RAT').addRow(['Observation QA']);
   const form = new FormData();
@@ -69,32 +73,34 @@ try {
   step('the request is optional, only the Executive Chairman asks, and only once the plan has reached them');
 
   ok(await ask('ec', ['audit', 'finance'], 'Please check the costs'), 201);
-  for (const who of ['audit', 'finance', 'auditOff', 'chair']) assert.ok(await notified(who, 'observation_request'), `${who} is notified`);
-  assert.equal(await notified('procurement', 'observation_request'), false, 'a department not chosen is not asked');
+  for (const who of ['audit', 'finance', 'auditOff']) assert.ok(await notified(who, 'observation_request'), `${who} is notified`);
+  for (const who of ['procurement', 'chair', 'ubecAudit', 'otherAudit']) assert.equal(await notified(who, 'observation_request'), false, `${who} is not asked`);
+  fails(await ask('ec', ['special']), 409, /not sent back/);
   fails(await ask('ec', ['procurement']), 409, /not sent back/);
   status = ok(await api('ec', requestPath));
-  assert.match(status.problem, /Waiting for observations from UBEC Audit and Finance/);
+  assert.match(status.problem, /Waiting for observations from SUBEB Audit and Finance/);
   assert.equal(ok(await api('ec', statePath)).observationProblem, status.problem);
   assert.equal(ok(await api('ec', `/api/ubec/review${q}`)).canSubmit, false);
   fails(await api('ec', `/api/ubec/review${q}`, { action: 'submit', version: await version() }), 409, /Waiting for observations/);
-  step('the Executive Chairman picks the departments; those asked and the UBEC BEAP Chair are notified; sending to UBEC waits for them');
+  step('the Executive Chairman picks the SUBEB departments; those asked are notified (not UBEC, not other states); sending to UBEC waits for them');
 
   const detail = ok(await api('audit', ubecPath));
   assert.ok(detail.snapshot.monitoring.length === 1, 'they see the whole working plan');
   assert.deepEqual(detail.abilities, { comment: true, sendBack: true });
   assert.deepEqual(ok(await api('auditOff', ubecPath)).abilities, { comment: true, sendBack: false });
-  assert.deepEqual(ok(await api('chair', ubecPath)).abilities, { comment: false, sendBack: false });
+  fails(await api('chair', ubecPath), 404); fails(await api('ubecAudit', ubecPath), 404); fails(await api('otherAudit', ubecPath), 404);
   fails(await api('procurement', ubecPath), 404);
-  fails(await api('dpp', ubecPath), 403);
+  fails(await api('dpp', ubecPath), 403); fails(await api('desP', ubecPath), 403);
   assert.ok(ok(await api('finance', '/api/ubec/observations')).plans.some(p => p.planId === planId));
-  step('the departments asked see the whole plan; the officer comments, only the Director sends back; the UBEC BEAP Chair reads; others cannot');
+  step('the SUBEB departments asked see the whole plan; Data Entry comments, only the Director sends back; UBEC, other states and other departments cannot');
 
   const auditThread = ok(await api('auditOff', ubecComments, { sheet: 'monitoring', rowRef: line, columnId: null, body: 'AUDIT: receipts for this visit?' }), 201).id;
   fails(await api('audit', ubecComments, { sheet: 'monitoring', rowRef: line, columnId: null, body: 'second' }), 409, /already has an open comment/);
   ok(await api('finance', ubecComments, { sheet: 'monitoring', rowRef: line, columnId: null, body: 'FINANCE: unit cost looks high' }), 201);
-  fails(await api('chair', ubecComments, { sheet: 'monitoring', rowRef: line, columnId: null, body: 'x' }), 403);
+  fails(await api('chair', ubecComments, { sheet: 'monitoring', rowRef: line, columnId: null, body: 'x' }), 404);
+  fails(await api('otherAudit', ubecComments, { sheet: 'monitoring', rowRef: line, columnId: null, body: 'x' }), 404);
   assert.equal(ok(await api('audit', ubecComments)).threads.length, 1, 'each department reads its own observations');
-  assert.equal(ok(await api('chair', ubecComments)).threads.length, 2, 'the UBEC BEAP Chair reads them all');
+  fails(await api('chair', ubecComments), 404);
   assert.equal(ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation').length, 0, 'the SUBEB sees nothing until a department sends back');
   step('each department comments per activity (one open thread per department per row); the SUBEB does not see them yet');
 
@@ -105,18 +111,18 @@ try {
   ok(await api('auditOff', ubecComments, { parentId: auditThread, body: 'Replying after sending back' }), 201); // UBEC193: answers continue
   assert.ok(await notified('ec', 'observation_return'));
   let threads = ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation');
-  assert.deepEqual(threads.map(t => t.department), ['audit'], 'Audit’s observations reach the SUBEB; Finance’s are still with UBEC');
-  assert.match(ok(await api('ec', requestPath)).problem, /Waiting for observations from UBEC Finance/);
+  assert.deepEqual(threads.map(t => t.department), ['audit'], 'Audit’s observations reach the plan; Finance’s are still with Finance');
+  assert.match(ok(await api('ec', requestPath)).problem, /Waiting for observations from SUBEB Finance/);
   ok(await api('finance', ubecPath, { action: 'done', note: '' }));
   status = ok(await api('ec', requestPath));
   assert.equal(status.openComments, 2); assert.match(status.problem, /Resolve the 2 open observations/);
   fails(await api('ec', `/api/ubec/review${q}`, { action: 'submit', version: await version() }), 409, /Resolve the 2 open observations/);
-  step('the Oversight Director sends back; the Executive Chairman is notified; open observations then block sending to UBEC');
+  step('the department Director sends back; the Executive Chairman is notified; open observations then block sending to UBEC');
 
   threads = ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation');
   ok(await api('desP', stateComments, { parentId: threads[0].id, body: 'Receipts are attached' }), 201);
   // UBEC193: the SUBEB replies; only the Oversight Department that made an observation resolves it.
-  for (const who of ['desP', 'ec']) fails(await api(who, stateComments, { id: threads[0].id, action: 'resolve' }, 'PATCH'), 403, /Oversight Department/);
+  for (const who of ['desP', 'ec']) fails(await api(who, stateComments, { id: threads[0].id, action: 'resolve' }, 'PATCH'), 403, /made this observation resolves it/);
   fails(await api('ec', stateComments, { id: threads[0].id, action: 'reopen' }, 'PATCH'), 403, /Only UBEC/);
   for (const thread of threads) ok(await api(thread.department, ubecComments, { id: thread.id, action: 'resolve' }, 'PATCH'));
   assert.equal(ok(await api('ec', requestPath)).problem, null);
@@ -132,6 +138,7 @@ try {
 
   fails(await api('audit', ubecPath), 409, /sent to UBEC/);
   assert.ok(!ok(await api('audit', '/api/ubec/observations')).plans.some(p => p.planId === planId));
+  assert.equal(ok(await api('audit', '/api/ubec/observations')).audience, 'subeb');
   ok(await api('chair', `/api/ubec/review${q}`, { action: 'release', version: await version(), roundId: ok(await api('chair', `/api/ubec/review${q}`)).round.id, comment: 'Please assess.' }));
   assert.equal(ok(await api('chair', `/api/ubec/comments${q}`)).threads.length, 0, 'the observations are not part of the UBEC review');
   step('once sent, the observations are not part of the UBEC review');

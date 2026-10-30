@@ -13,7 +13,7 @@ import type { PlanReview } from '@/lib/plan-review';
 export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSeveral, onRequestObservations }: { data: PlanReview; available: boolean; onForward: () => void; onSendToUbec: () => void;
   /** Individual-components mode: send several reviewed components at once (V2-04). */
   onSendSeveral?: () => void;
-  /** The Executive Chairman's optional request for observations from UBEC Audit, Procurement and Finance (row 156); omitted while one is open. */
+  /** The Executive Chairman's optional request for observations from the SUBEB's Audit, Procurement, Finance and Special Programmes (row 156, UBEC194); omitted while one is open. */
   onRequestObservations?: () => void }) {
   if (!statePlanOpen(data.plan.status)) return null;
   const count = (statuses: string[]) => data.pillarReviews.filter(review => statuses.includes(review.status)).length;
@@ -38,7 +38,7 @@ export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSe
   return <div className="workflow-bar">
     <p>{count(['chairman_ready'])} {of} ready{data.ubecSubmissionMode === 'reviewed_components' ? '. Only ready components are sent to UBEC.' : ''}</p>
     <div className="flex flex-wrap gap-2">
-      {onRequestObservations && <Button variant="outline" className="rounded-full" disabled={!available} onClick={onRequestObservations}><ScanEyeIcon data-icon="inline-start" />Ask UBEC for observations</Button>}
+      {onRequestObservations && <Button variant="outline" className="rounded-full" disabled={!available} onClick={onRequestObservations}><ScanEyeIcon data-icon="inline-start" />Ask SUBEB for observations</Button>}
       {data.readyForUbec && available && !observations
         ? <Button className="rounded-full" onClick={onSendToUbec}><SendIcon data-icon="inline-start" />Send to UBEC</Button>
         : <Button className="rounded-full" disabled aria-describedby={observations ? 'workflow-observations' : undefined}><SendIcon data-icon="inline-start" />Send to UBEC</Button>}

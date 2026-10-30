@@ -17,6 +17,8 @@ export const supportDepartments = [
   {id:'finance',name:'Finance'},
   // UBEC183 (28 October 2026): Special Programmes, an oversight department with a Director and Data Entry Officer.
   {id:'special',name:'Special Programmes'},
+  // UBEC168 (30 October 2026): Audit, the fourth of the SUBEB's own oversight departments asked for observations.
+  {id:'audit',name:'Audit'},
 ] as const;
 /** Every SUBEB department a user can hold. */
 export const stateDepartments = [...subebDepartments, ...supportDepartments] as const;

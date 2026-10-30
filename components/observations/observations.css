@@ -25,3 +25,8 @@
 .observation-plans a:hover, .observation-plans a:focus-visible { background: color-mix(in srgb, var(--primary) 9%, var(--muted)); }
 .observation-plans small { display: block; color: var(--muted-foreground); font-size: 12px; }
 .observation-plans .observation-plan-depts { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+
+/* UBEC168: the page title on /beap/observations, where app/ubec/ubec.css is not loaded (same look as the UBEC pages). */
+.national-page-title { display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin: 0 0 24px; }
+.national-page-title h1 { margin: 7px 0 0; font-size: clamp(25px,2.4vw,34px); font-weight: 600; letter-spacing: -.04em; line-height: 1.3; }
+.national-eyebrow { font-size: 14px; font-weight: 500; color: var(--muted-foreground); letter-spacing: .07em; }

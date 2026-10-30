@@ -32,7 +32,7 @@ function stateWording(item: NotificationItem): Wording {
     case 'submit': return { verb: 'Sent you', target, suffix: 'to review', kind: 'sent' };
     case 'endorse': return { verb: 'Sent', target, suffix: 'to the BEAP Chair', kind: 'sent' };
     case 'forward': return { verb: 'Sent', target: component ?? 'the complete BEAP', suffix: 'to the Executive Chairman', kind: 'sent' };
-    case 'observation_request': return { verb: 'Asked UBEC for observations on', target: 'the plan', suffix: 'before sending it to UBEC', kind: 'assigned' };
+    case 'observation_request': return { verb: 'Asked for observations on', target: 'the plan', suffix: 'before sending it to UBEC', kind: 'assigned' };
     case 'observation_return': return { verb: 'Sent back observations on', target: 'the plan', suffix: '', kind: 'feedback' };
     case 'finance_submit': return { verb: 'Submitted', target: 'the Finance documents', suffix: 'to you', kind: 'sent' };
     case 'request_changes': return fromUbec ? { verb: 'Returned', target: 'the plan', suffix: 'for changes', kind: 'changes' } : { verb: 'Requested changes on', target, suffix: '', kind: 'changes' };
@@ -70,8 +70,9 @@ export function describeNotification(item: NotificationItem): NotificationMessag
     const anchor = componentName(item.scope) ? `#ubec-${item.scope}` : '';
     return { ...ubecWording(item), actor: item.action === 'submit' ? state : item.actorName, context: `${state} · ${planName(item)}`, href: `/ubec/review?plan=${item.planId}${anchor}` };
   }
-  // Observation requests reach UBEC Audit, Procurement and Finance (and the UBEC BEAP Chair): they open the UBEC page.
-  if (item.action === 'observation_request') return { ...stateWording(item), actor: item.actorName, context: `${subebDisplayName(item.stateCode)} · ${planName(item)}`, href: `/ubec/observations?plan=${item.planId}` };
+  // Observation requests reach the departments asked: the state's own since UBEC168 (/beap/observations); earlier ones
+  // reached UBEC Audit, Procurement and Finance and the UBEC BEAP Chair (/ubec/observations).
+  if (item.action === 'observation_request') return { ...stateWording(item), actor: item.actorName, context: `${subebDisplayName(item.stateCode)} · ${planName(item)}`, href: `${item.comment?.startsWith('Asked UBEC') ? '/ubec' : '/beap'}/observations?plan=${item.planId}` };
   // A note lands on its entry in the review page's history; otherwise open the component's sheet.
   const anchor = item.comment && item.eventId ? reviewEventAnchor(item.eventId) : componentName(item.scope) ? `#review-${item.scope}` : '';
   return { ...stateWording(item), actor: item.actorName, context: planName(item), href: `/beap/review?plan=${item.planId}${anchor}` };

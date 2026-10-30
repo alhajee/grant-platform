@@ -1,5 +1,5 @@
 // Support and oversight accounts (UBEC169/183, 28 October 2026): for each chosen SUBEB, a Director and a Data Entry
-// Officer for Procurement, Finance and Special Programmes; on the UBEC side a Special Programmes Oversight Director and
+// Officer for Procurement, Finance, Special Programmes and (UBEC168, 30 October 2026) Audit; on the UBEC side a Special Programmes Oversight Director and
 // Assessment Officer. Each new SUBEB account gets the password of that state's BEAP Chair account, and each UBEC one the
 // password of audit.director@ubec.test (the hash is copied, nothing is printed), so the agreed shared password works
 // without SEED_SHARED_PASSWORD. Accounts that already exist are left alone; nothing is deleted or deactivated.
@@ -14,7 +14,7 @@ if (!connectionString) throw new Error('DATABASE_URL is required.');
 const host = new URL(connectionString).hostname;
 if (!['localhost', '127.0.0.1', '::1'].includes(host) && !args.includes('--production-confirmed')) throw new Error(`Refusing to write to ${host} without --production-confirmed.`);
 const states = JSON.parse(await readFile(new URL('../lib/nigeria-map.json', import.meta.url), 'utf8'));
-const support = [['procurement', 'Procurement'], ['finance', 'Finance'], ['special', 'Special Programmes']];
+const support = [['procurement', 'Procurement'], ['finance', 'Finance'], ['special', 'Special Programmes'], ['audit', 'Audit']];
 const subebName = state => state.code === 'FC' ? 'FCT UBEB' : `${state.name.toUpperCase()} SUBEB`;
 
 const db = new Client({ connectionString, connectionTimeoutMillis: 5000 });

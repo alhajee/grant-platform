@@ -7,6 +7,7 @@ import { NotificationBell } from './notifications/notification-bell';
 import type { LocalUser } from '@/lib/local-session';
 import { canManageSchoolRegister, canManageStateUsers } from '@/lib/subeb-access';
 import { isProcurement } from '@/lib/procurement';
+import { observationViewer } from '@/lib/observation-requests';
 
 function subscribe(callback: () => void) {
   window.addEventListener('hashchange', callback);
@@ -19,7 +20,7 @@ function subscribe(callback: () => void) {
 
 type HeaderUser = LocalUser & { canManageSchools?: boolean };
 
-export function SubebHeader({ user, plan = false, users = false, schools = false, procurement = false }: { user?: HeaderUser | null; plan?: boolean; users?: boolean; schools?: boolean; procurement?: boolean }) {
+export function SubebHeader({ user, plan = false, users = false, schools = false, procurement = false, observations = false }: { user?: HeaderUser | null; plan?: boolean; users?: boolean; schools?: boolean; procurement?: boolean; observations?: boolean }) {
   const [sessionUser, setSessionUser] = useState<HeaderUser | null>(null);
   useEffect(() => {
     if (user !== undefined) return;
@@ -40,6 +41,8 @@ export function SubebHeader({ user, plan = false, users = false, schools = false
         <a href="/dashboard#action-plans" aria-current={plansActive ? (plan ? 'page' : 'location') : undefined}>Plans</a>
         {canManageSchoolRegister(current?.role, current?.isBeapChair, current?.canManageSchools) && <a href="/schools" aria-current={schools ? 'page' : undefined}>Schools</a>}
         {current && isProcurement(current) && <a href="/procurement" aria-current={procurement ? 'page' : undefined}>Price list</a>}
+        {/* UBEC168: the state's Audit, Procurement, Finance and Special Programmes answer requests for observations. */}
+        {current && observationViewer(current)?.audience === 'subeb' && <a href="/beap/observations" aria-current={observations ? 'page' : undefined}>Observations</a>}
         {canManageStateUsers(current?.role, current?.isBeapChair) && <a href="/users" aria-current={users ? 'page' : undefined}>Users</a>}
       </nav>
     </div>

@@ -16,8 +16,9 @@ import { oversightDepartments, type OversightDepartment, oversightList } from '@
 const looksAt: Record<OversightDepartment, string> = { audit: 'Compliance and controls across the plan', procurement: 'Items to buy, prices and procurement methods', finance: 'Funding, costs and budget lines', special: 'Special programmes and their beneficiaries' };
 
 /**
- * The Executive Chairman's optional request for observations before sending to UBEC (row 156): choose any of UBEC Audit,
- * Procurement and Finance, add a note, confirm. Mount it with a fresh key each time it opens so it starts clean.
+ * The Executive Chairman's optional request for observations before sending to UBEC (row 156): choose any of the SUBEB's
+ * own Audit, Procurement, Finance and Special Programmes (UBEC168/194), add a note, confirm. Mount it with a fresh key each
+ * time it opens so it starts clean.
  */
 export function RequestObservationsDialog({ plan, open, onClose, onSent }: { plan: ActionPlan; open: boolean; onClose: () => void; onSent: () => void }) {
   const [chosen, setChosen] = useState<OversightDepartment[]>([...observationDepartmentIds]);
@@ -37,7 +38,7 @@ export function RequestObservationsDialog({ plan, open, onClose, onSent }: { pla
       const response = await fetch(`/api/plans/observations?plan=${plan.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'request', version: plan.version, departments: chosen, comment: comment.trim() }) });
       const result = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw Error(result.error || 'The request could not be sent');
-      toast.success(`Observations requested from UBEC ${listDepartments(chosen)}`);
+      toast.success(`Observations requested from ${listDepartments(chosen)}`);
       onSent();
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'The request could not be sent'); }
     finally { busy.current = false; setSaving(false); }
@@ -45,21 +46,21 @@ export function RequestObservationsDialog({ plan, open, onClose, onSent }: { pla
 
   return <Dialog open={open} onOpenChange={next => { if (!next && !saving) onClose(); }}>
     <DialogContent variant="inset-footer" className="sm:max-w-lg" showCloseButton={!saving} onEscapeKeyDown={event => step.escape(event, saving)} onInteractOutside={event => { if (saving) event.preventDefault(); }}>
-      {step.confirming ? <ConfirmStep title={`Ask UBEC ${listDepartments(chosen)} for observations?`} description="They see the whole plan and comment on its activities, then send their observations back to you"
-        facts={[{ label: 'Plan', value: `${planPeriod(plan)} BEAP` }, { label: 'Goes to', value: <ul>{chosen.map(d => <li key={d}>UBEC {oversightDepartments.find(o => o.id === d)?.name}</li>)}</ul> }, { label: 'Also sees it', value: 'UBEC BEAP Chair' }]}
+      {step.confirming ? <ConfirmStep title={`Ask ${listDepartments(chosen)} for observations?`} description="They see the whole plan and comment on its activities, then send their observations back to you"
+        facts={[{ label: 'Plan', value: `${planPeriod(plan)} BEAP` }, { label: 'Goes to', value: <ul>{chosen.map(d => <li key={d}>SUBEB {oversightDepartments.find(o => o.id === d)?.name}</li>)}</ul> }, { label: 'Also sees it', value: 'Your BEAP Chair, on the plan page' }]}
         notes={[{ kind: 'info', text: 'You can send the plan to UBEC once every department asked has replied and its observations are resolved' }, { kind: 'info', text: 'The plan stays with you; their observations are not part of the UBEC review' }]}
         comment={comment} confirmLabel="Yes, ask for observations" saving={saving} error={error} bodyClassName="px-4 pb-5" onBack={() => { setError(''); step.back(); }} onConfirm={() => void send()} /> : <>
         <DialogHeader className={step.commentStepClass}>
-          <DialogTitle>Ask UBEC for observations</DialogTitle>
-          <DialogDescription>Optional. Before you send the plan, UBEC {oversightList('or')} can look at it and comment</DialogDescription>
+          <DialogTitle>Ask SUBEB for observations</DialogTitle>
+          <DialogDescription>Optional. Before you send the plan, your SUBEB {oversightList('or')} can look at it and comment</DialogDescription>
         </DialogHeader>
         <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}>
           <div className="px-4 pb-4"><FieldGroup>
             <FieldSet>
               <FieldLegend variant="label">Departments to ask</FieldLegend>
               <div className="observation-dept-choices">{observationDepartmentIds.map(d => <label key={d} className="observation-dept-choice">
-                <Checkbox checked={chosen.includes(d)} disabled={saving} onCheckedChange={value => toggle(d, value === true)} aria-label={`UBEC ${oversightDepartments.find(o => o.id === d)?.name}`} />
-                <span><strong>UBEC {oversightDepartments.find(o => o.id === d)?.name}</strong><small>{looksAt[d]}</small></span>
+                <Checkbox checked={chosen.includes(d)} disabled={saving} onCheckedChange={value => toggle(d, value === true)} aria-label={`SUBEB ${oversightDepartments.find(o => o.id === d)?.name}`} />
+                <span><strong>{oversightDepartments.find(o => o.id === d)?.name}</strong><small>{looksAt[d]}</small></span>
               </label>)}</div>
             </FieldSet>
             <Field data-invalid={!!error || undefined}>

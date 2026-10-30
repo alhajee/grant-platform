@@ -12,26 +12,27 @@ import { readObservationRequests } from '@/lib/observation-requests-db';
 import { oversightList } from '@/lib/ubec';
 
 // Observation comments (bug sheet row 156, migration 075): plan_comments scope 'observation' on the SUBEB's working plan,
-// tagged with the UBEC department that wrote them. Each department reads its own threads (the UBEC BEAP Chair reads them
+// tagged with the department that wrote them (UBEC's for earlier requests, the state's own since UBEC168). Each department reads its own threads (the UBEC BEAP Chair reads them
 // all); the Oversight Director and Assessment Officers of a department asked on the latest request (and not yet sent back) start,
 // reply to, resolve and reopen their own department's threads. The SUBEB sees a department's threads once it sends them
 // back (app/api/plans/comments) and replies; only the department resolves them (UBEC193), so after sending back it may
 // still reply and resolve while the plan is with the SUBEB. The formal UBEC review (app/api/ubec/comments) never shows them.
-type Actor = { id: number; role: string; department: string | null; full_name: string };
+type Actor = { id: number; role: string; department: string | null; full_name: string; state_code: string; departments: string[] };
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const planParam = (request: NextRequest) => { const plan = request.nextUrl.searchParams.get('plan'); return plan && /^[1-9]\d{0,9}$/.test(plan) ? Number(plan) : null; };
-const followed = `EXISTS (SELECT 1 FROM plan_observation_requests r JOIN plan_observation_departments d ON d.request_id=r.id WHERE r.plan_id=p.id AND ($2::text IS NULL OR d.department=$2))`;
+// UBEC168: requests go to UBEC (earlier) or to the state's own SUBEB departments, who only see their own state's plans.
+const followed = `EXISTS (SELECT 1 FROM plan_observation_requests r JOIN plan_observation_departments d ON d.request_id=r.id WHERE r.plan_id=p.id AND r.audience=$3 AND ($2::text IS NULL OR d.department=$2)) AND ($4::text IS NULL OR p.state_code=$4)`;
 
 async function readPlan(db: Db, viewer: ObservationViewer, planId: number) {
-  return (await db.query<{ id: number; status: string; submission_number: number }>(`SELECT p.id,p.status,p.submission_number FROM action_plans p WHERE p.id=$1 AND ${followed} FOR SHARE OF p`, [planId, viewer.department])).rows[0];
+  return (await db.query<{ id: number; status: string; submission_number: number }>(`SELECT p.id,p.status,p.submission_number FROM action_plans p WHERE p.id=$1 AND ${followed} FOR SHARE OF p`, [planId, viewer.department, viewer.audience, viewer.stateCode])).rows[0];
 }
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getWorkspaceState(request);
     if (!user) return error('Sign in to view comments', 401);
-    const viewer = observationViewer(user.role, user.department), planId = planParam(request);
-    if (!viewer) return error(`Observation requests go to UBEC ${oversightList()}`, 403);
+    const viewer = observationViewer(user), planId = planParam(request);
+    if (!viewer) return error(`Observation requests go to ${oversightList()}`, 403);
     if (!planId) return error('Choose a valid plan');
     return await getPostgres().transaction(async db => {
       const plan = await readPlan(db, viewer, planId);
@@ -58,9 +59,9 @@ async function withOpenRequest(request: NextRequest, run: (db: Db, context: { pl
   const planId = planParam(request);
   if (!planId) return error('Choose a valid plan');
   return getPostgres().transaction(async db => {
-    const actor = (await db.query<Actor>('SELECT id, role, department, display_name AS full_name FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
-    const viewer = actor && observationViewer(actor.role, actor.department);
-    if (!viewer) return error(`Observation requests go to UBEC ${oversightList()}`, 403);
+    const actor = (await db.query<Actor>("SELECT u.id, u.role, u.department, u.display_name AS full_name, u.state_code, COALESCE((SELECT array_agg(department) FROM user_departments WHERE user_id=u.id),'{}') AS departments FROM users u WHERE u.id=$1 AND u.active AND u.session_version=$2 FOR SHARE OF u", [session.userId, session.sessionVersion])).rows[0];
+    const viewer = actor && observationViewer({ role: actor.role, department: actor.department, departments: actor.departments, stateCode: actor.state_code });
+    if (!viewer) return error(`Observation requests go to ${oversightList()}`, 403);
     const plan = await readPlan(db, viewer, planId);
     if (!plan) return error('Plan not found', 404);
     if (!statePlanOpen(plan.status)) return error('This plan has been sent to UBEC, so its observations are read-only', 409);
