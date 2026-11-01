@@ -35,7 +35,7 @@ import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-const trail: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to the UBEC departments', assign_officer: 'Assessment Officers assigned', reopen_assessment: 'Assessment sent back to the officer', assign_observer: 'Oversight officers assigned', unassign_observer: 'Oversight officer removed', default_officers: 'Default Assessment Officers assigned', unassign_officer: 'Assessment Officer removed', complete_assessment: 'Assessment completed', send_oversight: 'Sent to the Oversight Departments', observations_done: 'Observations done', ready_for_chair: 'Ready for the UBEC BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned (earlier flow)', feedback: 'Department review (earlier flow)' };
+const trail: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to the UBEC departments', assign_officer: 'Assessment Officers assigned', reopen_assessment: 'Assessment sent back to the officer', assign_observer: 'Oversight officers assigned', unassign_observer: 'Oversight officer removed', default_officers: 'Default Assessment Officers assigned', unassign_officer: 'Assessment Officer removed', complete_assessment: 'Assessment completed', send_oversight: 'Sent to the Oversight Departments', observations_done: 'Observations done', observer_done: 'Officer observations done', ready_for_chair: 'Ready for the UBEC BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned (earlier flow)', feedback: 'Department review (earlier flow)' };
 
 /** The UBEC plan page: summary, component cards, the BEAP Chair's steps, item assessment, the workbook and the trail. */
 export default function UbecReviewPage() {
@@ -94,7 +94,7 @@ export default function UbecReviewPage() {
     };
     return { pillars: flow.components.map(c => c.pillar), decisions: byPillar(flow.decisions), previous: byPillar(flow.previousDecisions), corrected: pillar => new Set(flow.corrected?.[pillar] ?? []),
       canDecide: pillar => !!can?.assess.includes(pillar) || !!can?.override?.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }),
-      canObserve: pillar => !!can?.observe.includes(pillar), observe: pillar => setRequest({ kind: 'observe', pillar }), canComment: pillar => !!can?.comment?.includes(pillar),
+      canObserve: pillar => !!can?.observe.includes(pillar), observe: pillar => setRequest({ kind: 'observe', pillar }), canComment: pillar => !!can?.comment?.includes(pillar), observerDone: pillar => setRequest({ kind: 'observerDone', pillar }),
       oversightDone: pillar => flow.components.find(c => c.pillar === pillar)?.oversight.map(o => o.department) ?? [],
       validation: pillar => {
         const c = flow.components.find(x => x.pillar === pillar);
@@ -143,6 +143,7 @@ export default function UbecReviewPage() {
     // UBEC186: the Oversight Departments review items on the same full-screen view, adding observations per item.
     ...(can.comment?.includes(pillar) || can.observe.includes(pillar) ? [{ label: 'Review items', kind: 'assess' as const, run: () => setAssessing(pillar) }] : []),
     ...(can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observe', pillar }) }] : []),
+    ...(can.comment?.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observerDone', pillar }) }] : []),
   ];
   const released = flow?.components ?? [];
   const activeTab = released.some(c => c.pillar === tab) ? tab : (released.find(c => can?.assess.includes(c.pillar) || can?.observe.includes(c.pillar) || can?.comment?.includes(c.pillar)) ?? released[0])?.pillar ?? '';
@@ -261,7 +262,7 @@ function ComponentPeople({ component, planId, roundId, viewerId, canComplete, ca
   const notes = [
     ...component.officers.map(o => ({ key: `o${o.id}`, back: canSendBack && o.completedAt ? () => { setSendError(''); setSendBack({ id: o.id, name: o.officerName }); } : null, who: o.officerName, role: 'Assessment Officer', text: o.completedAt ? o.completionNote || 'Assessment complete' : o.assignedByName === defaultAssignerName ? o.comment : `Assigned by ${o.assignedByName}: ${o.comment}`, done: !!o.completedAt, remove: canRemove && !o.completedAt ? () => void remove(o.id, o.officerName) : null, busy: removing === o.id })),
     ...(component.directorComment ? [{ key: 'd', who: component.directorName ?? 'Director', role: `Director, ${departmentName(component.department)}`, text: component.directorComment, done: true, remove: null, busy: false }] : []),
-    ...component.observers.map(o => ({ key: `x${o.id}`, back: null, who: o.officerName, role: `Assessment Officer, ${departmentName(o.department)}`, text: `Assigned by ${o.assignedByName}: ${o.comment}`, done: component.oversight.some(r => r.department === o.department), remove: removableObservers === o.department ? () => void remove(o.id, o.officerName, 'unassign_observer') : null, busy: removing === o.id })),
+    ...component.observers.map(o => ({ key: `x${o.id}`, back: null, who: o.officerName, role: `Assessment Officer, ${departmentName(o.department)}`, text: o.completedAt ? o.completionNote || 'Observations done' : `Assigned by ${o.assignedByName}: ${o.comment}`, done: !!o.completedAt || component.oversight.some(r => r.department === o.department), remove: removableObservers === o.department ? () => void remove(o.id, o.officerName, 'unassign_observer') : null, busy: removing === o.id })),
     ...component.oversight.map(o => ({ key: o.department, who: o.reviewerName, role: `Director ${departmentName(o.department)}`, text: o.note || 'Observations done', done: true, remove: null, busy: false })),
   ];
   return <div className="ubec-people">

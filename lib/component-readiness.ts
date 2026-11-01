@@ -60,10 +60,10 @@ export function componentReadinessProblem(workstream: string, lines: readonly Re
   if (workstream === 'teachers' && lines.length && setup && setup.ictAllocation == null) return 'Ask the BEAP Chair to set how much of the shared Teacher Development & ICT budget Teacher Development will use before sending';
   const noSchools = lines.find(line => hasLineSchools(workstream, line.activity, line.beneficiary) && !line.schools?.length);
   if (noSchools) return `Choose the schools for “${lineName(workstream, noSchools)}” before sending`;
-  if (!options.documentsRequired) return null;
-  // Only the governed documents; optional supporting documents (migration 057) never block a send.
+  // The governed documents while the setting is on, and the always-required ones (Teacher Development, UBEC209);
+  // optional supporting documents (migration 057) never block a send.
   for (const line of lines) {
-    const slot = missingLineDocument(workstream, line.activity, line.documents);
+    const slot = missingLineDocument(workstream, line.activity, line.documents, !!options.documentsRequired);
     if (slot) return `Upload the ${slot.label === 'BOQ' ? 'BOQ' : slot.label.toLowerCase()} for “${lineName(workstream, line)}” before sending`;
   }
   return null;

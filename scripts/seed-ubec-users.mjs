@@ -34,6 +34,8 @@ const components = [['infrastructure', 'physical', 'Infrastructure'], ['monitori
 const targets = [
   { email: 'beap.chair@ubec.test', name: 'UBEC BEAP Chair', role: 'UBEC BEAP Chair', department: null },
   ...directors.map(([department, label, key]) => ({ email: `${key}.director@ubec.test`, name: `UBEC Director ${label}`, role: 'UBEC Director', department })),
+  // UBEC212: Sports, Quiz & Debate also has a Debate officer (a second default for the component).
+  { email: 'debate.officer@ubec.test', name: 'UBEC Assessment Officer – Debate', role: 'UBEC Assessment Officer', department: 'academic' },
   ...oversight.map(([department, label]) => ({ email: `${department}.director@ubec.test`, name: `UBEC Director ${label}`, role: 'UBEC Oversight Director', department })),
   ...components.map(([pillar, department, label]) => ({ email: `${pillar}.officer@ubec.test`, name: `UBEC Assessment Officer – ${label}`, role: 'UBEC Assessment Officer', department })),
   ...oversight.map(([department, label]) => ({ email: `${department}.officer@ubec.test`, name: `UBEC Assessment Officer – ${label}`, role: 'UBEC Assessment Officer', department })),

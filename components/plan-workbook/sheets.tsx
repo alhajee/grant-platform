@@ -124,17 +124,21 @@ function teacherSheet(lines: NonNullable<Snapshot['teachers']>, editHref?: strin
   };
 }
 
-/** Allocation = the component budget (TLM, GSCCI or Curriculum) shared across the listed schools by enrolment (snapshots before enrolment was recorded show blanks). */
+/**
+ * Allocation = the component budget (TLM, GSCCI or Curriculum) shared across the listed schools by enrolment (snapshots before enrolment was recorded show blanks).
+ * Qty. (UBEC214) = the component's item quantities shared the same way, in whole items.
+ */
 function distributionSheet(component: DistributionWorkstream, schools: NonNullable<Snapshot['tlmDistribution']>, lines: NonNullable<Snapshot['tlm']>, editHref?: string): WorkbookSheet {
   const shares = allocateByEnrolment(Math.round(lines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
+  const items = allocateByEnrolment(lines.reduce((sum, line) => sum + Number(line.quantity), 0), schools);
   const name = distributionNames[component], byId = new Map(schools.map(s => [s.id, s]));
   return {
     key: component === 'tlm' ? 'distribution' : distributionSnapshotKeys[component], label: `${name} distribution`, hash: `review-${component}-distribution`, icon: School, itemLabel: 'schools', empty: 'No distribution schools', editHref, editLabel: `${name} distribution list`,
     columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true),
       // Coordinates open the school on a map; blank when the School list has none.
       { ...text('coordinates', 'Coordinates', 210), cell: r => { const s = byId.get(Number(r.id)); return s?.latitude && s.longitude ? <SchoolMapDialog variant="inline" name={s.name} lga={s.lga} latitude={s.latitude} longitude={s.longitude} /> : null; } },
-      qty('learners', 'Learners', true), amount('allocation', 'Allocation', true)],
-    rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, coordinates: s.latitude && s.longitude ? `${s.latitude}, ${s.longitude}` : '', learners: s.enrolment ?? '', allocation: shares.has(s.id) ? shares.get(s.id)! / 100 : '' })),
+      qty('learners', 'Learners', true), qty('quantity', 'Qty.', true), amount('allocation', 'Allocation', true)],
+    rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, coordinates: s.latitude && s.longitude ? `${s.latitude}, ${s.longitude}` : '', learners: s.enrolment ?? '', quantity: items.get(s.id) ?? '', allocation: shares.has(s.id) ? shares.get(s.id)! / 100 : '' })),
   };
 }
 

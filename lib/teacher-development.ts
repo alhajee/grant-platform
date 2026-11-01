@@ -44,8 +44,12 @@ export const venueTypes = ['Hall', 'Classroom'] as const;
 export const minTrainingDays = 3;
 export const maxTrainingDays = 365;
 
-/** Every Teacher Development line takes supporting documents (PDF or Excel); required only while the Super Admin setting is on (migration 052). */
+/**
+ * Every Teacher Development line takes supporting documents (PDF or Excel); required only while the Super Admin setting
+ * is on (migration 052). The budget breakdown and the training list of participants are their own required uploads since
+ * UBEC209 (lib/activity-extras.ts, teacherDocumentSlots).
+ */
 export const teacherDocumentLabel = 'Supporting documents';
-export const teacherDocumentHint = 'MoU with training providers, training list for teachers, proof of SSO, proof of Instructional Leads selection, pre-test and post-test items, budget breakdown';
+export const teacherDocumentHint = 'MoU with training providers, proof of SSO, proof of Instructional Leads selection, pre-test and post-test items';
 
 export type TeacherTraining = { trainingProvider: string; targetParticipants: string; schoolLevels: string[]; trainingDays: number | null; venueType: string };

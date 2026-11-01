@@ -29,6 +29,8 @@ export type FlowRequest =
   | { kind: 'release' } | { kind: 'approve' } | { kind: 'return' }
   | { kind: 'assign'; pillar: ImplementedPillar } | { kind: 'complete'; pillar: ImplementedPillar }
   | { kind: 'oversight'; pillar: ImplementedPillar } | { kind: 'observe'; pillar: ImplementedPillar }
+  /** UBEC187: an oversight Assessment Officer finishes their own observations. */
+  | { kind: 'observerDone'; pillar: ImplementedPillar }
   /** An Oversight Director puts their own Assessment Officers on a component (migration 071). */
   | { kind: 'observers'; pillar: ImplementedPillar };
 
@@ -39,6 +41,7 @@ const copy: Record<FlowRequest['kind'], { title: (name: string) => string; descr
   oversight: { title: name => `Complete & send to Oversight Department · ${name}`, description: `${oversightList()} review it next. When they have all finished their observations it goes to the UBEC BEAP Chair.`, field: 'Your comment', required: true, confirm: 'Send to Oversight Department' },
   observers: { title: name => `Assign officers · ${name}`, description: 'Choose one or more Assessment Officers of your department. They comment on the items; they do not accept or reject. Their open comments must be resolved before the plan is approved.', field: 'Comment for the officers', required: true, confirm: 'Assign officers' },
   observe: { title: name => `Observations done · ${name}`, description: `Add any comments on items in the workbook first. Once ${oversightList()} are all done, the component goes to the UBEC BEAP Chair.`, field: 'Your observations (optional)', required: false, confirm: 'Observations done' },
+  observerDone: { title: name => `Observations done · ${name}`, description: 'Add any comments on items first. Your Oversight Director is told; they finish for the department and do not wait for you.', field: 'Note for your Director (optional)', required: false, confirm: 'Observations done' },
   approve: { title: () => 'Approve action plan', description: 'Every item has been accepted. Approval locks the plan; it does not disburse funds.', field: 'Decision note', required: true, confirm: 'Approve action plan' },
   return: { title: () => 'Return to SUBEB', description: 'The whole plan goes back to the SUBEB BEAP Chair with every component’s results', field: 'Consolidated changes required', required: true, confirm: 'Return to SUBEB' },
 };
@@ -63,7 +66,7 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   // The officers this step manages: the component's own (Director) or the Oversight Director's department's.
   const observing = kind === 'observers', picking = kind === 'assign' || observing;
   const department = observing ? flow.officers[0]?.department ?? '' : component?.department ?? '';
-  const onComponent: PickedAssignment[] = !component ? [] : observing ? component.observers.filter(o => o.department === department).map(o => ({ id: o.id, officerId: o.officerId, completedAt: null })) : component.officers;
+  const onComponent: PickedAssignment[] = !component ? [] : observing ? component.observers.filter(o => o.department === department).map(o => ({ id: o.id, officerId: o.officerId, completedAt: o.completedAt })) : component.officers;
   // Officers already on the component: the step only adds more.
   const adding = picking && onComponent.length > 0;
   // Assign step: officers of the department not yet on it (none left = only removals remain).
@@ -127,7 +130,7 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
         <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}><FieldGroup>
           {picking && <OfficerPicker flow={flow} department={department} assigned={onComponent} observing={observing} defaults={adding ? [] : defaults} value={officers} onChange={setOfficers} disabled={saving || removing !== null} admin={admin} removing={removing} onRemove={(id, name) => void unassign(id, name)} />}
           {nothingToAdd && <Alert><AlertDescription><span>Every Assessment Officer of {departmentName(department)} is already on this component. Remove one above, or {admin ? 'add an officer on Users' : <><a href="/ubec/team" className="underline underline-offset-2">add an officer</a> to your team</>} first</span></AlertDescription></Alert>}
-          {(kind === 'complete' || kind === 'oversight' || kind === 'observe') && component && <ComponentSummary component={component} threads={openThreads.filter(t => t.pillar === pillar).length} showOfficers={kind !== 'complete'} />}
+          {(kind === 'complete' || kind === 'oversight' || kind === 'observe' || kind === 'observerDone') && component && <ComponentSummary component={component} threads={openThreads.filter(t => t.pillar === pillar).length} showOfficers={kind !== 'complete'} />}
           {kind === 'release' && <ReleaseAssignments components={components} />}
           {(kind === 'approve' || kind === 'return') && <PlanSummary flow={flow} />}
           {kind === 'return' && <ShareCommentsField threads={openThreads} value={shareIds} onChange={setShare} disabled={saving} />}

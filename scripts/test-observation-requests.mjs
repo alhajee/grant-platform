@@ -104,11 +104,18 @@ try {
   assert.equal(ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation').length, 0, 'the SUBEB sees nothing until a department sends back');
   step('each department comments per activity (one open thread per department per row); the SUBEB does not see them yet');
 
+  // UBEC210: the author corrects their observation while the department is still observing, not after sending back.
+  ok(await api('auditOff', ubecComments, { id: auditThread, action: 'edit', body: 'AUDIT: receipts for this monitoring visit?' }, 'PATCH'));
+  fails(await api('audit', ubecComments, { id: auditThread, action: 'edit', body: 'not mine' }, 'PATCH'), 404, /author/);
+  assert.equal(ok(await api('audit', ubecComments)).threads[0].body, 'AUDIT: receipts for this monitoring visit?');
+  step('an observer edits their own observation before sending back');
+
   fails(await api('auditOff', ubecPath, { action: 'done', note: '' }), 403);
   ok(await api('audit', ubecPath, { action: 'done', note: 'One question on receipts' }));
   fails(await api('audit', ubecPath, { action: 'done', note: '' }), 409, /already sent/);
   fails(await api('auditOff', ubecComments, { sheet: 'monitoring', rowRef: line, columnId: 'amount', body: 'late' }), 409, /no open request/);
   ok(await api('auditOff', ubecComments, { parentId: auditThread, body: 'Replying after sending back' }), 201); // UBEC193: answers continue
+  fails(await api('auditOff', ubecComments, { id: auditThread, action: 'edit', body: 'late edit' }, 'PATCH'), 409, /no open request/);
   assert.ok(await notified('ec', 'observation_return'));
   let threads = ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation');
   assert.deepEqual(threads.map(t => t.department), ['audit'], 'Audit’s observations reach the plan; Finance’s are still with Finance');

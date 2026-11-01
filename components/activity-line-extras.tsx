@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { CheckIcon, CircleAlertIcon, InfoIcon } from 'lucide-react';
+import { CheckIcon, CircleAlertIcon, DownloadIcon, InfoIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { allocatesToSchools, beneficiaryLabels, beneficiaryTypes, needsBeneficiary, type Beneficiary, censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isQualityEquipmentActivity, ictSupportingDocumentHelp, lineDocumentSlots, type LineDocumentSlot, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { allocatesToSchools, beneficiaryLabels, beneficiaryTypes, needsBeneficiary, type Beneficiary, censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isQualityEquipmentActivity, ictSupportingDocumentHelp, lineDocumentSlots, slotRequired, type LineDocumentSlot, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
@@ -214,12 +214,12 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, pe
     catch (e) { toast.error(e instanceof Error ? e.message : 'Unable to remove'); }
     finally { setBusy(false); await onChanged().catch(() => undefined); }
   }
-  const hintFor = (slot: LineDocumentSlot) => workstream === 'teachers' ? `${teacherDocumentHint}. PDF or Excel only` : slot.kind === 'document' && !slot.governed ? `Quotations, specifications, photos or other evidence for this item; the BPP waiver for a Non-Applicable strategy. ${slot.hint}` : slot.hint;
+  const hintFor = (slot: LineDocumentSlot) => workstream === 'teachers' && slot.kind === 'document' ? `${teacherDocumentHint}. PDF or Excel only` : slot.kind === 'document' && !slot.governed ? `Quotations, specifications, photos or other evidence for this item; the BPP waiver for a Non-Applicable strategy. ${slot.hint}` : slot.hint;
   return <>
     {slots.map(slot => {
-      const mandatory = isRequired && slot.governed, id = `line-document-${slot.kind}`;
+      const mandatory = slotRequired(slot, isRequired), id = `line-document-${slot.kind}`;
       const saved = documents.filter(d => (d.kind ?? 'document') === slot.kind), waiting = pending.map((p, index) => ({ ...p, index })).filter(p => p.kind === slot.kind);
-      return <Field key={slot.kind}><FieldLabel htmlFor={id}>{slot.label} {mandatory ? required : <span className="font-normal text-muted-foreground">(optional)</span>}{/* UBEC75: what ICT's supporting documents are for. */}{workstream === 'ict' && slot.kind === 'document' && !slot.governed && <FieldHelp>{ictSupportingDocumentHelp}</FieldHelp>}</FieldLabel>
+      return <Field key={slot.kind}><FieldLabel htmlFor={id}>{slot.label} {mandatory ? required : <span className="font-normal text-muted-foreground">(optional)</span>}{/* UBEC75: what ICT's supporting documents are for. */}{workstream === 'ict' && slot.kind === 'document' && !slot.governed && <FieldHelp>{ictSupportingDocumentHelp}</FieldHelp>}{slot.template && <a className="line-document-template" href={slot.template.href} download={slot.template.name}><DownloadIcon aria-hidden="true" />Download template</a>}</FieldLabel>
         <FileUpload compact id={id} label={slot.label} multiple accept={slot.accept} disabled={disabled} busy={busy} onFiles={files => void upload(slot.kind, files)} />
         {lineId
           ? saved.length > 0 && <DocumentFiles compact documents={saved.map(d => ({ ...d, url: `/api/activities/line-documents?id=${d.id}`, description: slot.label }))} disabled={disabled || busy} onRemove={disabled ? undefined : docId => void remove(docId)} />

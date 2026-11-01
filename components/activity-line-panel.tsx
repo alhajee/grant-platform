@@ -80,7 +80,7 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
     details: details(workstream, l) || undefined, code: l.code, quarters: l.quarters, startDate: l.startDate, dueDate: l.dueDate, quantity: l.quantity, unitCost: l.unitCost,
     attachments: l.documents?.length ?? 0,
     // Only the documents the Supporting documents setting governs; optional supporting documents never show "needed".
-    badges: documentsRequired && missingLineDocument(workstream, l.activity, l.documents) ? <Badge variant="warning">{missingLineDocument(workstream, l.activity, l.documents)!.label} needed</Badge> : undefined,
+    badges: missingLineDocument(workstream, l.activity, l.documents, documentsRequired) ? <Badge variant="warning">{missingLineDocument(workstream, l.activity, l.documents, documentsRequired)!.label} needed</Badge> : undefined,
   });
   const titleOf = (i: number) => <>{nameOf(i)}</>;
   const badgesOf = (i: number) => <><RequiredBadge workstream={workstream} activity={i} setup={setup} /><ActivityInfoHint workstream={workstream} activity={i} /></>;

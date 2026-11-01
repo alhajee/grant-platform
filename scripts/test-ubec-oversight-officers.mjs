@@ -94,10 +94,31 @@ try {
   assert.equal(officerView.flow.components[0].observers.length, 2);
   fails(await api('auditOff1', `/api/ubec/decisions${q}`, { roundId: officerView.round.id, pillar: 'monitoring', rowRef: line, decision: 'reject', note: '' }, 'PUT'), 403);
   fails(await step2('auditOff1', 'complete_assessment', { note: 'x' }), 409);
-  fails(await step2('auditOff1', 'observations_done', { note: 'x' }), 403);
+  fails(await step2('finOff', 'observations_done', { note: 'x' }), 403, /not assigned/);
   const thread = ok(await api('auditOff1', comments, { sheet: 'monitoring', rowRef: line, columnId: 'amount', body: 'AUDIT OFFICER: where are the receipts?' }), 201).id;
   assert.ok(ok(await api('auditOff1', '/api/ubec/dashboard')).queue.some(i => i.planId === planId && i.kind === 'observe'), 'the officer has the component in their queue');
-  step('oversight officers see the component and comment, but cannot accept, reject, complete or finish observations');
+  step('oversight officers see the component and comment, but cannot accept, reject or complete; an unassigned one cannot finish observations');
+
+  // UBEC210: authors correct their own comments until their observations are recorded.
+  ok(await api('auditOff1', comments, { id: thread, action: 'edit', body: 'AUDIT OFFICER: where are the payment receipts?' }, 'PATCH'));
+  assert.equal(ok(await api('auditOff1', comments)).threads.find(t => t.id === thread).body, 'AUDIT OFFICER: where are the payment receipts?');
+  assert.ok(ok(await api('auditOff1', comments)).threads.find(t => t.id === thread).editedAt, 'an edited comment says so');
+  fails(await api('auditOff2', comments, { id: thread, action: 'edit', body: 'not mine' }, 'PATCH'), 404, /author/);
+  fails(await api('auditOff1', comments, { id: thread, action: 'edit', body: '  ' }, 'PATCH'), 400);
+  assert.equal(ok(await api('auditOff1', comments)).abilities.monitoring.edit, true);
+  step('an observer edits their own comment (not someone else\'s, not blank)');
+
+  // UBEC187: the officer's own Observations done; the Director is told and does not wait for it.
+  ok(await step2('auditOff1', 'observations_done', { note: 'Receipts asked for.' }));
+  assert.ok(await notified('audit', 'observer_done'), 'the Oversight Director is notified');
+  fails(await step2('auditOff1', 'observations_done', { note: 'again' }), 409, /already finished/);
+  const afterDone = await view('auditOff1');
+  assert.deepEqual(afterDone.flow.abilities.comment, [], 'a finished officer no longer comments');
+  assert.ok(afterDone.flow.components[0].observers.find(o => o.officerId === users.auditOff1).completedAt);
+  assert.equal(afterDone.flow.components[0].stage, 'oversight', 'the component waits for the Oversight Directors, not the officers');
+  fails(await api('auditOff1', comments, { id: thread, action: 'edit', body: 'too late' }, 'PATCH'), 409, /recorded/);
+  assert.equal(ok(await api('auditOff1', comments)).abilities.monitoring.edit, false);
+  step('an oversight officer records their own Observations done; their comments are then fixed and the component still waits for the Directors');
 
   const auditOff2Assignment = (await view('audit')).flow.components[0].observers.find(o => o.officerId === users.auditOff2).id;
   fails(await step2('finance', 'unassign_observer', { assignmentId: auditOff2Assignment }), 404);

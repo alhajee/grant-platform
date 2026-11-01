@@ -124,7 +124,7 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
     editHref: sheet.editHref, editLabel: sheet.editLabel,
     ...(comments ? { commentState, comment: openComment } : {}),
     // A right-click inside the selection decides every selected row; elsewhere just the clicked row.
-    ...(assess ? { assess: { busy: assess.busy, rows: (rowId: string) => assess.selected.includes(rowId) ? assess.selected : [rowId], decided: assess.decided, decide: assess.decide } } : {}),
+    ...(assess ? { assess: { busy: assess.busy, rows: (rowId: string) => [rowId] /* UBEC213: one item at a time */, decided: assess.decided, decide: assess.decide } } : {}),
   };
   // aria-rowindex counts the header, data rows, open detail rows and the totals row in DOM order.
   const ariaRows: number[] = [], ariaDetails: number[] = [];

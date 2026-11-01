@@ -120,7 +120,7 @@ try {
   assert.deepEqual(dprsView.flow.abilities.assign, []); assert.deepEqual(dprsView.flow.abilities.assess, []);
   fails(await step2('dprs', 'assign_officers', 'sports', { officerIds: [users.offA], comment: 'x' }), 403);
   const dprsComments = ok(await api('dprs', `/api/ubec/comments${q}`));
-  assert.deepEqual(dprsComments.abilities.sports, { start: true, reply: true, resolveAny: false, reopen: false }, 'observers comment but do not resolve others or reopen');
+  assert.deepEqual(dprsComments.abilities.sports, { start: true, reply: true, resolveAny: false, reopen: false, edit: true }, 'observers comment but do not resolve others or reopen');
   const observation = ok(await api('dprs', `/api/ubec/comments${q}`, { sheet: 'sports', rowRef: String(sportsLine), columnId: null, body: 'DPRS observation: check the football count against enrolment.' }), 201).id;
   const dacsThread = ok(await api('dacs', `/api/ubec/comments${q}`, { sheet: 'sports', rowRef: String(sportsLine), columnId: 'amount', body: 'DACS note.' }), 201).id;
   fails(await api('dprs', `/api/ubec/comments${q}`, { id: dacsThread, action: 'resolve' }, 'PATCH'), 403, /own unit/);

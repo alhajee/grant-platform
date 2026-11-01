@@ -18,13 +18,13 @@ export type Db = { query<R extends QueryResultRow = QueryResultRow>(sql: string,
 export type CommentRow = {
   id: number; parent_id: number | null; pillar: ImplementedPillar; sheet: CommentSheet; row_ref: string; column_id: string | null; body: string;
   author_id: number | null; author_name: string; author_role: string; created_at: Date | string; resolved_at: Date | string | null; resolved_by_name: string | null;
-  submission_number: number; target_label: string; scope: CommentScope; ubec_round_id: number | null; shared_at: Date | string | null; shared_by_name: string | null; round_number?: number | null; observation_department: string | null;
+  submission_number: number; target_label: string; scope: CommentScope; ubec_round_id: number | null; shared_at: Date | string | null; shared_by_name: string | null; round_number?: number | null; observation_department: string | null; edited_at?: Date | string | null;
 };
-export const commentFields = (alias = 'c') => ['id', 'parent_id', 'pillar', 'sheet', 'row_ref', 'column_id', 'body', 'author_id', 'author_name', 'author_role', 'created_at', 'resolved_at', 'resolved_by_name', 'submission_number', 'target_label', 'scope', 'ubec_round_id', 'shared_at', 'shared_by_name', 'observation_department'].map(field => `${alias}.${field}`).join(', ');
+export const commentFields = (alias = 'c') => ['id', 'parent_id', 'pillar', 'sheet', 'row_ref', 'column_id', 'body', 'author_id', 'author_name', 'author_role', 'created_at', 'resolved_at', 'resolved_by_name', 'submission_number', 'target_label', 'scope', 'ubec_round_id', 'shared_at', 'shared_by_name', 'observation_department', 'edited_at'].map(field => `${alias}.${field}`).join(', ');
 export { openRoundStatuses };
 export const isUbecAuthor = (role: string) => (ubecAuthorRoles as readonly string[]).includes(role);
 
-const reply = (row: CommentRow, userId: number): PlanCommentReply => ({ id: Number(row.id), body: row.body, authorName: row.author_name, authorRole: row.author_role, createdAt: String(toIso(row.created_at)), mine: row.author_id === userId });
+const reply = (row: CommentRow, userId: number): PlanCommentReply => ({ id: Number(row.id), body: row.body, authorName: row.author_name, authorRole: row.author_role, createdAt: String(toIso(row.created_at)), mine: row.author_id === userId, editedAt: toIso(row.edited_at ?? null) });
 const toIso = (value: Date | string | null) => value === null ? null : value instanceof Date ? value.toISOString() : value;
 
 /** Groups rows (ordered by id) into threads and flags threads whose row or column is not in `snapshot`. */
@@ -82,6 +82,11 @@ export async function readRoundRows(db: Db, planId: number, round: UbecRound, pi
 export async function readRoundRoot(db: Db, planId: number, round: UbecRound, pillars: readonly string[], id: number) {
   return (await db.query<CommentRow>(`SELECT ${commentFields()} FROM plan_comments c JOIN plan_comments root ON root.id = c.id JOIN ubec_rounds rr ON rr.id = root.ubec_round_id
     WHERE c.id=$5 AND c.plan_id=$1 AND c.parent_id IS NULL AND c.pillar=ANY($2::text[]) AND ${visibleInRound('$3', '$4')} FOR UPDATE OF c`, [planId, pillars, round.id, round.number, id])).rows[0];
+}
+/** UBEC210: one of the viewer's own comments (a root or a reply) visible on `round`, with its thread's resolution, locked for update. */
+export async function readOwnRoundComment(db: Db, planId: number, round: UbecRound, pillars: readonly string[], id: number, authorId: number) {
+  return (await db.query<CommentRow & { thread_resolved: boolean }>(`SELECT ${commentFields()}, root.resolved_at IS NOT NULL AS thread_resolved FROM plan_comments c JOIN plan_comments root ON root.id = COALESCE(c.parent_id, c.id) JOIN ubec_rounds rr ON rr.id = root.ubec_round_id
+    WHERE c.id=$5 AND c.plan_id=$1 AND c.pillar=ANY($2::text[]) AND c.author_id=$6 AND ${visibleInRound('$3', '$4')} FOR UPDATE OF c`, [planId, pillars, round.id, round.number, id, authorId])).rows[0];
 }
 /** Is there already an open UBEC thread visible on `round` for this cell or row? */
 export async function roundCellTaken(db: Db, planId: number, round: UbecRound, target: { sheet: string; row_ref: string; column_id: string | null }) {

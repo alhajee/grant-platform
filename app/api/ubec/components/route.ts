@@ -30,7 +30,8 @@ type ComponentRow = { id: number; pillar: (typeof implementedPillars)[number]; d
 const roles: Record<Command['action'], string> = { assign_officers: ubecRoles.director, unassign_officer: ubecRoles.director, send_oversight: ubecRoles.director, complete_assessment: ubecRoles.officer, observations_done: ubecRoles.oversight, reopen_assessment: ubecRoles.director, assign_observers: ubecRoles.oversight, unassign_observer: ubecRoles.oversight };
 /** The Super Admin may also assign and remove officers on any component, with the Director's rules (migration 056). */
 const adminActions: readonly Command['action'][] = ['assign_officers', 'unassign_officer'];
-const mayAct = (role: string, action: Command['action']) => role === roles[action] || (role === superAdminRole && adminActions.includes(action));
+// UBEC187: an oversight Assessment Officer also records their own Observations done.
+const mayAct = (role: string, action: Command['action']) => role === roles[action] || (role === superAdminRole && adminActions.includes(action)) || (role === ubecRoles.officer && action === 'observations_done');
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,6 +70,16 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
     if (!isOversightDepartment(actor.department)) return error('Your account has no oversight department', 403);
     if (component.stage !== 'oversight') return error(component.stage === 'director' ? `${name} has not been sent to the Oversight Departments yet.` : `${name} has already reached the UBEC BEAP Chair.`, 409);
     if ((await db.query('SELECT 1 FROM ubec_oversight_reviews WHERE round_component_id=$1 AND department=$2', [component.id, actor.department])).rowCount) return error('Your department has already finished its observations on this component', 409);
+    if (actor.role === ubecRoles.officer) {
+      // UBEC187: the officer's own Observations done; their Oversight Director is told but never waits for it.
+      const mine = (await db.query<{ id: number; completed_at: Date | null }>('SELECT id,completed_at FROM ubec_oversight_assignments WHERE round_component_id=$1 AND department=$2 AND officer_id=$3 AND removed_at IS NULL FOR UPDATE', [component.id, actor.department, actor.id])).rows[0];
+      if (!mine) return error('You are not assigned to observe this component', 403);
+      if (mine.completed_at) return error('You have already finished your observations on this component', 409);
+      await db.query('UPDATE ubec_oversight_assignments SET completed_at=NOW(),completion_note=$1 WHERE id=$2', [input.note, mine.id]);
+      const id = await event('observer_done', input.note);
+      await notifyUbec(db, planId, id, actor.id, { role: ubecRoles.oversight, departments: [actor.department] });
+      return NextResponse.json({ stage: 'oversight', officerDone: true });
+    }
     await db.query('INSERT INTO ubec_oversight_reviews(round_component_id,department,reviewer_id,reviewer_name,note) VALUES($1,$2,$3,$4,$5)', [component.id, actor.department, actor.id, actor.full_name, input.note]);
     const id = await event('observations_done', input.note);
     await notifyUbec(db, planId, id, actor.id, { role: ubecRoles.director, departments: [component.department] });

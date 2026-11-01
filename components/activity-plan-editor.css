@@ -94,3 +94,7 @@
 .school-quantities li span { display: flex; flex-direction: column; min-width: 0; font-size: 13px; }
 .school-quantities li small { color: var(--muted-foreground); font-size: 12px; }
 .school-quantities p { margin: 0; font-size: 12.5px; color: #8a5300; }
+/* UBEC209: a document slot's template, beside its label */
+.line-document-template { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 12.5px; font-weight: 500; color: var(--primary); text-decoration: none; }
+.line-document-template:hover { text-decoration: underline; }
+.line-document-template svg { width: 14px; height: 14px; }

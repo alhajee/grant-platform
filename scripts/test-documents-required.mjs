@@ -38,7 +38,11 @@ const compulsoryIct = [{ id: 6, activity: 1, description: 'NDPA' }, { id: 7, act
 const ictLines = [{ id: 1, activity: 0, description: 'Spec', schools: [{ id: 1 }], documents: [] }, ...compulsoryIct];
 assert.match(componentReadinessProblem('ict', ictLines, null, { documentsRequired: true }) ?? '', /Upload the specification document/);
 assert.equal(componentReadinessProblem('ict', ictLines, null, { documentsRequired: false }), null);
-const tdLines = [{ id: 2, activity: 0, description: 'Reading', documents: [] }];
+// UBEC209: the Budget Breakdown and Training List of Participants are required whatever the setting.
+const tdBare = [{ id: 2, activity: 0, description: 'Reading', documents: [] }];
+assert.match(componentReadinessProblem('teachers', tdBare, { ictAllocation: '1.00' }, { documentsRequired: false }) ?? '', /budget breakdown for “Reading”/);
+assert.match(componentReadinessProblem('teachers', [{ ...tdBare[0], documents: [{ kind: 'budget' }] }], { ictAllocation: '1.00' }, { documentsRequired: false }) ?? '', /training list of participants/);
+const tdLines = [{ id: 2, activity: 0, description: 'Reading', documents: [{ kind: 'budget' }, { kind: 'participants' }] }];
 assert.match(componentReadinessProblem('teachers', tdLines, { ictAllocation: '1.00' }, { documentsRequired: true }) ?? '', /supporting documents/);
 assert.equal(componentReadinessProblem('teachers', tdLines, { ictAllocation: '1.00' }, { documentsRequired: false }), null);
 assert.match(componentReadinessProblem('ict', ictLines.slice(0, 1), null, { documentsRequired: false }) ?? '', /compulsory activity/, 'other readiness rules still apply');
@@ -86,6 +90,7 @@ const setRequired = async required => assert.equal(ok(await api('admin', setting
 const url = workstream => `/api/activities?plan=${planId}&workstream=${workstream}`;
 const ictLine = (activity, unitCost, extra = {}) => ({ workstream: 'ict', entity: 'line', action: 'create', activity, description: `DR ict ${activity}`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...extra });
 const training = (activity, unitCost) => ({ workstream: 'teachers', entity: 'line', action: 'create', activity, description: `DR training ${activity}`, quantity: 10, unitCost, trainingProvider: 'Special training provider approved by UBEC', targetParticipants: 'Teachers', schoolLevels: ['Primary'], trainingDays: 3, venueType: 'Hall', schoolIds: [] });
+const tdUpload = async (lineId, kind) => { const form = new FormData(); form.set('workstream', 'teachers'); form.set('lineId', String(lineId)); form.set('kind', kind); form.set('file', new Blob([Buffer.from('%PDF-1.4\n%%EOF\n')]), `${kind}.pdf`); return api('tpd', `/api/activities/line-documents?plan=${planId}`, form); };
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
 const ubecPath = () => `/api/ubec/review?plan=${planId}`;
 const ratForm = async withRat => {
@@ -143,6 +148,9 @@ try {
   assert.equal(ok(await api('ict', url('ict'))).documentsRequired, true);
   assert.equal(ok(await api('chair', `/api/plans/review?plan=${planId}`)).documentsRequired, true);
   fails(await review('ict', { action: 'submit', pillar: 'ict' }), 409, /Upload the specification document for “DR ict 0”/);
+  fails(await review('tpd', { action: 'submit', pillar: 'teachers' }), 409, /Upload the budget breakdown for “DR training 0”/);
+  const tdLine = ok(await api('tpd', url('teachers'))).lines[0].id;
+  for (const kind of ['budget', 'participants']) ok(await tdUpload(tdLine, kind));
   fails(await review('tpd', { action: 'submit', pillar: 'teachers' }), 409, /Upload the supporting documents for “DR training 0”/);
   step('Setting on: ICT and Teacher Development sends refused (409) until their documents are uploaded');
 

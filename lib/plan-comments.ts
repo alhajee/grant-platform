@@ -31,13 +31,13 @@ export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Sport / sub-activity', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty' },
   sbmc: { ...activityColumns, rationale: 'Rationale', approach: 'Implementation approach', ...activityTail },
   tlm: { ...activityColumns, material: 'Material type', subject: 'Subject', classes: 'Classes', ...activityTail },
-  distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', allocation: 'Allocation' },
+  distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', quantity: 'Qty.', allocation: 'Allocation' },
   monitoring: { ...activityColumns, frequency: 'Frequency', ...activityTail },
   gscci: { ...activityColumns, item: 'Item', ...activityTail },
-  gscciDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', allocation: 'Allocation' },
+  gscciDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', quantity: 'Qty.', allocation: 'Allocation' },
   pheDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners' },
   curriculum: { ...activityColumns, share: 'Activity share', ...activityTail },
-  curriculumDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', allocation: 'Allocation' },
+  curriculumDistribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', quantity: 'Qty.', allocation: 'Allocation' },
   quality: { ...activityColumns, equipment: 'Equipment', ...activityTail },
   ict: { ...activityColumns, details: 'Details', schools: 'Schools', documents: 'Documents', ...activityTail },
   teachers: { activity: 'Allowable activity', code: 'Code', provider: 'Training provider', participants: 'Target participants', levels: 'School level', days: 'Training days', venue: 'Venue', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' },
@@ -77,7 +77,7 @@ export function holdsComponent(user: Viewer, pillar: ImplementedPillar, status: 
   if (status === 'chairman_ready') return user.role === 'Executive Chairman';
   return false;
 }
-export type CommentAbilities = { start: boolean; reply: boolean; resolveAny: boolean; reopen: boolean };
+export type CommentAbilities = { start: boolean; reply: boolean; resolveAny: boolean; reopen: boolean; /** UBEC210: edit one's own comments on open threads (UBEC and observation threads) */ edit?: boolean };
 /** What a viewer may do on a component's threads at its current review stage (the plan must also be open). */
 export function commentAbilities(user: Viewer, pillar: ImplementedPillar, status: string): CommentAbilities {
   const view = canViewComponent({ role: user.role, departments: normalizeDepartments(departments(user)), isBeapChair: user.isBeapChair }, pillar);
@@ -106,10 +106,13 @@ export const createCommentSchema = z.union([
   z.object({ parentId: z.number().int().positive(), body }).strict(),
 ]);
 export const updateCommentSchema = z.object({ id: z.number().int().positive(), action: z.enum(['resolve', 'reopen']) }).strict();
+/** UBEC210: an observer corrects their own comment (UBEC and observation threads) before finishing their observations. */
+export const editCommentSchema = z.object({ id: z.number().int().positive(), action: z.literal('edit'), body }).strict();
+export const commentPatchSchema = z.union([updateCommentSchema, editCommentSchema]);
 /** UBEC threads the UBEC BEAP Chair ticks in the return dialog (app/api/ubec/review/route.ts). */
 export const shareCommentIdsSchema = z.array(z.number().int().positive()).max(500).refine(ids => new Set(ids).size === ids.length, 'Choose each comment once');
 
-export type PlanCommentReply = { id: number; body: string; authorName: string; authorRole: string; createdAt: string; mine: boolean };
+export type PlanCommentReply = { id: number; body: string; authorName: string; authorRole: string; createdAt: string; mine: boolean; /** UBEC210 */ editedAt?: string | null };
 export type PlanCommentThread = PlanCommentReply & {
   pillar: ImplementedPillar; sheet: CommentSheet; rowRef: string; columnId: string | null; targetLabel: string; submissionNumber: number;
   resolvedAt: string | null; resolvedByName: string | null; orphaned: boolean; replies: PlanCommentReply[];

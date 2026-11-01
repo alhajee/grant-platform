@@ -19,15 +19,12 @@
 .assess-component-docs svg, .assess-docs svg { width: 14px; height: 14px; flex: none; }
 .assess-items { min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .assess-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 12px 20px; border-bottom: 1px solid var(--border); }
-.assess-bulk { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; font-size: 13px; color: var(--muted-foreground); }
 .assess-list { flex: 1; min-height: 0; overflow: auto; margin: 0; padding: 14px 20px 24px; list-style: none; display: flex; flex-direction: column; gap: 10px; }
-.assess-item { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(170px, 220px); gap: 14px; align-items: start; padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 12px; background: var(--card); }
+.assess-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(170px, 220px); gap: 14px; align-items: start; padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 12px; background: var(--card); }
 .assess-item[data-decision=accept] { border-left-color: var(--primary); }
 .assess-item[data-decision=reject] { border-left-color: var(--destructive); }
 .assess-item[data-corrected]:not([data-decision=accept]):not([data-decision=reject]) { border-left-color: #e0a800; background: color-mix(in srgb, #f5c542 12%, var(--card)); }
 .assess-corrected { margin: 0; font-size: 12.5px; font-weight: 600; color: #8a5300; }
-.assess-item[data-selected] { background: color-mix(in srgb, var(--primary) 5%, var(--card)); }
-.assess-item > [data-slot=checkbox] { margin-top: 3px; }
 .assess-item-main { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .assess-item-head { display: flex; justify-content: space-between; gap: 12px; }
 .assess-item-head > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -61,14 +58,16 @@
 .assess-observed svg { width: 15px; height: 15px; }
 .assess-observations { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--primary) 5%, var(--card)); font-size: 13px; }
 .assess-observation p { margin: 0; overflow-wrap: anywhere; }
-.assess-observation-reply { padding-left: 12px; border-left: 2px solid var(--border); margin-top: 4px !important; }
+.assess-observation > b, .assess-observation-reply > b { font-size: 12.5px; }
+.assess-observation-text { display: block; }
+.assess-observation-reply { padding-left: 12px; border-left: 2px solid var(--border); margin-top: 4px; }
 .assess-observation small { color: var(--muted-foreground); font-size: 12px; }
 .assess-observation[data-resolved] { opacity: .7; }
 .assess-observation-add { display: flex; flex-direction: column; gap: 6px; }
 .assess-item-head b { white-space: nowrap; }
 .assess-list[data-layout=grid] { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); align-items: start; }
-.assess-list[data-layout=grid] .assess-item { grid-template-columns: auto minmax(0, 1fr); }
-.assess-list[data-layout=grid] .assess-item-decision { grid-column: 2; align-items: flex-start; text-align: left; }
+.assess-list[data-layout=grid] .assess-item { grid-template-columns: minmax(0, 1fr); }
+.assess-list[data-layout=grid] .assess-item-decision { grid-column: 1; align-items: flex-start; text-align: left; }
 .assess-list .assess-item[data-observing] { grid-template-columns: minmax(0, 1fr); }
 .assess-list .assess-item[data-observing] .assess-item-decision { grid-column: 1; grid-row: 1; flex-direction: row; align-items: center; justify-content: flex-start; text-align: left; }
 @media (max-width: 900px) {
@@ -76,7 +75,7 @@
   .assess-groups { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 16px; }
   .assess-groups button { flex: none; }
   .assess-component-docs { display: none; }
-  .assess-item { grid-template-columns: auto minmax(0, 1fr); }
-  .assess-item-decision { grid-column: 2; align-items: flex-start; text-align: left; }
+  .assess-item { grid-template-columns: minmax(0, 1fr); }
+  .assess-item-decision { grid-column: 1; align-items: flex-start; text-align: left; }
   .assess-head { padding-right: 48px; }
 }

@@ -14,7 +14,7 @@ export function LineExtrasDetail({ workstream, line }: { workstream: 'sbmc' | 't
   const withItems = schools.some(s => s.quantity);
   // One group per upload slot (TLM: BOQ and Sample of the item); optional slots only when they hold documents.
   const slots = lineDocumentSlots(workstream, line.activity);
-  const groups = slots.map(slot => ({ label: slot.label, governed: slot.governed, docs: documents.filter(d => (d.kind ?? 'document') === slot.kind) }))
+  const groups = slots.map(slot => ({ label: slot.label, governed: slot.governed || !!slot.always, docs: documents.filter(d => (d.kind ?? 'document') === slot.kind) }))
     .filter(group => group.governed || group.docs.length);
   const earlier = documents.filter(d => !slots.some(slot => slot.kind === (d.kind ?? 'document')));
   if (earlier.length) groups.push({ label: 'Earlier documents', governed: false, docs: earlier });

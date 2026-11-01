@@ -13,7 +13,8 @@ export const maxDefaultOfficers = 20;
 export type OfficerLimit = { department: ComponentDepartment; name: string; components: number; defaultLimit: number; limit: number; custom: boolean; active: number };
 
 /** One officer per component of the department. */
-export const defaultOfficerLimit = (department: ComponentDepartment) => Math.max(1, departmentPillars(department).length);
+// UBEC212 (1 November 2026): Sports, Quiz & Debate has a second default officer for Debate, so Academic Services gets one more.
+export const defaultOfficerLimit = (department: ComponentDepartment) => Math.max(1, departmentPillars(department).length + (department === 'academic' ? 1 : 0));
 
 /** "3 active, limit 2: no new officers until one is deactivated", or null when the department is within its limit. */
 export const overLimitWarning = (limit: Pick<OfficerLimit, 'active' | 'limit'>) =>

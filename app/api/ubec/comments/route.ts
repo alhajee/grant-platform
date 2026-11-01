@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPostgres } from '@/lib/postgres';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { isSameRequestOrigin } from '@/lib/request-origin';
-import { isUbec, ubecRoles, type UbecRound } from '@/lib/ubec';
+import { isOversightDepartment, isUbec, ubecRoles, type UbecRound } from '@/lib/ubec';
 import { implementedPillars } from '@/lib/beap-pillars';
-import { commentColumns, createCommentSchema, sheetPillar, sheetRows, targetLabel, ubecAbilities, updateCommentSchema } from '@/lib/plan-comments';
-import { readRoundRoot, readRoundRows, readViewerRounds, roundCellTaken, roundCutoff, roundOpen, toThreads, viewerPillars, type Db } from '@/lib/ubec-comments';
+import { commentColumns, commentPatchSchema, createCommentSchema, sheetPillar, sheetRows, targetLabel, ubecAbilities } from '@/lib/plan-comments';
+import { readOwnRoundComment, readRoundRoot, readRoundRows, readViewerRounds, roundCellTaken, roundCutoff, roundOpen, toThreads, viewerPillars, type Db } from '@/lib/ubec-comments';
 
 // UBEC review comments (migrations 029, 055). Every UBEC reviewer comments on the components of the round they
 // can see (lib/ubec-flow-db.ts: the BEAP Chair all, a Director their department's once released, Oversight once sent
@@ -38,10 +38,20 @@ export async function GET(request: NextRequest) {
       const rows = await readRoundRows(db, planId, round, pillars, cutoff);
       // UBEC149: on components outside their own work, units leave observative comments: start and reply only.
       const own = await viewerPillars(db, round, viewer, { wide: false });
-      const abilities = Object.fromEntries(implementedPillars.filter(p => pillars.includes(p)).map(p => { const a = ubecAbilities(true, open, user.role); return [p, own.includes(p) ? a : { ...a, resolveAny: false, reopen: false }]; }));
+      const closed = open ? await observationsRecorded(db, round, { id: user.userId, role: user.role, department: user.department }) : new Set<string>();
+      const abilities = Object.fromEntries(implementedPillars.filter(p => pillars.includes(p)).map(p => { const a = { ...ubecAbilities(true, open, user.role), edit: open && user.role !== ubecRoles.es && !closed.has(p) }; return [p, own.includes(p) ? a : { ...a, resolveAny: false, reopen: false }]; }));
       return NextResponse.json({ threads: toThreads(rows, user.userId, round.snapshot, { cutoff, withSharing: true }), locked: !open, abilities, scope: 'ubec', roundId: round.id }, { headers: noStore });
     });
   } catch (cause) { console.error('UBEC comments could not be loaded', cause); return error('Unable to load comments. Please try again.', 503); }
+}
+
+/** UBEC210: components on which an Oversight Department's Director or officer has finished observing, so their comments no longer change. */
+async function observationsRecorded(db: Db, round: UbecRound, viewer: { id: number; role: string; department: string | null }) {
+  if (!isOversightDepartment(viewer.department) || (viewer.role !== ubecRoles.oversight && viewer.role !== ubecRoles.officer)) return new Set<string>();
+  const rows = (await db.query<{ pillar: string }>(`SELECT c.pillar FROM ubec_round_components c WHERE c.round_id=$1 AND (c.stage<>'oversight'
+    OR EXISTS (SELECT 1 FROM ubec_oversight_reviews r WHERE r.round_component_id=c.id AND r.department=$2)
+    OR ($3 AND EXISTS (SELECT 1 FROM ubec_oversight_assignments a WHERE a.round_component_id=c.id AND a.officer_id=$4 AND a.removed_at IS NULL AND a.completed_at IS NOT NULL)))`, [round.id, viewer.department, viewer.role === ubecRoles.officer, viewer.id])).rows;
+  return new Set(rows.map(r => r.pillar));
 }
 
 /** Shared guard for writes: same origin, a current UBEC account, and the plan's latest round still open. */
@@ -98,10 +108,20 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const parsed = updateCommentSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return error('Choose a comment to resolve or reopen');
+    const parsed = commentPatchSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return error(parsed.error.issues.find(issue => issue.path[0] === 'body')?.message ?? 'Choose a comment to resolve, reopen or edit');
     const input = parsed.data;
     return await withOpenRound(request, async (db, { planId, round, pillars, actor, own }) => {
+      if (input.action === 'edit') {
+        // UBEC210: authors correct their own comments while the thread is open; an Oversight Department's people only
+        // until their observations on the component are recorded (the department's, or the officer's own).
+        const mine = await readOwnRoundComment(db, planId, round, pillars, input.id, actor.id);
+        if (!mine) return error('Only the comment\'s author can edit it', 404);
+        if (mine.thread_resolved) return error('This comment is resolved and can no longer be edited', 409);
+        if ((await observationsRecorded(db, round, actor)).has(mine.pillar)) return error('Your observations on this component are recorded, so this comment can no longer be edited', 409);
+        if (mine.body !== input.body) await db.query('UPDATE plan_comments SET body=$1, edited_at=NOW() WHERE id=$2', [input.body, mine.id]);
+        return NextResponse.json({ id: Number(mine.id), edited: true });
+      }
       const root = await readRoundRoot(db, planId, round, pillars, input.id);
       if (!root) return error('Comment not found', 404);
       // UBEC149: observers of another unit's component resolve only their own comments and never reopen.

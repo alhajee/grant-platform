@@ -1,6 +1,6 @@
 'use client';
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
-import { CheckIcon, RotateCcwIcon } from 'lucide-react';
+import { CheckIcon, PencilIcon, RotateCcwIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,12 +19,36 @@ export function relativeTime(iso: string) {
 }
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]?.toUpperCase()).join('') || '?';
 
-function Entry({ comment }: { comment: PlanCommentReply }) {
+/**
+ * A comment's text. UBEC210: its author may correct it (`onEdit`) while their department is still observing; an edited
+ * comment says so.
+ */
+export function EditableCommentBody({ comment, onEdit, className = 'wb-comment-body' }: { comment: PlanCommentReply; onEdit?: (body: string) => Promise<boolean>; className?: string }) {
+  const [editing, setEditing] = useState(false), [text, setText] = useState(comment.body), [saving, setSaving] = useState(false);
+  async function save(event?: FormEvent) {
+    event?.preventDefault();
+    const body = text.trim(); if (!body || saving || !onEdit) return;
+    if (body === comment.body) { setEditing(false); return; }
+    setSaving(true);
+    const ok = await onEdit(body);
+    setSaving(false);
+    if (ok) setEditing(false);
+  }
+  if (editing) return <form className="wb-comment-edit" onSubmit={event => void save(event)}>
+    <Textarea aria-label="Edit comment" value={text} rows={2} maxLength={commentBodyLimit} autoFocus disabled={saving} onChange={event => setText(event.target.value)}
+      onKeyDown={event => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); void save(); } if (event.key === 'Escape') { event.stopPropagation(); setEditing(false); setText(comment.body); } }} />
+    <div className="wb-thread-actions"><Button type="button" size="sm" variant="ghost" disabled={saving} onClick={() => { setEditing(false); setText(comment.body); }}>Cancel</Button><Button type="submit" size="sm" disabled={!text.trim() || saving}>{saving && <Spinner data-icon="inline-start" />}Save</Button></div>
+  </form>;
+  return <p className={className}>{comment.body}{comment.editedAt && <span className="wb-comment-edited" title={`Edited ${exact.format(new Date(comment.editedAt))}`}> (edited)</span>}
+    {onEdit && <Button type="button" size="icon-xs" variant="ghost" className="wb-comment-edit-button" aria-label="Edit your comment" title="Edit your comment" onClick={() => { setText(comment.body); setEditing(true); }}><PencilIcon /></Button>}</p>;
+}
+
+function Entry({ comment, onEdit }: { comment: PlanCommentReply; onEdit?: (body: string) => Promise<boolean> }) {
   return <li className="wb-comment">
     <span className="wb-comment-avatar" aria-hidden="true">{initials(comment.authorName)}</span>
     <div className="wb-comment-main">
       <p className="wb-comment-meta"><strong>{comment.authorName}</strong><span>{comment.authorRole} · <time dateTime={comment.createdAt} title={exact.format(new Date(comment.createdAt))}>{relativeTime(comment.createdAt)}</time></span></p>
-      <p className="wb-comment-body">{comment.body}</p>
+      <EditableCommentBody comment={comment} onEdit={onEdit} />
     </div>
   </li>;
 }
@@ -50,6 +74,7 @@ export function CommentThread({ controller, thread, target, label, onClose, auto
   const mayWrite = thread ? can.reply && !resolved : can.start;
   const mayResolve = !!thread && !resolved && (can.resolveAny || (thread.mine && can.reply));
   const mayReopen = !!thread && resolved && can.reopen;
+  const mayEdit = (comment: PlanCommentReply) => !!thread && !resolved && !controller.readOnly && !!can.edit && comment.mine && thread.scope === controller.scope;
   async function submit(event?: FormEvent) {
     event?.preventDefault();
     const body = text.trim(); if (!body || busy) return;
@@ -75,7 +100,7 @@ export function CommentThread({ controller, thread, target, label, onClose, auto
     </div>
     {thread?.orphaned && <p className="wb-thread-note">No longer in the plan</p>}
     {resolved && <p className="wb-thread-note">Resolved by {thread?.resolvedByName ?? 'a reviewer'} · {relativeTime(thread!.resolvedAt!)}</p>}
-    {thread && <ol className="wb-thread-list" aria-label="Comments">{[thread, ...thread.replies].map(comment => <Entry key={comment.id} comment={comment} />)}</ol>}
+    {thread && <ol className="wb-thread-list" aria-label="Comments">{[thread, ...thread.replies].map(comment => <Entry key={comment.id} comment={comment} onEdit={mayEdit(comment) ? body => controller.edit(comment.id, body) : undefined} />)}</ol>}
     {mayWrite && !controller.readOnly && <form className="wb-thread-form" onSubmit={event => void submit(event)}>
       <Textarea aria-label={thread ? 'Reply' : 'Comment'} placeholder={thread ? 'Reply…' : 'Add a comment…'} value={text} onChange={event => setText(event.target.value)} onKeyDown={onKey} maxLength={commentBodyLimit} autoFocus={autoFocus} disabled={busy === 'send'} rows={thread ? 2 : 3} />
       <div className="wb-thread-actions">

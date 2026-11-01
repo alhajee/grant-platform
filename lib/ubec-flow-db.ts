@@ -74,7 +74,7 @@ export async function readRoundComponents(db: Db, round: Pick<UbecRound, 'id' | 
   const officers = (await db.query<{ id: number; round_component_id: number; officer_id: number; officer_name: string; assigned_by_name: string; comment: string; created_at: Date; completed_at: Date | null; completion_note: string }>('SELECT * FROM ubec_officer_assignments WHERE round_component_id=ANY($1::int[]) AND removed_at IS NULL ORDER BY id', [ids])).rows;
   const reports = (await db.query<{ id: string; round_component_id: number; name: string; size: number; officer_id: number; officer_name: string; created_at: Date }>('SELECT id,round_component_id,name,size,officer_id,officer_name,created_at FROM ubec_validation_reports WHERE round_component_id=ANY($1::int[]) AND removed_at IS NULL ORDER BY created_at', [ids])).rows;
   const oversight = (await db.query<{ round_component_id: number; department: OversightReview['department']; reviewer_name: string; note: string; completed_at: Date }>('SELECT * FROM ubec_oversight_reviews WHERE round_component_id=ANY($1::int[]) ORDER BY id', [ids])).rows;
-  const observers = (await db.query<{ id: number; round_component_id: number; department: ObserverAssignment['department']; officer_id: number; officer_name: string; assigned_by_name: string; comment: string; created_at: Date }>('SELECT * FROM ubec_oversight_assignments WHERE round_component_id=ANY($1::int[]) AND removed_at IS NULL ORDER BY id', [ids])).rows;
+  const observers = (await db.query<{ id: number; round_component_id: number; department: ObserverAssignment['department']; officer_id: number; officer_name: string; assigned_by_name: string; comment: string; created_at: Date; completed_at: Date | null; completion_note: string }>('SELECT * FROM ubec_oversight_assignments WHERE round_component_id=ANY($1::int[]) AND removed_at IS NULL ORDER BY id', [ids])).rows;
   return components.map((c): FlowComponent => {
     const items = componentItems(round.snapshot, c.pillar);
     return {
@@ -84,7 +84,7 @@ export async function readRoundComponents(db: Db, round: Pick<UbecRound, 'id' | 
       oversight: oversight.filter(o => o.round_component_id === c.id).map(o => ({ department: o.department, reviewerName: o.reviewer_name, note: o.note, completedAt: iso(o.completed_at)! })),
       counts: decisionCounts(items, decisions.filter(d => d.pillar === c.pillar)), amount: componentAmount(round.snapshot, c.pillar),
       validationReports: reports.filter(r => r.round_component_id === c.id).map(r => ({ id: r.id, name: r.name, size: r.size, officerId: r.officer_id, officerName: r.officer_name, createdAt: iso(r.created_at)! })),
-      observers: observers.filter(o => o.round_component_id === c.id).map(o => ({ id: o.id, department: o.department, officerId: o.officer_id, officerName: o.officer_name, assignedByName: o.assigned_by_name, comment: o.comment, createdAt: iso(o.created_at)! })),
+      observers: observers.filter(o => o.round_component_id === c.id).map(o => ({ id: o.id, department: o.department, officerId: o.officer_id, officerName: o.officer_name, assignedByName: o.assigned_by_name, comment: o.comment, createdAt: iso(o.created_at)!, completedAt: iso(o.completed_at), completionNote: o.completion_note })),
     };
   });
 }
@@ -128,7 +128,7 @@ export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status
     override: atDirector.filter(ownDepartment).map(c => c.pillar),
     observe: withOversight.filter(() => viewer.role === ubecRoles.oversight).map(c => c.pillar),
     assignObservers: withOversight.filter(() => viewer.role === ubecRoles.oversight).map(c => c.pillar),
-    comment: withOversight.filter(c => viewer.role === ubecRoles.officer && c.observers.some(o => o.officerId === viewer.id)).map(c => c.pillar),
+    comment: withOversight.filter(c => viewer.role === ubecRoles.officer && c.observers.some(o => o.officerId === viewer.id && !o.completedAt)).map(c => c.pillar),
   };
 }
 

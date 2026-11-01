@@ -5,7 +5,7 @@ import { isSameRequestOrigin } from '@/lib/request-origin';
 import { statePlanOpen } from '@/lib/pillar-review';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { implementedPillars } from '@/lib/beap-pillars';
-import { commentColumns, createCommentSchema, sheetPillar, sheetRows, targetLabel, ubecAbilities, updateCommentSchema } from '@/lib/plan-comments';
+import { commentColumns, commentPatchSchema, createCommentSchema, sheetPillar, sheetRows, targetLabel, ubecAbilities } from '@/lib/plan-comments';
 import { commentFields, toThreads, type CommentRow, type Db } from '@/lib/ubec-comments';
 import { mayObserve, observationViewer, type ObservationViewer } from '@/lib/observation-requests';
 import { readObservationRequests } from '@/lib/observation-requests-db';
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       const open = mayObserve(viewer, await readObservationRequests(db, plan.id));
       // After sending back, the department still replies to the SUBEB and resolves its threads (UBEC193).
       const answer = !viewer.chair;
-      const abilities = Object.fromEntries(implementedPillars.map(p => [p, { ...ubecAbilities(true, open, user.role), reply: open || answer, resolveAny: open || answer }]));
+      const abilities = Object.fromEntries(implementedPillars.map(p => [p, { ...ubecAbilities(true, open, user.role), reply: open || answer, resolveAny: open || answer, edit: open }]));
       return NextResponse.json({ threads: toThreads(rows, user.userId, await readPlanSnapshot(db, plan.id)), locked: !open, abilities, scope: 'observation' }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Observation comments could not be loaded', cause); return error('Unable to load comments. Please try again.', 503); }
@@ -102,10 +102,19 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const parsed = updateCommentSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return error('Choose a comment to resolve or reopen');
+    const parsed = commentPatchSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return error(parsed.error.issues.find(issue => issue.path[0] === 'body')?.message ?? 'Choose a comment to resolve, reopen or edit');
     const input = parsed.data;
     return await withOpenRequest(request, async (db, { plan, actor, department }) => {
+      if (input.action === 'edit') {
+        // UBEC210: the author corrects their own observation while the department is still observing (before sending back).
+        const mine = (await db.query<CommentRow & { thread_resolved: boolean }>(`SELECT ${commentFields()}, root.resolved_at IS NOT NULL AS thread_resolved FROM plan_comments c JOIN plan_comments root ON root.id=COALESCE(c.parent_id,c.id)
+          WHERE c.id=$1 AND c.plan_id=$2 AND c.scope='observation' AND c.observation_department=$3 AND c.author_id=$4 FOR UPDATE OF c`, [input.id, plan.id, department, actor.id])).rows[0];
+        if (!mine) return error('Only the comment\'s author can edit it', 404);
+        if (mine.thread_resolved) return error('This comment is resolved and can no longer be edited', 409);
+        if (mine.body !== input.body) await db.query('UPDATE plan_comments SET body=$1, edited_at=NOW() WHERE id=$2', [input.body, mine.id]);
+        return NextResponse.json({ id: Number(mine.id), edited: true });
+      }
       const root = (await db.query<CommentRow>(rootSql, [input.id, plan.id, department])).rows[0];
       if (!root) return error('Comment not found', 404);
       if (input.action === 'resolve') {

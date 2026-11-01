@@ -60,14 +60,14 @@ export function RatToolsCard({ limit = 8 }: { limit?: number }) {
     return () => { active = false; };
   }, [reload]);
   const shown = plans ? (all ? plans : plans.slice(0, limit)) : [];
-  return <Card className="rat-tools-card"><CardHeader><CardTitle>RAT tools {plans && <Badge variant="secondary">{plans.length}</Badge>}</CardTitle><CardDescription>The Rapid Assessment Tool of each plan sent to UBEC. Accept it, or reject it with a comment for the SUBEB to correct</CardDescription></CardHeader><CardContent>
+  return <Card className="rat-tools-card"><CardHeader><CardTitle>RAT tools {plans && <Badge variant="secondary">{plans.length}</Badge>}</CardTitle><CardDescription>The Rapid Assessment Tool of each plan sent to UBEC, every upload kept (newest first). Accept it, or reject it with a comment for the SUBEB to correct</CardDescription></CardHeader><CardContent>
     {error ? <p className="text-sm text-destructive" role="alert">{error}</p>
       : !plans ? <Skeleton className="h-32 w-full rounded-xl" />
       : !plans.length ? <UbecEmpty art={<NoItemsArt />} title="No plans sent to UBEC yet" compact>RAT tools appear here when a SUBEB sends its plan</UbecEmpty>
       : <>
         <ul className="rat-tools-list">{shown.map(plan => <li key={plan.planId}>
           <div><strong>{plan.state} · {plan.period}</strong><small>Sent {date.format(new Date(plan.submittedAt))} · {nationalStatusLabels[plan.status] ?? plan.status}</small>{plan.review && <small className="rat-tools-review" data-decision={plan.review.decision}>{plan.review.decision === 'accept' ? 'RAT accepted' : `RAT rejected: “${plan.review.comment}”`} · {plan.review.reviewerName}</small>}</div>
-          <span className="rat-tools-files">{plan.documents.length ? plan.documents.map(doc => <Button key={doc.id} asChild size="sm" variant="outline" className="rounded-full"><a href={`/api/plans/documents?id=${doc.id}`} download={doc.name} title={doc.name}><FileSpreadsheetIcon data-icon="inline-start" /><span className="rat-tools-name">{doc.name}</span><small>{kb(doc.size)}</small><DownloadIcon data-icon="inline-end" /></a></Button>) : <small className="text-muted-foreground">No RAT uploaded</small>}{open(plan) && plan.documents.length > 0 && <RatDecisionControls plan={plan} onDecided={() => setReload(n => n + 1)} />}</span>
+          <span className="rat-tools-files">{plan.documents.length ? plan.documents.map((doc, index) => <Button key={doc.id} asChild size="sm" variant="outline" className="rounded-full"><a href={`/api/plans/documents?id=${doc.id}`} download={doc.name} title={`${doc.name} · uploaded ${date.format(new Date(doc.uploadedAt))}`}><FileSpreadsheetIcon data-icon="inline-start" /><span className="rat-tools-name">{doc.name}</span><small>{index === 0 && plan.documents.length > 1 ? 'Latest · ' : ''}{date.format(new Date(doc.uploadedAt))} · {kb(doc.size)}</small><DownloadIcon data-icon="inline-end" /></a></Button>) : <small className="text-muted-foreground">No RAT uploaded</small>}{open(plan) && plan.documents.length > 0 && <RatDecisionControls plan={plan} onDecided={() => setReload(n => n + 1)} />}</span>
         </li>)}</ul>
         {plans.length > limit && <Button variant="ghost" size="sm" className="rounded-full mt-2" onClick={() => setAll(!all)}>{all ? 'Show fewer' : `Show all ${plans.length}`}</Button>}
       </>}

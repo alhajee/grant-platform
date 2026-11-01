@@ -129,9 +129,9 @@ try {
   // UBEC149: officers see every released component's threads (their own and the ones they observe).
   assert.equal(revAView.length, 6); assert.equal(revSView.length, 6);
   for (const view of [esView, revAView, revSView]) assert.ok(!JSON.stringify(view).includes('STATE-INTERNAL'), 'UBEC must never see state-scope comments');
-  assert.deepEqual(ok(await api('revA', ubec)).abilities.sbmc, { start: true, reply: true, resolveAny: false, reopen: false }, 'observers comment but do not resolve or reopen'); assert.equal(ok(await api('revA', ubec)).abilities.sports.resolveAny, true);
+  assert.deepEqual(ok(await api('revA', ubec)).abilities.sbmc, { start: true, reply: true, resolveAny: false, reopen: false, edit: true }, 'observers comment but do not resolve or reopen'); assert.equal(ok(await api('revA', ubec)).abilities.sports.resolveAny, true);
   assert.equal(ok(await api('uchair', ubec)).threads.length, 6);
-  assert.deepEqual(ok(await api('es', ubec)).abilities.sports, { start: false, reply: false, resolveAny: false, reopen: false }, 'the ES is read-only');
+  assert.deepEqual(ok(await api('es', ubec)).abilities.sports, { start: false, reply: false, resolveAny: false, reopen: false, edit: false }, 'the ES is read-only');
   step('visibility: the ES and UBEC BEAP Chair see all 6 threads; officers see every thread, and on other units\' components they only comment (UBEC149); no state-scope text');
 
   ok(await api('revA', ubec, { parentId: t5, body: 'REV-A-REPLY: agreed with the ES.' }), 201);

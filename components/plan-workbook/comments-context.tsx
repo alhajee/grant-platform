@@ -19,6 +19,8 @@ export type CommentsController = {
   create: (sheet: CommentSheet, rowRef: string, columnId: string | null, body: string) => Promise<boolean>;
   reply: (parentId: number, body: string) => Promise<boolean>;
   setResolved: (id: number, resolved: boolean) => Promise<boolean>;
+  /** UBEC210: correct one's own comment (UBEC and observation threads). */
+  edit: (id: number, body: string) => Promise<boolean>;
   openCount: (pillar: ImplementedPillar, scope?: CommentScope) => number;
 };
 /** Where the comments live: the state API for the SUBEB review page, the UBEC API (optionally a saved round) for UBEC. */
@@ -72,12 +74,15 @@ export function usePlanComments(planId: number | undefined, enabled: boolean, re
   const setResolved = useCallback(async (id: number, resolved: boolean) => {
     const ok = await send(source, 'PATCH', { id, action: resolved ? 'resolve' : 'reopen' }); if (ok) { await load(); toast.success(resolved ? 'Comment resolved' : 'Comment reopened'); } return ok;
   }, [load, source]);
+  const edit = useCallback(async (id: number, body: string) => {
+    const ok = await send(source, 'PATCH', { id, action: 'edit', body }); if (ok) { await load(); toast.success('Comment updated'); } return ok;
+  }, [load, source]);
   const controller = useMemo<CommentsController>(() => ({
-    threads, readOnly: !data || data.locked, loaded: !!data, active, setActive, create, reply, setResolved, scope,
+    threads, readOnly: !data || data.locked, loaded: !!data, active, setActive, create, reply, setResolved, edit, scope,
     abilities: (pillar, of = scope) => !data || data.locked ? none : (of === scope ? data.abilities : data.otherAbilities ?? {})[pillar] ?? none,
     startHint: data?.locked ? 'Comments are read-only for this plan' : scope === 'ubec' ? 'Only the UBEC ES and the reviewers assigned to this component can comment on it' : scope === 'observation' ? 'Only a department asked for observations can comment, until it sends them back' : 'Only the reviewer currently holding this component can start comments',
     openCount: (pillar, of = scope) => threads.filter(t => t.pillar === pillar && !t.resolvedAt && t.scope === of).length,
-  }), [threads, data, active, create, reply, setResolved, scope]);
+  }), [threads, data, active, create, reply, setResolved, edit, scope]);
   return enabled && planId ? controller : null;
 }
 

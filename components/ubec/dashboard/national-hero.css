@@ -269,3 +269,10 @@
 /* The legend starts after the zoom buttons so the two never overlap on a narrower map (UBEC202 moved the map's right edge). */
 .nh-map .nm-legend { left: 132px; right: 0; transform: none; width: max-content; max-width: calc(100% - 132px); flex-wrap: wrap; white-space: normal; }
 .nh-deliv li span { white-space: normal; line-height: 1.25; }
+/* UBEC211: SUBEBs that have sent a plan */
+.nh-sent-bar { height: 8px; border-radius: 999px; background: #e8efeb; overflow: hidden; }
+.nh-sent-bar span { display: block; height: 100%; border-radius: inherit; background: #2f8f5b; }
+.nh-sent-label { margin: 4px 0 0; font-size: 12px; font-weight: 600; color: var(--muted-foreground); }
+.nh-sent-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.nh-sent-list li { padding: 3px 9px; border-radius: 999px; background: #f4f7f5; font-size: 12.5px; }
+.nh-sent-list li[data-more] { background: none; color: var(--muted-foreground); }

@@ -62,12 +62,12 @@ try {
 
   // Defaults: one officer per component of the department.
   const initial = await adminSettings();
-  assert.deepEqual(Object.fromEntries(initial.departments.map(d => [d.department, d.defaultLimit])), { physical: 2, planning: 1, academic: 4, teachers: 1, digital: 1, quality: 1, social: 1 });
+  assert.deepEqual(Object.fromEntries(initial.departments.map(d => [d.department, d.defaultLimit])), { physical: 2, planning: 1, academic: 5, teachers: 1, digital: 1, quality: 1, social: 1 });
   assert.ok(initial.departments.every(d => d.limit === d.defaultLimit && !d.custom), 'without a row the limit is the default');
   assert.deepEqual(department(initial, 'physical').components.map(c => c.pillar), ['infrastructure', 'monitoring']);
   assert.deepEqual(department(initial, 'academic').components.map(c => c.pillar).sort(), ['curriculum', 'gscci', 'sports', 'tlm']);
   assert.ok(department(initial, 'quality').officers.some(o => o.id === users.offQ), 'each department lists its active officers');
-  step('default limits: Physical Planning 2, Academic Services 4, the others 1; each department lists its components and active officers');
+  step('default limits: Physical Planning 2, Academic Services 5 (Debate, UBEC212), the others 1; each department lists its components and active officers');
 
   // Permissions.
   fails(await api('desP', '/api/admin/ubec-officers'), 403); fails(await api('dpp', '/api/admin/ubec-officers', { limits: [{ department: 'quality', limit: 5 }] }, 'PUT'), 403);

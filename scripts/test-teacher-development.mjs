@@ -38,7 +38,7 @@ const training = (activity, unitCost, extra = {}) => ({ workstream: 'teachers', 
 const ictLine = (activity, unitCost, extra = {}) => ({ workstream: 'ict', entity: 'line', action: 'create', activity, description: `TD ict ${activity}`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...extra });
 const split = (who, side, amount) => api(who, `/api/activities/ict-allocation?plan=${planId}`, { amount, side }, { method: 'PATCH' });
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
-const upload = async (who, lineId, name, bytes, workstream = 'teachers') => { const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); form.set('file', new Blob([bytes]), name); return api(who, `/api/activities/line-documents?plan=${planId}`, form); };
+const upload = async (who, lineId, name, bytes, workstream = 'teachers', kind = 'document') => { const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); form.set('kind', kind); form.set('file', new Blob([bytes]), name); return api(who, `/api/activities/line-documents?plan=${planId}`, form); };
 const allocation = async () => (await db.query('SELECT ict_allocation::text AS v FROM action_plans WHERE id=$1', [planId])).rows[0].v;
 
 const pdf = Buffer.from('%PDF-1.4\n% TD MoU\n%%EOF\n');
@@ -136,15 +136,22 @@ try {
   fails(await upload('tpd', literacy.id, 'fake.pdf', Buffer.from('not a pdf')), 400, /PDF or Excel/);
   fails(await upload('ict', literacy.id, 'mou.pdf', pdf), 403);
   const mou = ok(await upload('tpd', literacy.id, 'mou.pdf', pdf));
-  ok(await upload('tpd', literacy.id, 'budget.xlsx', xlsx));
+  // UBEC209: the Budget Breakdown and the Training List of Participants are their own uploads.
+  ok(await upload('tpd', literacy.id, 'budget.xlsx', xlsx, 'teachers', 'budget'));
+  ok(await upload('tpd', literacy.id, 'participants.xlsx', xlsx, 'teachers', 'participants'));
+  fails(await upload('tpd', literacy.id, 'boq.xlsx', xlsx, 'teachers', 'boq'), 400, /which document/);
   tpd = ok(await api('tpd', url('teachers')));
-  assert.deepEqual(tpd.lines.find(l => l.id === literacy.id).documents.map(d => d.name), ['mou.pdf', 'budget.xlsx']);
+  assert.deepEqual(tpd.lines.find(l => l.id === literacy.id).documents.map(d => [d.name, d.kind]), [['mou.pdf', 'document'], ['budget.xlsx', 'budget'], ['participants.xlsx', 'participants']]);
   const download = await api('tpd', `/api/activities/line-documents?id=${mou.id}`);
   assert.equal(download.status, 200); assert.deepEqual(download.bytes, pdf);
   fails(await api('ict', `/api/activities/line-documents?id=${mou.id}`), 404);
   step('Supporting documents: PDF/Excel only, signature-checked, visible to the component');
 
   // Sending needs documents on every line.
+  fails(await review('tpd', { action: 'submit', pillar: 'teachers' }), 409, /budget breakdown for “Peer coaching circles”/);
+  ok(await upload('tpd', others.id, 'budget.pdf', pdf, 'teachers', 'budget'));
+  fails(await review('tpd', { action: 'submit', pillar: 'teachers' }), 409, /training list of participants for “Peer coaching circles”/);
+  ok(await upload('tpd', others.id, 'participants.pdf', pdf, 'teachers', 'participants'));
   fails(await review('tpd', { action: 'submit', pillar: 'teachers' }), 409, /supporting documents for “Peer coaching circles”/);
   ok(await upload('tpd', others.id, 'list.pdf', pdf));
   fails(await review('ict', { action: 'submit', pillar: 'teachers' }), 403);
@@ -152,7 +159,7 @@ try {
   const draftChairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
   assert.ok(!draftChairView.visiblePillars.includes('teachers')); assert.equal(draftChairView.snapshot.teachers, undefined);
   const snapLine = ok(await api('tpd', `/api/plans/review?plan=${planId}`)).snapshot.teachers.find(l => l.id === literacy.id);
-  assert.deepEqual([snapLine.training_provider, snapLine.school_levels, snapLine.training_days, snapLine.venue_type, snapLine.documents.length], ['International Development Partners', ['Primary', 'JSS'], 4, 'Hall', 2]);
+  assert.deepEqual([snapLine.training_provider, snapLine.school_levels, snapLine.training_days, snapLine.venue_type, snapLine.documents.length], ['International Development Partners', ['Primary', 'JSS'], 4, 'Hall', 3]);
   const ictView = ok(await api('ict', `/api/plans/review?plan=${planId}`));
   assert.equal(ictView.snapshot.teachers, undefined);
   assert.equal(ok(await api('tpd', `/api/beap?plan=${planId}`)).teachers.budget, 15000000);
@@ -168,7 +175,7 @@ try {
   assert.ok(comment.id);
   ok(await review('tpdDirector', { action: 'endorse', pillar: 'teachers' }));
   const chairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
-  assert.ok(chairView.visiblePillars.includes('teachers')); assert.equal(chairView.snapshot.teachers.find(l => l.id === literacy.id).documents.length, 2);
+  assert.ok(chairView.visiblePillars.includes('teachers')); assert.equal(chairView.snapshot.teachers.find(l => l.id === literacy.id).documents.length, 3);
   ok(await review('chair', { action: 'forward', pillar: 'teachers' }));
   assert.equal(ok(await api('ec', '/api/plans')).plans.find(p => p.id === planId).teachersBudget, 15000000);
   assert.equal(ok(await api('ec', `/api/plans/review?plan=${planId}`)).pillarReviews.find(r => r.pillar === 'teachers').status, 'chairman_ready');

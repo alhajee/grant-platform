@@ -35,7 +35,7 @@ const completeSnapshot = {
   quality:[2,3,6,7,8,9,10].map(activity=>({id:activity,activity,description:'QA'})),
   ict:[{id:17,activity:1,description:'NDPA'},{id:18,activity:5,description:'Internet'},{id:12,activity:2,description:'Smart',schools:[{id:1}]},{id:13,activity:3,description:'Connect',documents:[{id:'d'}]},{id:16,activity:6,description:'Website'}],
   // Teacher Development (migration 040): every line needs supporting documents and the shared budget split must be set.
-  teachers:[{id:30,activity:0,description:'',documents:[{id:'t'}]}], setup:{ictAllocation:'100.00'},
+  teachers:[{id:30,activity:0,description:'',documents:[{id:'t'},{id:'b',kind:'budget'},{id:'p',kind:'participants'}]}], setup:{ictAllocation:'100.00'},
   // Planning, EMIS & Data Platform (migration 041): every compulsory activity.
   planning:[0,2,3,5].map(activity=>({id:40+activity,activity,description:'Planning'})),
   infrastructureDocuments:[{kind:'drawings'},{kind:'boq',schoolId:1},{kind:'survey',schoolId:1},{id:'l',kind:'land',schoolId:1},{id:'a',kind:'land_area',schoolId:1}],

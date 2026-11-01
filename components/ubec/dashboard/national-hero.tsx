@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { planDeliverableLabels, sumPlanDeliverables } from '@/lib/plan-deliverables';
-import { ArrowLeft, ArrowUpRight, Landmark, SendIcon } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Landmark } from 'lucide-react';
 import { componentPalette } from '@/components/dashboard/component-budgets';
 import states from '@/lib/nigeria-map.json';
 import { implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
@@ -18,7 +18,7 @@ import { nairaFormat, compactNairaFormat } from '@/lib/money-format';
 import './national-hero.css';
 
 // The UBEC Overview for the ES and BEAP Chair: Nigeria as the centrepiece (no card; it blends into the page) beside
-// the headline figures; then the next step, the review pipeline and the latest plans.
+// the headline figures; then the plans, the SUBEBs yet to send, the review pipeline and the latest plans.
 const money = compactNairaFormat(1);
 const count = new Intl.NumberFormat('en-NG');
 const stages = ['received', 'reviewing', 'returned', 'approved'] as const;
@@ -82,15 +82,17 @@ function HeroDeliverables({ data, code }: { data: UbecDashboard; code: string | 
 export function NationalGlance({ data }: { data: UbecDashboard }) {
   const s = summarizePlans(data.items);
   const byDate = [...data.items].sort((a, b) => +new Date(b.submittedAt) - +new Date(a.submittedAt));
-  const waiting = byDate.filter(p => p.status === 'received'), latest = byDate.slice(0, 4);
+  const latest = byDate.slice(0, 4);
+  const sent = new Set(data.items.map(p => normalizeStateCode(p.stateCode))), missing = states.filter(st => !sent.has(st.code));
   return <div className="nh">
     <section className="nh-row" aria-label="At a glance">
+      {/* UBEC211: the "Next step" card gave way to the SUBEBs that have not sent a plan yet. */}
       <article className="nh-card nh-next">
-        <header className="nh-next-head"><span className="nh-orb" aria-hidden="true" /><span>Next step</span></header>
-        <p className="nh-next-count"><strong>{count.format(s.received)}</strong>{s.received === 1 ? 'plan waiting to be released' : 'plans waiting to be released'}</p>
-        {waiting.length > 0 ? <ul className="nh-next-list">{waiting.slice(0, 3).map(p => <li key={p.id}><a href={`/ubec/review?plan=${p.planId}`}><span>{p.state}</span><small>{planPeriod(p)}</small><b>{money.format(p.budget)}</b></a></li>)}</ul>
-          : <p className="nh-empty">Every submission has been released to the departments</p>}
-        <a className="nh-cta" href={waiting[0] ? `/ubec/review?plan=${waiting[0].planId}` : '/ubec/submissions'}><SendIcon aria-hidden="true" />{waiting[0] ? 'Open the next submission' : 'View submissions'}</a>
+        <header className="nh-next-head"><span className="nh-orb" aria-hidden="true" /><span>SUBEBs that have sent a plan</span></header>
+        <p className="nh-next-count"><strong>{count.format(states.length - missing.length)}</strong>of {states.length}</p>
+        <div className="nh-sent-bar" role="img" aria-label={`${states.length - missing.length} of ${states.length} SUBEBs have sent a plan`}><span style={{ width: `${(states.length - missing.length) / states.length * 100}%` }} /></div>
+        {missing.length ? <><p className="nh-sent-label">Not sent yet ({missing.length})</p><ul className="nh-sent-list">{missing.slice(0, 12).map(m => <li key={m.code}>{m.name}</li>)}{missing.length > 12 && <li data-more>+{missing.length - 12} more</li>}</ul></>
+          : <p className="nh-empty">Every SUBEB has sent a plan</p>}
       </article>
       <article className="nh-card">
         <header className="nh-card-head"><h3>Review pipeline</h3><a href="/ubec/submissions">View all</a></header>

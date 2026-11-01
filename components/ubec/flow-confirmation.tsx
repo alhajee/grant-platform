@@ -64,6 +64,10 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
     description: `${oversightList()} review it next; then it goes to the UBEC BEAP Chair`,
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: oversightNames(oversightDepartments.map(d => d.id)) }],
     notes: [{ kind: 'lock', text: 'Its item decisions can’t be changed once it is sent, and your department’s assessment ends' }] };
+  if (request.kind === 'observerDone') return { title: `Record your observations on ${name} as done?`, confirm: 'Yes, observations done', tone: 'default',
+    description: 'Your Oversight Director is notified. They finish the department’s observations; you don’t need to do anything more on this component',
+    facts: [...base, ...counts, ...open, { label: 'Goes to', value: 'Your Oversight Director' }],
+    notes: [{ kind: 'lock', text: 'You can’t add observations on this component afterwards. Add any item comments first.' }] };
   const pending = oversightPending(component?.oversight.map(o => o.department) ?? []);
   return { title: `Record your observations on ${name} as done?`, confirm: 'Yes, observations done', tone: 'default',
     description: pending.length <= 1 ? 'You are the last oversight review: the component goes to the UBEC BEAP Chair' : 'The component goes to the UBEC BEAP Chair once every oversight department is done',

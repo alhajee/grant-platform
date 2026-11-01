@@ -238,3 +238,8 @@
 /* UBEC195: rows the SUBEB corrected after a rejection read yellow until decided again. */
 .wb-grid tbody tr[data-corrected]:not([data-decision=accept]):not([data-decision=reject]) > td { background: color-mix(in srgb, #f5c542 16%, var(--background)); }
 .wb-grid tbody tr[data-corrected]:not([data-decision=reject]) > th.wb-gutter { box-shadow: inset 3px 0 0 #e0a800; }
+/* UBEC210: correcting one's own comment */
+.wb-comment-edited { color: var(--muted-foreground); font-size: 11.5px; }
+.wb-comment-edit-button { margin-left: 4px; vertical-align: middle; opacity: .6; }
+.wb-comment-edit-button:hover, .wb-comment-edit-button:focus-visible { opacity: 1; }
+.wb-comment-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }

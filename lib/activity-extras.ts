@@ -142,23 +142,35 @@ export const supportingDocumentAccept = '.pdf,.xls,.xlsx,.docx,.png,.jpg,.jpeg';
 export const lineDocumentAcceptFor = (workstream: string, activity: number) => isSupportingDocumentLine(workstream, activity) ? supportingDocumentAccept : lineDocumentAccept;
 /**
  * The upload slots of a line. TLM items (migration 065) take a BOQ and a sample of the item, both governed by the
- * Supporting documents setting; every other line has at most one slot, kind 'document' (governed or supporting).
+ * Supporting documents setting; Teacher Development lines (UBEC209, migration 086) take a Budget Breakdown and a Training
+ * List of Participants, always required (`always`), each with a template to download, beside their supporting documents;
+ * every other line has at most one slot, kind 'document' (governed or supporting).
  */
-export type LineDocumentSlot = { kind: 'document' | 'boq' | 'sample'; label: string; governed: boolean; accept: string; hint: string };
+export type LineDocumentSlot = { kind: 'document' | 'boq' | 'sample' | 'budget' | 'participants'; label: string; governed: boolean; accept: string; hint: string;
+  /** Required before sending whatever the Supporting documents setting (UBEC209). */ always?: boolean;
+  /** A template to fill in before uploading. */ template?: { href: string; name: string } };
 const tlmDocumentSlots: readonly LineDocumentSlot[] = [
   { kind: 'boq', label: 'BOQ', governed: true, accept: lineDocumentAccept, hint: 'The Bill of Quantities for this item. PDF or Excel' },
   { kind: 'sample', label: 'Sample of the item', governed: true, accept: supportingDocumentAccept, hint: 'A sample of what is supplied, such as photos or a specimen. PDF, Excel, Word or images' },
 ];
+const teacherDocumentSlots: readonly LineDocumentSlot[] = [
+  { kind: 'budget', label: 'Budget Breakdown', governed: true, always: true, accept: lineDocumentAccept, hint: 'The training budget filled in from the template (Literacy, ECCDE or Curriculum). PDF or Excel', template: { href: '/templates/teacher-development-budget-template.xlsx', name: 'BEAPMS Training Budget Template.xlsx' } },
+  { kind: 'participants', label: 'Training List of Participants', governed: true, always: true, accept: lineDocumentAccept, hint: 'The teachers selected for the training, filled in from the template. PDF or Excel', template: { href: '/templates/training-participants-template.xlsx', name: 'Template for Selection of Teachers Training.xlsx' } },
+  { kind: 'document', label: teacherDocumentLabel, governed: true, accept: lineDocumentAccept, hint: 'PDF or Excel only' },
+];
 export function lineDocumentSlots(workstream: string, activity: number): readonly LineDocumentSlot[] {
   if (workstream === 'tlm') return tlmDocumentSlots;
+  if (workstream === 'teachers') return teacherDocumentSlots;
   const label = lineDocumentLabel(workstream, activity);
   if (!label) return [];
   const supporting = isSupportingDocumentLine(workstream, activity);
   return [{ kind: 'document', label, governed: !supporting, accept: supporting ? supportingDocumentAccept : lineDocumentAccept, hint: supporting ? 'PDF, Excel, Word or images' : 'PDF or Excel only' }];
 }
-/** The first governed slot of a line with no document yet, or null. */
-export const missingLineDocument = (workstream: string, activity: number, documents: readonly { kind?: string }[] | undefined) =>
-  lineDocumentSlots(workstream, activity).find(slot => slot.governed && !(documents ?? []).some(d => (d.kind ?? 'document') === slot.kind)) ?? null;
+/** Whether a slot must hold a document before sending: always-required slots, and governed ones while the setting is on. */
+export const slotRequired = (slot: LineDocumentSlot, documentsRequired: boolean) => !!slot.always || (slot.governed && documentsRequired);
+/** The first required slot of a line with no document yet, or null. */
+export const missingLineDocument = (workstream: string, activity: number, documents: readonly { kind?: string }[] | undefined, documentsRequired: boolean) =>
+  lineDocumentSlots(workstream, activity).find(slot => slotRequired(slot, documentsRequired) && !(documents ?? []).some(d => (d.kind ?? 'document') === slot.kind)) ?? null;
 export const maxLineDocumentBytes = 5 * 1024 * 1024;
 
 /** `quantity`: the items for this school, on ICT procurement lines for schools (UBEC160); otherwise absent. */
