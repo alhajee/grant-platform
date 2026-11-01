@@ -33,3 +33,6 @@
 .quarter-timeline[data-size="compact"] .quarter-indicator { width: 16px; height: 16px; }
 .quarter-badge { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .line-dates-note { display: block; margin-top: 4px; font-size: 11px; line-height: 1.35; color: var(--muted-foreground); }
+/* UBEC157: the tooltip wrapper keeps each quarter filling its grid cell */
+.quarter-timeline .plan-quarter-tip { display: flex; min-width: 0; }
+.quarter-timeline .plan-quarter-tip > .plan-quarter { flex: 1; min-width: 0; }

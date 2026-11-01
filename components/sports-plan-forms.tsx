@@ -129,7 +129,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
       <FieldLabel htmlFor="sports-total-cost">Total cost (NGN)</FieldLabel>
       <Input id="sports-total-cost" readOnly tabIndex={-1} value={sportsMoney.format(Number.isFinite(total) ? total : 0)} className="tabular-nums" />
     </Field>
-    <QuarterTimeline id="sports-quarters" size="compact" required help="The quarters in which this item will be implemented. Only this plan's quarters can be chosen." value={draft.quarters} onChange={(quarters) => onChange({ ...draft, quarters, ...keepDatesInWindow(draft, quarters, implementationYear) })} available={planQuarters} disabled={disabled} error={errors.quarters} selectAll={planQuarters.length > 1} />
+    <QuarterTimeline id="sports-quarters" year={implementationYear} size="compact" required help="The quarters in which this item will be implemented. Only this plan's quarters can be chosen." value={draft.quarters} onChange={(quarters) => onChange({ ...draft, quarters, ...keepDatesInWindow(draft, quarters, implementationYear) })} available={planQuarters} disabled={disabled} error={errors.quarters} selectAll={planQuarters.length > 1} />
     <LineDatesField id="sports-dates" value={{ startDate: draft.startDate, dueDate: draft.dueDate }} onChange={(dates) => onChange({ ...draft, ...dates })} quarters={draft.quarters} year={implementationYear} disabled={disabled} error={errors.startDate} revealMissing />
     {allocated > 0 && <p className="construction-summary">{allocated} items allocated to schools. The sport and section are locked while allocations exist.</p>}
   </FieldGroup>;

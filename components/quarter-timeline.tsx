@@ -5,6 +5,7 @@ import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { FieldHelp } from '@/components/field-help';
 import { allQuarters, formatQuarters, isContiguous, normalizeQuarters, toggleQuarter } from '@/lib/line-quarters';
 import { formatLineDates } from '@/lib/line-dates';
@@ -39,6 +40,8 @@ export type QuarterTimelineProps = {
   noneAvailableMessage?: string;
   size?: 'default' | 'compact';
   className?: string;
+  /** The implementation year: each quarter shows its months in a tooltip (UBEC157), e.g. "January–March 2028". */
+  year?: number | null;
 };
 
 function RequiredMark() {
@@ -51,7 +54,7 @@ function RequiredMark() {
  * disabled with a lock, unless already selected, so an out-of-plan quarter can still be cleared. The selection is
  * always one unbroken run (toggleQuarter): picking Q1 then Q4 selects Q1–Q4, never Q1 and Q4 with a gap.
  */
-export function QuarterTimeline({ id, label = 'Timeline', help, required = false, value, onChange, available = allQuarters, unavailableReason = 'not in this plan', locked = [], lockedReason = 'already assigned', disabled = false, error, invalid = false, selectAll = true, showMonths = true, emptyMessage = 'Choose one quarter or a run of quarters next to each other', noneAvailableMessage = 'No quarters are available', size = 'default', className }: QuarterTimelineProps) {
+export function QuarterTimeline({ id, label = 'Timeline', help, required = false, value, onChange, available = allQuarters, unavailableReason = 'not in this plan', locked = [], lockedReason = 'already assigned', disabled = false, error, invalid = false, selectAll = true, showMonths = true, emptyMessage = 'Choose one quarter or a run of quarters next to each other', noneAvailableMessage = 'No quarters are available', size = 'default', className, year }: QuarterTimelineProps) {
   const selected = normalizeQuarters(value);
   const isLocked = (q: number) => locked.includes(q);
   const isOutside = (q: number) => !available.includes(q);
@@ -76,15 +79,21 @@ export function QuarterTimeline({ id, label = 'Timeline', help, required = false
     <ToggleGroup type="multiple" variant="outline" spacing={2} value={selected.map(String)} onValueChange={toggle} aria-labelledby={`${id}-label`} aria-describedby={`${id}-guidance`} aria-required={required || undefined} aria-invalid={hasError || undefined} className="plan-quarter-grid" disabled={disabled}>
       {allQuarters.map(q => {
         const on = selected.includes(q), reason = isLocked(q) ? lockedReason : isOutside(q) ? unavailableReason : '';
-        return <ToggleGroupItem key={q} value={String(q)} className="plan-quarter" disabled={!!reason && !on} data-outside={(!!reason && on) || undefined} aria-label={`Quarter ${q}${reason ? `, ${reason}` : ''}`}>
+        const item = <ToggleGroupItem key={q} value={String(q)} className="plan-quarter" disabled={!!reason && !on} data-outside={(!!reason && on) || undefined} aria-label={`Quarter ${q}, ${quarterDates(q, year)}${reason ? `, ${reason}` : ''}`}>
           <span className="quarter-top"><span className="quarter-number">Q{q}</span><span className="quarter-indicator">{reason && !on ? <LockKeyholeIcon /> : on ? <CheckIcon /> : null}</span></span>
         </ToggleGroupItem>;
+        // UBEC157: hovering a quarter shows the months it covers in the implementation year.
+        return year ? <Tooltip key={q}><TooltipTrigger asChild><span className="plan-quarter-tip">{item}</span></TooltipTrigger><TooltipContent>{quarterDates(q, year)}{reason && !on ? ` · ${reason}` : ''}</TooltipContent></Tooltip> : item;
       })}
     </ToggleGroup>
     <FieldDescription id={`${id}-guidance`} className="quarter-guidance" aria-live="polite">{summary}</FieldDescription>
     {error && <FieldError>{error}</FieldError>}
   </Field>;
 }
+
+const quarterMonths = ['January–March', 'April–June', 'July–September', 'October–December'];
+/** UBEC157: the months a quarter covers in the implementation year, "January–March 2028". */
+export const quarterDates = (quarter: number, year?: number | null) => `${quarterMonths[quarter - 1]}${year ? ` ${year}` : ''}`;
 
 /** A saved line's timeline in tables and rows: "Q1–Q3", "Q1, Q3". */
 export function QuarterBadge({ quarters, className }: { quarters?: readonly number[] | null; className?: string }) {

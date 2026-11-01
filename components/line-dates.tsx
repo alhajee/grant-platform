@@ -44,7 +44,7 @@ function DatePicker({ id, label, help, value, onPick, min, max, disabled, invali
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar mode="single" selected={selected} defaultMonth={selected ?? from} startMonth={from} endMonth={to}
+        <Calendar mode="single" captionLayout="dropdown-months" selected={selected} defaultMonth={selected ?? from} startMonth={from} endMonth={to}
           disabled={[{ before: from }, { after: to }]} onSelect={date => { if (date) { onPick(toIso(date)); setOpen(false); } }} autoFocus />
       </PopoverContent>
     </Popover>

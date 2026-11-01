@@ -5,7 +5,8 @@
 // (director@...), which is deactivated (kept for history, sessions revoked). Accounts that already exist are left
 // alone, so re-runs only add what is missing.
 // Usage: node --env-file=.env scripts/seed-component-data-entry.mjs --states=DE,FC,BY [--yes] [--production-confirmed]
-// Without --yes it only prints what it would do. Needs SEED_SHARED_PASSWORD (never printed).
+// Without --yes it only prints what it would do. Needs SEED_SHARED_PASSWORD (never printed), or --password-from=<email> to
+// copy that account's password hash (production has no SEED_SHARED_PASSWORD; 1 November 2026).
 import { readFile } from 'node:fs/promises';
 import { Client } from 'pg';
 import bcrypt from 'bcryptjs';
@@ -14,10 +15,10 @@ const args = process.argv.slice(2);
 const apply = args.includes('--yes');
 const wanted = (args.find(arg => arg.startsWith('--states='))?.slice(9) ?? '').split(',').map(code => code.trim().toUpperCase()).filter(Boolean);
 const connectionString = process.env.DATABASE_URL;
-const password = process.env.SEED_SHARED_PASSWORD?.trim();
+const password = process.env.SEED_SHARED_PASSWORD?.trim(), passwordFrom = args.find(arg => arg.startsWith('--password-from='))?.slice(16).trim().toLowerCase();
 if (!connectionString) throw new Error('DATABASE_URL is required.');
 if (!wanted.length) throw new Error('Choose the states, e.g. --states=DE,FC,BY');
-if (apply && !password) throw new Error('SEED_SHARED_PASSWORD is required so the accounts get the agreed shared password.');
+if (apply && !password && !passwordFrom) throw new Error('SEED_SHARED_PASSWORD or --password-from=<email> is required so the accounts get the agreed shared password.');
 const host = new URL(connectionString).hostname;
 if (!['localhost', '127.0.0.1', '::1'].includes(host) && !args.includes('--production-confirmed')) throw new Error(`Refusing to write to ${host} without --production-confirmed.`);
 
@@ -41,7 +42,9 @@ await db.connect();
 try {
   await db.query('BEGIN');
   await db.query("SELECT pg_advisory_xact_lock(hashtext('admin:user-management'))");
-  const hash = apply ? bcrypt.hashSync(password, 12) : '';
+  const reference = passwordFrom ? (await db.query('SELECT password_hash FROM users WHERE email=$1 AND active', [passwordFrom])).rows[0]?.password_hash : null;
+  if (passwordFrom && !reference) throw new Error(`No active ${passwordFrom} to copy the password from.`);
+  const hash = !apply ? '' : reference ?? bcrypt.hashSync(password, 12);
   const created = [], kept = [], retired = [];
   for (const code of wanted) {
     const state = states.find(item => item.code === code);
