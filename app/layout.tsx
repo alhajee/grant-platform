@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ImpersonationBanner } from '@/components/impersonation-banner';
 import { SessionKeepalive } from '@/components/session-keepalive';
 import { SessionGuard } from '@/components/session-guard';
+import { StaleBuildReload } from '@/components/stale-build-reload';
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,6 +28,7 @@ export default function RootLayout({
           <ImpersonationBanner />
           <SessionKeepalive />
           <SessionGuard />
+          <StaleBuildReload />
           {children}
           <Toaster theme="light" position="top-right" />
         </TooltipProvider>
