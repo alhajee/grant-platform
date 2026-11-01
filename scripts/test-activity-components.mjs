@@ -34,6 +34,11 @@ async function user(key, role, departments, chair = false, stateCode = state) {
 }
 const url = workstream => `/api/activities?plan=${planId}&workstream=${workstream}`;
 const line = (workstream, activity, unitCost, extra = {}) => ({ workstream, entity: 'line', action: 'create', activity, description: `QA ${workstream} item`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...(workstream === 'gscci' ? { item: 'Tree seedlings' } : {}), ...extra });
+// UBEC161/163: share every item for schools out across the distribution list (round robin, so every school gets items).
+const shareOut = async (who, workstream, path) => {
+  const { lines, distribution } = ok(await api(who, path)), ids = distribution.map(s => s.id); let k = 0;
+  for (const l of lines.filter(l => l.allocations)) { const allocations = {}; for (let i = 0; i < l.quantity; i++) { const id = ids[k++ % ids.length]; allocations[id] = (allocations[id] ?? 0) + 1; } ok(await api(who, path, { workstream, entity: 'allocation', action: 'update', id: l.id, allocations })); }
+};
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
 
 await db.connect();
@@ -209,6 +214,7 @@ try {
 
   // Workflow: Data Entry → department Director → BEAP Chair → Executive Chairman, for Curriculum.
   await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode='individual_components' WHERE state_code='GLOBAL'");
+  await shareOut('academic', 'curriculum', url('curriculum'));
   ok(await review('academic', { action: 'submit', pillar: 'curriculum' }));
   fails(await api('academic', url('curriculum'), line('curriculum', 3, 1)), 409);
   fails(await review('physicalDirector', { action: 'endorse', pillar: 'curriculum' }), 403);
@@ -226,6 +232,7 @@ try {
   ok(await review('physical', { action: 'submit', pillar: 'monitoring' }));
   assert.equal(ok(await api('physicalDirector', `/api/plans/review?plan=${planId}`)).pillarReviews.find(r => r.pillar === 'monitoring').status, 'director_review');
   // A component above its ceiling cannot be sent (e.g. after the envelope shrinks).
+  await shareOut('academic', 'gscci', url('gscci'));
   await db.query("UPDATE activity_plan_lines SET unit_cost=5000 WHERE plan_id=$1 AND workstream='gscci' AND activity=1", [planId]);
   fails(await review('academic', { action: 'submit', pillar: 'gscci' }), 400, /exceeded the Greening/);
   step('Curriculum review chain to the Executive Chairman and back; Monitoring submit; ceiling enforced on send');

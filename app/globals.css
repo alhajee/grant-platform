@@ -818,3 +818,5 @@
 .sports-debate > svg { width: 18px; height: 18px; flex: none; color: #5e55b0; }
 .sports-debate p { flex: 1; min-width: 0; margin: 0; }
 .sports-debate[data-unset] { border-color: #e6c35a; background: #fff8df; }
+.review-allocation-items { display: grid; gap: 4px; max-width: 520px; margin: 0 0 8px; padding: 0; list-style: none; }
+.review-allocation-items li { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 13px; }

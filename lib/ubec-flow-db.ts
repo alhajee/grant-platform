@@ -60,6 +60,7 @@ export function ubecVisibleSnapshot(snapshot: Snapshot, visible: readonly Implem
     curriculum: can('curriculum') ? snapshot.curriculum ?? [] : [], curriculumDistribution: can('curriculum') ? snapshot.curriculumDistribution ?? [] : [],
     quality: can('quality') ? snapshot.quality ?? [] : [], teachers: can('teachers') ? snapshot.teachers ?? [] : [], ict: can('ict') ? snapshot.ict ?? [] : [], planning: can('planning') ? snapshot.planning ?? [] : [],
     componentDocuments: (snapshot.componentDocuments ?? []).filter(d => can(d.component)),
+    ...(snapshot.distributionAllocations ? { distributionAllocations: true } : {}),
   };
 }
 

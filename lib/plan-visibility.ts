@@ -27,5 +27,6 @@ export function visibleSnapshot(snapshot: Snapshot, visible: readonly Implemente
     ...(can('ict') ? { ict: snapshot.ict ?? [] } : {}),
     ...(can('planning') ? { planning: snapshot.planning ?? [] } : {}),
     componentDocuments: (snapshot.componentDocuments ?? []).filter(d => can(d.component)),
+    ...(snapshot.distributionAllocations ? { distributionAllocations: true } : {}),
   };
 }

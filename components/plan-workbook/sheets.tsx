@@ -7,7 +7,7 @@ import { sportsSections } from '@/lib/sports';
 import { formatQuarters } from '@/lib/line-quarters';
 import { formatLineDates } from '@/lib/line-dates';
 import { frequencyLabel } from '@/lib/activity-extras';
-import { isPheTrainingLine } from '@/lib/distribution-lists';
+import { isDistributedLine, isPheTrainingLine } from '@/lib/distribution-lists';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { SchoolMapDialog } from '@/components/school-map-dialog';
@@ -125,20 +125,30 @@ function teacherSheet(lines: NonNullable<Snapshot['teachers']>, editHref?: strin
 }
 
 /**
- * Allocation = the component budget (TLM, GSCCI or Curriculum) shared across the listed schools by enrolment (snapshots before enrolment was recorded show blanks).
- * Qty. (UBEC214) = the component's item quantities shared the same way, in whole items.
+ * The distribution list of TLM, GSCCI or Curriculum. UBEC161/163: Qty. is the items allocated to each school across the
+ * component's items for schools, and Allocation their value (items × unit cost); each row expands to the items. Snapshots
+ * from before the allocations share the component budget across the schools by enrolment (Allocation only).
  */
-function distributionSheet(component: DistributionWorkstream, schools: NonNullable<Snapshot['tlmDistribution']>, lines: NonNullable<Snapshot['tlm']>, editHref?: string): WorkbookSheet {
-  const shares = allocateByEnrolment(Math.round(lines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
-  const items = allocateByEnrolment(lines.reduce((sum, line) => sum + Number(line.quantity), 0), schools);
+function distributionSheet(component: DistributionWorkstream, schools: NonNullable<Snapshot['tlmDistribution']>, lines: NonNullable<Snapshot['tlm']>, editHref?: string, withAllocations = false): WorkbookSheet {
+  const items = lines.filter(line => isDistributedLine(component, line.activity));
+  const allocated = withAllocations && items.length > 0;
+  const perSchool = new Map<number, { quantity: number; value: number; items: { name: string; quantity: number }[] }>();
+  if (allocated) for (const line of items) for (const s of line.schools ?? []) {
+    if (!s.quantity) continue;
+    const now = perSchool.get(s.id) ?? { quantity: 0, value: 0, items: [] };
+    perSchool.set(s.id, { quantity: now.quantity + s.quantity, value: now.value + s.quantity * Number(line.unit_cost), items: [...now.items, { name: line.description || activityLabel(component, line.activity, line.custom_activity), quantity: s.quantity }] });
+  }
+  const shares = allocated ? null : allocateByEnrolment(Math.round(lines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
   const name = distributionNames[component], byId = new Map(schools.map(s => [s.id, s]));
   return {
     key: component === 'tlm' ? 'distribution' : distributionSnapshotKeys[component], label: `${name} distribution`, hash: `review-${component}-distribution`, icon: School, itemLabel: 'schools', empty: 'No distribution schools', editHref, editLabel: `${name} distribution list`,
     columns: [text('school', 'School', 320), text('lga', 'LGA', 140, true), text('level', 'Level', 110, true), text('location', 'Location', 110, true),
       // Coordinates open the school on a map; blank when the School list has none.
       { ...text('coordinates', 'Coordinates', 210), cell: r => { const s = byId.get(Number(r.id)); return s?.latitude && s.longitude ? <SchoolMapDialog variant="inline" name={s.name} lga={s.lga} latitude={s.latitude} longitude={s.longitude} /> : null; } },
-      qty('learners', 'Learners', true), qty('quantity', 'Qty.', true), amount('allocation', 'Allocation', true)],
-    rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, coordinates: s.latitude && s.longitude ? `${s.latitude}, ${s.longitude}` : '', learners: s.enrolment ?? '', quantity: items.get(s.id) ?? '', allocation: shares.has(s.id) ? shares.get(s.id)! / 100 : '' })),
+      qty('learners', 'Learners', true), ...(allocated ? [qty('quantity', 'Qty.', true)] : []), amount('allocation', 'Allocation', true)],
+    rows: schools.map(s => row(String(s.id), { school: s.name, lga: s.lga, level: s.level, location: s.location, coordinates: s.latitude && s.longitude ? `${s.latitude}, ${s.longitude}` : '', learners: s.enrolment ?? '',
+      ...(allocated ? { quantity: perSchool.get(s.id)?.quantity ?? 0, allocation: perSchool.get(s.id)?.value ?? 0 } : { allocation: shares!.has(s.id) ? shares!.get(s.id)! / 100 : '' }) }, allocated && perSchool.has(s.id))),
+    ...(allocated ? { detail: (id: string) => { const got = perSchool.get(Number(id)); return got ? <><h3>Items for this school</h3><ul className="review-allocation-items">{got.items.map((item, i) => <li key={i}><span>{item.name}</span><b>{item.quantity.toLocaleString()}</b></li>)}</ul></> : null; } } : {}),
   };
 }
 
@@ -161,13 +171,13 @@ export function buildSheets(snapshot: Snapshot, visiblePillars: readonly string[
   if (visiblePillars.includes('sports')) sheets.push(sportsSheet(snapshot, links.sportsEditHref));
   if (visiblePillars.includes('sports') && (snapshot.pheDistribution?.length || snapshot.sports.some(isPheTrainingLine))) sheets.push(pheDistributionSheet(snapshot.pheDistribution ?? [], links.sportsEditHref));
   if (visiblePillars.includes('sbmc') && snapshot.sbmc) sheets.push(activitySheet('sbmc', snapshot.sbmc, links.sbmcEditHref));
-  if (visiblePillars.includes('tlm') && snapshot.tlm) sheets.push(activitySheet('tlm', snapshot.tlm, links.tlmEditHref), distributionSheet('tlm', snapshot.tlmDistribution ?? [], snapshot.tlm, links.tlmEditHref));
+  if (visiblePillars.includes('tlm') && snapshot.tlm) sheets.push(activitySheet('tlm', snapshot.tlm, links.tlmEditHref), distributionSheet('tlm', snapshot.tlmDistribution ?? [], snapshot.tlm, links.tlmEditHref, !!snapshot.distributionAllocations));
   if (visiblePillars.includes('monitoring') && snapshot.monitoring) sheets.push(activitySheet('monitoring', snapshot.monitoring, links.monitoringEditHref));
-  if (visiblePillars.includes('gscci') && snapshot.gscci) sheets.push(activitySheet('gscci', snapshot.gscci, links.gscciEditHref), distributionSheet('gscci', snapshot.gscciDistribution ?? [], snapshot.gscci, links.gscciEditHref));
+  if (visiblePillars.includes('gscci') && snapshot.gscci) sheets.push(activitySheet('gscci', snapshot.gscci, links.gscciEditHref), distributionSheet('gscci', snapshot.gscciDistribution ?? [], snapshot.gscci, links.gscciEditHref, !!snapshot.distributionAllocations));
   if (visiblePillars.includes('quality') && snapshot.quality) sheets.push(activitySheet('quality', snapshot.quality, links.qualityEditHref));
   if (visiblePillars.includes('teachers') && snapshot.teachers) sheets.push(teacherSheet(snapshot.teachers, links.teachersEditHref));
   if (visiblePillars.includes('ict') && snapshot.ict) sheets.push(activitySheet('ict', snapshot.ict, links.ictEditHref));
-  if (visiblePillars.includes('curriculum') && snapshot.curriculum) sheets.push(activitySheet('curriculum', snapshot.curriculum, links.curriculumEditHref), distributionSheet('curriculum', snapshot.curriculumDistribution ?? [], snapshot.curriculum, links.curriculumEditHref));
+  if (visiblePillars.includes('curriculum') && snapshot.curriculum) sheets.push(activitySheet('curriculum', snapshot.curriculum, links.curriculumEditHref), distributionSheet('curriculum', snapshot.curriculumDistribution ?? [], snapshot.curriculum, links.curriculumEditHref, !!snapshot.distributionAllocations));
   if (visiblePillars.includes('planning') && snapshot.planning) sheets.push(activitySheet('planning', snapshot.planning, links.planningEditHref));
   return sheets;
 }

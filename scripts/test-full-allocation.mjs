@@ -69,6 +69,8 @@ try {
   ok(await api('academic', url('curriculum'), line('curriculum', 0, 50)));
   const left = fails(await send('academic', 'curriculum'), 409, /Use the whole Curriculum allocation/).error;
   ok(await api('academic', url('curriculum'), line('curriculum', 1, leftOf(left))));
+  // UBEC161/163: the Curriculum item is shared out across the distribution list before sending.
+  for (const l of ok(await api('academic', url('curriculum'))).lines.filter(l => l.allocations)) ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'allocation', action: 'update', id: l.id, allocations: { [schoolId]: l.quantity } }));
   ok(await send('academic', 'curriculum'));
   step('guide shares (Curriculum) are not required in full; the whole allocation is');
 

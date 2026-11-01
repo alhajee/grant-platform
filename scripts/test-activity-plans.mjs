@@ -85,6 +85,9 @@ try{
  await db.query('DELETE FROM infrastructure_packages WHERE plan_id=$1',[plan]);
  ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'school',action:'delete',id:school2}));
  review=ok(await api('academic',`/api/plans/review?plan=${plan}`));assert.equal(review.snapshot.tlmDistribution.length,1);assert.equal(review.snapshot.sbmc,undefined);
+ // UBEC161/163: the TLM items are shared out across the list before sending.
+ for(const l of ok(await api('academic',tlmUrl)).lines.filter(l=>l.allocations))ok(await api('academic',tlmUrl,{workstream:'tlm',entity:'allocation',action:'update',id:l.id,allocations:{[school]:l.quantity}}));
+ review=ok(await api('academic',`/api/plans/review?plan=${plan}`));
  ok(await api('academic',`/api/plans/review?plan=${plan}`,{action:'submit',pillar:'tlm',version:review.plan.version}));
  ok(await api('academic',tlmUrl,tlm),409);
  ok(await api('director',tlmUrl,{...tlm,activity:7,description:'Director edit',textbookClasses:[],textbookSubject:''}));

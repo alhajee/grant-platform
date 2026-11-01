@@ -22,6 +22,7 @@ import { isSplitMode } from '@/lib/funding-policy';
 import { infrastructurePoolProblem, isPoolComponent } from '@/lib/infrastructure-pool';
 import { implementedPillars } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, emptyDistributionMessage, hasDistribution } from '@/lib/activity-plans';
+import { distributionAllocationProblem } from '@/lib/distribution-lists';
 import { componentReadinessProblem, hasReadinessRules, splitReadinessProblem } from '@/lib/component-readiness';
 import { sportsSnapshotProblem } from '@/lib/sports';
 import { pheDistributionProblem } from '@/lib/distribution-lists';
@@ -170,6 +171,8 @@ export async function POST(request: NextRequest) {
       if (input.action !== 'request_changes' && input.pillar === 'sports') { const problem=pheDistributionProblem(snapshot)??sportsSnapshotProblem(snapshot.sports,plan); if(problem)return error(problem,409); }
       // UBEC79: the component (and every share inside it) must use its whole allocation (Super Admin setting, migration 076).
       if (input.action !== 'request_changes' && readiness.fullAllocation) { const problem=allocationUseProblem(input.pillar,snapshot); if(problem)return error(problem,409); }
+      // UBEC161/163: the items bought for schools are shared out across the distribution list (last: once the items themselves are settled).
+      if (input.action !== 'request_changes' && hasDistribution(input.pillar)) { const problem=distributionAllocationProblem(input.pillar,snapshot[input.pillar]??[],snapshot[distributionSnapshotKeys[input.pillar]],snapshot.distributionAllocations); if(problem)return error(problem,409); }
       if (input.action !== 'request_changes' && (isCappedFor(input.pillar, plan) || input.pillar === 'sbmc')) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,kobo:lineKobo(line)})),plan); if(problem)return error(problem); }
       await db.query('INSERT INTO plan_pillar_reviews(plan_id,pillar,status) VALUES($1,$2,$3) ON CONFLICT(plan_id,pillar) DO UPDATE SET status=EXCLUDED.status,updated_at=NOW()', [plan.id,input.pillar,status]);
       const number = plan.submissionNumber + 1;

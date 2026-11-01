@@ -13,6 +13,8 @@ export type Snapshot = {
   monitoring?: import('./activity-plans').ActivitySnapshotLine[];
   gscci?: import('./activity-plans').ActivitySnapshotLine[];
   gscciDistribution?: import('./activity-plans').DistributionSchool[];
+  /** UBEC161/163 (1 November 2026): the items for schools are shared out by quantity in their lines' schools. */
+  distributionAllocations?: boolean;
   /** UBEC74: the schools of the PHE officer training (migration 079). */
   pheDistribution?: import('./activity-plans').DistributionSchool[];
   curriculum?: import('./activity-plans').ActivitySnapshotLine[];

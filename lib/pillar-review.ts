@@ -8,7 +8,7 @@ import { infrastructureDocumentProblem } from './infrastructure-documents';
 import { componentReadinessProblem, readinessWorkstreams, hasReadinessRules, splitReadinessPillars, splitReadinessProblem, type ReadinessOptions } from './component-readiness';
 import type { DepartmentAccess } from './user-departments';
 import type { UbecSubmissionMode } from './workflow-settings';
-import { distributionSnapshotKeys, distributionWorkstreams, emptyDistributionMessage, hasDistribution, pheDistributionProblem } from './distribution-lists';
+import { distributionAllocationProblem, distributionSnapshotKeys, distributionWorkstreams, emptyDistributionMessage, hasDistribution, pheDistributionProblem } from './distribution-lists';
 import { sportsSnapshotProblem } from './sports';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'beap_review' | 'chairman_ready';
@@ -58,6 +58,7 @@ export function ubecSubmissionSnapshot(snapshot: Snapshot, reviews: PillarReview
     ict: sent.includes('ict') ? snapshot.ict ?? [] : [],
     planning: sent.includes('planning') ? snapshot.planning ?? [] : [],
     componentDocuments: (snapshot.componentDocuments ?? []).filter(d => sent.includes(d.component)),
+    ...(snapshot.distributionAllocations ? { distributionAllocations: true } : {}),
   };
 }
 export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Snapshot, options: ReadinessOptions) {
@@ -85,6 +86,7 @@ const componentNames: Record<ImplementedPillar, string> = { infrastructure: 'Inf
 function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
   return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot, options)
     && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup, options)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup) && !pheDistributionProblem(snapshot)
+    && distributionWorkstreams.every(w => !distributionAllocationProblem(w, snapshot[w] ?? [], snapshot[distributionSnapshotKeys[w]], snapshot.distributionAllocations))
     && splitReadinessPillars.every(p => !splitReadinessProblem(p, snapshot));
 }
 /**
@@ -92,7 +94,10 @@ function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
  * or (split mode, migration 051) Infrastructure/TLM without their split or over their own part. The mode comes from the snapshot's setup.
  */
 export function componentSendProblem(pillar: ImplementedPillar, snapshot: Snapshot, options: ReadinessOptions): string | null {
-  return componentRulesProblem(pillar, snapshot, options) ?? (options.fullAllocation ? allocationUseProblem(pillar, snapshot) : null);
+  // UBEC161/163, checked last (once the items themselves are settled): every item bought for schools is shared out
+  // across the distribution list, and every listed school gets items.
+  return componentRulesProblem(pillar, snapshot, options) ?? (options.fullAllocation ? allocationUseProblem(pillar, snapshot) : null)
+    ?? (hasDistribution(pillar) ? distributionAllocationProblem(pillar, snapshot[pillar] ?? [], snapshot[distributionSnapshotKeys[pillar]], snapshot.distributionAllocations) : null);
 }
 function componentRulesProblem(pillar: ImplementedPillar, snapshot: Snapshot, options: ReadinessOptions): string | null {
   // TLM, Greening and Curriculum need at least one school on their distribution list, as at every state send step.

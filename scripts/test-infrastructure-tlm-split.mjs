@@ -158,6 +158,8 @@ try {
   await db.query('UPDATE action_plans SET tlm_allocation=4000 WHERE id=$1', [planId]);
   fails(await sendTlm(), 409, /exceeded the Teaching & Learning Materials allocation/);
   await db.query('UPDATE action_plans SET tlm_allocation=5000 WHERE id=$1', [planId]);
+  // UBEC161/163: the TLM items are shared out across the distribution list before sending.
+  for (const l of ok(await api('academic', tlmUrl)).lines.filter(l => l.allocations)) ok(await api('academic', tlmUrl, { workstream: 'tlm', entity: 'allocation', action: 'update', id: l.id, allocations: { [schoolIds[0]]: l.quantity } }));
   const review = ok(await api('chair', `/api/plans/review?plan=${planId}`));
   assert.equal(review.snapshot.setup.tlmAllocation, '5000.00'); assert.equal(review.snapshot.setup.infrastructureTlmMode, 'split');
   ok(await sendTlm());
