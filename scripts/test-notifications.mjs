@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import ExcelJS from 'exceljs';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
@@ -103,6 +104,7 @@ try {
   step('BEAP Chair forward notifies the Executive Chairman, who gets a "Review components from BEAP Chair" to-do');
 
   let ubec = ok(await api('ec', ubecPath));
+  await signForUbec(db, ubecPath);
   ok(await api('ec', ubecPath, { action: 'submit', version: ubec.plan.version }));
   items = await mine('es');
   assert.equal(items.length, 1); assert.equal(items[0].source, 'ubec'); assert.equal(items[0].action, 'submit'); assert.equal(items[0].stateCode, state); assert.equal(items[0].actorRole, 'Executive Chairman');
@@ -132,9 +134,8 @@ try {
 
   ubec = ok(await api('ubecChair', ubecPath));
   ok(await api('ubecChair', ubecPath, { action: 'return', version: ubec.plan.version, roundId: ubec.round.id, comment: 'Please attach quotations.' }));
-  // A return lands with the SUBEB BEAP Chair (and the Executive Chairman); Directors and Data Entry hear when it is sent down to them.
-  for (const who of ['ec', 'chair']) assert.ok((await mine(who)).some(n => n.source === 'state' && n.action === 'request_changes' && n.actorRole === 'UBEC BEAP Chair'), who);
-  for (const who of ['des', 'dir']) assert.ok(!(await mine(who)).some(n => n.action === 'request_changes' && n.actorRole === 'UBEC BEAP Chair'), who);
+  // UBEC203: Sports has rejected items, so it goes straight to Data Entry: its Director and Data Entry hear with the BEAP Chair and the Executive Chairman.
+  for (const who of ['ec', 'chair', 'des', 'dir']) assert.ok((await mine(who)).some(n => n.source === 'state' && n.action === 'request_changes' && n.actorRole === 'UBEC BEAP Chair'), who);
   const returned = (await mine('chair')).find(n => n.action === 'request_changes');
   assert.ok(Number.isInteger(returned.eventId) && returned.comment === 'Please attach quotations.', 'the return note carries its review event id for the history link');
   assert.ok((await mine('es')).some(n => n.action === 'return'), 'the ES is told about the decision');

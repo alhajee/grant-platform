@@ -14,6 +14,7 @@ import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
 import ts from 'typescript';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const requireModule = createRequire(import.meta.url);
 function load(path) {
@@ -232,6 +233,7 @@ try {
   fails(await api('ec', ubecPath(), { action: 'submit', version: ok(await api('ec', ubecPath())).plan.version }), 409, /Upload the/);
   await setRequired(false);
   assert.equal(ok(await api('ec', ubecPath())).canSubmit, true);
+  await signForUbec(db, ubecPath());
   ok(await api('ec', ubecPath(), { action: 'submit', version: ok(await api('ec', ubecPath())).plan.version }));
   const esView = ok(await api('es', ubecPath()));
   assert.equal(esView.round.snapshot.ict.length, 7); assert.equal(esView.round.snapshot.teachers.length, 1); assert.equal(esView.round.snapshot.infrastructure.length, 3);

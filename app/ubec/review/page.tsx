@@ -12,6 +12,7 @@ import { UbecComponentCards, type CardStep } from '@/components/ubec/ubec-compon
 import { FlowDialog, type FlowRequest } from '@/components/ubec/flow-dialog';
 import { AssessItemsDialog } from '@/components/ubec/assess-items-dialog';
 import { FinanceDocumentsCard } from '@/components/plan-page/finance-documents-card';
+import { SubmissionLetterCard } from '@/components/ubec/submission-letter-card';
 import { LevelMappingCard } from '@/components/level-mapping-card';
 import { levelMapping } from '@/lib/level-mapping';
 import { DecisionBar, StagePill } from '@/components/ubec/flow-bits';
@@ -205,6 +206,7 @@ export default function UbecReviewPage() {
               <ol className="ubec-pipeline-steps">{(['unreleased', 'director', 'oversight', 'chair'] as const).map(stage => { const n = cards.filter(c => c.stage === stage).length; return <li key={stage} data-active={n > 0 || undefined}><StagePill stage={stage} /><b>{n}</b></li>; })}</ol>
               <p className="ubec-pipeline-meta">Received {date.format(new Date(round.submitted_at))} · Submission {round.number}</p>
             </CardContent></Card>
+            <SubmissionLetterCard planId={data.plan.id} letters={data.submissionLetters ?? []} />
             {/* UBEC127: this submission's spending by school level (components the viewer sees). */}
             <LevelMappingCard className="plan-status-panel" mapping={levelMapping(round.snapshot)} />
             {/* Only UBEC Finance sees the plan's Finance documents (UBEC130); the card renders nothing for anyone else. */}

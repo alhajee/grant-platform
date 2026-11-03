@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
@@ -61,6 +62,7 @@ try {
   const line = String((await db.query("SELECT id FROM activity_plan_lines WHERE plan_id=$1 AND workstream='monitoring'", [planId])).rows[0].id);
   const stateStep = async (who, action) => { const version = ok(await api('ec', statePath)).plan.version; ok(await api(who, statePath, { action, pillar: 'monitoring', version })); };
   await stateStep('desP', 'submit'); await stateStep('dirP', 'endorse'); await stateStep('subebChair', 'forward');
+  await signForUbec(db, path);
   ok(await api('ec', path, { action: 'submit', version: ok(await api('ec', path)).plan.version }));
   const view = async who => ok(await api(who, path));
   const act = async (who, action, extra = {}) => { const v = await view('chair'); return api(who, path, { action, version: v.plan.version, roundId: v.round.id, ...extra }); };

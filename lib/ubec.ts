@@ -94,6 +94,8 @@ export type UbecDetail = {
   events: { id: number; action: string; actor: string; comment: string; created_at: string; pillar?: string | null }[];
   /** Plan funding for the summary card (from the round's snapshot setup). */
   fundingTotal?: number | null;
+  /** UBEC132: the Executive Chairman's signature and cover letter sent with the round. */
+  submissionLetters?: import('./submission-letter').SubmissionLetter[];
 };
 export type NationalItem = {
   /** Proposed budget by school level, components the viewer sees only (UBEC127, lib/level-mapping.ts). */

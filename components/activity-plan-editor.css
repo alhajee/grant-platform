@@ -115,3 +115,6 @@
 .distribution-allocate-left[data-done] { color: var(--primary); }
 .distribution-allocate-left[data-over] { color: var(--destructive); }
 .distribution-allocate-table { max-height: min(420px, 55vh); overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; }
+
+/* UBEC216: remove several schools from the distribution list at once. */
+.distribution-bulk { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 8px; font-size: 13px; color: var(--muted-foreground); }

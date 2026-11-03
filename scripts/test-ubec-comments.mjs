@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import ExcelJS from 'exceljs';
 import { hashSync } from 'bcryptjs';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
@@ -78,6 +79,7 @@ try {
   for (const pillar of ['sports', 'sbmc']) await review('des', 'submit', pillar);
   const stateThread = ok(await api('dir', stateComments, { sheet: 'sports', rowRef: balls, columnId: 'unitCost', body: 'STATE-INTERNAL: director note on unit cost' }), 201).id;
   for (const pillar of ['sports', 'sbmc']) { await review(pillar === 'sbmc' ? 'dirSocial' : 'dir', 'endorse', pillar); await review('chair', 'forward', pillar); }
+  await signForUbec(db, ubecReview);
   ok(await api('ec', ubecReview, { action: 'submit', version: ok(await api('ec', ubecReview)).plan.version }));
   const round1 = ok(await api('uchair', ubecReview)).round.id;
   const components = `/api/ubec/components${q}`;
@@ -220,6 +222,7 @@ try {
   ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'delete', id: Number(kits) }));
   await review('des', 'submit', 'sports', 'Finals line removed.');
   for (const pillar of ['sports', 'sbmc']) { await review(pillar === 'sbmc' ? 'dirSocial' : 'dir', 'endorse', pillar); await review('chair', 'forward', pillar); }
+  await signForUbec(db, ubecReview);
   ok(await api('ec', ubecReview, { action: 'submit', version: ok(await api('ec', ubecReview)).plan.version, comment: 'All UBEC comments addressed.' }));
   const round2 = ok(await api('uchair', ubecReview)).round.id;
   step('state: the holder Director cannot resolve a shared thread (UBEC193); a state and a UBEC thread stay open on the same cell (one per scope); the plan is resubmitted as round 2');

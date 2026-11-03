@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname), 'Run this test against a local server only.');
@@ -139,6 +140,7 @@ try {
   const ecView = ok(await api('ec', `/api/plans/review?plan=${planId}`));
   assert.equal(ecView.pillarReviews.find(r => r.pillar === 'planning').status, 'chairman_ready');
   const ubecPath = `/api/ubec/review?plan=${planId}`;
+  await signForUbec(db, ubecPath);
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));
   const esView = ok(await api('es', ubecPath));
   assert.equal(esView.round.snapshot.planning.length, 5);

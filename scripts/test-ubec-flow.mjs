@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
@@ -82,7 +83,31 @@ try {
   const decide = async (who, pillar, rowRef, decision, note = '') => api(who, decisions, { roundId: (await view('chair')).round.id, pillar, rowRef, decision, note }, 'PUT');
 
   await throughState('sports', 'desA', 'dirA'); await throughState('monitoring', 'desP', 'dirP');
+  { // UBEC132: the Executive Chairman signs (drawn or uploaded) and attaches a cover letter before sending to UBEC.
+    const letterPath = `/api/plans/submission-letter?plan=${planId}`;
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4f50000000049454e44ae426082', 'hex');
+    const letterForm = (kind, bytes, name, drawn = false) => { const f = new FormData(); f.set('kind', kind); f.set('file', new Blob([bytes]), name); if (drawn) f.set('drawn', 'true'); return f; };
+    assert.deepEqual(ok(await api('ec', letterPath)).missing, ['Signature', 'Cover letter']);
+    fails(await api('ec', path, { action: 'submit', version: ok(await api('ec', path)).plan.version }), 409, /Add your signature and cover letter/);
+    fails(await api('subebChair', letterPath, letterForm('signature', png, 'sig.png', true)), 403);
+    fails(await api('ec', letterPath, letterForm('signature', Buffer.from('%PDF-1.4 x'), 'sig.pdf')), 400, /PNG or JPG/);
+    fails(await api('ec', letterPath, letterForm('cover_letter', Buffer.from('not a pdf'), 'letter.pdf')), 400, /cover letter/);
+    ok(await api('ec', letterPath, letterForm('signature', png, 'anything.png', true)), 201);
+    ok(await api('ec', letterPath, letterForm('cover_letter', Buffer.from('%PDF-1.4 cover letter'), 'cover-letter.pdf')), 201);
+    const pending = ok(await api('subebChair', letterPath));
+    assert.deepEqual(pending.missing, []); assert.equal(pending.canEdit, false, 'the BEAP Chair sees them but only the Executive Chairman signs');
+    assert.equal(pending.letters.find(l => l.kind === 'signature').name, 'signature.png'); assert.equal(pending.letters.find(l => l.kind === 'signature').drawn, true);
+    fails(await api('chair', `${letterPath}&id=${pending.letters[0].id}`), 404, undefined);
+  }
   ok(await api('ec', path, { action: 'submit', version: ok(await api('ec', path)).plan.version }));
+  { // The letters go with the round: UBEC sees them; the next submission needs new ones.
+    const sent = ok(await api('chair', path)).submissionLetters;
+    assert.deepEqual(sent.map(l => l.kind).sort(), ['cover_letter', 'signature']);
+    const download = await api('chair', `/api/plans/submission-letter?plan=${planId}&id=${sent.find(l => l.kind === 'cover_letter').id}`);
+    assert.equal(download.status, 200); assert.match(download.text, /cover letter/);
+    assert.deepEqual(ok(await api('ec', `/api/plans/submission-letter?plan=${planId}`)).missing, ['Signature', 'Cover letter']);
+    step('UBEC132: the Executive Chairman signs and attaches a cover letter (both required, own types only); they go with the round to UBEC');
+  }
   assert.ok(await notified('chair', 'submit') && await notified('es', 'submit'), 'the UBEC BEAP Chair and ES hear about the submission');
   { // UBEC205: UBEC Planning accepts or rejects the RAT tool; a rejection needs a comment; only UBEC Planning decides.
     const round1 = (await view('chair')).round.id;
@@ -211,26 +236,23 @@ try {
   fails(await act('chair', 'return'), 400);
   const openThreads = ok(await api('chair', `/api/ubec/comments${q}`)).threads.filter(t => !t.resolvedAt).map(t => t.id);
   ok(await act('chair', 'return', { comment: 'Revise the sports equipment quantity.', shareCommentIds: openThreads }));
-  // The return lands with the SUBEB BEAP Chair first (Executive Chairman told too); Directors and Data Entry hear when she returns it to them.
+  // UBEC203: a component with rejected items goes straight to Data Entry; the rest land with the SUBEB BEAP Chair.
   const afterReturn = ok(await api('ec', statePath));
-  for (const pillar of ['sports', 'monitoring']) assert.equal(afterReturn.pillarReviews.find(r => r.pillar === pillar).status, 'beap_review', `${pillar} is back with the SUBEB BEAP Chair`);
-  for (const who of ['ec', 'subebChair']) assert.ok(await notified(who, 'request_changes'), `${who} is notified of the return`);
-  for (const who of ['dirA', 'desA', 'desS']) assert.equal(await notified(who, 'request_changes'), false, `${who} is not notified until the BEAP Chair returns it`);
-  fails(await api('desA', sports, { ...budget, action: 'update', id: sportsLine, quantity: 6 }), 409);
+  assert.equal(afterReturn.pillarReviews.find(r => r.pillar === 'sports').status, 'changes_requested', 'sports (rejected item) is back with Data Entry');
+  assert.equal(afterReturn.pillarReviews.find(r => r.pillar === 'monitoring').status, 'beap_review', 'monitoring is back with the SUBEB BEAP Chair');
+  for (const who of ['ec', 'subebChair', 'dirA', 'desA']) assert.ok(await notified(who, 'request_changes'), `${who} is notified of the return`);
+  for (const who of ['desS', 'desP']) assert.equal(await notified(who, 'request_changes'), false, `${who} has no rejected items and is not notified`);
   // UBEC199: neither the Executive Chairman nor the BEAP Chair edits the plan details while it is back for corrections.
   const setup = ok(await api('ec', `/api/plans/setup?plan=${planId}`));
   assert.equal(setup.canEdit, false); assert.match(setup.lockedReason, /back from UBEC/);
   for (const who of ['ec', 'subebChair']) assert.match(fails(await api(who, '/api/plans/setup', { plan: planId, version: setup.plan.version, planningYear: setup.plan.startYear, implementationYear: setup.plan.implementationYear ?? setup.plan.startYear, quarters: setup.plan.fundingQuarters ?? [1, 2, 3, 4], stateLodgment: setup.plan.stateLodgment, fundingSources: setup.plan.fundingSources ?? [] }, 'PATCH'), 409).error, /back from UBEC/);
-  await stateStep('subebChair', 'request_changes', 'sports', 'UBEC asked to revise the equipment quantity.');
-  await stateStep('dirA', 'request_changes', 'sports', 'Please revise the quantity.');
-  assert.ok(await notified('desA', 'request_changes'), 'Data Entry hears once the Director returns it');
   assert.ok((ok(await api('desP', `/api/plans/comments${q}`)).threads).some(t => t.id === auditComment && t.scope === 'ubec'), 'shared UBEC threads reach the state');
   const results = ok(await api('desA', `/api/ubec/results${q}`));
   assert.equal(results.round.status, 'returned'); assert.deepEqual(results.components.map(c => c.pillar), ['sports']);
   assert.equal(results.components[0].items[0].decision, 'reject'); assert.equal(results.components[0].items[0].note, 'Quantity is too high.');
   assert.equal(ok(await api('ec', `/api/ubec/results${q}`)).components.length, 2);
   fails(await api('chair', `/api/ubec/results${q}`), 403);
-  step('approval is blocked while an item is rejected; the BEAP Chair returns the whole plan; the return lands with the SUBEB BEAP Chair, who sends it down to the Director and Data Entry; shared threads and item results reach the state by department');
+  step('approval is blocked while an item is rejected; the BEAP Chair returns the whole plan; components with rejected items go straight to Data Entry, the rest to the BEAP Chair; shared threads and item results reach the state by department');
 
   // UBEC189: the rejected item must be changed (or removed) before Data Entry can send the component on.
   fails(await api('desA', statePath, { action: 'submit', pillar: 'sports', version: ok(await api('desA', statePath)).plan.version, comment: 'Nothing changed.' }), 409, /Correct the item UBEC rejected in Sports, Quiz & Debate Activities first/);
@@ -252,6 +274,7 @@ try {
     assert.equal(ok(await api('ec', statePath)).ratProblem, null);
   }
   await stateStep('subebChair', 'forward', 'sports');
+  await signForUbec(db, path);
   ok(await api('ec', path, { action: 'submit', version: ok(await api('ec', path)).plan.version, comment: 'Revised the equipment specification.' }));
   const second = await view('chair');
   assert.equal(second.round.number, 2); assert.equal(second.round.status, 'received'); assert.ok(second.flow.previousDecisions.some(d => d.pillar === 'sports' && d.decision === 'reject'));

@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import ExcelJS from 'exceljs';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
@@ -188,6 +189,7 @@ try {
 
   // Locked during UBEC review.
   const ubecPath = `/api/ubec/review${q}`;
+  await signForUbec(db, ubecPath);
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));
   expect(await cell('ec', kits, 'amount', 'late'), 409, /locked/);
   expect(await api('des', comments, { parentId: ecRoot, body: 'late' }), 409, /locked/);

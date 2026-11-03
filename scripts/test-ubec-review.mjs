@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
@@ -91,6 +92,7 @@ try {
   await throughState('monitoring', 'desP', 'dirP');
   assert.equal(ok(await api('ec', path)).canSubmit, true);
   for (const who of ['desA', 'dirA', 'chair']) assert.equal((await act(who, 'submit')).status, 403, `${who} cannot send to UBEC`);
+  await signForUbec(db, path);
   ok(await act('ec', 'submit'));
   assert.equal((await act('ec', 'submit')).status, 409);
   const first = ok(await api('es', path));
@@ -119,14 +121,14 @@ try {
   assert.equal((await act('dacs', 'return', { comment: 'No authority' })).status, 403);
   assert.equal((await act('ubecChair', 'return', { comment: '' })).status, 400);
   ok(await act('ubecChair', 'return', { comment: 'Revise sports equipment and resubmit.' }));
-  for (const pillar of ['sports', 'monitoring']) assert.equal(ok(await api('ec', statePath)).pillarReviews.find(r => r.pillar === pillar).status, 'beap_review', `${pillar} is back with the SUBEB BEAP Chair`);
-  await stateStep('chair', 'request_changes', 'sports', 'Revise the sports equipment.');
-  await stateStep('dirA', 'request_changes', 'sports', 'Revise the quantity.');
+  // UBEC203: the component with a rejected item goes straight to Data Entry; the rest to the SUBEB BEAP Chair.
+  { const reviews = ok(await api('ec', statePath)).pillarReviews; assert.equal(reviews.find(r => r.pillar === 'sports').status, 'changes_requested'); assert.equal(reviews.find(r => r.pillar === 'monitoring').status, 'beap_review'); }
 
   ok(await api('desA', sports, { ...budget, action: 'update', id: lineId, quantity: 6, description: 'Revised equipment specification' }));
   assert.equal((await act('ec', 'submit', { comment: 'Cannot skip state review' })).status, 409);
   await throughState('sports', 'desA', 'dirA', 'Quantity revised.');
   assert.equal((await act('ec', 'submit')).status, 400, 'A resubmission explains how the feedback was addressed');
+  await signForUbec(db, path);
   ok(await act('ec', 'submit', { comment: 'Addressed equipment feedback.' }));
   assert.equal(JSON.stringify(ok(await api('es', `${path}&round=${first.round.id}`)).round.snapshot), frozen, 'Earlier rounds stay unchanged');
   const second = ok(await api('es', path));

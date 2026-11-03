@@ -78,8 +78,15 @@ try {
   ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'delete', id: b }));
   assert.deepEqual(ok(await api('academic', url('curriculum'))).lines.find(l => l.id === item.id).allocations, { [a]: 6 });
   ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'delete', id: c }));
+  // UBEC216: several schools come off the list at once, with their items.
+  ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'create', schoolIds: [b, c] }));
+  ok(await allocate('academic', item.id, { [a]: 6, [b]: 4 }));
+  fails(await api('physical', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'delete', schoolIds: [b, c] }), 403);
+  assert.equal(ok(await api('academic', url('curriculum'), { workstream: 'curriculum', entity: 'school', action: 'delete', schoolIds: [b, c] })).removed, 2);
+  data = ok(await api('academic', url('curriculum')));
+  assert.deepEqual(data.distribution.map(s => s.id), [a]); assert.deepEqual(data.lines.find(l => l.id === item.id).allocations, { [a]: 6 });
   ok(await allocate('academic', item.id, { [a]: 10 }));
-  step('saving the item keeps its allocation; lowering its quantity below it is refused; a school taken off the list loses its items');
+  step('saving the item keeps its allocation; lowering its quantity below it is refused; a school taken off the list loses its items, also when several are removed at once (UBEC216)');
 
   const snapshot = ok(await api('academic', `/api/plans/review?plan=${planId}`)).snapshot;
   assert.equal(snapshot.distributionAllocations, true);

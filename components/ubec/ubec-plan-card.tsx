@@ -29,7 +29,7 @@ export function UbecPlanCard({ item, action }: { item: NationalItem; action?: st
       <span className="ubec-card-badges"><Badge variant={item.status === 'returned' ? 'warning' : item.status === 'approved' ? 'default' : 'secondary'}>{nationalStatusLabels[item.status]}</Badge>{item.corrected ? <Badge className="ubec-corrected-badge" title="Items UBEC rejected last time that the SUBEB changed">{item.corrected} corrected</Badge> : null}</span>
     </CardHeader>
     <CardContent>
-      <p className="plan-funding-label">{funding ? 'Available funding' : 'Proposed'}</p>
+      <p className="plan-funding-label">{funding ? 'Matching Grant Fund' : 'Proposed'}</p>
       <p className="plan-funding" aria-label={amountFormat.format(funding || item.budget)}><Amount value={funding || item.budget} /></p>
       {item.budget > 0 && <div className="plan-proposed">
         <FundingGauge amounts={item.amounts ?? {}} budget={item.budget} funding={funding || item.budget} />

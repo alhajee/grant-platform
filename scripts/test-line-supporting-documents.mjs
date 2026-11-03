@@ -10,6 +10,7 @@ import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname), 'Run this test against a local server only.');
@@ -142,6 +143,7 @@ try {
   assert.deepEqual(socialView.snapshot.sbmc.find(l => l.id === sbmc).documents.map(d => d.id), [sbmcDoc.id]);
   ok(await review('chair', { action: 'forward', pillar: 'quality' }));
   const ubecPath = `/api/ubec/review?plan=${planId}`;
+  await signForUbec(db, ubecPath);
   ok(await api('ec', ubecPath, { action: 'submit', version: ok(await api('ec', ubecPath)).plan.version }));
   const esView = ok(await api('es', ubecPath));
   assert.deepEqual(esView.round.snapshot.quality.find(l => l.id === qaLines[4]).documents.map(d => d.id), [qaDoc.id, qaPhoto.id]);

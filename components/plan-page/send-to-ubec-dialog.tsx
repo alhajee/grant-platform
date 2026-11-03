@@ -13,6 +13,8 @@ import { componentSections, type ImplementedPillar } from '@/lib/beap-pillars';
 import { summarizeSnapshot } from '@/lib/plan-summary';
 import type { PlanReview } from '@/lib/plan-review';
 import type { UbecDetail } from '@/lib/ubec';
+import { missingSubmissionLetters, submissionLetterHref, type SubmissionLetter } from '@/lib/submission-letter';
+import { SubmissionLetterFields } from '@/components/plan-page/submission-letter-fields';
 
 type Status = { version: number; roundId?: number; returned: boolean; canSubmit: boolean };
 const reviewUrl = (planId: number) => `/api/ubec/review?plan=${encodeURIComponent(String(planId))}`;
@@ -20,7 +22,7 @@ const reviewUrl = (planId: number) => `/api/ubec/review?plan=${encodeURIComponen
 const nameOf = (pillar: ImplementedPillar) => componentSections[pillar][0].name;
 
 /** The confirmation summary: the components that go (only ready ones), their total, and what UBEC review locks. */
-function ubecConfirmation(review: PlanReview, returned: boolean, openUbecComments: number, financeMissing: readonly string[]): { facts: ConfirmFact[]; notes: ConfirmNote[] } {
+function ubecConfirmation(review: PlanReview, returned: boolean, openUbecComments: number, financeMissing: readonly string[], letters: readonly SubmissionLetter[]): { facts: ConfirmFact[]; notes: ConfirmNote[] } {
   const totals = summarizeSnapshot(review.snapshot);
   const ready = review.pillarReviews.filter(r => r.status === 'chairman_ready').map(r => r.pillar);
   // Components with saved lines that haven't reached the Executive Chairman stay behind (reviewed-components mode).
@@ -31,6 +33,13 @@ function ubecConfirmation(review: PlanReview, returned: boolean, openUbecComment
     { label: 'Total proposed', value: confirmMoney.format(ready.reduce((sum, p) => sum + totals[p].budget, 0)) },
     { label: 'Goes to', value: 'UBEC BEAP Chair, for national review' },
   ];
+  // UBEC132: the Executive Chairman's signature and cover letter go with the submission.
+  const signature = letters.find(l => l.kind === 'signature'), letter = letters.find(l => l.kind === 'cover_letter');
+  if (signature) facts.push({ label: 'Signed', value: (
+    // eslint-disable-next-line @next/next/no-img-element -- a private, same-origin download
+    <img className="submission-signature-fact" src={submissionLetterHref(review.plan.id, signature.id)} alt="Your signature" />
+  ) });
+  if (letter) facts.push({ label: 'Cover letter', value: letter.name });
   if (leftOut.length) facts.push({ label: 'Left out (not ready)', value: <ul>{leftOut.map(p => <li key={p}>{nameOf(p)}</li>)}</ul> });
   if (openUbecComments > 0) facts.push({ label: 'UBEC comments', value: `${openUbecComments} still open; UBEC sees your team’s replies` });
   // UBEC130: Finance documents never block the send, but the Executive Chairman is told what is missing.
@@ -53,8 +62,9 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
   const [comment, setComment] = useState(''), [error, setError] = useState(''), [saving, setSaving] = useState(false);
   const busy = useRef(false);
   const step = useConfirmStep('send-to-ubec-note');
-  const [financeMissing, setFinanceMissing] = useState<string[]>([]);
-  const summary = useMemo(() => ubecConfirmation(review, !!status?.returned, openUbecComments, financeMissing), [review, status?.returned, openUbecComments, financeMissing]);
+  const [financeMissing, setFinanceMissing] = useState<string[]>([]), [letters, setLetters] = useState<SubmissionLetter[] | null>(null);
+  const lettersMissing = letters ? missingSubmissionLetters(letters) : ['Signature', 'Cover letter'];
+  const summary = useMemo(() => ubecConfirmation(review, !!status?.returned, openUbecComments, financeMissing, letters ?? []), [review, status?.returned, openUbecComments, financeMissing, letters]);
 
   useEffect(() => {
     if (!open) return;
@@ -74,6 +84,7 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
   function toConfirm() {
     if (!status?.canSubmit) return;
     if (status.returned && !comment.trim()) { setError('Describe how the UBEC feedback was addressed'); return; }
+    if (lettersMissing.length) { setError(`Add your ${lettersMissing.map(m => m.toLowerCase()).join(' and ')} first`); return; }
     setError(''); step.review();
   }
 
@@ -91,7 +102,7 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
   }
 
   return <Dialog open={open} onOpenChange={next => { if (!next && !saving) onClose(); }}>
-    <DialogContent variant="inset-footer" className="sm:max-w-lg" showCloseButton={!saving} onEscapeKeyDown={event => step.escape(event, saving)} onInteractOutside={event => { if (saving) event.preventDefault(); }}>
+    <DialogContent variant="inset-footer" className="sm:max-w-xl" showCloseButton={!saving} onEscapeKeyDown={event => step.escape(event, saving)} onInteractOutside={event => { if (saving) event.preventDefault(); }}>
       {step.confirming ? <ConfirmStep title={`${status?.returned ? 'Resubmit' : 'Send'} the ${planPeriod(review.plan)} BEAP to UBEC?`} description="The UBEC BEAP Chair is notified and releases it to the UBEC departments for assessment"
         facts={summary.facts} notes={summary.notes} comment={comment} commentLabel={status?.returned ? 'Response to UBEC feedback' : 'Your comment'} confirmLabel={status?.returned ? 'Yes, resubmit to UBEC' : 'Yes, send to UBEC'}
         saving={saving} error={error} bodyClassName="px-4 pb-5" onBack={() => { setError(''); step.back(); }} onConfirm={() => void send()} /> : <>
@@ -112,11 +123,12 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
             <Textarea id="send-to-ubec-note" value={comment} onChange={event => setComment(event.target.value)} maxLength={5000} rows={4} required={status.returned} disabled={saving} />
             {error && <FieldError>{error}</FieldError>}
           </Field>
+          <SubmissionLetterFields planId={planId} disabled={saving} onChange={setLetters} />
         </FieldGroup>}
       </div>
       <DialogFooter>
         <DialogClose asChild><Button type="button" variant="outline" disabled={saving}>Cancel</Button></DialogClose>
-        <Button type="submit" disabled={!status?.canSubmit || saving}>{saving && <Spinner data-icon="inline-start" />}Send to UBEC</Button>
+        <Button type="submit" disabled={!status?.canSubmit || saving || lettersMissing.length > 0} title={lettersMissing.length ? `Add your ${lettersMissing.map(m => m.toLowerCase()).join(' and ')} first` : undefined}>{saving && <Spinner data-icon="inline-start" />}Send to UBEC</Button>
       </DialogFooter>
       </form>
       </>}

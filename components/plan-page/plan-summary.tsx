@@ -85,7 +85,7 @@ export function PlanSummary({ plan, totals, detailsOpen, onDetailsOpenChange }: 
   ];
 
   const front = <>
-    <p className="plan-summary-label">Available funding</p>
+    <p className="plan-summary-label">Matching Grant Fund</p>
     <p className="plan-funding" aria-label={funding == null ? 'Not set' : amountFormat.format(funding)}>{funding == null ? '—' : <Amount value={funding} />}</p>
     {budget > 0 ? <div className="plan-summary-mix">
       <FundingGauge amounts={amounts} budget={budget} funding={funding ?? 0} />

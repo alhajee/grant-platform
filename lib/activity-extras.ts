@@ -156,7 +156,7 @@ const tlmDocumentSlots: readonly LineDocumentSlot[] = [
 const teacherDocumentSlots: readonly LineDocumentSlot[] = [
   { kind: 'budget', label: 'Budget Breakdown', governed: true, always: true, accept: lineDocumentAccept, hint: 'The training budget filled in from the template (Literacy, ECCDE or Curriculum). PDF or Excel', template: { href: '/templates/teacher-development-budget-template.xlsx', name: 'BEAPMS Training Budget Template.xlsx' } },
   { kind: 'participants', label: 'Training List of Participants', governed: true, always: true, accept: lineDocumentAccept, hint: 'The teachers selected for the training, filled in from the template. PDF or Excel', template: { href: '/templates/training-participants-template.xlsx', name: 'Template for Selection of Teachers Training.xlsx' } },
-  { kind: 'document', label: teacherDocumentLabel, governed: true, accept: lineDocumentAccept, hint: 'PDF or Excel only' },
+  { kind: 'document', label: teacherDocumentLabel, governed: true, accept: lineDocumentAccept, hint: 'Other supporting documents, such as the MOU with the training provider. PDF or Excel only' },
 ];
 export function lineDocumentSlots(workstream: string, activity: number): readonly LineDocumentSlot[] {
   if (workstream === 'tlm') return tlmDocumentSlots;

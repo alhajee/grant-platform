@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
+import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
@@ -140,6 +141,7 @@ try {
   assert.equal(status.requests.length, 2); assert.equal(ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation').length, 2, 'earlier observations stay visible');
   ok(await api('procurement', ubecPath, { action: 'done', note: 'Nothing further' }));
   assert.equal(ok(await api('ec', requestPath)).problem, null);
+  await signForUbec(db, `/api/ubec/review${q}`);
   ok(await api('ec', `/api/ubec/review${q}`, { action: 'submit', version: await version() }));
   step('the Executive Chairman can ask again; earlier observations stay; once all is in and resolved the plan goes to UBEC');
 

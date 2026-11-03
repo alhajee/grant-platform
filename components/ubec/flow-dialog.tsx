@@ -43,7 +43,7 @@ const copy: Record<FlowRequest['kind'], { title: (name: string) => string; descr
   observe: { title: name => `Observations done · ${name}`, description: `Add any comments on items in the workbook first. Once ${oversightList()} are all done, the component goes to the UBEC BEAP Chair.`, field: 'Your observations (optional)', required: false, confirm: 'Observations done' },
   observerDone: { title: name => `Observations done · ${name}`, description: 'Add any comments on items first. Your Oversight Director is told; they finish for the department and do not wait for you.', field: 'Note for your Director (optional)', required: false, confirm: 'Observations done' },
   approve: { title: () => 'Approve action plan', description: 'Every item has been accepted. Approval locks the plan; it does not disburse funds.', field: 'Decision note', required: true, confirm: 'Approve action plan' },
-  return: { title: () => 'Return to SUBEB', description: 'The whole plan goes back to the SUBEB BEAP Chair with every component’s results', field: 'Consolidated changes required', required: true, confirm: 'Return to SUBEB' },
+  return: { title: () => 'Return to SUBEB', description: 'The whole plan goes back to the SUBEB with every component’s results: components with rejected items to Data Entry, the rest to the BEAP Chair', field: 'Consolidated changes required', required: true, confirm: 'Return to SUBEB' },
 };
 
 /**

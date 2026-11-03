@@ -38,8 +38,8 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
       notes: [{ kind: 'warning', text: 'Approval is final. The plan is locked as approved and this UBEC review closes.' }, { kind: 'info', text: 'Approval does not disburse funds' }],
       acknowledge: 'I have reviewed every component’s results and my decision note' };
     return { title: `Return the ${plan} to the SUBEB?`, confirm: 'Yes, return to SUBEB', tone: 'destructive',
-      description: 'It goes to the SUBEB BEAP Chair, who sends it back to the Directors and Data Entry',
-      facts: [...facts, { label: 'Returns to', value: 'SUBEB BEAP Chair' }, { label: 'Comments shared', value: shared ? `${shared} UBEC ${shared === 1 ? 'comment' : 'comments'} sent with your feedback` : 'None; all UBEC comments stay internal' }],
+      description: 'Components with rejected items go straight to their SUBEB Data Entry to be corrected; the rest go to the SUBEB BEAP Chair',
+      facts: [...facts, { label: 'Returns to', value: 'SUBEB Data Entry (rejected items) and BEAP Chair' }, { label: 'Comments shared', value: shared ? `${shared} UBEC ${shared === 1 ? 'comment' : 'comments'} sent with your feedback` : 'None; all UBEC comments stay internal' }],
       notes: [{ kind: 'warning', text: 'This UBEC review closes and can’t be reopened. UBEC reviews the plan again only when the SUBEB resubmits.' }],
       acknowledge: 'I have reviewed every component’s results and the changes required' };
   }

@@ -46,7 +46,7 @@ export function PlanCard({ plan, isOfficer, canEdit, onEdit, stateCode }: PlanCa
       <PlanStatusBadge status={plan.status} reviews={plan.pillarReviews} />
     </CardHeader>
     <CardContent>
-      <p className="plan-funding-label">Available funding</p>
+      <p className="plan-funding-label">Matching Grant Fund</p>
       <p className="plan-funding" aria-label={amountFormat.format(funding)}><Amount value={funding} /></p>
       {proposed ? <div className="plan-proposed">
         <FundingGauge amounts={planAmounts(plan)} budget={plan.budget} funding={funding} />

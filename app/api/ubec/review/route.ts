@@ -22,6 +22,8 @@ import { addUbecEvent, approvableComponents, notifyUbec, openOversightCommentCou
 import { componentName, superAdminRole } from '@/lib/ubec-flow';
 import { readObservationStatus } from '@/lib/observation-requests-db';
 import { subebComponentDepartments, type ImplementedPillar } from "@/lib/beap-pillars";
+import { submissionLetterProblem } from '@/lib/submission-letter';
+import { attachLetters, readPendingLetters, readRoundLetters } from '@/lib/submission-letter-db';
 
 // Plan-level UBEC steps (docs/ubec-flow.md): the SUBEB Executive Chairman submits; the UBEC BEAP Chair releases the
 // round to the departments and finally approves or returns it. Component steps live in app/api/ubec/components.
@@ -74,6 +76,8 @@ export async function GET(request: NextRequest) {
         canSubmit, ubecMode, plan: { ...plan, stateName: stateDisplayName(plan.state_code) }, user: { name: user.name, role: user.role, department: user.department }, role: user.role, department: user.department,
         rounds: rounds.map(r => ({ id: r.id, plan_id: r.plan_id, number: r.number, state_submission: r.state_submission, status: r.status, submitted_at: r.submitted_at, decision: r.decision, decided_at: r.decided_at, released_at: r.released_at })),
         round: round ? { ...round, snapshot } : null, assignments, flow, events, fundingTotal,
+        // UBEC132: the Executive Chairman's signature and cover letter sent with this round.
+        submissionLetters: round ? await readRoundLetters(db, round.id) : [],
       }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error(cause); return error('Unable to load the UBEC review', 503); }
@@ -120,7 +124,10 @@ export async function POST(request: NextRequest) {
         // UBEC189: the components going to UBEC must have every rejected item of the returned round changed or removed.
         { const open = await readOpenRejections(db, plan.id, snapshot); const sent = componentsWithExecutiveChairman(reviews); const problem = sent.map(p => rejectionProblem(componentName(p), open[p])).find(Boolean); if (problem) return error(problem, 409); }
         if (!readyForUbecSubmission(ubecMode, reviews, snapshot, readiness)) return error(partial ? 'At least one component must reach the Executive Chairman before sending to UBEC.' : 'Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
+        // UBEC132: the Executive Chairman signs and attaches a cover letter to every submission.
+        { const problem = submissionLetterProblem(await readPendingLetters(db, plan.id)); if (problem) return error(problem, 409); }
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(ubecSubmissionSnapshot(snapshot, reviews)), user.id])).rows[0];
+        await attachLetters(db, plan.id, round.id);
         status = 'submitted_ubec';
       } else {
         if (!round || round.id !== input.roundId || !['received', 'reviewing'].includes(round.status)) return error('This submission is no longer open for review', 409);
@@ -154,17 +161,22 @@ export async function POST(request: NextRequest) {
           }
           await db.query('UPDATE ubec_rounds SET status=$1,decision=$2,decided_at=NOW() WHERE id=$3', [input.action === 'approve' ? 'approved' : 'returned', input.comment, round.id]);
           status = 'ubec_approved';
-          // A return lands with the SUBEB BEAP Chair first: the round's components go back to "With BEAP Chair", who
-          // returns them to their Directors (and on to Data Entry) or sends them on again.
+          // A return: components with items UBEC rejected go straight back to Data Entry ("Changes requested"), who
+          // correct them and send them up the chain again (UBEC203, the Directors and Data Entry saw the rejections but
+          // could not correct them while the components sat with the BEAP Chair); the rest go to the SUBEB BEAP Chair.
+          const rejectedPillars = input.action === 'return' ? [...new Set(decisions.filter(d => d.decision === 'reject').map(d => d.pillar))].filter(p => components.some(c => c.pillar === p)) : [];
           if (input.action === 'return') {
-            await db.query("UPDATE plan_pillar_reviews SET status='beap_review',updated_at=NOW() WHERE plan_id=$1 AND pillar=ANY($2::text[])", [id, components.map(c => c.pillar)]);
+            const rest = components.map(c => c.pillar).filter(p => !rejectedPillars.includes(p));
+            await db.query("UPDATE plan_pillar_reviews SET status='beap_review',updated_at=NOW() WHERE plan_id=$1 AND pillar=ANY($2::text[])", [id, rest]);
+            await db.query("UPDATE plan_pillar_reviews SET status='changes_requested',updated_at=NOW() WHERE plan_id=$1 AND pillar=ANY($2::text[])", [id, rejectedPillars]);
             status = aggregateReviewStatus(await readPillarReviews(db, Number(id)));
           }
           const event = (await db.query(`INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,'general') RETURNING id`, [id, plan.submission_number, input.action === 'return' ? 'request_changes' : 'approve', user.full_name, user.email, user.role, input.comment])).rows[0];
-          // The SUBEB hears about it: a return goes to the BEAP Chair (the Executive Chairman, who sent it, is told too);
-          // an approval also reaches the Directors and Data Entry staff of the round's components.
-          // Whole departments and single-component grants ("academic/sports", lib/component-access.ts) of the round's components.
-          const stateDepartments = input.action === 'approve' ? [...new Set(components.flatMap(c => [subebComponentDepartments[c.pillar], `${subebComponentDepartments[c.pillar]}/${c.pillar}`]))] : [];
+          // The SUBEB hears about it: the BEAP Chair and the Executive Chairman, who sent it; a return also reaches the
+          // Directors and Data Entry staff of the components with rejected items, an approval those of every component.
+          // Whole departments and single-component grants ("academic/sports", lib/component-access.ts).
+          const notified = input.action === 'approve' ? components.map(c => c.pillar) : rejectedPillars;
+          const stateDepartments = [...new Set(notified.flatMap(p => [subebComponentDepartments[p], `${subebComponentDepartments[p]}/${p}`]))];
           await db.query(`INSERT INTO plan_notifications(plan_id,user_id,event_id) SELECT $1,u.id,$2 FROM users u WHERE u.state_code=$3 AND u.active AND (u.role='Executive Chairman' OR u.is_beap_chair
             OR (u.role IN ('Director','Data Entry Staff') AND (u.department=ANY($4::text[]) OR EXISTS(SELECT 1 FROM user_departments ud WHERE ud.user_id=u.id AND ud.department=ANY($4::text[])))))`, [id, event.id, plan.state_code, stateDepartments]);
         }

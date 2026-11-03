@@ -67,7 +67,7 @@ export async function POST(req:NextRequest){
   const parsed=z.object({workstream:z.enum(activityWorkstreams),entity:z.enum(['line','school','allocation']),action:z.enum(['create','update','delete']),id:z.number().int().positive().optional(),schoolId:z.number().int().positive().optional(),schoolIds:z.array(z.number().int().positive()).max(10000).optional(),clientKey:clientKeySchema}).safeParse(body);
   if(!parsed.success)return error('Invalid action');
   const {workstream,entity,action,id,clientKey}=parsed.data;
-  if(action!=='create'&&!id)return error('Select an entry');
+  if(action!=='create'&&!id&&!(entity==='school'&&action==='delete'&&parsed.data.schoolIds?.length))return error('Select an entry');
   return await mutatePlan(user,plan,workstream,async db=>{
    if(entity==='allocation'){
     // UBEC161/163: replace one item's schools and their quantities (only schools on the distribution list; at most its quantity).
@@ -90,8 +90,15 @@ export async function POST(req:NextRequest){
     // Lines send their own schoolIds (Quality Assurance/ICT line schools), so only a nonempty list means a bulk add here.
     const many=parsed.data.schoolIds;
     if(many?.length){
+     const ids=[...new Set(many)];
+     // UBEC216: several schools taken off the list at once, with the items allocated to them.
+     if(action==='delete'){
+      const removed=(await db.query('DELETE FROM tlm_distribution WHERE plan_id=$1 AND workstream=$2 AND school_id=ANY($3::int[])',[plan.id,workstream,ids])).rowCount??0;
+      await db.query('DELETE FROM activity_line_schools ls USING activity_plan_lines l WHERE l.id=ls.line_id AND l.plan_id=$1 AND l.workstream=$2 AND ls.school_id=ANY($3::int[])',[plan.id,workstream,ids]);
+      return NextResponse.json({ok:true,removed});
+     }
      if(action!=='create')return error('Invalid distribution action');
-     const ids=[...new Set(many)], found=(await db.query('SELECT count(*)::int AS n FROM schools WHERE id=ANY($1::int[]) AND state_code=$2',[ids,user.stateCode])).rows[0].n;
+     const found=(await db.query('SELECT count(*)::int AS n FROM schools WHERE id=ANY($1::int[]) AND state_code=$2',[ids,user.stateCode])).rows[0].n;
      if(found!==ids.length)return error('One or more schools were not found in your state',404);
      const added=(await db.query('INSERT INTO tlm_distribution(plan_id,workstream,school_id) SELECT $1,$3,unnest($2::int[]) ON CONFLICT DO NOTHING',[plan.id,ids,workstream])).rowCount??0;
      return NextResponse.json({ok:true,added,skipped:ids.length-added});
