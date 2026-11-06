@@ -127,3 +127,7 @@
 /* Package editor: the allocation meter sits beside the package total (UBEC98, October 2026). */
 .infra-package-overview{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px 24px}
 .infra-package-overview .infra-package-meter{flex:1 1 280px;max-width:420px}
+
+/* UBEC221: the reason Continue / Save package cannot go ahead sits on its own line above the buttons. */
+.infrastructure-shell .footer-actions { flex-wrap: wrap; justify-content: flex-end; }
+.infrastructure-shell .infra-footer-error { order: -1; flex-basis: 100%; text-align: right; font-size: 0.8125rem; }

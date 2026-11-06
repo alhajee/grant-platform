@@ -14,6 +14,8 @@ interface NewConstructionModelProps {
   enrolment: number;
   disabled: boolean;
   onChange: (patch: Partial<InfrastructureInput>) => void;
+  /** UBEC221: after Continue was pressed with something missing, every missing field shows its message. */
+  showErrors?: boolean;
 }
 
 /** "Block of 6 classrooms …" → "6". */
@@ -28,8 +30,9 @@ const parseMetres = (value: string) => {
  * New Construction step 2: the school model (Deliverables workbook) and the requirements it sets, without costs
  * (client feedback, October 2026). The fence length is the only figure entered here.
  */
-export function NewConstructionModel({ input, enrolment, disabled, onChange }: NewConstructionModelProps) {
-  const [fenceTouched, setFenceTouched] = useState(false);
+export function NewConstructionModel({ input, enrolment, disabled, onChange, showErrors = false }: NewConstructionModelProps) {
+  const [touched, setFenceTouched] = useState(false);
+  const fenceTouched = touched || showErrors;
   const suggested = modelFor(enrolment), model = packageModel(input, enrolment), stream = schoolStream(input.components);
   const rows = [...newConstructionRows(model, stream, input.fenceLength), { key: 'package', label: 'Complete construction package', quantity: 1, unit: 'lot', lump: true }];
   const fenceMissing = input.fenceLength <= 0;
@@ -58,6 +61,7 @@ export function NewConstructionModel({ input, enrolment, disabled, onChange }: N
           {m === suggested && <Badge variant="secondary" className="infra-model-suggested">Suggested for {enrolment.toLocaleString()} learners</Badge>}
         </ToggleGroupItem>)}
       </ToggleGroup>
+      {showErrors && input.model === undefined && <p className="text-sm text-destructive" role="alert">Choose the school model</p>}
     </fieldset>
     <div className="flex flex-wrap items-center gap-2">
       <h3 className="text-sm font-semibold"><span className="infra-model-step-number" aria-hidden="true">2</span>{modelNames[model]} requirements</h3>

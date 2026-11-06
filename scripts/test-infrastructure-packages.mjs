@@ -25,7 +25,7 @@ try{
  // UBEC170: every package needs its school's BOQ to save.
  const boqFor=async id=>{const f=new FormData();f.set('kind','boq');f.set('schoolId',String(id));f.set('file',new File(['%PDF-1.4\nBOQ\n%%EOF'],'boq.pdf',{type:'application/pdf'}));return ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f)).id;};
  const schoolBoq=await boqFor(school);
- const landIds=[];for(const kind of ['land','land_area']){const f=new FormData();f.set('kind',kind);f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],`${kind}.pdf`,{type:'application/pdf'}));landIds.push(ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f)).id);}
+ const landIds=[];for(const kind of ['land','land_area','drawings']){const f=new FormData();f.set('kind',kind);f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],`${kind}.pdf`,{type:'application/pdf'}));landIds.push(ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f)).id);}
  // New Construction (client feedback, October 2026): all three land declarations, the C of O / R of O / Community Agreement document,
  // a chosen model and the perimeter fence length entered in the requirements table.
  const input=packageSchema.parse({kind:'new',schoolId:school,components:['Primary','ECCDE'],targeting:'hope',lumpSum:1000,duration:'6 months',model:0,fenceLength:180,land:{available:true,documented:true,unencumbered:true},documentIds:[...landIds,schoolBoq]});
@@ -34,6 +34,8 @@ try{
  const twoTicks=await api('officer',path,{action:'save',input:{...input,land:{available:true,documented:true,unencumbered:false}}});ok(twoTicks,400);assert.match(twoTicks.data.error,/Tick all three land declarations/);
  const noLandDoc=await api('officer',path,{action:'save',input:{...input,documentIds:[schoolBoq]}});ok(noLandDoc,400);assert.match(noLandDoc.data.error,/land required for this model is available/);
  const noTitle=await api('officer',path,{action:'save',input:{...input,documentIds:[landIds[1],schoolBoq]}});ok(noTitle,400);assert.match(noTitle.data.error,/C of O, R of O or Community Agreement/);
+ // UBEC230: New Construction drawings are required to save.
+ const noDrawings=await api('officer',path,{action:'save',input:{...input,documentIds:[landIds[0],landIds[1],schoolBoq]}});ok(noDrawings,400);assert.match(noDrawings.data.error,/Attach the drawings for this school/);
  const noNewModel=await api("officer",path,{action:"save",input:{...input,model:undefined}});ok(noNewModel,400);assert.match(noNewModel.data.error,/Choose the school model/);
  const noNewFence=await api("officer",path,{action:"save",input:{...input,fenceLength:0}});ok(noNewFence,400);assert.match(noNewFence.data.error,/perimeter fence length/);
  const retiredStrategy=await api('officer',path,{action:'save',input:{...input,classroomStrategy:'Credit SBMC school account'}});ok(retiredStrategy,400);assert.match(retiredStrategy.data.error,/from the list/);

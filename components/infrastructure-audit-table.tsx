@@ -29,6 +29,8 @@ interface AuditTableProps {
   disabled: boolean;
   onChange: (patch: Partial<InfrastructureInput>) => void;
   photos: AuditPhotos;
+  /** UBEC221: after Continue was pressed with something missing, every incomplete row shows its message in red. */
+  showErrors?: boolean;
 }
 const parseCount = (value: string): number | undefined => {
   if (value.trim() === '') return undefined;
@@ -84,7 +86,7 @@ function PhotoCell({ gap, input, photos, disabled }: { gap: AuditGap; input: Inf
 }
 
 /** Whole School step 2: one editable audit table; requirements come from DNEMIS enrolment (no model, client feedback October 2026). */
-export function InfrastructureAuditTable({ input, school, disabled, onChange, photos }: AuditTableProps) {
+export function InfrastructureAuditTable({ input, school, disabled, onChange, photos, showErrors = false }: AuditTableProps) {
   const [filter, setFilter] = useState<Filter>('minimum');
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const gaps = auditGaps(input, school);
@@ -131,7 +133,7 @@ export function InfrastructureAuditTable({ input, school, disabled, onChange, ph
   const requiredCell = (gap: AuditGap, index: number) => {
     if (gap.category === 'other') return <span className="text-muted-foreground">—</span>;
     if (gap.key === 'fence') return <div className="flex items-center gap-2"><Input type="number" inputMode="numeric" min={0} step={1} className="infra-audit-input" data-row={index} data-col="required"
-      aria-label="Fence length required (metres)" aria-required required placeholder="Metres" aria-invalid={input.fenceRequired <= 0 && touched.has('fence') ? true : undefined}
+      aria-label="Fence length required (metres)" aria-required required placeholder="Metres" aria-invalid={input.fenceRequired <= 0 && (showErrors || touched.has('fence')) ? true : undefined}
       disabled={disabled} value={input.fenceRequired ? String(input.fenceRequired) : ''} onChange={e => { setTouched(prev => new Set(prev).add('fence')); onChange({ fenceRequired: parseCount(e.target.value) ?? 0 }); }} /><span className="text-xs text-muted-foreground">metres</span></div>;
     return <span className="tabular-nums">{quantityLabel(gap.required, gap.unit)}</span>;
   };
@@ -166,7 +168,7 @@ export function InfrastructureAuditTable({ input, school, disabled, onChange, ph
             {group.rows.map(gap => {
               const index = ordered.indexOf(gap);
               const problem = auditRowProblem(gap, input);
-              const visibleProblem = problem && (touched.has(gap.key) || gap.functional > gap.existing) ? problem : null;
+              const visibleProblem = problem && (showErrors || touched.has(gap.key) || gap.functional > gap.existing) ? problem : null;
               const photoMissing = photos.required && gap.nonFunctional > 0 && !rowPhotoIds(input, photos.documents.map(d => d.id), gap.key).length;
               const status = gap.category === 'other' ? (problem ? 'invalid' : gap.included ? (photoMissing ? 'incomplete' : 'added') : 'blank') : problem ? (visibleProblem ? 'invalid' : 'incomplete') : photoMissing ? 'incomplete' : 'complete';
               const message = visibleProblem ?? problem ?? (photoMissing ? 'Attach a photo of the non-functional units' : null);

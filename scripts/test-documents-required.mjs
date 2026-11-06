@@ -1,7 +1,7 @@
 // The Super Admin "Supporting documents" setting (migration 052): when off (the default), every upload is optional:
 // ICT and Teacher Development lines and Infrastructure packages save, and every send step goes ahead, without their
 // documents (Infrastructure BOQs, surveys, photographic evidence, the updated Whole School BOQ). When on, today's
-// refusals return. Infrastructure drawings are optional in either mode (uploaded per school, never required). The RAT upload at plan creation and the Infrastructure New Construction land declaration
+// refusals return. Infrastructure drawings are required for New Construction in either mode (UBEC230) and optional otherwise. The RAT upload at plan creation and the Infrastructure New Construction land declaration
 // & agreement documents stay required either way.
 // Creates a throwaway state with its own users, school and plan, removes them all and restores the GLOBAL settings row.
 // Usage: node --env-file=.env scripts/test-documents-required.mjs [baseUrl]
@@ -58,7 +58,9 @@ assert.match(infrastructureDocumentProblem(bare, { documentsRequired: false }) ?
 const unlanded = { infrastructure: [newLine([], all)], infrastructureDocuments: [] };
 assert.match(infrastructureDocumentProblem(unlanded, { documentsRequired: false }) ?? '', /showing the land is available for Unit school/);
 assert.match(infrastructureDocumentProblem({ infrastructure: [newLine(['a1'], all)], infrastructureDocuments: [{ id: 'a1', kind: 'land_area', schoolId: 7 }] }, { documentsRequired: false }) ?? '', /C of O, R of O or Community Agreement document for Unit school/);
-const landed = { infrastructure: [newLine(['l1', 'a1'], all)], infrastructureDocuments: [{ id: 'l1', kind: 'land', schoolId: 7 }, { id: 'a1', kind: 'land_area', schoolId: 7 }] };
+// UBEC230: New Construction drawings are always required too, in either mode.
+assert.match(infrastructureDocumentProblem({ infrastructure: [newLine(['l1', 'a1'], all)], infrastructureDocuments: [{ id: 'l1', kind: 'land', schoolId: 7 }, { id: 'a1', kind: 'land_area', schoolId: 7 }, { id: 'b', kind: 'boq', schoolId: 7 }] }, { documentsRequired: false }) ?? '', /Attach the drawings for Unit school/);
+const landed = { infrastructure: [newLine(['l1', 'a1', 'd1'], all)], infrastructureDocuments: [{ id: 'l1', kind: 'land', schoolId: 7 }, { id: 'a1', kind: 'land_area', schoolId: 7 }, { id: 'd1', kind: 'drawings', schoolId: 7 }] };
 // The BOQ is always required (client, October 2026); with it, one land document is enough while the setting is off.
 assert.match(infrastructureDocumentProblem(landed, { documentsRequired: false }) ?? '', /a BOQ for Unit school/);
 const landedBoq = { ...landed, infrastructureDocuments: [...landed.infrastructureDocuments, { id: 'b', kind: 'boq', schoolId: 7 }] };
@@ -66,8 +68,11 @@ assert.equal(infrastructureDocumentProblem(landedBoq, { documentsRequired: false
 assert.match(infrastructureDocumentProblem(landedBoq, { documentsRequired: true }) ?? '', /geophysical survey report for Unit school/);
 assert.match(infrastructureDocumentProblem(landed, { documentsRequired: true }) ?? '', /a BOQ for Unit school/);
 const complete = { ...landed, infrastructureDocuments: [...landed.infrastructureDocuments, { id: 'b', kind: 'boq', schoolId: 7 }, { id: 's', kind: 'survey', schoolId: 7 }] };
-assert.equal(infrastructureDocumentProblem(complete, { documentsRequired: true }), null, 'drawings are never required');
-step('Infrastructure readiness: BOQ always, survey follows the setting, drawings are never required, land documents always are (unit)');
+assert.equal(infrastructureDocumentProblem(complete, { documentsRequired: true }), null);
+// Whole School and Furniture drawings stay optional.
+const wholeLine = { school: { id: 8, name: 'Whole school' }, package: { kind: 'whole', input: { schoolId: 8, documentIds: [] } } };
+assert.equal(infrastructureDocumentProblem({ infrastructure: [wholeLine], infrastructureDocuments: [{ id: 'b8', kind: 'boq', schoolId: 8 }] }, { documentsRequired: false }), null, 'Whole School drawings are optional');
+step('Infrastructure readiness: BOQ always, survey follows the setting, New Construction drawings and land documents always (unit)');
 
 async function api(who, path, body, { method = body ? 'POST' : 'GET', origin = base } = {}) {
   const jar = jars[who] ??= {}, isForm = body instanceof FormData;
@@ -190,13 +195,13 @@ try {
   const boq = await infraDoc('boq', school);
   for (const input of [furniture.input, newSchool, whole]) input.documentIds = [boq];
   ok(await api('physical', infra, furniture));
-  // Drawings (collected again per school since 17 October 2026) upload, but are never required.
+  // Drawings (collected again per school since 17 October 2026) upload; only New Construction requires them (UBEC230).
   const drawing = await infraDoc('drawings', school);
   assert.ok(ok(await api('physical', infra)).documents.some(d => d.id === drawing && d.kind === 'drawings' && d.schoolId === school), 'drawings upload for a school');
   ok(await api('physical', `/api/infrastructure/documents?plan=${planId}&id=${drawing}`, undefined, { method: 'DELETE' }));
   fails(await api('physical', infra, { action: 'save', input: whole }), 400, /photographic evidence/);
   fails(await api('physical', infra, { action: 'save', input: newSchool }), 400, /land required for this model is available/);
-  step('Setting on: a package is not saved without its BOQ (never for drawings, which upload per school but are optional); Whole School save refused without photographic evidence');
+  step('Setting on: a package is not saved without its BOQ (drawings upload per school); Whole School save refused without photographic evidence');
 
   // Optional: packages save without photos or an updated BOQ, but New Construction still needs its land documents.
   await setRequired(false);
@@ -204,9 +209,12 @@ try {
   fails(await api('physical', infra, { action: 'save', input: newSchool }), 400, /land required for this model is available/);
   fails(await api('physical', infra, { action: 'save', input: { ...newSchool, land: { available: true, documented: true, unencumbered: false }, documentIds: [boq, await infraDoc('land', school), await infraDoc('land_area', school)] } }), 400, /Tick all three land declarations/);
   fails(await api('physical', infra, { action: 'save', input: { ...newSchool, documentIds: [boq, await infraDoc('land_area', school)] } }), 400, /C of O, R of O or Community Agreement/);
-  ok(await api('physical', infra, { action: 'save', input: { ...newSchool, documentIds: [boq, await infraDoc('land', school), await infraDoc('land_area', school)] } }));
+  const landDocs = [await infraDoc('land', school), await infraDoc('land_area', school)];
+  // UBEC230: New Construction drawings are required whatever the setting.
+  fails(await api('physical', infra, { action: 'save', input: { ...newSchool, documentIds: [boq, ...landDocs] } }), 400, /Attach the drawings for this school/);
+  ok(await api('physical', infra, { action: 'save', input: { ...newSchool, documentIds: [boq, ...landDocs, await infraDoc('drawings', school)] } }));
   ok(await api('physical', infra, { action: 'save', input: whole }));
-  step('Setting off: Whole School saves without photographic evidence; New Construction land declaration & agreement still required');
+  step('Setting off: Whole School saves without photographic evidence; New Construction land declaration & agreement and drawings still required');
 
   // Required again: re-saving the Whole School package needs an updated BOQ (and its photographic evidence).
   await setRequired(true);
@@ -220,12 +228,12 @@ try {
   saved = await savedPackage('whole');
   ok(await api('physical', infra, { action: 'save', id: saved.id, version: saved.version, input: { ...whole, documentIds: [boq] } }));
   const infraKinds = (await db.query('SELECT DISTINCT kind FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL', [planId])).rows.map(row => row.kind).sort();
-  assert.deepEqual(infraKinds, ['boq', 'land', 'land_area', 'photo'], 'no drawings or survey uploaded');
+  assert.deepEqual(infraKinds, ['boq', 'drawings', 'land', 'land_area', 'photo'], 'no survey uploaded; drawings only for New Construction');
   await infraDoc('supporting', school); // optional supporting documents of their own (migration 066)
   ok(await review('physical', { action: 'submit', pillar: 'infrastructure' }));
   ok(await review('physicalDirector', { action: 'endorse', pillar: 'infrastructure' }));
   ok(await review('chair', { action: 'forward', pillar: 'infrastructure' }));
-  step('Setting off: Infrastructure re-saves without an updated BOQ and is sent on with its BOQ, without drawings, survey or photos');
+  step('Setting off: Infrastructure re-saves without an updated BOQ and is sent on with its BOQ (and New Construction drawings), without survey or photos');
 
   // Executive Chairman → UBEC follows the setting too.
   await setRequired(true);

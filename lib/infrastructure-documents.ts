@@ -6,7 +6,7 @@ import type { ReadinessOptions } from './component-readiness';
  * New Construction always needs all three land declarations ticked and its C of O / R of O / Community Agreement document
  * (client feedback, October 2026; older packages saved with fewer ticks are asked for the rest here).
  * Each school's BOQ is always required (client, October 2026); its geophysical survey report only while the Super
- * Admin's Supporting documents setting is on (migration 052, `documentsRequired`). Plan drawings are no longer collected or required.
+ * Admin's Supporting documents setting is on (migration 052, `documentsRequired`). New Construction packages always need their school's drawings (UBEC230); Whole School and Furniture drawings stay optional.
  */
 export function infrastructureDocumentProblem(snapshot: Snapshot, options: ReadinessOptions): string | null {
  const documents=snapshot.infrastructureDocuments??[];
@@ -19,6 +19,8 @@ export function infrastructureDocumentProblem(snapshot: Snapshot, options: Readi
    if(!land?.available||!land.documented||!land.unencumbered)return `Tick all three land declarations for ${line.school.name} before sending Infrastructure`;
    if(attached('land_area')<1)return `Attach the document showing the land is available for ${line.school.name} before sending Infrastructure`;
    if(attached('land')<1)return `Attach the C of O, R of O or Community Agreement document for ${line.school.name} before sending Infrastructure`;
+   // UBEC230: New Construction drawings are always required (packages saved before are asked for them here).
+   if(attached('drawings')<1)return `Attach the drawings for ${line.school.name} before sending Infrastructure`;
   }
   const survey=line.package?.kind!=='furniture';
   schools.set(id,{name:line.school.name,survey:survey||schools.get(id)?.survey===true});
