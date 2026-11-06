@@ -19,7 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { debateKobo, isPheTraining, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, type SportsLine, type SportsPlan } from "@/lib/sports";
+import { debateKobo, isPheTraining, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, unallocatedSportsItems, type SportsLine, type SportsPlan } from "@/lib/sports";
 import { toKobo } from "@/lib/funding-policy";
 import { EnvelopeMeter } from "@/components/envelope-meter";
 import { SportsDebatePanel } from "@/components/sports-debate-panel";
@@ -34,7 +34,7 @@ import { cellMatches, connectionDroppedMessage, isConnectionDropped, newClientKe
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
 /** A saved line as the form edits it. */
-const budgetDraft = (line: SportsLine): BudgetDraft => ({ id: line.id, section: line.section, activityType: line.activityType, description: line.description, quantity: String(line.quantity), unitCost: String(line.unitCost), quarters: line.quarters, startDate: line.startDate ?? null, dueDate: line.dueDate ?? null });
+const budgetDraft = (line: SportsLine): BudgetDraft => ({ id: line.id, section: line.section, activityType: line.activityType, description: line.description, targetGroup: line.targetGroup ?? "", quantity: String(line.quantity), unitCost: String(line.unitCost), quarters: line.quarters, startDate: line.startDate ?? null, dueDate: line.dueDate ?? null });
 
 export default function SportsPage() {
   const [plan, setPlan] = useState<SportsPlan>(blankPlan);
@@ -52,6 +52,8 @@ export default function SportsPage() {
   const [saving, setSaving] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<SportsTarget | null>(null);
   const [pendingAction, setPendingAction] = useState<{ run: () => void; leaving: boolean } | null>(null);
+  // UBEC224: Done is refused while equipment items are not given out in full to beneficiary schools.
+  const [allocationBlock, setAllocationBlock] = useState(false);
   const [compact, setCompact] = useState(false);
   const [mobileView, setMobileView] = useState("editor");
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -73,6 +75,9 @@ export default function SportsPage() {
   const schoolCount = new Set(plan.allocations.map((item) => item.schoolId)).size;
   const equipmentQuantity = plan.lines.filter((line) => line.section === "equipment" && !isPheTraining(line)).reduce((sum, line) => sum + line.quantity, 0);
   const allocatedQuantity = plan.allocations.reduce((sum, item) => sum + item.quantity, 0);
+  const unallocated = unallocatedSportsItems(plan.lines.map((line) => ({ section: line.section, activityType: line.activityType, description: line.description, quantity: line.quantity, allocated: plan.allocations.filter((item) => item.lineId === line.id).reduce((sum, item) => sum + item.quantity, 0) })));
+  // UBEC222: the PHE training schools panel belongs to Training of PHE Officers items only.
+  const trainingDraft = view === "budget" && isPheTraining(budget);
   const lineTotal = sportsLineTotal({ quantity: Number(budget.quantity) || 0, unitCost: Number(budget.unitCost) || 0 });
   const orderedTargets: SportsTarget[] = view === "budget"
     ? sportsSections.flatMap((section) => plan.lines.filter((line) => line.section === section.id).map((item) => ({ entity: "budget" as const, item })))
@@ -160,6 +165,12 @@ export default function SportsPage() {
     if (savingRef.current) return;
     if (dirty) setPendingAction({ run: () => window.location.assign(currentPlanHref("/beap/review")), leaving: true });
     else window.location.assign(currentPlanHref("/beap/review"));
+  }
+  /** Done (UBEC224): back to the plan only once every equipment item is given out in full to beneficiary schools. */
+  function done() {
+    if (savingRef.current) return;
+    if (unallocated.length) { setAllocationBlock(true); return; }
+    finish();
   }
   function edit(target: SportsTarget) {
     const run = () => {
@@ -266,8 +277,8 @@ export default function SportsPage() {
         result = { id: landed };
       }
       const savedId = view === "budget" ? editingId ?? result.id : undefined;
-      if (view === "budget") resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), quarters: availableQuarters });
-      else resetAllocation({ ...emptyAllocation, schoolId: allocation.schoolId, longitude: allocation.longitude, latitude: allocation.latitude });
+      if (view === "budget") resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), targetGroup: budget.targetGroup, quarters: availableQuarters });
+      else resetAllocation({ ...emptyAllocation, schoolId: allocation.schoolId });
       toast.success(editingId ? "Line updated" : view === "budget" ? "Budget line added" : "Equipment allocated to school");
       await refreshAfterSave();
       if (savedId) flash(savedId);
@@ -321,7 +332,7 @@ export default function SportsPage() {
         ? <>{money.format(Number(proposed) / 100)}<small className="block font-normal text-muted-foreground">{section.id === "debate" ? "The amount set aside for Debate" : `Up to ${section.share}% of the sports budget`}</small></>
         : <EnvelopeMeter compact label={section.id === "debate" ? "Debate amount" : `Up to ${section.share}%`} envelope={Number(cap) / 100} used={Number(proposed) / 100} />}</dd></div>)}</dl>}
       {/* UBEC74: the PHE officer training distribution list, while the plan has training lines (or a list already). */}
-      {(plan.lines.some(isPheTraining) || (plan.trainingSchools?.length ?? 0) > 0) && <PheTrainingSchools planHref={currentPlanHref} schools={plan.schools} listed={plan.trainingSchools ?? []} disabled={disabled} required={plan.lines.some(isPheTraining)} onChanged={loadPlan} />}
+      {trainingDraft && <PheTrainingSchools planHref={currentPlanHref} schools={plan.schools} listed={plan.trainingSchools ?? []} disabled={disabled} required={plan.lines.some(isPheTraining)} onChanged={loadPlan} />}
       <div className="line-panel"><SportsBudgetPreview plan={plan} disabled={disabled} selectedSection={budget.section} selectedType={budget.activityType} editingId={budget.id} dirtyId={budgetDirty ? budget.id : undefined}
         flashId={flashId} mode={panel.mode} onShowAll={() => panel.setMode("all")} query={query} onEdit={edit} onRemove={setRemoveTarget} onSaveCell={saveCell} onStart={startSection} /></div>
     </>}
@@ -332,7 +343,7 @@ export default function SportsPage() {
   </article>}</ScrollArea></section>;
 
   return <div className="portal-shell"><div className="portal-workspace" ref={workspaceRef}>
-    <header className="workspace-header editor-page-header" aria-label="Plan editor"><div className="editor-header-heading"><Button variant="ghost" size="icon" disabled={saving} aria-label="Back to the plan" onClick={finish}><XIcon /></Button><span className="editor-plan-title">{actionPlan ? planPeriod(actionPlan) + " " : ""}Sports, Quiz &amp; Debate Activities plan</span>{actionPlan && <PlanStatusBadge status={actionPlan.status} />}</div><div className="workspace-actions"><span className="save-status" aria-live="polite">{loading ? "Loading plan…" : saving ? "Saving…" : loadError ? "Connection issue" : dirty ? "Unfinished line" : <><CheckIcon aria-hidden="true" />All lines saved</>}</span><Button disabled={saving || loading} onClick={finish}>Done</Button></div></header>
+    <header className="workspace-header editor-page-header" aria-label="Plan editor"><div className="editor-header-heading"><Button variant="ghost" size="icon" disabled={saving} aria-label="Back to the plan" onClick={finish}><XIcon /></Button><span className="editor-plan-title">{actionPlan ? planPeriod(actionPlan) + " " : ""}Sports, Quiz &amp; Debate Activities plan</span>{actionPlan && <PlanStatusBadge status={actionPlan.status} />}</div><div className="workspace-actions"><span className="save-status" aria-live="polite">{loading ? "Loading plan…" : saving ? "Saving…" : loadError ? "Connection issue" : dirty ? "Unfinished line" : <><CheckIcon aria-hidden="true" />All lines saved</>}</span><Button disabled={saving || loading} onClick={done}>Done</Button></div></header>
     <Tabs value={view} onValueChange={(value) => changeView(value as PlanView)} className="sports-workspace">
       <div className="sports-view-tabs"><TabsList><TabsTrigger value="budget" disabled={saving}>Budget</TabsTrigger><TabsTrigger value="allocation" disabled={saving}>Beneficiary schools</TabsTrigger></TabsList></div><Separator />
       <TabsContent value={view} className="workspace-body sports-view-content"><main className="workspace-body sports-main" id="sports">
@@ -341,6 +352,9 @@ export default function SportsPage() {
     </Tabs>
   </div>
     <AlertDialog open={Boolean(removeTarget)} onOpenChange={(open) => { if (!open && !saving) setRemoveTarget(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Remove this {removeTarget?.entity === "budget" ? "budget line" : "school allocation"}?</AlertDialogTitle><AlertDialogDescription>{removeTarget?.entity === "budget" ? `“${removeTarget.item.description}” will be removed from the sports budget. Equipment with school allocations must be unallocated first.` : "This equipment allocation will be removed from the school. Your procurement budget will stay the same."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={saving}>Keep line</AlertDialogCancel><Button variant="destructive" disabled={saving} onClick={remove}>{saving && <Spinner data-icon="inline-start" />}{saving ? "Removing…" : "Remove line"}</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    <AlertDialog open={allocationBlock} onOpenChange={setAllocationBlock}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Give out every equipment item first</AlertDialogTitle><AlertDialogDescription>Each equipment item must be allocated in full to beneficiary schools before you finish. Sports, Quiz &amp; Debate cannot be sent until they are</AlertDialogDescription></AlertDialogHeader>
+      <ul className="sports-unallocated" aria-label="Items not fully allocated">{unallocated.map((item, index) => <li key={index}><span>{item.description || item.activityType}<small>{item.activityType}</small></span><strong>{item.allocated.toLocaleString()} of {item.quantity.toLocaleString()} allocated</strong></li>)}</ul>
+      <AlertDialogFooter><AlertDialogCancel>Stay here</AlertDialogCancel><Button onClick={() => { setAllocationBlock(false); changeView("allocation"); }}>Go to Beneficiary schools</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
     <DiscardChangesDialog open={Boolean(pendingAction)} saved="Your saved budget items and school allocations stay as they are" onKeep={() => setPendingAction(null)}
       onDiscard={() => { const action = pendingAction; setPendingAction(null); if (action?.leaving) { resetBudget(); resetAllocation(); } requestAnimationFrame(() => action?.run()); }} />
   </div>;

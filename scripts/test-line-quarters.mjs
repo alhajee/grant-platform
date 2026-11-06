@@ -98,7 +98,7 @@ try {
 
   // Sports budget lines.
   const sportsUrl = `/api/sports?plan=${planId}`;
-  const sports = extra => ({ entity: 'budget', action: 'create', section: 'publicity', activityType: 'Electronic Media', description: 'Radio jingles', quantity: 1, unitCost: 5000, ...extra });
+  const sports = extra => ({ entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'publicity', activityType: 'Electronic Media', description: 'Radio jingles', quantity: 1, unitCost: 5000, ...extra });
   fails(await api('academic', sportsUrl, sports({ quarters: [] })), 400, /at least one quarter/);
   fails(await api('academic', sportsUrl, sports({ quarters: [3, 4] })), 400, /Q4 is not in this plan/);
   fails(await api('academic', sportsUrl, sports({ quarters: [1, 3] })), 400, /next to each other/);

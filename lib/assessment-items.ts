@@ -1,4 +1,5 @@
 import type { ImplementedPillar } from './beap-pillars';
+import { lineCodeLabel } from './line-code';
 import type { InfrastructurePackage } from './infrastructure-model';
 import type { Snapshot } from './plan-review';
 import { activityLabel, strategyLabel, type ActivityWorkstream } from './activity-plans';
@@ -39,7 +40,7 @@ export function assessmentItems(snapshot: Snapshot, pillar: ImplementedPillar): 
   }));
   return (snapshot[pillar] ?? []).map(line => ({
     rowRef: String(line.id), group: activityLabel(pillar as ActivityWorkstream, line.activity, line.custom_activity ?? ''),
-    title: line.description || line.item || line.custom_activity || `Item ${line.id}`, subtitle: line.code ?? '',
+    title: line.description || line.item || line.custom_activity || `Item ${line.id}`, subtitle: lineCodeLabel(line.code),
     amount: kobo(line.unit_cost, line.quantity) / 100,
     facts: present([...costFacts(line.quantity, line.unit_cost),
       { label: 'Strategy', value: line.strategy ? strategyLabel(line.strategy) : '' }, { label: 'Target group', value: line.target_group },

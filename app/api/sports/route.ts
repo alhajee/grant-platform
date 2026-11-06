@@ -6,7 +6,6 @@ import { planFields, resolveActionPlan } from "@/lib/plan-workspace";
 import type { ActionPlan } from "@/lib/action-plans";
 import { mutatePlan } from "@/lib/plan-mutations";
 import { readPillarReviews, mayEditPillar } from '@/lib/pillar-review';
-import { planPeriod } from "@/lib/action-plans";
 import { getPostgres } from "@/lib/postgres";
 import { cachedSchoolList } from '@/lib/school-cache';
 import { getWorkspaceState, sqlText } from "@/lib/workspace-state";
@@ -35,7 +34,7 @@ export async function GET(request: NextRequest) {
     // UBEC74: the schools of the PHE officer training (migration 079).
     const trainingSchools = (await db.query(`SELECT s.id, s.name, s.lga, s.level, s.location FROM tlm_distribution d JOIN schools s ON s.id = d.school_id WHERE d.plan_id = $1 AND d.workstream = 'phe' ORDER BY s.name`, [plan.id])).rows;
     const [lines, allocations, schools] = await Promise.all([
-      db.query(`SELECT id, code, section, activity_type AS "activityType", description, quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey"
+      db.query(`SELECT id, code, section, activity_type AS "activityType", description, target_group AS "targetGroup", quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey"
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),
       db.query(`SELECT a.id, a.line_id AS "lineId", a.school_id AS "schoolId", a.quantity, a.longitude, a.latitude, a.client_key AS "clientKey",
         s.name, s.lga, s.level, s.location FROM sports_allocations a
@@ -137,13 +136,13 @@ export async function POST(request: NextRequest) {
         const quarters = `ARRAY[${timeline.quarters.map(Number).join(",")}]::smallint[]`;
         const sqlDate = (value: string | null) => (value ? `${sqlText(value)}::date` : "NULL");
         const startDate = sqlDate(dated.dates.startDate), dueDate = sqlDate(dated.dates.dueDate);
-        const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${line.quantity}, ${line.unitCost.toFixed(2)}, ${quarters}, ${startDate}, ${dueDate}`;
+        const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${sqlText(line.targetGroup)}, ${line.quantity}, ${line.unitCost.toFixed(2)}, ${quarters}, ${startDate}, ${dueDate}`;
+        // UBEC233 (migration 091): the code (UBEC/SUBEB/SPORT/001/2026) is numbered per plan by the BEFORE INSERT trigger.
         const result = action === "create"
-          ? await db.query(`WITH next_line AS (SELECT nextval(pg_get_serial_sequence('sports_budget_lines', 'id')) AS id)
-              INSERT INTO sports_budget_lines (id, plan_id, state_code, code, section, activity_type, description, quantity, unit_cost, quarters, start_date, due_date, client_key)
-              SELECT id, ${plan.id}, ${state}, 'UBEC/SUBEB/SPORT/' || LPAD(id::text, GREATEST(3, LENGTH(id::text)), '0') || ${sqlText('/' + planPeriod(plan))}, ${values}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid FROM next_line RETURNING id, code`)
+          ? await db.query(`INSERT INTO sports_budget_lines (plan_id, state_code, section, activity_type, description, target_group, quantity, unit_cost, quarters, start_date, due_date, client_key)
+              VALUES (${plan.id}, ${state}, ${values}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid) RETURNING id, code`)
           : await db.query(`UPDATE sports_budget_lines SET section = ${sqlText(line.section)}, activity_type = ${sqlText(line.activityType)},
-              description = ${sqlText(line.description)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(2)}, quarters = ${quarters}, start_date = ${startDate}, due_date = ${dueDate}, updated_at = NOW()
+              description = ${sqlText(line.description)}, target_group = ${sqlText(line.targetGroup)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(2)}, quarters = ${quarters}, start_date = ${startDate}, due_date = ${dueDate}, updated_at = NOW()
               WHERE id = ${id} AND state_code = ${state} RETURNING id, code`);
         return NextResponse.json(result.rows[0], { status: action === "create" ? 201 : 200 });
       }

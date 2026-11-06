@@ -67,7 +67,7 @@ try {
   await db.query('UPDATE action_plans SET debate_allocation=0 WHERE id=$1', [planId]);
   const q = `?plan=${planId}`, reviewPath = `/api/plans/review${q}`, ubecPath = `/api/ubec/review${q}`;
   const review = async (who, action, pillar, comment = '') => ok(await api(who, reviewPath, { action, pillar, version: ok(await api(who, reviewPath)).plan.version, comment }));
-  ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 10, unitCost: 15000 }), 201);
+  ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'publicity', activityType: 'Electronic Media', description: 'Match balls', quantity: 10, unitCost: 15000 }), 201);
   step(`temporary plan ${planId} created with a Sports line in throwaway state ${state}`);
 
   let data = await feed('des');

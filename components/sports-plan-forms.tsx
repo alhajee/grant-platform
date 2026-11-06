@@ -15,13 +15,14 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LineDatesField } from "@/components/line-dates";
 import { keepDatesInWindow } from "@/lib/line-dates";
 import { QuarterTimeline } from "@/components/quarter-timeline";
+import { TargetGroupPicker } from "@/components/target-group-picker";
 import { debateActivity, equipmentSports, findSport, isOtherSubActivity, isPheTraining, pheTrainingActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
-export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; quantity: string; unitCost: string; quarters: number[]; startDate: string | null; dueDate: string | null };
+export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; targetGroup: string; quantity: string; unitCost: string; quarters: number[]; startDate: string | null; dueDate: string | null };
 export type AllocationDraft = { id?: number; schoolId: number | null; lineId: number | null; quantity: string; longitude: string; latitude: string };
 export type FormErrors = Record<string, string>;
 /** The page fills a new line's timeline with the plan's quarters (planQuarters in lib/line-quarters.ts). */
-export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", quantity: "1", unitCost: "", quarters: [], startDate: null, dueDate: null };
+export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", targetGroup: "", quantity: "1", unitCost: "", quarters: [], startDate: null, dueDate: null };
 export const emptyAllocation: AllocationDraft = { schoolId: null, lineId: null, quantity: "1", longitude: "", latitude: "" };
 
 const otherChoice = "__other__";
@@ -113,6 +114,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
       {training && <FieldDescription>Describe the training, e.g. who is trained and for how long</FieldDescription>}
       {errors.description && <FieldError id="sports-description-error">{errors.description}</FieldError>}
     </Field>
+    <TargetGroupPicker id="sports-target-group" value={draft.targetGroup} onChange={(targetGroup) => onChange({ ...draft, targetGroup })} error={errors.targetGroup} disabled={disabled} />
     <FieldGroup className="field-columns">
       <Field data-invalid={Boolean(errors.quantity)}>
         <FieldLabel htmlFor="sports-quantity">Qty</FieldLabel>
@@ -168,10 +170,5 @@ export function SportsAllocationFields({ draft, onChange, plan, errors, disabled
       <Input id="allocation-quantity" type="number" inputMode="numeric" min={1} max={selectedItem ? remaining(selectedItem) : 1000000} step={1} value={draft.quantity} onChange={(event) => onChange({ ...draft, quantity: event.target.value })} aria-invalid={Boolean(errors.quantity)} aria-describedby={errors.quantity ? "allocation-quantity-error" : undefined} />
       {errors.quantity && <FieldError id="allocation-quantity-error">{errors.quantity}</FieldError>}
     </Field>
-    <Separator />
-    <FieldGroup className="field-columns">
-      <Field data-invalid={Boolean(errors.longitude)}><FieldLabel htmlFor="sports-longitude">Longitude <span className="text-muted-foreground">(optional)</span></FieldLabel><Input id="sports-longitude" type="number" inputMode="decimal" min={-180} max={180} step="any" placeholder="e.g. 11.04" value={draft.longitude} onChange={(event) => onChange({ ...draft, longitude: event.target.value })} aria-invalid={Boolean(errors.longitude)} aria-describedby={errors.longitude ? "sports-longitude-error" : undefined} />{errors.longitude && <FieldError id="sports-longitude-error">{errors.longitude}</FieldError>}</Field>
-      <Field data-invalid={Boolean(errors.latitude)}><FieldLabel htmlFor="sports-latitude">Latitude <span className="text-muted-foreground">(optional)</span></FieldLabel><Input id="sports-latitude" type="number" inputMode="decimal" min={-90} max={90} step="any" placeholder="e.g. 12.87" value={draft.latitude} onChange={(event) => onChange({ ...draft, latitude: event.target.value })} aria-invalid={Boolean(errors.latitude)} aria-describedby={errors.latitude ? "sports-latitude-error" : undefined} />{errors.latitude && <FieldError id="sports-latitude-error">{errors.latitude}</FieldError>}</Field>
-    </FieldGroup>
   </FieldGroup> : <Empty><EmptyHeader><EmptyMedia><EmptySportsFieldArt label="No equipment saved yet" badge={false} /></EmptyMedia><EmptyTitle>Add equipment first</EmptyTitle></EmptyHeader></Empty>;
 }

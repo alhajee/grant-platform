@@ -65,9 +65,9 @@ try {
   await db.query('UPDATE action_plans SET debate_allocation=0 WHERE id=$1', [planId]);
   const q = `?plan=${planId}`, statePath = `/api/plans/review${q}`, path = `/api/ubec/review${q}`, sports = `/api/sports${q}`, components = `/api/ubec/components${q}`;
   const school = (await db.query("INSERT INTO schools(name,lga,level,location,state_code) VALUES($1,'QA','Primary','Urban',$1) RETURNING id", [marker])).rows[0].id;
-  const budget = { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'QA equipment', quantity: 5, unitCost: 100 };
+  const budget = { entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'equipment', activityType: 'Football', description: 'QA equipment', quantity: 5, unitCost: 100 };
   const lineId = ok(await api('desA', sports, budget), 201).id;
-  ok(await api('desA', sports, { entity: 'allocation', action: 'create', lineId, schoolId: school, quantity: 5 }), 201);
+  const allocationId = ok(await api('desA', sports, { entity: 'allocation', action: 'create', lineId, schoolId: school, quantity: 5 }), 201).id;
   ok(await api('desP', `/api/activities${q}&workstream=monitoring`, { workstream: 'monitoring', entity: 'line', action: 'create', activity: 0, description: 'QA monitoring visit', quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'Schools' }));
   const stateStep = async (who, action, pillar, comment = '') => ok(await api(who, statePath, { action, pillar, version: ok(await api('ec', statePath)).plan.version, comment }));
   const throughState = async (pillar, des, dir, comment = '') => { await stateStep(des, 'submit', pillar, comment); await stateStep(dir, 'endorse', pillar); await stateStep('chair', 'forward', pillar); };
@@ -125,6 +125,7 @@ try {
   { const reviews = ok(await api('ec', statePath)).pillarReviews; assert.equal(reviews.find(r => r.pillar === 'sports').status, 'changes_requested'); assert.equal(reviews.find(r => r.pillar === 'monitoring').status, 'beap_review'); }
 
   ok(await api('desA', sports, { ...budget, action: 'update', id: lineId, quantity: 6, description: 'Revised equipment specification' }));
+  ok(await api('desA', sports, { entity: 'allocation', action: 'update', id: allocationId, lineId, schoolId: school, quantity: 6 })); // UBEC224: every equipment item is given out in full before Sports is sent.
   assert.equal((await act('ec', 'submit', { comment: 'Cannot skip state review' })).status, 409);
   await throughState('sports', 'desA', 'dirA', 'Quantity revised.');
   assert.equal((await act('ec', 'submit')).status, 400, 'A resubmission explains how the feedback was addressed');

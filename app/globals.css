@@ -820,3 +820,10 @@
 .sports-debate[data-unset] { border-color: #e6c35a; background: #fff8df; }
 .review-allocation-items { display: grid; gap: 4px; max-width: 520px; margin: 0 0 8px; padding: 0; list-style: none; }
 .review-allocation-items li { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+
+/* UBEC224: the equipment items Done is waiting on (Sports editor). */
+.sports-unallocated { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+.sports-unallocated li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 8px; background: var(--muted); font-size: 13px; }
+.sports-unallocated li span { display: flex; flex-direction: column; min-width: 0; }
+.sports-unallocated li small { color: var(--muted-foreground); font-size: 12px; }
+.sports-unallocated li strong { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--destructive); }

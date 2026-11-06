@@ -63,7 +63,7 @@ try {
   const version = async () => ok(await api('ec', path)).plan.version;
   const review = async (who, action, extra = {}) => api(who, path, { action, pillar: 'sports', version: await version(), ...extra });
   const school = (await db.query("INSERT INTO schools (name,lga,level,location,state_code) VALUES ($1,'QA','Primary','Urban',$1) RETURNING id", [marker])).rows[0].id;
-  const budgetBody = { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'QA balls', quantity: 5, unitCost: 100.25 };
+  const budgetBody = { entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'equipment', activityType: 'Football', description: 'QA balls', quantity: 5, unitCost: 100.25 };
   assert.equal((await api('anonymous', path)).status, 401);
   assert.equal((await api('foreign', path)).status, 404);
   assert.equal((await review('des', 'submit')).status, 400, 'An empty component cannot be sent');
@@ -106,6 +106,7 @@ try {
   assert.equal(ok(await api('des', sports)).canEdit, true);
   assert.ok(ok(await api('des', '/api/notifications')).notifications.some(n => n.planId === plan.id && n.action === 'request_changes'));
   ok(await api('des', sports, { ...budgetBody, action: 'update', id: budgetId, description: 'QA balls (revised)', quantity: 6 }));
+  ok(await api('des', sports, { ...allocationBody, action: 'update', id: allocationId, quantity: 6 })); // UBEC224: every equipment item is given out in full before Sports is sent.
   assert.equal((await review('des', 'submit')).status, 400, 'Resubmission needs a response');
   assert.equal(JSON.stringify(ok(await api('dir', `${path}&submission=${firstSubmission}`)).snapshot), frozen, 'Earlier submissions stay unchanged');
   assert.equal((await api('dir', `${path}&submission=999`)).status, 404);

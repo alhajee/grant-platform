@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { hashSync } from "bcryptjs";
-import { sportsAllocationSchema, sportsLineSchema, sportsLineTotal, sportsBudget, sportsSections } from "../lib/sports.ts";
+import { sportsAllocationProblem, sportsAllocationSchema, sportsLineSchema, sportsLineTotal, sportsBudget, sportsSections, sportsSnapshotProblem } from "../lib/sports.ts";
 
 const baseUrl = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? "http://localhost:5173";
 assert.ok(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(baseUrl), "Tests must target the local app.");
@@ -17,7 +17,7 @@ async function api(body, authenticated = true, path = "/api/sports") {
   const response = await fetch(`${baseUrl}${path}`, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", ...(authenticated && cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined });
   return { status: response.status, body: await response.json(), response };
 }
-const budget = { entity: "budget", action: "create", section: "equipment", activityType: "Children's football", description: "Training balls", quantity: 10, unitCost: 12500.25 };
+const budget = { entity: "budget", action: "create", targetGroup: "Schools", section: "equipment", activityType: "Children's football", description: "Training balls", quantity: 10, unitCost: 12500.25 };
 const allocate = { entity: "allocation", action: "create", quantity: 3, longitude: "11.04", latitude: "12.87" };
 
 await db.connect();
@@ -27,6 +27,20 @@ try {
   for (const change of [{ quantity: 0 }, { quantity: 1.5 }, { unitCost: 0 }, { unitCost: 1.234 }, { quantity: 1000000, unitCost: 999999999999.99 }, { activityType: " " }, { description: " " }, { section: "invalid" }]) {
     assert.equal(sportsLineSchema.safeParse({ ...budget, ...change }).success, false);
   }
+  // UBEC219: one or more listed target groups, required, stored joined in list order.
+  assert.equal(sportsLineSchema.safeParse({ ...budget, targetGroup: "" }).error?.issues[0].message, "Choose the target group");
+  assert.equal(sportsLineSchema.safeParse({ ...budget, targetGroup: undefined }).success, false);
+  assert.equal(sportsLineSchema.safeParse({ ...budget, targetGroup: ["Martians"] }).error?.issues[0].message, "Choose target groups from the list");
+  assert.equal(sportsLineSchema.parse({ ...budget, targetGroup: ["Teachers", "Schools", "Teachers"] }).targetGroup, "Schools, Teachers");
+  // UBEC224: every equipment item given out in full to schools before sending; training lines are not given out.
+  const item = (extra) => ({ section: "equipment", activityType: "Football", description: "Balls", quantity: 10, allocated: 10, ...extra });
+  assert.equal(sportsAllocationProblem([item(), item({ activityType: "Training of PHE Officers", allocated: 0 }), item({ section: "competitions", allocated: 0 })]), null);
+  assert.equal(sportsAllocationProblem([item({ allocated: 4 })]), "Allocate every equipment item to beneficiary schools before sending: “Balls” (4 of 10 allocated)");
+  assert.match(sportsAllocationProblem([1, 2, 3, 4, 5].map((n) => item({ description: `Item ${n}`, allocated: 0 }))), /“Item 3” \(0 of 10 allocated\) and 2 more$/);
+  const snapshotLine = (allocations) => ({ section: "equipment", activity_type: "Football", description: "Balls", quantity: 10, unit_cost: "1", allocations });
+  const fundedPlan = { stateLodgment: "100000000", otherFunding: "0", fundingSources: [], debateAllocation: "0" };
+  assert.match(sportsSnapshotProblem([snapshotLine([{ quantity: 3 }])], fundedPlan), /Allocate every equipment item/);
+  assert.equal(sportsSnapshotProblem([snapshotLine([{ quantity: 3 }, { quantity: 7 }])], fundedPlan), null);
   assert.equal(sportsAllocationSchema.safeParse({ ...allocate, lineId: 1, schoolId: 1, longitude: "181" }).success, false);
   assert.equal(sportsAllocationSchema.safeParse({ ...allocate, lineId: 1, schoolId: 1, latitude: "-91" }).success, false);
   const original = (await db.query("SELECT id, row_to_json(line)::text AS snapshot FROM infrastructure_lines line ORDER BY id")).rows;
@@ -52,11 +66,22 @@ try {
   const created = await api(budget);
   assert.equal(created.status, 201, JSON.stringify(created.body));
   const lineId = created.body.id;
-  assert.match(created.body.code, /^UBEC\/SUBEB\/SPORT\/\d+\/2025$/);
+  // UBEC233 (migration 091): codes count from 001 in each plan, with the year and no quarters.
+  assert.equal(created.body.code, "UBEC/SUBEB/SPORT/001/2025");
+  assert.equal((await api()).body.lines[0].targetGroup, "Schools");
+  assert.equal((await api({ ...budget, targetGroup: undefined })).body.error, "Choose the target group");
+  assert.equal((await api({ ...budget, targetGroup: "Aliens" })).status, 400);
+  const otherPlanLine = (await db.query("INSERT INTO sports_budget_lines (state_code, section, activity_type, description, quantity, unit_cost, plan_id) VALUES ($1, 'equipment', 'Other sport', 'Second item', 1, 1, $2) RETURNING code", [foreignMarker, foreignPlan])).rows[0];
+  assert.equal(otherPlanLine.code, "UBEC/SUBEB/SPORT/001/2025", "Each plan counts from 001 (the other plan's first line had a code of its own)");
   const subActivity = { competitions: "Inter School Competition", publicity: "Electronic Media", supervision: "QA supervision" };
   for (const section of ["competitions", "publicity"]) assert.equal((await api({ ...budget, section, activityType: `QA ${section}`, quantity: 2, unitCost: 100.1 })).status, 400, "Sub-activities must come from the UBEC list.");
   for (const section of ["competitions", "publicity", "supervision"]) assert.equal((await api({ ...budget, section, activityType: subActivity[section], quantity: 2, unitCost: 100.1 })).status, 201);
   assert.equal((await api()).body.lines.find((line) => line.section === "supervision").activityType, "Supervision, Assessment and Verification", "A supervision line without a listed sub-activity carries the section name.");
+  assert.deepEqual((await api()).body.lines.map((line) => line.code), ["001", "002", "003", "004"].map((n) => `UBEC/SUBEB/SPORT/${n}/2025`), "Lines are numbered in order");
+  const parallel = await Promise.all([1, 2, 3].map((n) => api({ ...budget, section: "publicity", activityType: "Print Media", description: `Parallel ${n}`, quantity: 1, unitCost: 1 })));
+  const parallelCodes = parallel.map((result) => result.body.code).sort();
+  assert.deepEqual(parallelCodes, ["005", "006", "007"].map((n) => `UBEC/SUBEB/SPORT/${n}/2025`), "Saves at the same time get different numbers");
+  for (const result of parallel) assert.equal((await api({ entity: "budget", action: "delete", id: result.body.id })).status, 200);
   // UBEC166: a listed sub-activity is kept.
   const assessment = await api({ ...budget, section: "supervision", activityType: "Assessment", quantity: 1, unitCost: 1 });
   assert.equal(assessment.status, 201); assert.equal((await api()).body.lines.find((line) => line.id === assessment.body.id).activityType, "Assessment");
@@ -168,7 +193,17 @@ try {
   assert.equal(send.status, 409, `Sending an over-budget Sports component must be refused: ${JSON.stringify(send.body)}`);
   assert.match(send.body.error, /exceeded the Sports allocation/);
   for (const id of [atCap.body.id, finalsLine.body.id, debateSaved.body.id]) assert.equal((await api({ entity: "budget", action: "delete", id })).status, 200);
-  console.log("PASS: four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, sports envelope, section and competition sub-activity caps (save and send; lowering allowed), concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
+  // UBEC224: within budget, an equipment item not given out in full to beneficiary schools still cannot be sent.
+  await db.query("UPDATE action_plans SET state_lodgment = 500000 WHERE state_code = $1", [marker]);
+  const open = await api({ ...budget, description: "Goal nets", quantity: 5, unitCost: 1 });
+  assert.equal(open.status, 201, JSON.stringify(open.body));
+  const sendOpen = async () => api({ action: "submit", pillar: "sports", version: (await api(undefined, true, "/api/plans/review")).body.plan.version }, true, "/api/plans/review");
+  let refused = await sendOpen();
+  assert.equal(refused.status, 409); assert.equal(refused.body.error, "Allocate every equipment item to beneficiary schools before sending: “Goal nets” (0 of 5 allocated)");
+  assert.equal((await api({ ...allocate, lineId: open.body.id, schoolId: schools[1].id, quantity: 2 })).status, 201);
+  refused = await sendOpen();
+  assert.equal(refused.status, 409); assert.match(refused.body.error, /“Goal nets” \(2 of 5 allocated\)/);
+  console.log("PASS: target groups (UBEC219), codes from 001 per plan without quarters (UBEC233), unallocated equipment refused at send (UBEC224), four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, sports envelope, section and competition sub-activity caps (save and send; lowering allowed), concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
 } finally {
   await db.query("DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code = ANY($1::text[]))", [[marker, foreignMarker]]);
   await db.query("DELETE FROM sports_budget_lines WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);

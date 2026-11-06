@@ -93,7 +93,7 @@ try {
 
   // Sports budget lines.
   const sportsUrl = `/api/sports?plan=${planId}`;
-  const sports = extra => ({ entity: 'budget', action: 'create', section: 'publicity', activityType: 'Electronic Media', description: 'Radio jingles', quantity: 1, unitCost: 5000, quarters: [2], ...extra });
+  const sports = extra => ({ entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'publicity', activityType: 'Electronic Media', description: 'Radio jingles', quantity: 1, unitCost: 5000, quarters: [2], ...extra });
   fails(await api('academic', sportsUrl, sports({ startDate: '2039-03-31', dueDate: '2039-04-30' })), 400, /start date must fall within/);
   const sportsLine = ok(await api('academic', sportsUrl, sports({ startDate: '2039-04-10', dueDate: '2039-05-20' })), 201);
   let sportsRow = ok(await api('academic', sportsUrl)).lines.find(l => l.id === sportsLine.id);

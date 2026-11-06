@@ -78,7 +78,7 @@ try {
   form.append('rat', new Blob([await rat.xlsx.writeBuffer()]), 'rat.xlsx');
   const plan = ok(await api('chair', '/api/plans', form), 201).plan;
   const sports = `/api/sports?plan=${plan.id}`, monitoring = `/api/activities?plan=${plan.id}&workstream=monitoring`;
-  const budget = { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'QA balls', quantity: 5, unitCost: 100 };
+  const budget = { entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'equipment', activityType: 'Football', description: 'QA balls', quantity: 5, unitCost: 100 };
   const visit = { workstream: 'monitoring', entity: 'line', action: 'create', activity: 0, description: 'QA visit', quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'Schools' };
   assert.equal((await api('physical', sports, budget)).status, 403);
   assert.equal((await api('academic', monitoring, visit)).status, 403);

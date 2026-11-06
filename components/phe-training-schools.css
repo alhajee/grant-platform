@@ -12,3 +12,9 @@
 .phe-schools-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 8px; background: var(--muted); }
 .phe-schools li span { display: flex; flex-direction: column; min-width: 0; font-size: 13px; }
 .phe-schools li small { color: var(--muted-foreground); font-size: 12px; }
+/* UBEC222: collapsible, with a chevron beside the title. */
+.phe-schools-title-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.phe-schools-toggle svg { transition: transform 160ms ease; }
+.phe-schools:not([data-open]) .phe-schools-toggle svg { transform: rotate(-90deg); }
+.phe-schools-body { display: flex; flex-direction: column; gap: 10px; }
+@media (prefers-reduced-motion: reduce) { .phe-schools-toggle svg { transition: none; } }
