@@ -29,7 +29,8 @@ async function api(who, path, body, method = body ? "POST" : "GET") {
 assert.equal(constructionTypeName(shape), "2 classrooms · 1 playroom/lab · 1 library · 2 toilets · 1 office/store");
 assert.equal(constructionTypeSchema.safeParse({ ...shape, classrooms: -1 }).success, false);
 assert.equal(constructionTypeSchema.safeParse({ ...shape, classrooms: 0.5 }).success, false);
-assert.equal(constructionTypeSchema.safeParse({ ...shape, unitCost: 1.234 }).success, false);
+assert.equal(constructionTypeSchema.safeParse({ ...shape, unitCost: 1.23456 }).success, false); // UBEC238: four decimals allowed, a fifth refused
+assert.equal(constructionTypeSchema.safeParse({ ...shape, unitCost: 1.2345 }).success, true);
 
 await db.connect();
 try {
@@ -44,7 +45,7 @@ try {
   }
   assert.equal((await api("anonymous", "/api/construction-types", shape)).status, 401);
   assert.equal((await api("academic", "/api/construction-types", shape)).status, 403, "Only Physical Planning staff create construction types");
-  for (const invalid of [{ ...shape, classrooms: -1 }, { ...shape, classrooms: 1.5 }, { ...shape, classrooms: 0, playroomsLabs: 0, libraries: 0, toilets: 0, officesStores: 0 }, { ...shape, unitCost: 0 }, { ...shape, unitCost: 1.234 }, { ...shape, duration: 0 }]) {
+  for (const invalid of [{ ...shape, classrooms: -1 }, { ...shape, classrooms: 1.5 }, { ...shape, classrooms: 0, playroomsLabs: 0, libraries: 0, toilets: 0, officesStores: 0 }, { ...shape, unitCost: 0 }, { ...shape, unitCost: 1.23456 }, { ...shape, duration: 0 }]) {
     assert.equal((await api("physical", "/api/construction-types", invalid)).status, 400, JSON.stringify(invalid));
   }
   const created = await api("physical", "/api/construction-types", shape);

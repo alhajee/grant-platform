@@ -17,7 +17,7 @@ import { EmptyPlanArt } from "@/components/dashboard/empty-plan-art";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import type { PlanActivity } from "@/lib/plan-activity";
 import { otherFundingTotal } from "@/lib/plan-setup";
-import { fromKobo, toKobo, type FundingSource } from "@/lib/funding-policy";
+import { fromMinor, toMinor, type FundingSource } from "@/lib/funding-policy";
 import { SubebHeader } from "@/components/subeb-header";
 import { DashboardArtwork } from "@/components/dashboard-artwork";
 import { Button } from "@/components/ui/button";
@@ -103,8 +103,8 @@ export default function DashboardPage() {
   });
   const totalFunding = dashboardPlans.reduce((sum, plan) => sum + Number(plan.fundingTotal ?? 0), 0);
   // Other funding across the shown plans, one line per component and funder.
-  const groupedSources = [...dashboardPlans.flatMap(plan => plan.fundingSources ?? []).reduce((map, source) => { const key = `${source.component}|${source.funder.toLowerCase()}`; const prior = map.get(key); return new Map(map).set(key, { ...source, id: undefined, amount: fromKobo(toKobo(prior?.amount ?? '0') + toKobo(source.amount)) }); }, new Map<string, FundingSource>()).values()];
-  const otherFunding = { otherFunding: fromKobo(dashboardPlans.reduce((sum, plan) => sum + toKobo(plan.otherFunding ?? '0'), BigInt(0))), fundingSources: groupedSources };
+  const groupedSources = [...dashboardPlans.flatMap(plan => plan.fundingSources ?? []).reduce((map, source) => { const key = `${source.component}|${source.funder.toLowerCase()}`; const prior = map.get(key); return new Map(map).set(key, { ...source, id: undefined, amount: fromMinor(toMinor(prior?.amount ?? '0') + toMinor(source.amount)) }); }, new Map<string, FundingSource>()).values()];
+  const otherFunding = { otherFunding: fromMinor(dashboardPlans.reduce((sum, plan) => sum + toMinor(plan.otherFunding ?? '0'), BigInt(0))), fundingSources: groupedSources };
   const dashboardSchoolCount = activeInvestmentFilters ? new Set(dashboardPlans.flatMap(plan => plan.schoolIds ?? [])).size : targetedSchools;
   const areaAmounts: Record<InvestmentArea, number> = {
     infrastructure: dashboardPlans.reduce((sum, plan) => sum + plan.infrastructureBudget, 0),

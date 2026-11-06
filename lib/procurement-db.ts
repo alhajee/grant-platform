@@ -1,6 +1,7 @@
 import type { Db } from './ubec-flow-db';
 import { isPriceListActivity, notOnListMessage } from './procurement';
 import { nairaFormat } from './money-format';
+import { toMinor } from './money';
 
 // Server checks for the Procurement price list (migration 074).
 /** Whether the activities that buy goods must use the price list (Super Admin; off when the row or column is missing). */
@@ -13,7 +14,7 @@ export async function readPriceListRequired(db: Db): Promise<boolean> {
   }
 }
 
-const toKobo = (value: number | string) => Math.round(Number(value) * 100);
+// Prices compare exactly in minor units (four decimals, UBEC238).
 
 /**
  * Checks a line's price-list item on save (under the plan lock). A newly picked item must be an approved item of the
@@ -32,8 +33,8 @@ export async function resolvePriceItem(db: Db, input: { stateCode: string; works
   const item = (await db.query<{ unit_price: string; status: string }>('SELECT unit_price::text,status FROM procurement_items WHERE id=$1 AND state_code=$2', [input.priceItemId, input.stateCode])).rows[0];
   if (!item) return { problem: 'That item is not on your state’s price list', status: 400 };
   const kept = before?.price_item_id === input.priceItemId;
-  if (kept && toKobo(before!.unit_cost) === toKobo(input.unitCost)) return { priceItemId: input.priceItemId };
+  if (kept && toMinor(before!.unit_cost) === toMinor(input.unitCost)) return { priceItemId: input.priceItemId };
   if (item.status !== 'approved') return { problem: 'That item is waiting for the Procurement Director’s approval', status: 409 };
-  if (toKobo(item.unit_price) !== toKobo(input.unitCost)) return { problem: `The price list says ${nairaFormat.format(Number(item.unit_price))} for this item`, status: 409 };
+  if (toMinor(item.unit_price) !== toMinor(input.unitCost)) return { problem: `The price list says ${nairaFormat.format(Number(item.unit_price))} for this item`, status: 409 };
   return { priceItemId: input.priceItemId };
 }

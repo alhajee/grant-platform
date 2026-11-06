@@ -75,6 +75,17 @@ try {
   fails(await api('tlmDes', url, { ...line, priceItemId: direct.id, unitCost: 45 }), 409, /approval/);
   step('a price change does not touch saved lines; an edit by Data Entry goes back for approval');
 
+  // UBEC238: prices and unit costs take four decimals and total exactly; a fifth decimal is refused.
+  fails(await add('procDirector', { name: 'Chalk', unitPrice: 1.02025 }), 400, /Use at most four decimal places/);
+  const chalk = ok(await add('procDirector', { name: 'Chalk', maker: '', modelYear: null, unitPrice: 1.0202 }), 201).item;
+  assert.equal((await db.query('SELECT unit_price::text AS p FROM procurement_items WHERE id=$1', [chalk.id])).rows[0].p, '1.0202');
+  const chalkLine = ok(await api('tlmDes', url, { ...line, description: 'Chalk', quantity: 3, priceItemId: chalk.id, unitCost: 1.0202 })).id;
+  assert.deepEqual((await db.query('SELECT unit_cost::text AS cost, (quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE id=$1', [chalkLine])).rows[0], { cost: '1.0202', total: '3.0606' });
+  assert.equal(ok(await api('tlmDes', url)).lines.find(l => l.id === chalkLine).unitCost, 1.0202);
+  fails(await api('tlmDes', url, { ...line, activity: 3, description: 'Visits', unitCost: 1.02025 }), 400, /Use at most four decimal places/);
+  ok(await api('tlmDes', url, { workstream: 'tlm', entity: 'line', action: 'delete', id: chalkLine }));
+  step('four-decimal prices and unit costs are kept exactly (3 × ₦1.0202 = ₦3.0606); a fifth decimal is refused');
+
   await db.query("UPDATE state_workflow_settings SET price_list_required=TRUE WHERE state_code='GLOBAL'");
   assert.equal(ok(await items('tlmDes')).required, true);
   fails(await api('tlmDes', url, { ...line, unitCost: 10 }), 400, /Pick the item from the Procurement price list/);

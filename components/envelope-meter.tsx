@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import "./envelope-meter.css";
 import { nairaFormat } from "@/lib/money-format";
+import { MONEY_SCALE_NUMBER } from '@/lib/money';
 
 const money = nairaFormat;
 
@@ -27,7 +28,7 @@ export function EnvelopeMeter({ label, envelope, used, partner, compact = false,
   className?: string;
 }) {
   const combined = used + (partner?.amount ?? 0);
-  const left = Math.round((envelope - combined) * 100) / 100;
+  const left = Math.round((envelope - combined) * MONEY_SCALE_NUMBER) / MONEY_SCALE_NUMBER;
   const over = left < 0;
   const share = envelope > 0 ? combined / envelope * 100 : combined > 0 ? 100 : 0;
   return (

@@ -50,7 +50,7 @@ assert.equal(plans.activityLineSchema.safeParse({ ...sbmcSchema, activity: 13 })
 assert.equal(plans.activityLineSchema.safeParse({ ...sbmcSchema, activity: 12 }).success, true);
 // Monitoring above 5% is fine now; SBMC still has to match its allocation exactly (sbmcBudgetProblem, unchanged).
 const plan = { stateLodgment: '1000000', otherFunding: '0', fundingSources: [], fundingPolicy: { shares: { infrastructure: 7500, sports: 500, sbmc: 500, monitoring: 0, gscci: 0, curriculum: 0, quality: 0, teachers: 1000, planning: 0 } }, ictAllocation: null };
-assert.equal(activityBudgetProblem('sbmc', [{ activity: 12, kobo: BigInt(9_000_000) }], plan), null, 'no activity cap on SBMC monitoring');
+assert.equal(activityBudgetProblem('sbmc', [{ activity: 12, minor: BigInt(900_000_000) }], plan), null, 'no activity cap on SBMC monitoring');
 assert.equal(allocationUseProblem('sbmc', { setup: plan, sbmc: [{ activity: 2, quantity: 1, unit_cost: '50000.00' }, { activity: 12, quantity: 1, unit_cost: '50000.00' }] }), null, 'full use no longer asks for 5% on monitoring');
 
 // UBEC229: a required proforma invoice on every item that buys goods, whatever the Supporting documents setting.

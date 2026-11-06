@@ -1,5 +1,6 @@
 import type { CellValue, WorkbookColumn, WorkbookRow } from './types';
 import { money } from './types';
+import { MONEY_SCALE_NUMBER } from '@/lib/money';
 
 export type Bounds = { minRowIndex: number; maxRowIndex: number; minColumnIndex: number; maxColumnIndex: number };
 type Block = { columns: WorkbookColumn[]; rows: WorkbookRow[] };
@@ -27,10 +28,10 @@ export function selectionStats(blocks: Block[]): SelectionStats {
     if (value === undefined || value === '') continue;
     count++;
     if (column.kind === 'text' || typeof value !== 'number') continue;
-    numeric++; sumCents += Math.round(value * 100);
+    numeric++; sumCents += Math.round(value * MONEY_SCALE_NUMBER);
     if (column.kind !== 'money') allMoney = false;
   }
-  return { count, numeric, sum: sumCents / 100, average: numeric ? sumCents / 100 / numeric : 0, money: numeric > 0 && allMoney };
+  return { count, numeric, sum: sumCents / MONEY_SCALE_NUMBER, average: numeric ? sumCents / MONEY_SCALE_NUMBER / numeric : 0, money: numeric > 0 && allMoney };
 }
 const plain = new Intl.NumberFormat('en-NG', { maximumFractionDigits: 2 });
 export const formatStat = (value: number, isMoney: boolean) => isMoney ? money.format(value) : plain.format(value);

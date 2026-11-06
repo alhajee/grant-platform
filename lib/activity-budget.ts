@@ -1,7 +1,8 @@
-import { componentEnvelope, isSplitMode, toKobo, type EnvelopePlan } from './funding-policy';
-import { formatKobo } from './money-format';
+import { componentEnvelope, isSplitMode, toMinor, type EnvelopePlan } from './funding-policy';
+import { formatMinor } from './money-format';
+import { shareToKobo } from './money';
 import { activityNames, activityShare, activityShareCaps, activityShareGroups, activityTitles, capActivities, isAdvisoryShare, type ActivityWorkstream } from './activity-plans';
-import { ictModelSchoolsActivity, ictModelSchoolsCapKobo, isRetiredActivity } from './activity-extras';
+import { ictModelSchoolsActivity, ictModelSchoolsCapMinor, isRetiredActivity } from './activity-extras';
 import { choosesUpFront, isChosen, planSelection, scaledPercent, shareTotal, type ActivitySelection } from './activity-selection';
 
 /** Components whose saved lines may not exceed their funding envelope (UBEC26-32). */
@@ -13,52 +14,52 @@ export const isCapped = (workstream: string): workstream is CappedWorkstream => 
  * migration 051) once the plan has funding (like the shared pool, no ceiling before that).
  */
 export const isCappedFor = (workstream: string, plan: EnvelopePlan): workstream is CappedWorkstream | 'tlm' => isCapped(workstream) || (workstream === 'tlm' && isSplitMode(plan) && plan.stateLodgment != null);
-export type BudgetLine = { activity: number; kobo: bigint };
+export type BudgetLine = { activity: number; minor: bigint };
 
-export { formatKobo };
-export const lineKobo = (line: { unit_cost?: string; unitCost?: number; quantity: number }) => toKobo(line.unit_cost ?? Number(line.unitCost ?? 0).toFixed(2)) * BigInt(line.quantity);
+export { formatMinor };
+export const lineMinor = (line: { unit_cost?: string; unitCost?: number; quantity: number }) => toMinor(line.unit_cost ?? Number(line.unitCost ?? 0)) * BigInt(line.quantity);
 
 /**
- * The component's budget ceiling in kobo (policy share plus its own funding sources), or null until the plan funding is set.
+ * The component's budget ceiling in minor units (lib/money.ts), the policy share plus its own funding sources, or null until the plan funding is set.
  * ICT and Teacher Development stay null until the shared Teacher Development & ICT budget is split (action_plans.ict_allocation);
  * in split mode TLM stays null until the Infrastructure & TLM pool is split (action_plans.tlm_allocation).
  */
-export function componentEnvelopeKobo(plan: EnvelopePlan, workstream: ActivityWorkstream): bigint | null {
+export function componentEnvelopeMinor(plan: EnvelopePlan, workstream: ActivityWorkstream): bigint | null {
   if (workstream === 'teachers' && plan.ictAllocation == null) return null;
   const envelope = componentEnvelope(plan, workstream);
-  return envelope == null ? null : toKobo(envelope);
+  return envelope == null ? null : toMinor(envelope);
 }
 
 /**
  * An activity's cap: its share of the envelope (or its group's, shared by the group's items), rounded to the kobo
  * (Curriculum, Quality Assurance). Quality Assurance shares are scaled to the chosen activities (migration 061).
  */
-export function activityCapKobo(workstream: ActivityWorkstream, envelope: bigint, activity: number, selection?: ActivitySelection) {
+export function activityCapMinor(workstream: ActivityWorkstream, envelope: bigint, activity: number, selection?: ActivitySelection) {
   const total = BigInt(shareTotal(workstream, selection));
-  return (envelope * BigInt(activityShare(workstream, activity) ?? 0) + total / BigInt(2)) / total;
+  return shareToKobo(envelope, BigInt(activityShare(workstream, activity) ?? 0), total);
 }
 /** An activity's share of the allocation as shown ("10%", or scaled to the chosen activities "28.57%"), or undefined when it has none. */
 export const activityPercent = (workstream: ActivityWorkstream, activity: number, selection?: ActivitySelection) => {
   const share = activityShare(workstream, activity);
   return share === undefined ? undefined : scaledPercent(share, shareTotal(workstream, selection));
 };
-export const curriculumCapKobo = (envelope: bigint, activity: number) => activityCapKobo('curriculum', envelope, activity);
+export const curriculumCapMinor = (envelope: bigint, activity: number) => activityCapMinor('curriculum', envelope, activity);
 
-/** Fixed naira caps on one activity's lines together, in kobo: ICT Maintenance of Model Smart Schools & DLC (₦30,000,000). */
-export const activityFixedCaps: Partial<Record<ActivityWorkstream, Record<number, bigint>>> = { ict: { [ictModelSchoolsActivity]: ictModelSchoolsCapKobo } };
+/** Fixed naira caps on one activity's lines together, in minor units: ICT Maintenance of Model Smart Schools & DLC (₦30,000,000). */
+export const activityFixedCaps: Partial<Record<ActivityWorkstream, Record<number, bigint>>> = { ict: { [ictModelSchoolsActivity]: ictModelSchoolsCapMinor } };
 export const ictAllocationNeeded = 'Ask the BEAP Chair to set how much of the shared Teacher Development & ICT budget ICT will use before adding ICT items';
 export const teachersSplitNeeded = 'Ask the BEAP Chair to set how much of the shared Teacher Development & ICT budget Teacher Development will use before adding Teacher Development items';
 export const tlmSplitNeeded = 'Ask the BEAP Chair to set how much of the shared Infrastructure & TLM budget TLM will use before adding TLM items';
 
-/** An activity's own cap in kobo and what it is ("10% of the Curriculum allocation"), or null when it has none or the envelope is not set. */
-export type ActivityCap = { kobo: bigint; basis: string };
+/** An activity's own cap in minor units and what it is ("10% of the Curriculum allocation"), or null when it has none or the envelope is not set. */
+export type ActivityCap = { minor: bigint; basis: string };
 export function activityCap(workstream: ActivityWorkstream, envelope: bigint | null, activity: number, selection?: ActivitySelection): ActivityCap | null {
   const fixed = activityFixedCaps[workstream]?.[activity];
-  if (fixed !== undefined) return { kobo: fixed, basis: 'for all its items together' };
+  if (fixed !== undefined) return { minor: fixed, basis: 'for all its items together' };
   const share = activityShare(workstream, activity);
   if (share === undefined || envelope === null) return null;
   const partners = capActivities(workstream, activity).filter(a => a !== activity).map(a => `‘${activityNames[workstream][a]}’`);
-  return { kobo: activityCapKobo(workstream, envelope, activity, selection), basis: `${activityPercent(workstream, activity, selection)} of the ${activityTitles[workstream]} allocation${partners.length ? `, shared with ${partners.join(' and ')}` : ''}` };
+  return { minor: activityCapMinor(workstream, envelope, activity, selection), basis: `${activityPercent(workstream, activity, selection)} of the ${activityTitles[workstream]} allocation${partners.length ? `, shared with ${partners.join(' and ')}` : ''}` };
 }
 /**
  * pending: the lines include an item being added or changed (the editor and the save API), not only saved lines (send checks).
@@ -67,8 +68,8 @@ export function activityCap(workstream: ActivityWorkstream, envelope: bigint | n
  */
 export type BudgetProblemOptions = { pending?: boolean; only?: number };
 const overBy = (total: bigint, cap: bigint, pending: boolean) => pending
-  ? `With this item it would come to ${formatKobo(total)}, which is ${formatKobo(total - cap)} over.`
-  : `Its items come to ${formatKobo(total)}, which is ${formatKobo(total - cap)} over. Reduce them to continue.`;
+  ? `With this item it would come to ${formatMinor(total)}, which is ${formatMinor(total - cap)} over.`
+  : `Its items come to ${formatMinor(total)}, which is ${formatMinor(total - cap)} over. Reduce them to continue.`;
 
 /** Why these lines cannot be saved or sent, or null. Lines above the envelope (capped components) or an activity above its share or fixed cap are blocked. */
 export function activityBudgetProblem(workstream: ActivityWorkstream, lines: readonly BudgetLine[], plan: EnvelopePlan, options: BudgetProblemOptions = {}): string | null {
@@ -76,7 +77,7 @@ export function activityBudgetProblem(workstream: ActivityWorkstream, lines: rea
   const capped = isCappedFor(workstream, plan);
   if (!capped && !shares) return null;
   const pending = options.pending === true;
-  const title = activityTitles[workstream], envelope = componentEnvelopeKobo(plan, workstream);
+  const title = activityTitles[workstream], envelope = componentEnvelopeMinor(plan, workstream);
   if (envelope === null && workstream === 'ict' && plan.stateLodgment != null) return ictAllocationNeeded;
   if (envelope === null && workstream === 'teachers' && plan.stateLodgment != null) return teachersSplitNeeded;
   if (envelope === null && workstream === 'tlm' && plan.stateLodgment != null) return tlmSplitNeeded;
@@ -94,22 +95,22 @@ export function activityBudgetProblem(workstream: ActivityWorkstream, lines: rea
     if (isAdvisoryShare(workstream, activity) && !(activityFixedCaps[workstream] ?? {})[activity]) continue;
     const cap = activityCap(workstream, envelope, activity, selection), group = capActivities(workstream, activity);
     if (options.only !== undefined && !group.includes(options.only)) continue;
-    const total = lines.filter(l => group.includes(l.activity)).reduce((sum, l) => sum + l.kobo, BigInt(0));
+    const total = lines.filter(l => group.includes(l.activity)).reduce((sum, l) => sum + l.minor, BigInt(0));
     const name = group.map(a => `‘${activityNames[workstream][a]}’`).join(' and ');
-    if (cap && total > cap.kobo) return group.length > 1
-      ? `${name} together can use up to ${formatKobo(cap.kobo)} (${activityPercent(workstream, activity, selection)} of the ${title} allocation). ${overBy(total, cap.kobo, pending)}`
-      : `${name} can use up to ${formatKobo(cap.kobo)} (${cap.basis}). ${overBy(total, cap.kobo, pending)}`;
+    if (cap && total > cap.minor) return group.length > 1
+      ? `${name} together can use up to ${formatMinor(cap.minor)} (${activityPercent(workstream, activity, selection)} of the ${title} allocation). ${overBy(total, cap.minor, pending)}`
+      : `${name} can use up to ${formatMinor(cap.minor)} (${cap.basis}). ${overBy(total, cap.minor, pending)}`;
   }
   if (!capped) return null;
-  const total = lines.reduce((sum, l) => sum + l.kobo, BigInt(0));
-  if (total > envelope) return `You have exceeded the ${title} allocation (${formatKobo(envelope)}) by ${formatKobo(total - envelope)}. Reduce the budget to continue.`;
+  const total = lines.reduce((sum, l) => sum + l.minor, BigInt(0));
+  if (total > envelope) return `You have exceeded the ${title} allocation (${formatMinor(envelope)}) by ${formatMinor(total - envelope)}. Reduce the budget to continue.`;
   return null;
 }
 
 /** The share caps these lines go over (each named by its first activity), for comparing two choices of activities. */
 export function overShareCaps(workstream: ActivityWorkstream, lines: readonly BudgetLine[], envelope: bigint, selection: ActivitySelection): number[] {
   return [...(activityShareGroups[workstream] ?? []).map(g => g.activities[0]), ...Object.keys(activityShareCaps[workstream] ?? {}).map(Number)].filter(activity => !isAdvisoryShare(workstream, activity)).filter(activity => {
-    const group = capActivities(workstream, activity), total = lines.filter(l => group.includes(l.activity)).reduce((sum, l) => sum + l.kobo, BigInt(0));
-    return total > activityCapKobo(workstream, envelope, activity, selection);
+    const group = capActivities(workstream, activity), total = lines.filter(l => group.includes(l.activity)).reduce((sum, l) => sum + l.minor, BigInt(0));
+    return total > activityCapMinor(workstream, envelope, activity, selection);
   });
 }

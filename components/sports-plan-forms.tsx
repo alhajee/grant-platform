@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { SchoolLevelFilter, allLevels, filterByLevel, type SchoolLevelChoice } from "@/components/school-level-filter";
-import { CurrencyInput } from "@/components/currency-input";
+import { CurrencyInput, unitCostDecimals } from "@/components/currency-input";
 import { SportsSectionSelect } from "@/components/sports-section-select";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -123,7 +123,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
       </Field>
       <Field data-invalid={Boolean(errors.unitCost)}>
         <FieldLabel htmlFor="sports-unit-cost">Unit cost (NGN)</FieldLabel>
-        <CurrencyInput id="sports-unit-cost" placeholder="0.00" value={draft.unitCost} onValueChange={(unitCost) => onChange({ ...draft, unitCost })} aria-invalid={Boolean(errors.unitCost)} aria-describedby={errors.unitCost ? "sports-unit-cost-error" : undefined} />
+        <CurrencyInput id="sports-unit-cost" decimals={unitCostDecimals} maxIntegerDigits={11} placeholder="0.0000" value={draft.unitCost} onValueChange={(unitCost) => onChange({ ...draft, unitCost })} aria-invalid={Boolean(errors.unitCost)} aria-describedby={errors.unitCost ? "sports-unit-cost-error" : undefined} />
         {errors.unitCost && <FieldError id="sports-unit-cost-error">{errors.unitCost}</FieldError>}
       </Field>
     </FieldGroup>

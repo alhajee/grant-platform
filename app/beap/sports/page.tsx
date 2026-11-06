@@ -19,8 +19,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { debateKobo, isPheTraining, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineKobo, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, unallocatedSportsItems, type SportsLine, type SportsPlan } from "@/lib/sports";
-import { toKobo } from "@/lib/funding-policy";
+import { debateMinor, isPheTraining, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineMinor, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, unallocatedSportsItems, type SportsLine, type SportsPlan } from "@/lib/sports";
+import { toMinor } from "@/lib/funding-policy";
 import { EnvelopeMeter } from "@/components/envelope-meter";
 import { SportsDebatePanel } from "@/components/sports-debate-panel";
 import { PanelSummary, PanelToolbar } from "@/components/line-panel/line-section";
@@ -31,6 +31,7 @@ import { lineQuartersProblem, planQuarters } from "@/lib/line-quarters";
 import { lineDatesProblem } from "@/lib/line-dates";
 import { cellMatches, connectionDroppedMessage, isConnectionDropped, newClientKey, postJson } from "@/lib/save-request";
 import { UbecRejectionAlert, flaggedFields, useUbecRejections } from "@/components/ubec-rejection-alert";
+import { maxUnitCost, minorToNaira } from "@/lib/money";
 // UBEC232: the form field each Sports workbook column points at (UBEC comments on a rejected line).
 const sportsFieldOf: Record<string, string> = { item: "sports-description", section: "sports-section", activity: "sports-type", timeline: "sports-quarters-label", quantity: "sports-quantity", unitCost: "sports-unit-cost", amount: "sports-unit-cost" };
 
@@ -88,17 +89,17 @@ export default function SportsPage() {
   const editingIndex = editingId ? orderedTargets.findIndex((target) => target.item.id === editingId) : -1;
   // The sports envelope and each section's share of it are caps (same rule as the API): a draft that raises
   // its section's cost may not take the section or the whole budget past them. Lowering is always allowed.
-  const envelopeKobo = envelope == null ? null : toKobo(envelope);
-  const savedLines = plan.lines.map((line) => ({ id: line.id, section: line.section, kobo: sportsLineKobo(line), activityType: line.activityType }));
+  const envelopeMinor = envelope == null ? null : toMinor(envelope);
+  const savedLines = plan.lines.map((line) => ({ id: line.id, section: line.section, minor: sportsLineMinor(line), activityType: line.activityType }));
   // UBEC167: the Debate amount; the other sections' shares apply to the rest of the Sports allocation.
-  const debate = debateKobo(actionPlan);
-  const sectionBudgets = sportsSectionBudgets(savedLines, envelopeKobo, debate);
-  const debateUsed = savedLines.filter((line) => line.section === "debate").reduce((sum, line) => sum + line.kobo, BigInt(0));
+  const debate = debateMinor(actionPlan);
+  const sectionBudgets = sportsSectionBudgets(savedLines, envelopeMinor, debate);
+  const debateUsed = savedLines.filter((line) => line.section === "debate").reduce((sum, line) => sum + line.minor, BigInt(0));
   const draftQuantity = Number(budget.quantity), draftUnitCost = Number(budget.unitCost);
-  const draftKobo = Number.isSafeInteger(draftQuantity) && draftQuantity >= 0 && draftQuantity <= 1000000 && draftUnitCost >= 0 && draftUnitCost <= 999999999999.99 ? sportsLineKobo({ unitCost: draftUnitCost, quantity: draftQuantity }) : BigInt(0);
+  const draftMinor = Number.isSafeInteger(draftQuantity) && draftQuantity >= 0 && draftQuantity <= 1000000 && draftUnitCost >= 0 && draftUnitCost <= maxUnitCost ? sportsLineMinor({ unitCost: draftUnitCost, quantity: draftQuantity }) : BigInt(0);
   const savedDraft = budget.id ? savedLines.find((line) => line.id === budget.id) : undefined;
-  const beforeKobo = savedDraft && savedDraft.section === budget.section && savedDraft.activityType === budget.activityType.trim() ? savedDraft.kobo : BigInt(0);
-  const budgetProblem = view === "budget" && draftKobo > beforeKobo ? sportsCapProblem([...savedLines.filter((line) => line.id !== budget.id), { section: budget.section, kobo: draftKobo, activityType: budget.activityType.trim() }], envelopeKobo, budget.section, budget.activityType.trim(), debate) : null;
+  const beforeMinor = savedDraft && savedDraft.section === budget.section && savedDraft.activityType === budget.activityType.trim() ? savedDraft.minor : BigInt(0);
+  const budgetProblem = view === "budget" && draftMinor > beforeMinor ? sportsCapProblem([...savedLines.filter((line) => line.id !== budget.id), { section: budget.section, minor: draftMinor, activityType: budget.activityType.trim() }], envelopeMinor, budget.section, budget.activityType.trim(), debate) : null;
   // Timeline: a new line starts with all of the plan's quarters (migration 050).
   const availableQuarters = actionPlan ? planQuarters(actionPlan) : [];
 
@@ -336,8 +337,8 @@ export default function SportsPage() {
     {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : <>
       <SportsDebatePanel envelope={envelope} amount={actionPlan?.debateAllocation ?? null} used={debateUsed} disabled={disabled} planHref={currentPlanHref} onSaved={loadPlan} />
       {(plan.lines.length > 0 || envelope != null) && <dl className="sports-breakdown" aria-label="Budget by section">{sectionBudgets.map(({ section, proposed, cap }) => <div key={section.id}><dt>{section.label}</dt><dd>{cap == null
-        ? <>{money.format(Number(proposed) / 100)}<small className="block font-normal text-muted-foreground">{section.id === "debate" ? "The amount set aside for Debate" : `Up to ${section.share}% of the sports budget`}</small></>
-        : <EnvelopeMeter compact label={section.id === "debate" ? "Debate amount" : `Up to ${section.share}%`} envelope={Number(cap) / 100} used={Number(proposed) / 100} />}</dd></div>)}</dl>}
+        ? <>{money.format(minorToNaira(proposed))}<small className="block font-normal text-muted-foreground">{section.id === "debate" ? "The amount set aside for Debate" : `Up to ${section.share}% of the sports budget`}</small></>
+        : <EnvelopeMeter compact label={section.id === "debate" ? "Debate amount" : `Up to ${section.share}%`} envelope={minorToNaira(cap)} used={minorToNaira(proposed)} />}</dd></div>)}</dl>}
       {/* UBEC74: the PHE officer training distribution list, while the plan has training lines (or a list already). */}
       {trainingDraft && <PheTrainingSchools planHref={currentPlanHref} schools={plan.schools} listed={plan.trainingSchools ?? []} disabled={disabled} required={plan.lines.some(isPheTraining)} onChanged={loadPlan} />}
       <div className="line-panel"><SportsBudgetPreview plan={plan} disabled={disabled} selectedSection={budget.section} selectedType={budget.activityType} editingId={budget.id} dirtyId={budgetDirty ? budget.id : undefined}

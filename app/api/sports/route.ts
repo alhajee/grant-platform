@@ -9,9 +9,9 @@ import { readPillarReviews, mayEditPillar } from '@/lib/pillar-review';
 import { getPostgres } from "@/lib/postgres";
 import { cachedSchoolList } from '@/lib/school-cache';
 import { getWorkspaceState, sqlText } from "@/lib/workspace-state";
-import { debateNotSet, pheTrainingActivity, sportsAllocationSchema, sportsBudgetProblem, sportsCapProblem, sportsCatalogError, sportsEnvelopeKobo, sportsLineKobo, sportsLineSchema } from "@/lib/sports";
-import { toKobo } from "@/lib/funding-policy";
-import { formatKobo } from "@/lib/money-format";
+import { debateNotSet, pheTrainingActivity, sportsAllocationSchema, sportsBudgetProblem, sportsCapProblem, sportsCatalogError, sportsEnvelopeMinor, sportsLineMinor, sportsLineSchema } from "@/lib/sports";
+import { toMinor } from "@/lib/funding-policy";
+import { formatMinor } from "@/lib/money-format";
 import { componentEnvelope } from "@/lib/funding-policy";
 import { resolveLineQuarters } from "@/lib/line-quarters";
 import { readPlanQuarterSetup } from "@/lib/line-quarters-db";
@@ -66,15 +66,15 @@ export async function POST(request: NextRequest) {
       return await mutatePlan(workspace, plan, "sports", async (db) => {
         await db.query(`SELECT pg_advisory_xact_lock(hashtext(${sqlText(`sports:${workspace.stateCode}`)}))`);
         const current = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id = $1`, [plan.id])).rows[0];
-        const envelope = sportsEnvelopeKobo(current), debate = toKobo(amount.data.amount);
+        const envelope = sportsEnvelopeMinor(current), debate = toMinor(amount.data.amount);
         if (envelope == null) return error("Set the plan's funding before sharing the Sports allocation", 409);
-        if (debate > envelope) return error(`The Debate amount can be at most the Sports allocation (${formatKobo(envelope)})`, 400);
-        const lines = (await db.query(`SELECT section, activity_type AS "activityType", quantity, unit_cost::text AS unit_cost FROM sports_budget_lines WHERE plan_id = $1`, [plan.id])).rows.map((line) => ({ section: line.section, kobo: sportsLineKobo(line), activityType: line.activityType }));
-        const debateUsed = lines.filter((line) => line.section === "debate").reduce((sum, line) => sum + line.kobo, BigInt(0));
-        if (debate < debateUsed) return error(`Debate items already come to ${formatKobo(debateUsed)}. Reduce them first, or set at least that amount`, 409);
+        if (debate > envelope) return error(`The Debate amount can be at most the Sports allocation (${formatMinor(envelope)})`, 400);
+        const lines = (await db.query(`SELECT section, activity_type AS "activityType", quantity, unit_cost::text AS unit_cost FROM sports_budget_lines WHERE plan_id = $1`, [plan.id])).rows.map((line) => ({ section: line.section, minor: sportsLineMinor(line), activityType: line.activityType }));
+        const debateUsed = lines.filter((line) => line.section === "debate").reduce((sum, line) => sum + line.minor, BigInt(0));
+        if (debate < debateUsed) return error(`Debate items already come to ${formatMinor(debateUsed)}. Reduce them first, or set at least that amount`, 409);
         // The other sections share the rest, so a bigger Debate amount must still leave each of them room for its items.
         const problem = sportsCapProblem(lines, envelope, undefined, undefined, debate);
-        if (problem) return error(`With ${formatKobo(debate)} for Debate: ${problem}`, 409);
+        if (problem) return error(`With ${formatMinor(debate)} for Debate: ${problem}`, 409);
         await db.query("UPDATE action_plans SET debate_allocation = $1 WHERE id = $2", [amount.data.amount, plan.id]);
         return NextResponse.json({ debateAllocation: Number(amount.data.amount).toFixed(2) });
       });
@@ -120,9 +120,9 @@ export async function POST(request: NextRequest) {
         // The Debate amount is read under the plan lock, so a change made meanwhile is respected (UBEC167).
         const fresh = (await db.query<ActionPlan>(`SELECT ${planFields} FROM action_plans WHERE id = $1`, [plan.id])).rows[0];
         if (line.section === "debate" && fresh.debateAllocation == null) return error(debateNotSet, 409);
-        const cost = sportsLineKobo(line), before = existing && existing.section === line.section && existing.activity_type === line.activityType ? sportsLineKobo(existing) : BigInt(0);
+        const cost = sportsLineMinor(line), before = existing && existing.section === line.section && existing.activity_type === line.activityType ? sportsLineMinor(existing) : BigInt(0);
         if (cost > before) {
-          const lines = [...others.filter((other) => other.id !== id).map((other) => ({ section: other.section, kobo: sportsLineKobo(other), activityType: other.activityType })), { section: line.section, kobo: cost, activityType: line.activityType }];
+          const lines = [...others.filter((other) => other.id !== id).map((other) => ({ section: other.section, minor: sportsLineMinor(other), activityType: other.activityType })), { section: line.section, minor: cost, activityType: line.activityType }];
           const problem = sportsBudgetProblem(lines, fresh, line.section, line.activityType);
           if (problem) return error(problem, 409);
         }
@@ -136,13 +136,13 @@ export async function POST(request: NextRequest) {
         const quarters = `ARRAY[${timeline.quarters.map(Number).join(",")}]::smallint[]`;
         const sqlDate = (value: string | null) => (value ? `${sqlText(value)}::date` : "NULL");
         const startDate = sqlDate(dated.dates.startDate), dueDate = sqlDate(dated.dates.dueDate);
-        const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${sqlText(line.targetGroup)}, ${line.quantity}, ${line.unitCost.toFixed(2)}, ${quarters}, ${startDate}, ${dueDate}`;
+        const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${sqlText(line.targetGroup)}, ${line.quantity}, ${line.unitCost.toFixed(4)}, ${quarters}, ${startDate}, ${dueDate}`;
         // UBEC233 (migration 091): the code (UBEC/SUBEB/SPORT/001/2026) is numbered per plan by the BEFORE INSERT trigger.
         const result = action === "create"
           ? await db.query(`INSERT INTO sports_budget_lines (plan_id, state_code, section, activity_type, description, target_group, quantity, unit_cost, quarters, start_date, due_date, client_key)
               VALUES (${plan.id}, ${state}, ${values}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid) RETURNING id, code`)
           : await db.query(`UPDATE sports_budget_lines SET section = ${sqlText(line.section)}, activity_type = ${sqlText(line.activityType)},
-              description = ${sqlText(line.description)}, target_group = ${sqlText(line.targetGroup)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(2)}, quarters = ${quarters}, start_date = ${startDate}, due_date = ${dueDate}, updated_at = NOW()
+              description = ${sqlText(line.description)}, target_group = ${sqlText(line.targetGroup)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(4)}, quarters = ${quarters}, start_date = ${startDate}, due_date = ${dueDate}, updated_at = NOW()
               WHERE id = ${id} AND state_code = ${state} RETURNING id, code`);
         return NextResponse.json(result.rows[0], { status: action === "create" ? 201 : 200 });
       }

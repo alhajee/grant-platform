@@ -22,8 +22,8 @@ import { nairaFormat } from '@/lib/money-format';
 import type { RatReview } from '@/lib/rat-review';
 import { PlanRatField } from '@/components/plan-rat-field';
 import { rescaleSplits, sideNames } from '@/lib/budget-pairs';
-import { formatKobo } from '@/lib/money-format';
-import { toKobo } from '@/lib/funding-policy';
+import { formatMinor } from '@/lib/money-format';
+import { toMinor } from '@/lib/funding-policy';
 
 const money = nairaFormat;
 type SetupData = { plan: ActionPlan; reserved: { year: number; quarter: number }[]; proposed: Partial<Record<FundingComponent | 'ict', string>>; quarterUsage?: QuarterUsage; canEdit: boolean; lockedReason: string | null; canReplaceRat?: boolean; ratReview?: RatReview | null; ratReplaced?: boolean };
@@ -132,7 +132,7 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
             </FieldGroup>
             {/* UBEC204: a new RAT can still be uploaded when the rest is locked (plan back from UBEC). */}
             <PlanRatField plan={data.plan} canReplace={!!data.canReplaceRat} review={data.ratReview ?? null} replaced={!!data.ratReplaced} onReplaced={plan => { setData({ ...data, plan, ratReplaced: true }); onSaved?.(plan); }} />
-            {!!split?.rescaled.length && !ictProblem && <Alert><AlertTitle>Budget splits follow the new funding</AlertTitle><AlertDescription><ul className="list-disc pl-4">{split.rescaled.map(r => <li key={r.pair}>{sideNames[r.side]} keeps {r.percent} → {formatKobo(toKobo(r.after))} · {sideNames[r.keeper]} {formatKobo(toKobo(r.keeperAfter))}</li>)}</ul></AlertDescription></Alert>}
+            {!!split?.rescaled.length && !ictProblem && <Alert><AlertTitle>Budget splits follow the new funding</AlertTitle><AlertDescription><ul className="list-disc pl-4">{split.rescaled.map(r => <li key={r.pair}>{sideNames[r.side]} keeps {r.percent} → {formatMinor(toMinor(r.after))} · {sideNames[r.keeper]} {formatMinor(toMinor(r.keeperAfter))}</li>)}</ul></AlertDescription></Alert>}
             {ictProblem && <Alert variant="destructive"><AlertTitle>Funding is below an allocation</AlertTitle><AlertDescription>{ictProblem}</AlertDescription></Alert>}
             {shortfalls.length > 0 && <Alert variant="destructive"><AlertTitle>Funding is below what is already proposed</AlertTitle><AlertDescription><ul className="list-disc pl-4">{shortfalls.map(s => <li key={s.component}>{shortfallMessage(s)}</li>)}</ul></AlertDescription></Alert>}
           </>}

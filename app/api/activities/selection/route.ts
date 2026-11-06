@@ -5,10 +5,10 @@ import { planSetupFields, resolveActionPlan } from '@/lib/plan-workspace';
 import { mutatePlan } from '@/lib/plan-mutations';
 import { isSameRequestOrigin } from '@/lib/request-origin';
 import { activityNames, activityTitles } from '@/lib/activity-plans';
-import { componentEnvelopeKobo, formatKobo, overShareCaps, activityCapKobo } from '@/lib/activity-budget';
+import { componentEnvelopeMinor, formatMinor, overShareCaps, activityCapMinor } from '@/lib/activity-budget';
 import { capActivities } from '@/lib/activity-plans';
 import { selectionProblem } from '@/lib/activity-selection';
-import { budgetKobo } from '@/lib/sbmc-budget';
+import { budgetMinor } from '@/lib/sbmc-budget';
 import type { EnvelopePlan } from '@/lib/funding-policy';
 
 // The optional Quality Assurance activities a state works with (action_plans.quality_activities, migration 061).
@@ -34,15 +34,15 @@ export async function PATCH(req: NextRequest) {
       const before = current.qualityActivities ?? [];
       const dropped = rows.filter(r => before.includes(r.activity) && !activities.includes(r.activity));
       if (dropped.length) return error(`Remove the items under ${dropped.map(r => `‘${activityNames[workstream][r.activity]}’ (${r.items})`).join(' and ')} before leaving ${dropped.length === 1 ? 'it' : 'them'} out.`, 409);
-      const envelope = componentEnvelopeKobo(current, workstream);
+      const envelope = componentEnvelopeMinor(current, workstream);
       if (envelope !== null && current.qualityActivities != null) {
-        const lines = rows.map(r => ({ activity: r.activity, kobo: budgetKobo(r.total) }));
+        const lines = rows.map(r => ({ activity: r.activity, minor: budgetMinor(r.total) }));
         const wasOver = overShareCaps(workstream, lines, envelope, current.qualityActivities);
         const newlyOver = overShareCaps(workstream, lines, envelope, activities).filter(a => !wasOver.includes(a));
         if (newlyOver.length) {
           const detail = newlyOver.map(a => {
-            const group = capActivities(workstream, a), used = lines.filter(l => group.includes(l.activity)).reduce((s, l) => s + l.kobo, BigInt(0)), cap = activityCapKobo(workstream, envelope, a, activities);
-            return `‘${group.map(g => activityNames[workstream][g]).join('’ and ‘')}’ would be ${formatKobo(used - cap)} over (up to ${formatKobo(cap)})`;
+            const group = capActivities(workstream, a), used = lines.filter(l => group.includes(l.activity)).reduce((s, l) => s + l.minor, BigInt(0)), cap = activityCapMinor(workstream, envelope, a, activities);
+            return `‘${group.map(g => activityNames[workstream][g]).join('’ and ‘')}’ would be ${formatMinor(used - cap)} over (up to ${formatMinor(cap)})`;
           }).join('; ');
           return error(`With these activities the ${activityTitles[workstream]} shares get smaller: ${detail}. Reduce those items first.`, 409);
         }

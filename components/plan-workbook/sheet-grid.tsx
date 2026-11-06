@@ -17,6 +17,7 @@ import { CommentLayer } from './comment-layer';
 import { toast } from 'sonner';
 import { EditorEmpty } from '@/components/empty-art/editor-empty';
 import { EmptyLinesArt } from '@/components/empty-art/editor-lines';
+import { MONEY_SCALE_NUMBER } from '@/lib/money';
 
 export const GUTTER_WIDTH = 60;
 const ROW_HEIGHT = 34;
@@ -188,7 +189,7 @@ export function SheetGrid({ table, sheet, expanded, onToggle, filterOptions, onC
         <th role="rowheader" aria-colindex={1} className="wb-gutter" aria-label="Totals">Σ</th>
         {columns.map((column, c) => {
           const spec = specs.get(column.id)!;
-          const total = spec.total ? filtered.reduce((sum, row) => sum + (typeof row.original.values[spec.id] === 'number' ? Math.round(Number(row.original.values[spec.id]) * 100) : 0), 0) / 100 : null;
+          const total = spec.total ? filtered.reduce((sum, row) => sum + (typeof row.original.values[spec.id] === 'number' ? Math.round(Number(row.original.values[spec.id]) * MONEY_SCALE_NUMBER) : 0), 0) / MONEY_SCALE_NUMBER : null;
           return <td key={column.id} role="gridcell" aria-colindex={c + 2} className={cn(c === 0 && 'wb-frozen', isNumeric(spec.kind) && 'wb-number')} style={c === 0 ? { left: GUTTER_WIDTH } : undefined}>
             {c === 0 ? <><strong>{filtered.length === sheet.rows.length ? 'Total' : 'Filtered total'}</strong> <span className="wb-total-count">{filtered.length} of {sheet.rows.length}</span></> : total !== null ? formatCell(spec.kind, total) : ''}
           </td>;

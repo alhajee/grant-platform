@@ -1,10 +1,10 @@
 import type { Client } from 'pg';
-import { toKobo, type EnvelopePlan } from './funding-policy';
+import { toMinor, type EnvelopePlan } from './funding-policy';
 import { planSetupFields } from './plan-workspace';
 import type { PoolComponent, PoolProposed } from './infrastructure-pool';
 
 /**
- * The plan's funding and both sides' saved proposals, in kobo. Call inside the write transaction after locking the
+ * The plan's funding and both sides' saved proposals, in minor units (lib/money.ts). Call inside the write transaction after locking the
  * plan row (mutatePlan takes it FOR UPDATE), so Infrastructure saves, TLM saves and plan funding edits are checked one
  * after the other against current figures. `except` leaves out the package or line being replaced.
  */
@@ -14,5 +14,5 @@ export async function readPoolState(db: Pick<Client, 'query'>, planId: number, e
     (SELECT COALESCE(SUM(quantity*unit_cost),0) FROM activity_plan_lines WHERE plan_id=$1 AND workstream='tlm' AND ($3::bigint IS NULL OR id<>$3))::text AS tlm
     FROM action_plans WHERE id=$1`,
   [planId, except?.component === 'infrastructure' ? except.id : null, except?.component === 'tlm' ? except.id : null])).rows[0];
-  return { plan: row, proposed: { infrastructure: toKobo(row.infrastructure), tlm: toKobo(row.tlm) } };
+  return { plan: row, proposed: { infrastructure: toMinor(row.infrastructure), tlm: toMinor(row.tlm) } };
 }

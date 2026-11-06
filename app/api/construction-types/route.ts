@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const { rows } = await db.query(`
       INSERT INTO construction_types (id, state_code, name, classrooms, playrooms_labs, libraries, toilets, offices_stores, duration, unit_cost, created_by)
       VALUES (${sqlText(crypto.randomUUID())}, ${sqlText(workspace.stateCode)}, ${sqlText(constructionTypeName(type))},
-        ${type.classrooms}, ${type.playroomsLabs}, ${type.libraries}, ${type.toilets}, ${type.officesStores}, ${type.duration}, ${type.unitCost.toFixed(2)}, ${sqlText(workspace.email)})
+        ${type.classrooms}, ${type.playroomsLabs}, ${type.libraries}, ${type.toilets}, ${type.officesStores}, ${type.duration}, ${type.unitCost.toFixed(4)}, ${sqlText(workspace.email)})
       ON CONFLICT (state_code, classrooms, playrooms_labs, libraries, toilets, offices_stores) DO NOTHING
       RETURNING ${constructionTypeFields}`);
     if (rows[0]) return NextResponse.json({ constructionType: rows[0] }, { status: 201 });

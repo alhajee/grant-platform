@@ -60,7 +60,7 @@ assert.equal(sharedSplit(plan, 'infrastructure', '15750', none).allocation, '0.0
 assert.match(sharedSplit(plan, 'infrastructure', '15750', { own: '0', partner: '0.01' }).problem, /TLM lines already propose ₦0\.0100/);
 assert.equal(sharedSplit(plan, 'infrastructure', '10750', none).allocation, '5000.00');
 assert.match(infrastructureSplitProblem(plan, 1n), /Infrastructure will use before adding packages/);
-assert.match(infrastructureSplitProblem(set, 1075001n), /exceeded the Infrastructure allocation \(₦10,750\.0000\) by ₦0\.0100/);
+assert.match(infrastructureSplitProblem(set, 107500100n), /exceeded the Infrastructure allocation \(₦10,750\.0000\) by ₦0\.0100/);
 assert.match(sharedBelowAllocationProblem({ ...set, stateLodgment: '1000.00', fundingSources: [] }), /^Infrastructure & TLM would have ₦1,500\.0000 available, but TLM has already been allocated ₦5,000\.0000\. Ask TLM to reduce its allocation first/);
 assert.equal(sharedBelowAllocationProblem({ ...set, infrastructureTlmMode: 'shared_pool', stateLodgment: '1000.00', fundingSources: [] }), null);
 assert.deepEqual(envelopeShortfalls(set, { ...set, fundingSources: [] }, { infrastructure: '10000.00', tlm: '5000.00' }), [], 'each side still fits its part');

@@ -3,6 +3,7 @@
 // constants into the shared line schema.
 import { othersActivityName, teacherActivityNames, teacherDocumentLabel } from './teacher-development.ts';
 import { isPriceListActivity } from './procurement.ts';
+import { MONEY_SCALE } from './money.ts';
 
 /** Activity lists from the client's Quality Assurance and ICT (DDPA) activity forms, stored by index; the last is Others (specify), migration 047. */
 /** Quality Assurance activities, renamed from the client's observations (October 2026, migration 060); 11 was added then and Others moved to 12. */
@@ -69,7 +70,7 @@ export const ictSubscriptionActivity = 5;
 export const ictWebsiteActivity = 6;
 /** ICT Maintenance of Model Smart Schools & DLC: all its lines together are capped at ₦30,000,000. */
 export const ictModelSchoolsActivity = 2;
-export const ictModelSchoolsCapKobo = BigInt(3_000_000_000);
+export const ictModelSchoolsCapMinor = BigInt(30_000_000) * MONEY_SCALE;
 
 /** Activities that must have at least one budget line before the component can be sent on. Teacher Development has none yet. */
 export const compulsoryActivities: Partial<Record<string, readonly number[]>> = {

@@ -15,6 +15,7 @@ import { planSetupSchema, beapName, futureYearError } from '@/lib/plan-setup';
 import { creationSplitProblem, setsBudgetSplits, splitsByBeapChair, type CreationSplits } from '@/lib/budget-pairs';
 import { readInfrastructureTlmMode } from '@/lib/infrastructure-tlm-mode';
 import { planFormData, ratDocuments, PlanInputError } from '@/lib/plan-upload';
+import { MONEY_SCALE_NUMBER, minorOfNumber } from '@/lib/money';
 
 // Recent activity is filtered per component after reading, so read a few more rows than are shown.
 const RECENT_ACTIVITY_SCAN = RECENT_ACTIVITY_LIMIT * 5;
@@ -25,8 +26,8 @@ function visibleFigures(plan: Record<string, unknown>, visible: readonly Impleme
   const schoolIds = [...new Set(visible.flatMap(pillar => schools[pillar] ?? []))].sort((a, b) => a - b);
   return {
     ...budgets,
-    // Kobo arithmetic keeps the total exact.
-    budget: implementedPillars.reduce((sum, pillar) => sum + Math.round(budgets[`${pillar}Budget`] * 100), 0) / 100,
+    // Minor arithmetic keeps the total exact.
+    budget: implementedPillars.reduce((sum, pillar) => sum + minorOfNumber(budgets[`${pillar}Budget`]), 0) / MONEY_SCALE_NUMBER,
     lineCount: visible.reduce((sum, pillar) => sum + (lines[pillar] ?? 0), 0),
     schoolCount: schoolIds.length, schoolIds,
   };

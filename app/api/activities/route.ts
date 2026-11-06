@@ -13,7 +13,7 @@ import { setsBudgetSplits } from '@/lib/budget-pairs';
 import { activityLineSchema, activityWorkstreams, capActivities, hasDistribution, activityShareCaps, activityShareGroups, isRetiredStrategy } from '@/lib/activity-plans';
 import { activityBudgetProblem, isCapped } from '@/lib/activity-budget';
 import { isSplitMode } from '@/lib/funding-policy';
-import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
+import { budgetMinor, sbmcBudgetProblem } from '@/lib/sbmc-budget';
 import { compulsoryActivities, lineSchoolActivities, maxLineSchools, needsFrequency } from '@/lib/activity-extras';
 import { isDistributedLine } from '@/lib/distribution-lists';
 import { requiredFirstProblem } from '@/lib/component-readiness';
@@ -134,21 +134,21 @@ export async function POST(req:NextRequest){
      // Procurement price list (migration 074): a picked item sets the price; the setting may require one on items to buy.
      const priced=await resolvePriceItem(db,{stateCode:user.stateCode,workstream,activity:line.data.activity,priceItemId:line.data.priceItemId,unitCost:line.data.unitCost,lineId:action==='update'?id!:null});
      if('problem' in priced)return error(priced.problem,priced.status);
-     const v=line.data, values=[v.activity,v.customActivity,v.description,v.quantity,v.unitCost.toFixed(2),v.strategy,v.targetGroup,v.location,v.equipment,v.rationale,v.implementationApproach,v.textbookClasses,v.textbookSubject,v.equipmentType,v.subscriptionTypes,v.websiteType,v.trainingProvider,v.targetParticipants,v.schoolLevels,v.trainingDays,v.venueType,timeline.quarters,dated.dates.startDate,dated.dates.dueDate,v.equipmentCategory,v.item,v.censusType];
+     const v=line.data, values=[v.activity,v.customActivity,v.description,v.quantity,v.unitCost.toFixed(4),v.strategy,v.targetGroup,v.location,v.equipment,v.rationale,v.implementationApproach,v.textbookClasses,v.textbookSubject,v.equipmentType,v.subscriptionTypes,v.websiteType,v.trainingProvider,v.targetParticipants,v.schoolLevels,v.trainingDays,v.venueType,timeline.quarters,dated.dates.startDate,dated.dates.dueDate,v.equipmentCategory,v.item,v.censusType];
      if(workstream==='sbmc') {
       const existing=(await db.query("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='sbmc' AND ($2::bigint IS NULL OR id<>$2)",[plan.id,action==='update'?id:null])).rows[0].total;
-      const problem=sbmcBudgetProblem(budgetKobo(existing)+budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity),plan);
+      const problem=sbmcBudgetProblem(budgetMinor(existing)+budgetMinor(v.unitCost.toFixed(4))*BigInt(v.quantity),plan);
       if(problem)return error(problem);
      }
      // TLM and Infrastructure share one pool (the plan row is locked by mutatePlan, so funding and the split are re-read here).
      // Split mode: TLM lines stay within TLM's part (action_plans.tlm_allocation) and wait until the split is set.
      // Shared-pool mode: Infrastructure's packages count too. Either way, a change that does not raise the line's cost is always allowed.
      if(workstream==='tlm') {
-      const cost=budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity);
-      const before=action==='update'?budgetKobo((await db.query<{total:string}>('SELECT (quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE id=$1',[id])).rows[0].total):null;
+      const cost=budgetMinor(v.unitCost.toFixed(4))*BigInt(v.quantity);
+      const before=action==='update'?budgetMinor((await db.query<{total:string}>('SELECT (quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE id=$1',[id])).rows[0].total):null;
       if(before===null||cost>before){
        const pool=await readPoolState(db,plan.id,action==='update'?{component:'tlm',id:id!}:undefined);
-       const problem=isSplitMode(pool.plan)?activityBudgetProblem('tlm',[{activity:v.activity,kobo:pool.proposed.tlm+cost}],pool.plan,{pending:true}):infrastructurePoolProblem(pool.plan,{...pool.proposed,tlm:pool.proposed.tlm+cost});
+       const problem=isSplitMode(pool.plan)?activityBudgetProblem('tlm',[{activity:v.activity,minor:pool.proposed.tlm+cost}],pool.plan,{pending:true}):infrastructurePoolProblem(pool.plan,{...pool.proposed,tlm:pool.proposed.tlm+cost});
        if(problem)return error(problem,409);
       }
      }
@@ -162,12 +162,12 @@ export async function POST(req:NextRequest){
      // Caps: only the cap of this item's activity (plus the envelope) is checked, and a change that does not raise what
      // that cap covers is always allowed, so a plan already over a share can still be brought back down.
      const before=action==='update'?(await db.query<{activity:number;total:string}>('SELECT activity,(quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE id=$1',[id])).rows[0]:undefined;
-     const lowering=!!before&&capActivities(workstream,v.activity).includes(before.activity)&&budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity)<=budgetKobo(before.total);
+     const lowering=!!before&&capActivities(workstream,v.activity).includes(before.activity)&&budgetMinor(v.unitCost.toFixed(4))*BigInt(v.quantity)<=budgetMinor(before.total);
      if((isCapped(workstream)||activityShareCaps[workstream]||activityShareGroups[workstream])&&!lowering) {
       const others=(await db.query<{activity:number;total:string}>('SELECT activity,SUM(quantity*unit_cost)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream=$2 AND ($3::bigint IS NULL OR id<>$3) GROUP BY activity',[plan.id,workstream,action==='update'?id:null])).rows;
       // Quality Assurance: the activities chosen up front (migration 061), re-read under the plan lock.
       const current=choosesUpFront(workstream)?{...plan,qualityActivities:(await db.query<{q:number[]|null}>('SELECT quality_activities AS q FROM action_plans WHERE id=$1',[plan.id])).rows[0].q}:plan;
-      const problem=activityBudgetProblem(workstream,[...others.map(r=>({activity:r.activity,kobo:budgetKobo(r.total)})),{activity:v.activity,kobo:budgetKobo(v.unitCost.toFixed(2))*BigInt(v.quantity)}],current,{pending:true,only:v.activity});
+      const problem=activityBudgetProblem(workstream,[...others.map(r=>({activity:r.activity,minor:budgetMinor(r.total)})),{activity:v.activity,minor:budgetMinor(v.unitCost.toFixed(4))*BigInt(v.quantity)}],current,{pending:true,only:v.activity});
       if(problem)return error(problem);
      }
      const lineId=action==='create'

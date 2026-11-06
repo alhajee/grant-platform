@@ -8,9 +8,14 @@ type CurrencyInputProps = Omit<ComponentProps<typeof Input>, "type" | "inputMode
   value: string;
   onValueChange: (value: string) => void;
   maxIntegerDigits?: number;
+  /** Decimal places typed and shown: 2 for funding figures, 4 for unit costs (UBEC238, unitCostDecimals). */
+  decimals?: number;
 };
 
-export function CurrencyInput({ value, onValueChange, maxIntegerDigits, onFocus, onBlur, ref, ...props }: CurrencyInputProps) {
+/** Unit costs take four decimals (₦1,250.0202, lib/money.ts). */
+export const unitCostDecimals = 4;
+
+export function CurrencyInput({ value, onValueChange, maxIntegerDigits, decimals = 2, onFocus, onBlur, ref, ...props }: CurrencyInputProps) {
   const [focused, setFocused] = useState(false);
 
   return (
@@ -24,7 +29,7 @@ export function CurrencyInput({ value, onValueChange, maxIntegerDigits, onFocus,
       valueIsNumericString
       thousandSeparator=","
       decimalSeparator="."
-      decimalScale={2}
+      decimalScale={decimals}
       fixedDecimalScale={!focused}
       allowNegative={false}
       isAllowed={({ value: nextValue }) => !maxIntegerDigits || nextValue.split('.')[0].length <= maxIntegerDigits}

@@ -32,9 +32,9 @@ const returnedMessage = 'Plan details are locked while the plan is back from UBE
 const notAllowed = 'Only the Executive Chairman, the BEAP Chair or a colleague authorised to create plans can edit plan details';
 
 async function proposedByComponent(db: Db, planId: number) {
-  const rows = (await db.query<{ component: string; amount: string }>(`SELECT 'infrastructure' AS component, ROUND(COALESCE(SUM(total_cost),0),2)::text AS amount FROM infrastructure_packages WHERE plan_id=$1
-    UNION ALL SELECT 'sports', ROUND(COALESCE(SUM(unit_cost*quantity),0),2)::text FROM sports_budget_lines WHERE plan_id=$1
-    UNION ALL SELECT workstream, ROUND(SUM(unit_cost*quantity),2)::text FROM activity_plan_lines WHERE plan_id=$1 GROUP BY workstream`, [planId])).rows;
+  const rows = (await db.query<{ component: string; amount: string }>(`SELECT 'infrastructure' AS component, ROUND(COALESCE(SUM(total_cost),0),4)::text AS amount FROM infrastructure_packages WHERE plan_id=$1
+    UNION ALL SELECT 'sports', ROUND(COALESCE(SUM(unit_cost*quantity),0),4)::text FROM sports_budget_lines WHERE plan_id=$1
+    UNION ALL SELECT workstream, ROUND(SUM(unit_cost*quantity),4)::text FROM activity_plan_lines WHERE plan_id=$1 GROUP BY workstream`, [planId])).rows;
   // ICT lines are their own workstream: kept as 'ict' so the Teacher Development & ICT split can be checked (UBEC228).
   return Object.fromEntries(rows.filter(r => r.component === 'ict' || (fundingComponentIds as readonly string[]).includes(String(r.component))).map(r => [r.component, r.amount])) as Partial<Record<FundingComponent | 'ict', string>>;
 }

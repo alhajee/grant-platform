@@ -24,4 +24,9 @@ const infraRejected = [{ pillar: 'infrastructure', rowRef: '-5' }];
 assert.deepEqual(openRejections(pkg(1000), pkg(1000), infraRejected), { infrastructure: ['-5'] });
 assert.deepEqual(openRejections(pkg(1000), pkg(1000, [{ id: 'b', kind: 'boq', schoolId: 9 }]), infraRejected), {});
 assert.deepEqual(correctedItems(pkg(1000), pkg(900), infraRejected), { infrastructure: ['-5'] });
-console.log('PASS: UBEC corrections (open rejections, corrected items, infrastructure documents)');
+// UBEC238: rounds returned before migration 093 read '100.00', the widened working plan '100.0000': the same amount, not a correction.
+assert.deepEqual(openRejections(returned, snapshot([line(1, { unit_cost: '100.0000' }), line(2), line(3), line(4)]), rejected), { monitoring: ['1', '2', '3', '4'] });
+assert.deepEqual(openRejections(returned, snapshot([line(1, { unit_cost: '100.0202' })]), rejected), {}, 'a four-decimal change is a correction');
+const pkgAt = amount => snapshot([], { infrastructure: [{ id: -5, quantity: 1, unit_cost: amount, school: { id: 9 }, package: { input: { lumpSum: 1000 }, total_cost: amount } }] });
+assert.deepEqual(openRejections(pkgAt('1000.00'), pkgAt('1000.0000'), infraRejected), { infrastructure: ['-5'] });
+console.log('PASS: UBEC corrections (open rejections, corrected items, infrastructure documents, money read at four decimals)');

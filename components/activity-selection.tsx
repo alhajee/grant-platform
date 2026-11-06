@@ -12,19 +12,20 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Spinner } from '@/components/ui/spinner';
 import { activityInfo, activityNames, activityShare, activityTitles, capActivities, type ActivityWorkstream } from '@/lib/activity-plans';
-import { activityCapKobo, componentEnvelopeKobo, type BudgetLine } from '@/lib/activity-budget';
+import { activityCapMinor, componentEnvelopeMinor, type BudgetLine } from '@/lib/activity-budget';
 import { compulsoryActivities } from '@/lib/activity-extras';
 import { chosenActivities, optionalActivities, scaledPercent, shareTotal } from '@/lib/activity-selection';
 import { currentPlanHref } from '@/lib/action-plans';
 import type { EnvelopePlan } from '@/lib/funding-policy';
 import './activity-selection.css';
 import { nairaFormat } from '@/lib/money-format';
+import { minorToNaira } from '@/lib/money';
 
 // Quality Assurance activities chosen up front (migration 061, lib/activity-selection.ts). The compulsory activities
 // are always in; the state ticks the optional ones, and the chosen activities share the whole allocation in proportion
 // to their policy shares. The server re-checks everything (PATCH /api/activities/selection).
 const money = nairaFormat;
-const naira = (kobo: bigint) => money.format(Number(kobo) / 100);
+const naira = (minor: bigint) => money.format(minorToNaira(minor));
 
 type Props = { workstream: ActivityWorkstream; plan: EnvelopePlan & { id?: number }; lines: readonly BudgetLine[]; canEdit: boolean; onSaved: () => Promise<void> };
 
@@ -61,10 +62,10 @@ type DialogProps = Omit<Props, 'canEdit'> & { open: boolean; onOpenChange: (open
 export function ActivitySelectionDialog({ workstream, plan, lines, open, onOpenChange, onSaved }: DialogProps) {
   const [picked, setPicked] = useState<number[]>(() => [...(plan.qualityActivities ?? [])]);
   const [busy, setBusy] = useState(false), [problem, setProblem] = useState<string | null>(null);
-  const title = activityTitles[workstream], envelope = componentEnvelopeKobo(plan, workstream);
+  const title = activityTitles[workstream], envelope = componentEnvelopeMinor(plan, workstream);
   const required = compulsoryActivities[workstream] ?? [], optional = optionalActivities(workstream);
   const total = shareTotal(workstream, picked), policyTotal = shareTotal(workstream, optional);
-  const used = (activity: number) => { const group = capActivities(workstream, activity); return lines.filter(l => group.includes(l.activity)).reduce((sum, l) => sum + l.kobo, BigInt(0)); };
+  const used = (activity: number) => { const group = capActivities(workstream, activity); return lines.filter(l => group.includes(l.activity)).reduce((sum, l) => sum + l.minor, BigInt(0)); };
   const items = (activity: number) => lines.filter(l => l.activity === activity).length;
   const toggle = (activity: number, on: boolean) => setPicked(current => on ? [...new Set([...current, activity])].sort((a, b) => a - b) : current.filter(a => a !== activity));
   const change = (next: boolean) => { if (next) { setPicked([...(plan.qualityActivities ?? [])]); setProblem(null); } onOpenChange(next); };
@@ -84,7 +85,7 @@ export function ActivitySelectionDialog({ workstream, plan, lines, open, onOpenC
   const row = (activity: number, isRequired: boolean) => {
     const on = isRequired || picked.includes(activity), share = activityShare(workstream, activity), group = capActivities(workstream, activity);
     const count = items(activity), locked = isRequired || (count > 0 && (plan.qualityActivities ?? []).includes(activity));
-    const cap = on && share !== undefined && envelope !== null ? activityCapKobo(workstream, envelope, activity, picked) : null;
+    const cap = on && share !== undefined && envelope !== null ? activityCapMinor(workstream, envelope, activity, picked) : null;
     const over = cap !== null && group[0] === activity ? used(activity) - cap : BigInt(0);
     const partner = group.filter(a => a !== activity).map(a => activityNames[workstream][a])[0];
     const id = `activity-choice-${activity}`;

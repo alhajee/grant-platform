@@ -1,9 +1,10 @@
-import { componentEnvelope, infrastructurePoolEnvelope, isSplitMode, toKobo, type EnvelopePlan } from './funding-policy';
-import { formatKobo } from './money-format';
+import { componentEnvelope, infrastructurePoolEnvelope, isSplitMode, toMinor, type EnvelopePlan } from './funding-policy';
+import { formatMinor } from './money-format';
+import { MONEY_SCALE, lineMinor } from './money';
 import { activityNames, activityShareCaps, activityShareGroups, activityTitles, capActivities, isAdvisoryShare, type ActivityWorkstream } from './activity-plans';
-import { activityCapKobo } from './activity-budget';
+import { activityCapMinor } from './activity-budget';
 import { isChosen, planSelection } from './activity-selection';
-import { debateKobo, sportsSectionBudgets, subActivityBudget, sportsSubActivities } from './sports';
+import { debateMinor, sportsSectionBudgets, subActivityBudget, sportsSubActivities } from './sports';
 import type { ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
 
@@ -18,15 +19,15 @@ import type { Snapshot } from './plan-review';
 type Costed = { quantity: number; unit_cost: string };
 /**
  * UBEC172 (client, 28 October 2026: "maybe expect some instance of decimal point"): a balance under ₦1 still counts as
- * used in full, so naira prices that cannot divide an allocation to the kobo never block a send.
+ * used in full, so naira prices that cannot divide an allocation to the kobo never block a send. In minor units (lib/money.ts): ₦1.
  */
-export const fullUseTolerance = BigInt(100);
+export const fullUseTolerance = MONEY_SCALE;
 const shortOf = (used: bigint, cap: bigint) => cap - used >= fullUseTolerance;
-const kobo = (lines: readonly Costed[]) => lines.reduce((sum, l) => sum + toKobo(String(l.unit_cost)) * BigInt(l.quantity), BigInt(0));
+const minor = (lines: readonly Costed[]) => lines.reduce((sum, l) => sum + lineMinor(l.unit_cost, l.quantity), BigInt(0));
 /** A share inside the component (an activity, a Sports section or sub-activity) not used in full. */
-const short = (what: string, cap: bigint, used: bigint) => `${what} must use all of its ${formatKobo(cap)} before sending. Its items come to ${formatKobo(used)}, so ${formatKobo(cap - used)} is left`;
+const short = (what: string, cap: bigint, used: bigint) => `${what} must use all of its ${formatMinor(cap)} before sending. Its items come to ${formatMinor(used)}, so ${formatMinor(cap - used)} is left`;
 /** The component (or shared budget) not used in full. */
-const shortWhole = (what: string, cap: bigint, used: bigint) => `Use the whole ${what} (${formatKobo(cap)}) before sending. The items come to ${formatKobo(used)}, so ${formatKobo(cap - used)} is left`;
+const shortWhole = (what: string, cap: bigint, used: bigint) => `Use the whole ${what} (${formatMinor(cap)}) before sending. The items come to ${formatMinor(used)}, so ${formatMinor(cap - used)} is left`;
 const activityWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
 
 /** Each activity share (or shared group) that is not used in full, as a message, or null. Unchosen QA activities have no share. */
@@ -39,7 +40,7 @@ function activitySharesProblem(workstream: ActivityWorkstream, lines: readonly (
     if (!group.some(a => isChosen(workstream, selection, a))) continue;
     if (isAdvisoryShare(workstream, activity)) continue; // UBEC162/173: guides, not required in full
     caps++;
-    const cap = activityCapKobo(workstream, envelope, activity, selection), used = kobo(lines.filter(l => group.includes(l.activity)));
+    const cap = activityCapMinor(workstream, envelope, activity, selection), used = minor(lines.filter(l => group.includes(l.activity)));
     if (shortOf(used, cap)) return { problem: short(group.map(a => `‘${activityNames[workstream][a]}’`).join(' and '), cap, used), caps };
   }
   return { problem: null, caps };
@@ -51,17 +52,17 @@ export function allocationUseProblem(pillar: ImplementedPillar, snapshot: Snapsh
   if (!plan || plan.stateLodgment == null) return null;
   // Shared pool: Infrastructure and TLM use the pool together.
   if ((pillar === 'infrastructure' || pillar === 'tlm') && !isSplitMode(plan)) {
-    const pool = infrastructurePoolEnvelope(plan), used = kobo(snapshot.infrastructure ?? []) + kobo(snapshot.tlm ?? []);
-    return pool != null && shortOf(used, toKobo(pool)) ? shortWhole('shared Infrastructure & TLM budget', toKobo(pool), used) : null;
+    const pool = infrastructurePoolEnvelope(plan), used = minor(snapshot.infrastructure ?? []) + minor(snapshot.tlm ?? []);
+    return pool != null && shortOf(used, toMinor(pool)) ? shortWhole('shared Infrastructure & TLM budget', toMinor(pool), used) : null;
   }
   const envelope = componentEnvelope(plan, pillar);
   if (envelope == null) return null;
-  const whole = toKobo(envelope);
+  const whole = toMinor(envelope);
   const name = pillar === 'infrastructure' ? 'Infrastructure' : pillar === 'sports' ? 'Sports, Quiz & Debate' : activityTitles[pillar as ActivityWorkstream];
   if (pillar === 'sports') {
-    const lines = (snapshot.sports ?? []).map(l => ({ section: l.section, activityType: l.activity_type, kobo: toKobo(String(l.unit_cost)) * BigInt(l.quantity) }));
+    const lines = (snapshot.sports ?? []).map(l => ({ section: l.section, activityType: l.activity_type, minor: lineMinor(l.unit_cost, l.quantity) }));
     // UBEC167: the Debate amount is used in full too, and the other sections' shares apply to the rest.
-    const debate = debateKobo(plan);
+    const debate = debateMinor(plan);
     for (const { section, proposed, cap } of sportsSectionBudgets(lines, whole, debate)) {
       if (cap != null && shortOf(proposed, cap)) return short(`‘${section.label}’`, cap, proposed);
       for (const sub of (sportsSubActivities as Record<string, readonly { name: string; share?: number }[]>)[section.id] ?? []) {
@@ -69,15 +70,15 @@ export function allocationUseProblem(pillar: ImplementedPillar, snapshot: Snapsh
         if (budget && shortOf(budget.proposed, budget.cap)) return short(`‘${sub.name}’`, budget.cap, budget.proposed);
       }
     }
-    const used = lines.reduce((sum, l) => sum + l.kobo, BigInt(0));
+    const used = lines.reduce((sum, l) => sum + l.minor, BigInt(0));
     // Section caps are rounded to the kobo, so a few kobo may stay unassigned once every section is used in full.
     return shortOf(used, whole) ? shortWhole('Sports allocation', whole, used) : null;
   }
-  if (pillar === 'infrastructure') { const used = kobo(snapshot.infrastructure ?? []); return shortOf(used, whole) ? shortWhole(`${name} allocation`, whole, used) : null; }
+  if (pillar === 'infrastructure') { const used = minor(snapshot.infrastructure ?? []); return shortOf(used, whole) ? shortWhole(`${name} allocation`, whole, used) : null; }
   if (!(activityWorkstreams as readonly string[]).includes(pillar)) return null;
   const lines = snapshot[pillar as ActivityWorkstream] ?? [];
   const shares = activitySharesProblem(pillar as ActivityWorkstream, lines, whole, plan);
   if (shares.problem) return shares.problem;
-  const used = kobo(lines);
+  const used = minor(lines);
   return shortOf(used, whole) ? shortWhole(`${name} allocation`, whole, used) : null;
 }

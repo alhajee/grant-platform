@@ -5,9 +5,10 @@ import { Slider } from '@/components/ui/slider';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { CurrencyInput } from '@/components/currency-input';
 import { componentPalette } from '@/components/dashboard/component-budgets';
-import { fromKobo, isSplitMode, toKobo, type EnvelopePlan } from '@/lib/funding-policy';
+import { fromMinor, isSplitMode, toMinor, type EnvelopePlan } from '@/lib/funding-policy';
 import { budgetPairs, sideNames, type BudgetPair } from '@/lib/budget-pairs';
 import { nairaFormat } from '@/lib/money-format';
+import { MINOR_PER_KOBO, MONEY_SCALE, minorToNaira } from '@/lib/money';
 
 /** The amounts the BEAP Chair gives the stored sides (ICT, TLM) when creating a plan; the partner keeps the rest. */
 export type SplitDraft = { ict: string; tlm: string };
@@ -16,7 +17,7 @@ const pct = (part: bigint, whole: bigint) => whole > BigInt(0) ? Math.round(Numb
 
 /** An even split of each shared budget, as a starting point. */
 export function evenSplits(plan: EnvelopePlan): SplitDraft {
-  const half = (pair: BudgetPair) => { const shared = budgetPairs[pair].envelope(plan); return shared == null ? '' : fromKobo(toKobo(shared) / BigInt(200) * BigInt(100)); };
+  const half = (pair: BudgetPair) => { const shared = budgetPairs[pair].envelope(plan); return shared == null ? '' : fromMinor(toMinor(shared) / (MONEY_SCALE * BigInt(2)) * MONEY_SCALE); };
   return { ict: half('teachers-ict'), tlm: half('infrastructure-tlm') };
 }
 
@@ -30,11 +31,11 @@ export function PlanSplitsField({ plan, value, onChange, error, disabled }: { pl
   return <div className="flex flex-col gap-3">
     {pairs.map(id => {
       const pair = budgetPairs[id], side = pair.stored as 'ict' | 'tlm', shared = pair.envelope(plan);
-      const sharedK = shared == null ? BigInt(0) : toKobo(shared), amount = valid(value[side]) ? toKobo(value[side]) : BigInt(0);
+      const sharedK = shared == null ? BigInt(0) : toMinor(shared), amount = valid(value[side]) ? toMinor(value[side]) : BigInt(0);
       const keeperK = sharedK > amount ? sharedK - amount : BigInt(0);
-      const step = Math.max(1, Math.floor(Math.min(100000, Number(sharedK) / 100 * 0.005)));
-      // A typed percentage of the shared budget, to the kobo: the keeper's share or the stored side's.
-      const setPercent = (which: 'keeper' | 'stored', typed: string) => { const p = Math.min(100, Math.max(0, Number(typed))); if (!Number.isFinite(p)) return; const part = BigInt(Math.round(Number(sharedK) * p / 100)); onChange({ ...value, [side]: fromKobo(which === 'stored' ? part : sharedK - part) }); };
+      const step = Math.max(1, Math.floor(Math.min(100000, minorToNaira(sharedK) * 0.005)));
+      // A typed percentage of the shared budget, to the kobo (splits are stored to the kobo): the keeper's share or the stored side's.
+      const setPercent = (which: 'keeper' | 'stored', typed: string) => { const p = Math.min(100, Math.max(0, Number(typed))); if (!Number.isFinite(p)) return; const part = BigInt(Math.round(Number(sharedK / MINOR_PER_KOBO) * p / 100)) * MINOR_PER_KOBO; onChange({ ...value, [side]: fromMinor(which === 'stored' ? part : sharedK - part) }); };
       return <Field key={id} className="gap-2 rounded-lg border p-3">
         <FieldLabel htmlFor={`split-${side}`}>{pair.label}</FieldLabel>
         {shared == null || sharedK === BigInt(0) ? <FieldDescription>Enter the state counterpart fund first</FieldDescription> : <>
@@ -44,10 +45,10 @@ export function PlanSplitsField({ plan, value, onChange, error, disabled }: { pl
             <span style={{ flex: `${Number(amount)} 0 0`, background: componentPalette[side].fill }} />
           </div>
           {/* The thumb sits on the boundary: left of it is the keeper's part, right of it the stored side's. */}
-          <Slider aria-label={`${sideNames[pair.keeper]} amount`} min={0} max={Number(sharedK) / 100} step={step} value={[Number(keeperK) / 100]} disabled={disabled}
-            onValueChange={([naira]) => { const keep = BigInt(Math.round(naira * 100)); onChange({ ...value, [side]: fromKobo(sharedK > keep ? sharedK - keep : BigInt(0)) }); }} />
+          <Slider aria-label={`${sideNames[pair.keeper]} amount`} min={0} max={minorToNaira(sharedK)} step={step} value={[minorToNaira(keeperK)]} disabled={disabled}
+            onValueChange={([naira]) => { const keep = BigInt(Math.round(naira * 100)) * MINOR_PER_KOBO; onChange({ ...value, [side]: fromMinor(sharedK > keep ? sharedK - keep : BigInt(0)) }); }} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1 text-sm"><span className="text-muted-foreground">{sideNames[pair.keeper]}</span><strong>{nairaFormat.format(Number(keeperK) / 100)}</strong>
+            <div className="flex flex-col gap-1 text-sm"><span className="text-muted-foreground">{sideNames[pair.keeper]}</span><strong>{nairaFormat.format(minorToNaira(keeperK))}</strong>
               <SplitPercentInput id={`split-${pair.keeper}-pct`} name={sideNames[pair.keeper]} value={pct(keeperK, sharedK)} disabled={disabled} onCommit={typed => setPercent('keeper', typed)} /></div>
             <div className="flex flex-col gap-1"><CurrencyInput id={`split-${side}`} aria-label={`${sideNames[side]} amount (₦)`} value={value[side]} maxIntegerDigits={13} disabled={disabled} onValueChange={next => onChange({ ...value, [side]: next })} />
               <span className="text-xs text-muted-foreground">{sideNames[side]}</span>

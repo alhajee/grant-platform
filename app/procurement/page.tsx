@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { CheckIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 import { SubebHeader } from '@/components/subeb-header';
-import { CurrencyInput } from '@/components/currency-input';
+import { CurrencyInput, unitCostDecimals } from '@/components/currency-input';
 import { NoItemsArt, UbecEmpty } from '@/components/empty-art/ubec-flow';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +88,7 @@ export default function ProcurementPage() {
           <TableCell>{item.status === 'approved' ? <Badge variant="secondary"><CheckIcon aria-hidden="true" />Approved</Badge> : <Badge variant="warning">Waiting for approval</Badge>}<small className="block text-muted-foreground">{item.status === 'approved' && item.approvedByName ? `by ${item.approvedByName}` : `by ${item.updatedByName}`}</small></TableCell>
           {data.canEdit && <TableCell className="text-right"><span className="inline-flex gap-1">
             {data.canApprove && item.status === 'pending' && <Button size="sm" className="rounded-full" disabled={busy !== null} onClick={() => void act(item, 'approve')}>{busy === item.id ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}Approve</Button>}
-            <Button size="sm" variant="ghost" className="rounded-full" onClick={() => { setFormError(''); setForm({ id: item.id, name: item.name, maker: item.maker, modelYear: item.modelYear ? String(item.modelYear) : '', description: item.description, unitPrice: item.unitPrice.toFixed(2) }); }}><PencilIcon data-icon="inline-start" />Edit</Button>
+            <Button size="sm" variant="ghost" className="rounded-full" onClick={() => { setFormError(''); setForm({ id: item.id, name: item.name, maker: item.maker, modelYear: item.modelYear ? String(item.modelYear) : '', description: item.description, unitPrice: item.unitPrice.toFixed(4) }); }}><PencilIcon data-icon="inline-start" />Edit</Button>
             {(data.canApprove || item.status === 'pending') && <Button size="sm" variant="ghost" className="rounded-full" aria-label={`Remove ${item.name}`} disabled={busy !== null} onClick={() => void act(item, 'archive')}><Trash2Icon /></Button>}
           </span></TableCell>}
         </TableRow>)}
@@ -103,7 +103,7 @@ export default function ProcurementPage() {
           <Field><FieldLabel htmlFor="item-year">Year</FieldLabel><Input id="item-year" inputMode="numeric" maxLength={4} value={form.modelYear} disabled={saving} onChange={e => setForm({ ...form, modelYear: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 2025" /></Field>
         </div>
         <Field><FieldLabel htmlFor="item-description">Description</FieldLabel><Textarea id="item-description" rows={3} maxLength={1000} value={form.description} disabled={saving} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Model and specification" /></Field>
-        <Field><FieldLabel htmlFor="item-price">Unit price (₦) <span className="text-destructive" aria-label="required">*</span></FieldLabel><CurrencyInput id="item-price" placeholder="0.00" maxIntegerDigits={12} value={form.unitPrice} disabled={saving} onValueChange={unitPrice => setForm({ ...form, unitPrice })} /></Field>
+        <Field><FieldLabel htmlFor="item-price">Unit price (₦) <span className="text-destructive" aria-label="required">*</span></FieldLabel><CurrencyInput id="item-price" decimals={unitCostDecimals} placeholder="0.0000" maxIntegerDigits={11} value={form.unitPrice} disabled={saving} onValueChange={unitPrice => setForm({ ...form, unitPrice })} /></Field>
         {formError && <FieldError role="alert">{formError}</FieldError>}
       </FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={() => setForm(null)}>Cancel</Button><Button type="submit" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}Save item</Button></DialogFooter></form>}
     </DialogContent></Dialog>

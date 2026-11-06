@@ -1,5 +1,5 @@
 import { compulsoryFor, hasLineSchools, isRetiredActivity, missingLineDocument } from './activity-extras';
-import { activityBudgetProblem, lineKobo } from './activity-budget';
+import { activityBudgetProblem, lineMinor } from './activity-budget';
 import { activityNames, activityShareCaps, type ActivityWorkstream } from './activity-plans';
 import { infrastructureSplitProblem } from './budget-pairs';
 import { isSplitMode, type EnvelopePlan } from './funding-policy';
@@ -84,6 +84,6 @@ export function splitReadinessProblem(pillar: string, snapshot: SplitSnapshot): 
   if (!items.length) return null;
   const name = pillar === 'infrastructure' ? 'Infrastructure' : 'TLM';
   if (setup.tlmAllocation == null) return `Ask the BEAP Chair to set how much of the shared Infrastructure & TLM budget ${name} will use before sending`;
-  if (pillar === 'infrastructure') return infrastructureSplitProblem(setup, items.reduce((sum, item) => sum + lineKobo(item), BigInt(0)));
-  return activityBudgetProblem('tlm', (snapshot.tlm ?? []).map(line => ({ activity: line.activity, kobo: lineKobo(line) })), setup);
+  if (pillar === 'infrastructure') return infrastructureSplitProblem(setup, items.reduce((sum, item) => sum + lineMinor(item), BigInt(0)));
+  return activityBudgetProblem('tlm', (snapshot.tlm ?? []).map(line => ({ activity: line.activity, minor: lineMinor(line) })), setup);
 }

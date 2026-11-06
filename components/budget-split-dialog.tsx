@@ -9,20 +9,25 @@ import { Slider } from '@/components/ui/slider';
 import { Spinner } from '@/components/ui/spinner';
 import { CurrencyInput } from '@/components/currency-input';
 import { componentPalette } from '@/components/dashboard/component-budgets';
-import { fromKobo, percent, policyShare, toKobo, type EnvelopePlan } from '@/lib/funding-policy';
+import { fromMinor, percent, policyShare, toMinor, type EnvelopePlan } from '@/lib/funding-policy';
 import { budgetPairs, pairOf, sideItems, sideNames, storedAllocation, type SplitSide } from '@/lib/budget-pairs';
 import { currentPlanHref } from '@/lib/action-plans';
 import './budget-split-dialog.css';
 import { nairaFormat, compactNairaFormat } from '@/lib/money-format';
+import { MINOR_PER_KOBO } from '@/lib/money';
 
 // The split of a shared envelope as one bar (lib/budget-pairs.ts): the pair's keeper on the left (Infrastructure,
-// Teacher Development), the stored side on the right (TLM, ICT). Amounts are whole kobo numbers here; the server
+// Teacher Development), the stored side on the right (TLM, ICT). Amounts are whole kobo numbers here (splits are stored to the kobo; lib/money.ts works in minor units); the server
 // re-checks every rule (PATCH /api/activities/budget-split with the viewer's own side).
 const money = nairaFormat;
 const compact = compactNairaFormat(1);
 const naira = (kobo: number) => kobo / 100;
 const share = (part: number, whole: number) => whole > 0 ? Math.round(part / whole * 1000) / 10 : 0;
-const koboOf = (value: string) => /^\d+(\.\d{0,2})?$/.test(value) ? Number(toKobo(value)) : NaN;
+const koboIn = (value: string) => Number(toMinor(value) / MINOR_PER_KOBO);
+const koboOf = (value: string) => /^\d+(\.\d{0,2})?$/.test(value) ? koboIn(value) : NaN;
+const fromKobo = (kobo: number) => fromMinor(BigInt(kobo) * MINOR_PER_KOBO);
+// What a side already proposes (naira, possibly four decimals), rounded up to the kobo so the floor never sits below it.
+const koboFloor = (naira: number) => Math.ceil(Math.round(naira * 10000) / 100);
 
 type Props = {
   /** The viewer's side: the amount sent to the server is this side's. */
@@ -34,16 +39,16 @@ type Props = {
 
 export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open, onOpenChange, onSaved }: Props) {
   const pair = budgetPairs[pairOf(side)], keeper = pair.keeper, stored = pair.stored, viewerKeeps = side === keeper;
-  const sharedK = Number(toKobo(pair.envelope(plan) ?? '0')), storedNow = storedAllocation(plan, side);
-  const floors = { [side]: Math.round(proposed * 100), [viewerKeeps ? stored : keeper]: Math.round(partnerProposed * 100) } as Record<SplitSide, number>;
+  const sharedK = Number(toMinor(pair.envelope(plan) ?? '0') / MINOR_PER_KOBO), storedNow = storedAllocation(plan, side);
+  const floors = { [side]: koboFloor(proposed), [viewerKeeps ? stored : keeper]: koboFloor(partnerProposed) } as Record<SplitSide, number>;
   const keeperFloor = floors[keeper] ?? 0, storedFloor = floors[stored] ?? 0;
   // The viewer's own amount must be above zero (the API refuses ₦0 for the side that names it); the other side may be ₦0 only with nothing planned.
   const lo = viewerKeeps ? Math.max(keeperFloor, 100) : keeperFloor;
   const hi = sharedK - (viewerKeeps ? storedFloor : Math.max(storedFloor, 100));
   const clamp = (k: number) => Math.min(Math.max(k, lo), hi);
-  const initial = storedNow != null ? sharedK - Number(toKobo(storedNow)) : clamp(Math.round(sharedK / 200) * 100);
+  const initial = storedNow != null ? sharedK - koboIn(storedNow) : clamp(Math.round(sharedK / 200) * 100);
   const [keeperK, setKeeperK] = useState(initial);
-  const [inputs, setInputs] = useState({ keeper: fromKobo(BigInt(initial)), stored: fromKobo(BigInt(sharedK - initial)) });
+  const [inputs, setInputs] = useState({ keeper: fromKobo(initial), stored: fromKobo(sharedK - initial) });
   const [clamped, setClamped] = useState(''), [serverError, setServerError] = useState(''), [busy, setBusy] = useState(false);
   const storedK = sharedK - keeperK;
   const stepNaira = Math.max(1, Math.floor(Math.min(100000, naira(sharedK) * 0.005)));
@@ -64,7 +69,7 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
 
   function setKeeper(k: number, from?: 'keeper' | 'stored') {
     setKeeperK(k); setServerError('');
-    setInputs(current => ({ keeper: from === 'keeper' ? current.keeper : fromKobo(BigInt(Math.max(k, 0))), stored: from === 'stored' ? current.stored : fromKobo(BigInt(Math.max(sharedK - k, 0))) }));
+    setInputs(current => ({ keeper: from === 'keeper' ? current.keeper : fromKobo(Math.max(k, 0)), stored: from === 'stored' ? current.stored : fromKobo(Math.max(sharedK - k, 0)) }));
   }
   /** Moves the split to `wanted` (the first side's kobo), stopping at either side's floor and saying why. */
   function applyKeeper(wanted: number) {
@@ -85,7 +90,7 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
   const presets = [
     { label: 'Even split', k: Math.round(sharedK / 200) * 100 },
     { label: `All to ${names.keeper}`, k: sharedK },
-    ...(storedNow != null ? [{ label: 'As saved', k: sharedK - Number(toKobo(storedNow)) }] : []),
+    ...(storedNow != null ? [{ label: 'As saved', k: sharedK - koboIn(storedNow) }] : []),
   ].filter(p => p.k >= lo && p.k <= hi && p.k !== keeperK).slice(0, 3);
 
   async function save(event: FormEvent) {
@@ -93,7 +98,7 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
     if (problem || busy) return;
     setBusy(true); setServerError('');
     try {
-      const amount = fromKobo(BigInt(viewerKeeps ? keeperK : storedK));
+      const amount = fromKobo(viewerKeeps ? keeperK : storedK);
       const r = await fetch(currentPlanHref('/api/activities/budget-split'), { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, side }) });
       const result = await r.json().catch(() => ({})) as { error?: string };
       if (!r.ok) { setServerError(result.error || 'The budget split could not be saved'); return; }
@@ -154,9 +159,9 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
 
 /** The split in miniature: the same two-colour bar with both amounts (the shared budget panel's summary). */
 export function BudgetSplitBar({ side, plan }: { side: SplitSide; plan: EnvelopePlan }) {
-  const pair = budgetPairs[pairOf(side)], sharedK = Number(toKobo(pair.envelope(plan) ?? '0')), storedNow = storedAllocation(plan, side);
+  const pair = budgetPairs[pairOf(side)], sharedK = koboIn(pair.envelope(plan) ?? '0'), storedNow = storedAllocation(plan, side);
   if (storedNow == null || sharedK <= 0) return null;
-  const storedK = Number(toKobo(storedNow)), keeperK = sharedK - storedK, keeperPct = share(keeperK, sharedK);
+  const storedK = koboIn(storedNow), keeperK = sharedK - storedK, keeperPct = share(keeperK, sharedK);
   const colours = { '--split-keeper': componentPalette[pair.keeper].fill, '--split-stored': componentPalette[pair.stored].fill } as CSSProperties;
   return <div className="split-mini" style={colours}>
     <div className="split-bar split-bar-mini" aria-hidden="true"><div className="split-segment" data-side="keeper" style={{ width: `${keeperPct}%` }} /><div className="split-segment" data-side="stored" style={{ width: `${100 - keeperPct}%` }} /></div>

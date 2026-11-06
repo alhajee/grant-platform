@@ -46,7 +46,7 @@ try {
   const id = ok(await api('physical', url, line(2, { frequency: 50 }))).id;
   const saved = ok(await api('physical', url)).lines.find(l => l.id === id);
   assert.equal(saved.frequency, 50); assert.equal(saved.quantity, 2500);
-  assert.equal((await db.query('SELECT quantity*unit_cost AS total FROM activity_plan_lines WHERE id=$1', [id])).rows[0].total, '2500000.00');
+  assert.equal((await db.query('SELECT quantity*unit_cost AS total FROM activity_plan_lines WHERE id=$1', [id])).rows[0].total, '2500000.0000');
   step('an officer allowance saves its visits; the amount is officers × visits × unit cost');
 
   fails(await api('physical', url, line(2, { quantity: 2501, frequency: 50 })), 400);

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { formatQuarters } from './format-quarters';
 import { contiguousMessage, isContiguous } from './line-quarters.ts';
-import { componentEnvelope, fromKobo, fundingComponentIds, fundingComponentLabels, fundingSourceTargets, isSplitMode, toKobo, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
+import { componentEnvelope, fromMinor, fundingComponentIds, fundingComponentLabels, fundingSourceTargets, isSplitMode, toMinor, type EnvelopePlan, type FundingComponent, type FundingSource } from './funding-policy';
 import { nairaFormat } from './money-format';
 export { sharedBelowAllocationProblem } from './budget-pairs';
 
@@ -16,7 +16,7 @@ export const fundingSourceSchema = z.object({
   // 'all' is plan-wide funding, shared across every component by the policy shares (migration 041).
   component: z.enum(fundingSourceTargets, { errorMap: () => ({ message: 'Choose the component this funding is for' }) }),
   funder: z.string().trim().min(1, 'Enter the funder').max(120, 'Keep the funder name under 120 characters'),
-  amount: amount.refine(v => toKobo(v) > BigInt(0), 'Enter an amount greater than zero'),
+  amount: amount.refine(v => toMinor(v) > BigInt(0), 'Enter an amount greater than zero'),
 }).strict();
 const periodAndFunding = {
   planningYear: year,
@@ -27,12 +27,12 @@ const periodAndFunding = {
   fundingSources: z.array(fundingSourceSchema).max(maxFundingSources, `Add up to ${maxFundingSources} funding sources`).default([]),
 };
 /** Sum of source amounts as a "123.45" string; malformed amounts count as zero (form input). */
-export const sourcesSum = (sources: readonly { amount: string }[]) => fromKobo(sources.reduce((sum, s) => sum + (/^\d{1,13}(\.\d{1,2})?$/.test(s.amount) ? toKobo(s.amount) : BigInt(0)), BigInt(0)));
+export const sourcesSum = (sources: readonly { amount: string }[]) => fromMinor(sources.reduce((sum, s) => sum + (/^\d{1,13}(\.\d{1,2})?$/.test(s.amount) ? toMinor(s.amount) : BigInt(0)), BigInt(0)));
 type PeriodAndFunding = { planningYear: number; implementationYear: number; stateLodgment: string; fundingSources: FundingSource[] };
 const checkSetup = (p: PeriodAndFunding, ctx: z.RefinementCtx) => {
   const message = implementationYearError(p.planningYear, p.implementationYear);
   if (message) ctx.addIssue({code:'custom',message,path:['implementationYear']});
-  if (/^\d{1,13}(\.\d{1,2})?$/.test(p.stateLodgment) && toKobo(fundingTotal(p.stateLodgment, sourcesSum(p.fundingSources))) <= BigInt(0)) ctx.addIssue({code:'custom',message:'Enter funding greater than zero',path:['stateLodgment']});
+  if (/^\d{1,13}(\.\d{1,2})?$/.test(p.stateLodgment) && toMinor(fundingTotal(p.stateLodgment, sourcesSum(p.fundingSources))) <= BigInt(0)) ctx.addIssue({code:'custom',message:'Enter funding greater than zero',path:['stateLodgment']});
 };
 // Other funding is entered per component or for all components (fundingSources); otherFunding is accepted only as zero for older clients.
 export const planSetupSchema = z.object({ ...periodAndFunding, otherFunding: z.string().regex(/^0+(\.0{1,2})?$/, 'Enter other funding per component under Other funding sources').optional() })
@@ -40,11 +40,11 @@ export const planSetupSchema = z.object({ ...periodAndFunding, otherFunding: z.s
 export const planEditSchema = z.object({ plan: z.number().int().positive(), version: z.number().int().nonnegative(), ...periodAndFunding }).strict().superRefine(checkSetup);
 
 export function fundingTotal(lodgment: string, other: string) {
-  return fromKobo(toKobo(lodgment) * BigInt(2) + toKobo(other));
+  return fromMinor(toMinor(lodgment) * BigInt(2) + toMinor(other));
 }
 /** All other funding on a plan: legacy spread other_funding plus its funding sources (component and plan-wide). */
 export function otherFundingTotal(setup: Pick<Partial<PlanSetup>, 'otherFunding' | 'fundingSources'>) {
-  return fromKobo(toKobo(setup.otherFunding ?? '0') + toKobo(sourcesSum(setup.fundingSources ?? [])));
+  return fromMinor(toMinor(setup.otherFunding ?? '0') + toMinor(sourcesSum(setup.fundingSources ?? [])));
 }
 export type EnvelopeShortfall = { component: FundingComponent; ceiling: string; proposed: string; /** Infrastructure and TLM together (shared_pool mode). */ pooled?: boolean };
 /** Components whose ceiling an edit would lower below what their saved lines already propose. Existing overruns the edit does not worsen are allowed.
@@ -54,9 +54,9 @@ export function envelopeShortfalls(before: EnvelopePlan, after: EnvelopePlan, pr
   const pooled = !isSplitMode(after);
   return fundingComponentIds.filter(component => !(pooled && component === 'tlm')).flatMap(component => {
     const combined = pooled && component === 'infrastructure';
-    const used = toKobo(proposed[component] ?? '0') + (combined ? toKobo(proposed.tlm ?? '0') : BigInt(0)), next = componentEnvelope(after, component), previous = componentEnvelope(before, component);
-    if (!used || next == null || used <= toKobo(next) || (previous != null && toKobo(next) >= toKobo(previous))) return [];
-    return [{ component, ceiling: next, proposed: fromKobo(used), pooled: combined }];
+    const used = toMinor(proposed[component] ?? '0') + (combined ? toMinor(proposed.tlm ?? '0') : BigInt(0)), next = componentEnvelope(after, component), previous = componentEnvelope(before, component);
+    if (!used || next == null || used <= toMinor(next) || (previous != null && toMinor(next) >= toMinor(previous))) return [];
+    return [{ component, ceiling: next, proposed: fromMinor(used), pooled: combined }];
   });
 }
 const naira = nairaFormat;

@@ -1,5 +1,6 @@
 import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap, BadgeCheck, Laptop, Presentation, ChartColumn } from 'lucide-react';
 import { lineCodeLabel } from '@/lib/line-code';
+import { lineMinor, minorOfNumber, minorToNaira } from '@/lib/money';
 import { LineExtrasDetail } from './line-extras-detail';
 import type { Snapshot } from '@/lib/plan-review';
 import { activityLabel, activityTitles, strategyLabel, allocateByEnrolment, curriculumActivityShares, distributionNames, distributionSnapshotKeys, type DistributionWorkstream } from '@/lib/activity-plans';
@@ -15,7 +16,8 @@ import { SchoolMapDialog } from '@/components/school-map-dialog';
 import type { CellValue, WorkbookColumn, WorkbookRow, WorkbookSheet } from './types';
 
 export type SheetLinks = { infrastructureEditHref?: string; sportsEditHref?: string; sbmcEditHref?: string; tlmEditHref?: string; monitoringEditHref?: string; gscciEditHref?: string; curriculumEditHref?: string; qualityEditHref?: string; ictEditHref?: string; teachersEditHref?: string; planningEditHref?: string };
-const cost = (line: { unit_cost: string; quantity: number }) => Math.round(Number(line.unit_cost) * 100) * line.quantity / 100;
+// Exact quantity × unit cost (four-decimal unit costs, UBEC238).
+const cost = (line: { unit_cost: string; quantity: number }) => minorToNaira(lineMinor(line.unit_cost, line.quantity));
 const sectionNames: Record<string, string> = Object.fromEntries(sportsSections.map(section => [section.id, section.shortLabel]));
 const text = (id: string, header: string, size = 150, filter = false): WorkbookColumn => ({ id, header, kind: 'text', size, filter });
 const qty = (id = 'quantity', header = 'Qty.', total = false): WorkbookColumn => ({ id, header, kind: 'number', size: header === 'Qty.' ? 80 : 104, total });
@@ -137,8 +139,9 @@ function distributionSheet(component: DistributionWorkstream, schools: NonNullab
   if (allocated) for (const line of items) for (const s of line.schools ?? []) {
     if (!s.quantity) continue;
     const now = perSchool.get(s.id) ?? { quantity: 0, value: 0, items: [] };
-    perSchool.set(s.id, { quantity: now.quantity + s.quantity, value: now.value + s.quantity * Number(line.unit_cost), items: [...now.items, { name: line.description || activityLabel(component, line.activity, line.custom_activity), quantity: s.quantity }] });
+    perSchool.set(s.id, { quantity: now.quantity + s.quantity, value: minorToNaira(minorOfNumber(now.value) + Number(lineMinor(line.unit_cost, s.quantity))), items: [...now.items, { name: line.description || activityLabel(component, line.activity, line.custom_activity), quantity: s.quantity }] });
   }
+  // Earlier snapshots: the budget shared by enrolment in whole kobo, as they were shown then.
   const shares = allocated ? null : allocateByEnrolment(Math.round(lines.reduce((sum, line) => sum + cost(line), 0) * 100), schools);
   const name = distributionNames[component], byId = new Map(schools.map(s => [s.id, s]));
   return {

@@ -3,7 +3,7 @@
 import { FormEvent, useRef, useState } from "react";
 import { PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
-import { CurrencyInput } from "@/components/currency-input";
+import { CurrencyInput, unitCostDecimals } from "@/components/currency-input";
 import { Button } from "@/components/ui/button";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -105,7 +105,7 @@ export function ConstructionTypePicker({ types, value, onSelect, onCreated, disa
             {duplicate ? <div className="flex flex-col gap-3"><p className="text-sm">This type is already saved</p><p className="text-sm text-muted-foreground">{duplicate.duration} weeks · {money.format(duplicate.unitCost)}</p><Button type="button" onClick={() => choose(duplicate)}>Use existing type</Button></div> : <>
               <FieldGroup className="grid grid-cols-2 gap-4">
                 <Field data-invalid={Boolean(fieldErrors.duration)}><FieldLabel htmlFor="new-type-duration">Duration (weeks)</FieldLabel><Input id="new-type-duration" type="number" inputMode="numeric" min="1" max="520" step="1" placeholder="e.g. 20" value={duration} disabled={saving} aria-invalid={Boolean(fieldErrors.duration)} onChange={(event) => setDuration(event.target.value)} />{fieldErrors.duration && <FieldError>{fieldErrors.duration}</FieldError>}</Field>
-                <Field data-invalid={Boolean(fieldErrors.unitCost)}><FieldLabel htmlFor="new-type-unitCost">Unit cost (₦)</FieldLabel><CurrencyInput id="new-type-unitCost" placeholder="e.g. 30,000,000.00" value={unitCost} disabled={saving} aria-invalid={Boolean(fieldErrors.unitCost)} aria-describedby={fieldErrors.unitCost ? "new-type-unitCost-error" : undefined} onValueChange={setUnitCost} />{fieldErrors.unitCost && <FieldError id="new-type-unitCost-error">{fieldErrors.unitCost}</FieldError>}</Field>
+                <Field data-invalid={Boolean(fieldErrors.unitCost)}><FieldLabel htmlFor="new-type-unitCost">Unit cost (₦)</FieldLabel><CurrencyInput id="new-type-unitCost" decimals={unitCostDecimals} placeholder="e.g. 30,000,000.0000" value={unitCost} disabled={saving} aria-invalid={Boolean(fieldErrors.unitCost)} aria-describedby={fieldErrors.unitCost ? "new-type-unitCost-error" : undefined} onValueChange={setUnitCost} />{fieldErrors.unitCost && <FieldError id="new-type-unitCost-error">{fieldErrors.unitCost}</FieldError>}</Field>
               </FieldGroup>
               {formError && <FieldError role="alert">{formError}</FieldError>}
               <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => { setOpen(false); reset(); }}>Cancel</Button><Button type="submit" disabled={saving || disabled} aria-busy={saving}>{saving && <Spinner data-icon="inline-start" />}{saving ? "Saving…" : "Create & use type"}</Button></div>
@@ -147,7 +147,7 @@ export function SchoolProjectDefaults({ type, override, onChange, disabled }: {
           <PopoverHeader><PopoverTitle id="school-defaults-title">Adjust for this school</PopoverTitle><PopoverDescription>Only this school project changes. The saved type stays the same.</PopoverDescription></PopoverHeader>
           <FieldGroup className="gap-4">
             <Field><FieldLabel htmlFor="school-duration">Duration (weeks)</FieldLabel><Input id="school-duration" type="number" min="1" max="520" step="1" value={duration} onChange={(event) => setDuration(event.target.value)} /></Field>
-            <Field><FieldLabel htmlFor="school-unit-cost">Unit cost (₦)</FieldLabel><CurrencyInput id="school-unit-cost" value={unitCost} onValueChange={setUnitCost} /></Field>
+            <Field><FieldLabel htmlFor="school-unit-cost">Unit cost (₦)</FieldLabel><CurrencyInput id="school-unit-cost" decimals={unitCostDecimals} value={unitCost} onValueChange={setUnitCost} /></Field>
           </FieldGroup>
           {error && <FieldError role="alert">{error}</FieldError>}
           <div className="flex flex-wrap items-center justify-between gap-2"><Button type="button" variant="ghost" onClick={() => { onChange(null); setOpen(false); }}>Use defaults</Button><Button type="submit">Apply to school</Button></div>
