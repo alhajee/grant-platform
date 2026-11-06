@@ -1,6 +1,6 @@
-import { compulsoryFor, hasLineSchools, isRetiredActivity, qualityIctActivityNames, missingLineDocument } from './activity-extras';
+import { compulsoryFor, hasLineSchools, isRetiredActivity, missingLineDocument } from './activity-extras';
 import { activityBudgetProblem, lineKobo } from './activity-budget';
-import { activityShareCaps, type ActivityWorkstream } from './activity-plans';
+import { activityNames, activityShareCaps, type ActivityWorkstream } from './activity-plans';
 import { infrastructureSplitProblem } from './budget-pairs';
 import { isSplitMode, type EnvelopePlan } from './funding-policy';
 import type { Snapshot } from './plan-review';
@@ -17,7 +17,8 @@ type ReadinessSetup = { ictAllocation?: string | null; qualityActivities?: reado
 /** fullAllocation: every component must use its whole allocation before it is sent (UBEC79, migration 076). */
 export type ReadinessOptions = { documentsRequired: boolean; fullAllocation?: boolean };
 
-export const readinessWorkstreams = ['quality', 'ict', 'teachers', 'planning', 'tlm'] as const;
+// UBEC227/229: SBMC (its compulsory and retired activities), Supervision & Monitoring and Curriculum (proforma invoices) too.
+export const readinessWorkstreams = ['quality', 'ict', 'teachers', 'planning', 'tlm', 'sbmc', 'monitoring', 'curriculum'] as const;
 export type ReadinessWorkstream = typeof readinessWorkstreams[number];
 export const hasReadinessRules = (workstream: string): workstream is ReadinessWorkstream => (readinessWorkstreams as readonly string[]).includes(workstream);
 
@@ -25,27 +26,27 @@ export const hasReadinessRules = (workstream: string): workstream is ReadinessWo
 export function missingCompulsory(workstream: string, lines: readonly { activity: number }[], setup?: ReadinessSetup) {
   return compulsoryFor(workstream, setup).filter(activity => !lines.some(line => line.activity === activity));
 }
-export const compulsoryNames = (workstream: string, activities: readonly number[]) =>
-  activities.map(activity => qualityIctActivityNames[workstream]?.[activity] ?? `Activity ${activity + 1}`);
+const nameOf = (workstream: string, activity: number) => (activityNames as Record<string, readonly string[]>)[workstream]?.[activity] ?? `Activity ${activity + 1}`;
+export const compulsoryNames = (workstream: string, activities: readonly number[]) => activities.map(activity => nameOf(workstream, activity));
 /**
  * Required activities first: while a compulsory activity has no item, a new item on an optional activity (or an item moved
  * onto one) is refused, so optional items cannot use up the envelope the required ones need (ICT, Planning). Components
  * whose every activity has its own share cap (Quality Assurance) already keep each required activity's share, so they
- * are exempt. `others` = the component's other lines (without the one being saved); `previousActivity` = the saved
+ * are exempt; so is SBMC (UBEC227: its one required activity is checked when sending, items may be added in any order). `others` = the component's other lines (without the one being saved); `previousActivity` = the saved
  * line's activity when it is an edit.
  */
 export function requiredFirstProblem(workstream: string, others: readonly { activity: number }[], activity: number, previousActivity?: number, setup?: ReadinessSetup): string | null {
   const required = compulsoryFor(workstream, setup);
-  if (!required.length || activityShareCaps[workstream as ActivityWorkstream] || required.includes(activity) || previousActivity === activity) return null;
+  if (!required.length || workstream === 'sbmc' || activityShareCaps[workstream as ActivityWorkstream] || required.includes(activity) || previousActivity === activity) return null;
   const missing = missingCompulsory(workstream, others, setup);
   if (!missing.length) return null;
   return `Budget the required activities first: ${compulsoryNames(workstream, missing).join('; ')}. Optional activities can be added once each required activity has an item`;
 }
 /** How a line is named in messages: its description, else its own activity name (Others), else the activity. */
 const lineName = (workstream: string, line: ReadinessLine) =>
-  line.description || line.custom_activity || line.customActivity || qualityIctActivityNames[workstream]?.[line.activity] || `Activity ${line.activity + 1}`;
+  line.description || line.custom_activity || line.customActivity || nameOf(workstream, line.activity);
 
-const retiredName = (workstream: string, activity: number) => qualityIctActivityNames[workstream]?.[activity] ?? `Activity ${activity + 1}`;
+const retiredName = nameOf;
 
 /** Why this component cannot be sent yet, or null. `setup` lets Teacher Development check that the budget split is set. */
 export function componentReadinessProblem(workstream: string, lines: readonly ReadinessLine[], setup: ReadinessSetup, options: ReadinessOptions): string | null {

@@ -2,6 +2,7 @@
 // activities, line schools and line documents. Kept apart from lib/activity-plans.ts, which imports these
 // constants into the shared line schema.
 import { othersActivityName, teacherActivityNames, teacherDocumentLabel } from './teacher-development.ts';
+import { isPriceListActivity } from './procurement.ts';
 
 /** Activity lists from the client's Quality Assurance and ICT (DDPA) activity forms, stored by index; the last is Others (specify), migration 047. */
 /** Quality Assurance activities, renamed from the client's observations (October 2026, migration 060); 11 was added then and Others moved to 12. */
@@ -76,6 +77,8 @@ export const compulsoryActivities: Partial<Record<string, readonly number[]>> = 
   ict: [1, 2, 3, 5, 6],
   teachers: [],
   planning: [0, 2, 3, 5],
+  // UBEC227: SBMC "Monitoring, tracking and accountability" (client's 5 November 2026 document).
+  sbmc: [12],
 };
 /** ICT "Maintenance of UBEC-SUBEB Connect": waived when the state already has Connect (migration 070, UBEC123). */
 export const ictConnectActivity = 3;
@@ -88,7 +91,8 @@ export const isCompulsory = (workstream: string, activity: number, setup?: Compu
  * until they are moved to a listed activity or removed. Quality Assurance follows the client's observations
  * (October 2026) exactly: "Maintenance of E-Quality Assurance platform / M&E" (5) and Others (12) are not in it.
  */
-export const retiredActivities: Partial<Record<string, readonly number[]>> = { quality: [5, 12] };
+// UBEC227: SBMC "Community-based data collection and reporting" (13) is not in the client's 5 November 2026 document.
+export const retiredActivities: Partial<Record<string, readonly number[]>> = { quality: [5, 12], sbmc: [13] };
 export const isRetiredActivity = (workstream: string, activity: number) => (retiredActivities[workstream] ?? []).includes(activity);
 
 /** Activities whose lines choose schools from the state's School list (at least one per line). */
@@ -107,10 +111,22 @@ export const needsBeneficiary = (workstream: string, activity: number) => workst
 export const hasLineSchools = (workstream: string, activity: number, beneficiary?: string | null) => (lineSchoolActivities[workstream] ?? []).includes(activity) && !(needsBeneficiary(workstream, activity) && beneficiary && beneficiary !== 'school');
 /** Lines whose chosen schools each get a quantity that adds up to the line's quantity (UBEC160). */
 export const allocatesToSchools = (workstream: string, activity: number, beneficiary?: string | null) => needsBeneficiary(workstream, activity) && beneficiary === 'school';
-/** Activities delivered one per school (ICT 4 Establishment of DLC, UBEC89): the quantity is the number of schools chosen. */
-export const quantityFromSchoolsActivities: Partial<Record<string, readonly number[]>> = { ict: [4] };
+/**
+ * Activities whose quantity is the number of schools chosen (ICT 4 Establishment of DLC, UBEC89; since UBEC223 every
+ * activity that chooses schools: ICT 2 Model Smart Schools & DLC and 8 Monitoring and verification too). ICT 0 for
+ * schools is the exception: its quantity is the items given to the schools added up (`quantityFromSchoolItems`).
+ */
+export const quantityFromSchoolsActivities: Partial<Record<string, readonly number[]>> = { ict: [2, 4, 8] };
 export const quantityFromSchools = (workstream: string, activity: number) => (quantityFromSchoolsActivities[workstream] ?? []).includes(activity);
 export const maxLineSchools = 2000;
+/** UBEC223: on ICT procurement for schools the quantity follows the items given to each school, added up. */
+export const quantityFromSchoolItems = (workstream: string, activity: number, beneficiary?: string | null) => allocatesToSchools(workstream, activity, beneficiary);
+/** The quantity a line's schools give it, or null when the quantity is typed: the schools chosen, or their items added up. */
+export function schoolDrivenQuantity(workstream: string, activity: number, beneficiary: string | null | undefined, schoolIds: readonly number[], schoolQuantities: Readonly<Record<string, number>>): number | null {
+  if (quantityFromSchools(workstream, activity)) return schoolIds.length;
+  if (quantityFromSchoolItems(workstream, activity, beneficiary)) return schoolIds.reduce((sum, id) => sum + (Number(schoolQuantities[String(id)]) || 0), 0);
+  return null;
+}
 
 /** Activities whose lines take uploaded documents (PDF or Excel), and what they are called. Required before sending only while the Super Admin setting is on (migration 052). */
 export const lineDocumentLabels: Partial<Record<string, Record<number, string>>> = {
@@ -146,7 +162,7 @@ export const lineDocumentAcceptFor = (workstream: string, activity: number) => i
  * List of Participants, always required (`always`), each with a template to download, beside their supporting documents;
  * every other line has at most one slot, kind 'document' (governed or supporting).
  */
-export type LineDocumentSlot = { kind: 'document' | 'boq' | 'sample' | 'budget' | 'participants'; label: string; governed: boolean; accept: string; hint: string;
+export type LineDocumentSlot = { kind: 'document' | 'boq' | 'sample' | 'budget' | 'participants' | 'proforma'; label: string; governed: boolean; accept: string; hint: string;
   /** Required before sending whatever the Supporting documents setting (UBEC209). */ always?: boolean;
   /** A template to fill in before uploading. */ template?: { href: string; name: string } };
 const tlmDocumentSlots: readonly LineDocumentSlot[] = [
@@ -158,13 +174,25 @@ const teacherDocumentSlots: readonly LineDocumentSlot[] = [
   { kind: 'participants', label: 'Training List of Participants', governed: true, always: true, accept: lineDocumentAccept, hint: 'The teachers selected for the training, filled in from the template. PDF or Excel', template: { href: '/templates/training-participants-template.xlsx', name: 'Template for Selection of Teachers Training.xlsx' } },
   { kind: 'document', label: teacherDocumentLabel, governed: true, accept: lineDocumentAccept, hint: 'Other supporting documents, such as the MOU with the training provider. PDF or Excel only' },
 ];
-export function lineDocumentSlots(workstream: string, activity: number): readonly LineDocumentSlot[] {
+/**
+ * UBEC229 (client, 5 November 2026: "any activity procurement should have an upload proforma invoice"): every item on an
+ * activity that buys goods (the Procurement price-list activities: QA 0, ICT 0, Monitoring 0-1, Curriculum 0, Planning 4,
+ * SBMC 15, TLM 5-22) needs the supplier's proforma invoice before the component is sent, whatever the Supporting
+ * documents setting (migration 090).
+ */
+export const proformaSlot: LineDocumentSlot = { kind: 'proforma', label: 'Proforma invoice', governed: true, always: true, accept: supportingDocumentAccept, hint: 'The supplier’s proforma invoice for this item. PDF, Excel, Word or images' };
+export const needsProforma = (workstream: string, activity: number) => isPriceListActivity(workstream, activity);
+function baseDocumentSlots(workstream: string, activity: number): readonly LineDocumentSlot[] {
   if (workstream === 'tlm') return tlmDocumentSlots;
   if (workstream === 'teachers') return teacherDocumentSlots;
   const label = lineDocumentLabel(workstream, activity);
   if (!label) return [];
   const supporting = isSupportingDocumentLine(workstream, activity);
   return [{ kind: 'document', label, governed: !supporting, accept: supporting ? supportingDocumentAccept : lineDocumentAccept, hint: supporting ? 'PDF, Excel, Word or images' : 'PDF or Excel only' }];
+}
+export function lineDocumentSlots(workstream: string, activity: number): readonly LineDocumentSlot[] {
+  const slots = baseDocumentSlots(workstream, activity);
+  return needsProforma(workstream, activity) ? [proformaSlot, ...slots] : slots;
 }
 /** Whether a slot must hold a document before sending: always-required slots, and governed ones while the setting is on. */
 export const slotRequired = (slot: LineDocumentSlot, documentsRequired: boolean) => !!slot.always || (slot.governed && documentsRequired);

@@ -13,6 +13,7 @@ import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
 import ts from 'typescript';
 
+import { withProformas } from './test-support/proformas.mjs';
 const requireModule = createRequire(import.meta.url);
 function load(path) {
   const loaded = { exports: {} };
@@ -32,7 +33,7 @@ const tag = randomUUID().slice(0, 8).toUpperCase(), state = `TS${tag}`, password
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 const cookies = {}, userIds = [], schoolIds = [], planIds = [];
 const step = message => console.log('✓', message);
-async function api(who, path, body, method = body ? 'POST' : 'GET') {
+async function api(who, path, body, method = body ? 'POST' : 'GET') {await withProformas(db,path,body);
   const isForm = body instanceof FormData;
   const headers = { Cookie: cookies[who] ?? '', Origin: base, ...(body && !isForm ? { 'Content-Type': 'application/json' } : {}) };
   const r = await fetch(base + path, { method, headers, ...(body ? { body: isForm ? body : JSON.stringify(body) } : {}) });

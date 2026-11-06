@@ -9,6 +9,7 @@ import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
+import { withProformas } from './test-support/proformas.mjs';
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
 const tag = randomUUID().slice(0, 8).toUpperCase();
@@ -18,7 +19,7 @@ const jars = {}, userIds = [];
 let planId, settings, passed = 0;
 const step = message => { passed++; console.log('✓', message); };
 
-async function api(who, path, body, { method = body ? 'POST' : 'GET', origin = true } = {}) {
+async function api(who, path, body, { method = body ? 'POST' : 'GET', origin = true } = {}) {await withProformas(db,path,body);
   const jar = jars[who] ??= {}, isForm = body instanceof FormData;
   const headers = { Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '), ...(origin ? { Origin: base } : {}), ...(body && !isForm ? { 'Content-Type': 'application/json' } : {}) };
   const response = await fetch(base + path, { method, headers, ...(body ? { body: isForm ? body : JSON.stringify(body) } : {}) });

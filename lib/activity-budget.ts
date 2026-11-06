@@ -31,7 +31,7 @@ export function componentEnvelopeKobo(plan: EnvelopePlan, workstream: ActivityWo
 
 /**
  * An activity's cap: its share of the envelope (or its group's, shared by the group's items), rounded to the kobo
- * (Curriculum, Quality Assurance, SBMC monitoring). Quality Assurance shares are scaled to the chosen activities (migration 061).
+ * (Curriculum, Quality Assurance). Quality Assurance shares are scaled to the chosen activities (migration 061).
  */
 export function activityCapKobo(workstream: ActivityWorkstream, envelope: bigint, activity: number, selection?: ActivitySelection) {
   const total = BigInt(shareTotal(workstream, selection));

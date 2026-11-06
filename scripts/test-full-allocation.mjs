@@ -8,6 +8,7 @@ import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
 
+import { withProformas } from './test-support/proformas.mjs';
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname), 'Use a local database only.');
@@ -17,7 +18,7 @@ const cookies = {}, users = {};
 let planId, setting, passed = 0;
 const step = message => { passed++; console.log('✓', message); };
 
-async function api(who, path, body, method = body ? 'POST' : 'GET') {
+async function api(who, path, body, method = body ? 'POST' : 'GET') {await withProformas(db,path,body);
   const isForm = body instanceof FormData;
   const response = await fetch(base + path, { method, headers: { Origin: base, ...(body && !isForm ? { 'Content-Type': 'application/json' } : {}), ...(cookies[who] ? { Cookie: cookies[who] } : {}) }, ...(body ? { body: isForm ? body : JSON.stringify(body) } : {}) });
   const data = await response.json().catch(() => ({}));

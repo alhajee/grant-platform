@@ -10,6 +10,7 @@ import ExcelJS from 'exceljs';
 import { hashSync } from 'bcryptjs';
 import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
+import { withProformas } from './test-support/proformas.mjs';
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
 const tag = randomUUID().slice(0, 8).toUpperCase();
@@ -19,7 +20,7 @@ const jars = {}, userIds = [], ids = {};
 let planId, settings, passed = 0;
 const step = message => { passed++; console.log('✓', message); };
 
-async function api(who, path, body, { method = body ? 'POST' : 'GET', origin = true } = {}) {
+async function api(who, path, body, { method = body ? 'POST' : 'GET', origin = true } = {}) {await withProformas(db,path,body);
   const jar = jars[who] ??= {}, isForm = body instanceof FormData;
   const headers = { Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '), ...(origin ? { Origin: base } : {}), ...(body && !isForm ? { 'Content-Type': 'application/json' } : {}) };
   const response = await fetch(base + path, { method, headers, ...(body ? { body: isForm ? body : JSON.stringify(body) } : {}) });
@@ -74,7 +75,7 @@ try {
   const decide = async (action, extra = {}) => { const d = ok(await api('uchair', ubecReview)); return api('uchair', ubecReview, { action, version: d.plan.version, roundId: d.round.id, comment: 'Consolidated UBEC feedback.', ...extra }); };
   const balls = String(ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 10, unitCost: 15000 }), 201).id);
   const kits = String(ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'competitions', activityType: 'State Finals Competition', description: 'State finals', quantity: 1, unitCost: 900000 }), 201).id);
-  ok(await api('des', `/api/activities${q}`, { workstream: 'sbmc', entity: 'line', action: 'create', activity: 1, description: 'Rehabilitate ECCDE centres', rationale: 'Collapsed roofs', implementationApproach: 'Community labour', quantity: 100, unitCost: 500000, strategy: 'Least cost', targetGroup: 'Community level', location: 'Rural' }));
+  ok(await api('des', `/api/activities${q}`, { workstream: 'sbmc', entity: 'line', action: 'create', activity: 12, description: 'Rehabilitate ECCDE centres', rationale: 'Collapsed roofs', implementationApproach: 'Community labour', quantity: 100, unitCost: 500000, strategy: 'Least cost', targetGroup: 'Community level', location: 'Rural' }));
   const sbmcLine = String((await db.query("SELECT id FROM activity_plan_lines WHERE plan_id=$1 AND workstream='sbmc'", [planId])).rows[0].id);
   for (const pillar of ['sports', 'sbmc']) await review('des', 'submit', pillar);
   const stateThread = ok(await api('dir', stateComments, { sheet: 'sports', rowRef: balls, columnId: 'unitCost', body: 'STATE-INTERNAL: director note on unit cost' }), 201).id;

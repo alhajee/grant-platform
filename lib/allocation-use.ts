@@ -9,7 +9,7 @@ import type { Snapshot } from './plan-review';
 
 // Full use of allocations (UBEC79, client 26 October 2026: "all must be exhausted both ways"). A component is sent (to the
 // Director, the BEAP Chair, the Executive Chairman or UBEC) only once its items use its whole allocation, and every capped
-// part of it uses its whole share too: the activity shares (the required Quality Assurance activities, SBMC; Curriculum's
+// part of it uses its whole share too: the activity shares (the required Quality Assurance activities; SBMC monitoring lost its 5% share in UBEC227; Curriculum’s
 // and the optional QA ones are guides since UBEC162/173), the Sports
 // sections and the Sports Competitions sub-activities. Fixed naira caps (ICT Model Smart Schools ₦30M) are ceilings, not
 // shares, and are not required in full. In shared-pool mode Infrastructure and TLM together must use the whole pool.
