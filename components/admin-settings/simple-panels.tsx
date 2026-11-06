@@ -82,6 +82,23 @@ export function FullAllocationPanel({ onDirty }: PanelProps) {
   </SettingsPanel>;
 }
 
+/** UBEC231: whether ECCDE must be at least 15% of the plan before the BEAP Chair sends to the Executive Chairman (migration 092). */
+export function EccdeSharePanel({ onDirty }: PanelProps) {
+  const s = useSetting<boolean>({ url: '/api/admin/eccde-share', read: readRequired, write: required => ({ required }), noun: 'ECCDE share setting', saved: required => required ? 'Plans now need ECCDE at 15% before going to the Executive Chairman' : 'Plans can now go to the Executive Chairman with any ECCDE share', onDirty });
+  return <SettingsPanel title="ECCDE share" description="Whether ECCDE must get at least 15% of each plan before the BEAP Chair sends it on">
+    {s.error ? <PanelError title="ECCDE share setting unavailable" message={s.error} onRetry={() => void s.load()} />
+      : s.draft === null ? <PanelSkeleton rows={1} /> : <>
+        <SettingsCard>
+          <SettingRow label="Require 15% for ECCDE" htmlFor="eccde-share-required" description={s.draft ? 'The BEAP Chair sends to the Executive Chairman only once ECCDE is at least 15% of the plan' : 'The BEAP Chair can send whatever share ECCDE has'}
+            info="Checked each time the BEAP Chair sends to the Executive Chairman, whole plan or single components. ECCDE spending is counted as in Spending by school level: Infrastructure at ECCDE schools, items for ECCDE schools on distribution lists, ECCDE textbook classes, ECCDE training levels and lines whose target group is ECCDE learners.">
+            <Switch id="eccde-share-required" checked={s.draft} disabled={s.saving} onCheckedChange={s.setDraft} />
+          </SettingRow>
+        </SettingsCard>
+        <SaveBar dirty={s.dirty} saving={s.saving} onDiscard={s.discard} onSave={() => void s.save()} />
+      </>}
+  </SettingsPanel>;
+}
+
 export function DocumentsPanel({ onDirty }: PanelProps) {
   const s = useSetting<boolean>({ url: '/api/admin/component-documents', read: readRequired, write: required => ({ required }), noun: 'supporting documents setting', saved: required => required ? 'Supporting documents are now required' : 'Supporting documents are now optional', onDirty });
   return <SettingsPanel title="Supporting documents" description="Whether component uploads must be attached before saving or sending">

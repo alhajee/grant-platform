@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { CredentialsDialog } from '@/components/credentials-dialog';
 import { createColumnHelper } from '@tanstack/react-table';
-import { KeyRoundIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, UserRoundCogIcon } from 'lucide-react';
+import { KeyRoundIcon, MoreHorizontalIcon, PencilIcon, PlusIcon, Trash2Icon, UserRoundCogIcon } from 'lucide-react';
+import { DeleteUserDialog, type DeletableUser } from '@/components/delete-user-dialog';
 import { DataTable } from '@/components/data-table';
 import { DataTableColumnHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
@@ -23,7 +24,7 @@ import { departmentLabel as departmentName, ubecRoleDepartments, ubecRoleList, u
 import { toast } from 'sonner';
 import { DepartmentCheckboxes } from '@/components/department-checkboxes';
 import { accessLabel, tokenDepartment } from '@/lib/component-access';
-import { isUbecEmail, maxRoleTitleLength, ubecEmailDomain, ubecEmailError } from '@/lib/officer-title';
+import { isUbecEmail, ubecEmailDomain, ubecEmailError } from '@/lib/officer-title';
 
 export type AdminManagedUser = { id:number; name:string; roleTitle?:string; email:string; role:string; department:string|null; departments:string[]; stateCode:string; active:boolean; canCreatePlan:boolean; canManageSchools:boolean; isBeapChair:boolean };
 type Form = Omit<AdminManagedUser, 'id'>;
@@ -46,12 +47,15 @@ function facetOptions(users:AdminManagedUser[], values:(user:AdminManagedUser)=>
 }
 const departmentLabel = (user:AdminManagedUser) => user.stateCode !== 'UBEC' && subebDepartments.every(d => user.departments?.includes(d.id)) ? ['All departments', ...supportDepartments.filter(d => user.departments?.includes(d.id)).map(d => d.name)].join(', ') : user.stateCode !== 'UBEC' && user.departments?.length ? accessLabel(user.departments) : user.departments?.length ? user.departments.map(value => user.stateCode === 'UBEC' ? departmentName(value) : subebDepartmentName(value)).join(', ') : '—';
 
-export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUser[];busy:number|null;onSwitch:(id:number)=>Promise<void>|void;onChanged:()=>Promise<void>|void}) {
+export function AdminUsers({users,busy,onSwitch,onChanged,nextRoleTitles={}}:{users:AdminManagedUser[];busy:number|null;onSwitch:(id:number)=>Promise<void>|void;onChanged:()=>Promise<void>|void;
+  /** UBEC237: the role name the next Assessment Officer of each UBEC department gets (set by the server). */
+  nextRoleTitles?:Record<string,string>}) {
   const workspaces = useMemo(() => [...new Set(users.map(user=>user.stateCode))].sort((a,b)=>a === 'UBEC' ? -1 : b === 'UBEC' ? 1 : workspaceName(a).localeCompare(workspaceName(b))), [users]);
   const initialWorkspace = workspaces[0] ?? 'UBEC';
   const [editing,setEditing] = useState<AdminManagedUser|'new'|null>(null);
   const [form,setForm] = useState<Form>(blank(initialWorkspace));
   const [reset,setReset] = useState<AdminManagedUser|null>(null);
+  const [deleting,setDeleting] = useState<DeletableUser|null>(null);
   const [credentials,setCredentials] = useState<{email:string;password:string}|null>(null);
   const [saving,setSaving] = useState(false),[formError,setFormError] = useState('');
   const pending = useRef(false);
@@ -96,11 +100,15 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
     helper.accessor('stateCode',{filterFn:(row,_id,value)=>anyOf([row.original.stateCode])(value),header:({column})=><DataTableColumnHeader column={column} title="Workspace"/>,cell:info=>workspaceName(info.getValue())}),
     helper.accessor('department',{filterFn:(row,_id,value)=>anyOf(departmentValues(row.original))(value),header:({column})=><DataTableColumnHeader column={column} title="Department"/>,cell:({row})=>departmentLabel(row.original)}),
     helper.accessor('active',{filterFn:(row,_id,value)=>anyOf([statusValue(row.original)])(value),header:({column})=><DataTableColumnHeader column={column} title="Status"/>,cell:info=><Badge variant={info.getValue()?'secondary':'outline'}>{info.getValue()?'Active':'Inactive'}</Badge>}),
-    helper.display({id:'actions',enableHiding:false,header:'',cell:({row})=><div className="flex justify-end"><DropdownMenu modal={false}><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Manage ${row.original.name}`}><MoreHorizontalIcon/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onSelect={()=>open(row.original)}><PencilIcon/>Edit user</DropdownMenuItem><DropdownMenuItem onSelect={()=>{setReset(row.original);setFormError('');}}><KeyRoundIcon/>Reset password</DropdownMenuItem><DropdownMenuSeparator/><DropdownMenuItem disabled={!row.original.active||busy!==null} onSelect={()=>void onSwitch(row.original.id)}><UserRoundCogIcon/>{busy===row.original.id?'Switching…':'Act as user'}</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div>}),
+    helper.display({id:'actions',enableHiding:false,header:'',cell:({row})=><div className="flex justify-end"><DropdownMenu modal={false}><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" aria-label={`Manage ${row.original.name}`}><MoreHorizontalIcon/></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuGroup><DropdownMenuItem onSelect={()=>open(row.original)}><PencilIcon/>Edit user</DropdownMenuItem><DropdownMenuItem onSelect={()=>{setReset(row.original);setFormError('');}}><KeyRoundIcon/>Reset password</DropdownMenuItem><DropdownMenuSeparator/><DropdownMenuItem disabled={!row.original.active||busy!==null} onSelect={()=>void onSwitch(row.original.id)}><UserRoundCogIcon/>{busy===row.original.id?'Switching…':'Act as user'}</DropdownMenuItem><DropdownMenuSeparator/><DropdownMenuItem variant="destructive" onSelect={()=>setDeleting(row.original)}><Trash2Icon/>Delete user</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div>}),
   ]),[busy,onSwitch,open]);
 
   const isUbec = form.stateCode === 'UBEC', isOfficer = isUbec && form.role === ubecRoles.officer;
   const departments = isUbec ? ubecRoleDepartments(form.role) : subebDepartments;
+  // UBEC237: officers keep their role name unless they become officers or move department, when they get the next number.
+  const editedUser = editing && editing !== 'new' ? editing : null, officerDepartment = form.departments[0] ?? '';
+  const keepsTitle = !!editedUser && editedUser.role === ubecRoles.officer && editedUser.department === officerDepartment && !!editedUser.roleTitle;
+  const roleTitlePreview = keepsTitle ? editedUser!.roleTitle! : officerDepartment ? nextRoleTitles[officerDepartment] ?? '' : '';
   return <div className="flex flex-col gap-4">
     <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-lg font-semibold">Manage users</h2></div><Button onClick={()=>open('new')} disabled={!workspaces.length}><PlusIcon data-icon="inline-start"/>Add user</Button></div>
     <DataTable data={users} columns={columns} searchPlaceholder="Search users…" itemLabel="users" columnLabels={{role:'Role',stateCode:'Workspace',department:'Department',active:'Status'}} facets={facets} persistKey="admin-users" />
@@ -109,7 +117,7 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
       <Field><FieldLabel htmlFor="admin-user-name">Full name</FieldLabel><Input id="admin-user-name" required minLength={2} maxLength={120} disabled={saving} value={form.name} onChange={event=>setForm({...form,name:event.target.value})}/></Field>
       <Field><FieldLabel htmlFor="admin-user-email">Email address</FieldLabel><Input id="admin-user-email" type="email" required disabled={saving||editing!=='new'} value={form.email} onChange={event=>setForm({...form,email:event.target.value})}/></Field>
       <Field><FieldLabel htmlFor="admin-user-role">Role</FieldLabel><NativeSelect id="admin-user-role" disabled={saving} value={form.role} onChange={event=>changeRole(event.target.value)}>{isUbec?ubecRoleList.map(role=><NativeSelectOption key={role} value={role}>{role}</NativeSelectOption>):<><NativeSelectOption value="Data Entry Staff">Data Entry Staff</NativeSelectOption><NativeSelectOption value="Director">Director</NativeSelectOption><NativeSelectOption value="Executive Chairman">Executive Chairman</NativeSelectOption></>}</NativeSelect>{isOfficer&&editing==='new'&&<FieldDescription>Assessment Officers use a UBEC email address (@{ubecEmailDomain})</FieldDescription>}</Field>
-      {isOfficer&&<Field><FieldLabel htmlFor="admin-user-role-title">Role name</FieldLabel><Input id="admin-user-role-title" required={editing==='new'} minLength={2} maxLength={maxRoleTitleLength} placeholder="UBEC Assessment Officer 1 - Infrastructure" disabled={saving} value={form.roleTitle ?? ''} onChange={event=>setForm({...form,roleTitle:event.target.value})}/><FieldDescription>Shown as {form.roleTitle?.trim() || 'the role name'} ({form.name.trim() || 'Full name'})</FieldDescription></Field>}
+      {isOfficer&&<Field><FieldLabel>Role name</FieldLabel><p className="text-sm" data-testid="admin-user-role-title"><strong>{roleTitlePreview||'Choose the department'}</strong> · set automatically</p><FieldDescription>The next number in the department. Shown as {roleTitlePreview||'the role name'} ({form.name.trim() || 'Full name'})</FieldDescription></Field>}
       {roleNeedsDepartment(form.role) && (isUbec ? <Field><FieldLabel htmlFor="admin-user-department">Department</FieldLabel><NativeSelect id="admin-user-department" required disabled={saving} value={form.departments[0]??''} onChange={event=>setForm({...form,department:event.target.value,departments:[event.target.value]})}><NativeSelectOption value="" disabled>Select department</NativeSelectOption>{departments.map(item=><NativeSelectOption key={item.id} value={item.id}>{departmentName(item.id)}</NativeSelectOption>)}</NativeSelect></Field> : <DepartmentCheckboxes departments={departments} support={isUbec ? [] : supportDepartments} selected={form.departments} components={form.role==='Data Entry Staff'} disabled={saving} onChange={values=>setForm({...form,departments:values,department:values[0]??''})}/>)}
       <Field><FieldLabel htmlFor="admin-user-active">Account access</FieldLabel><NativeSelect id="admin-user-active" disabled={saving} value={String(form.active)} onChange={event=>setForm({...form,active:event.target.value==='true'})}><NativeSelectOption value="true">Active</NativeSelectOption><NativeSelectOption value="false">Inactive</NativeSelectOption></NativeSelect></Field>
       {!isUbec&&<Field orientation="horizontal" data-disabled={saving}><FieldLabel htmlFor="admin-user-create-plan">Allow creating action plans</FieldLabel><Switch id="admin-user-create-plan" disabled={saving||form.isBeapChair} checked={form.isBeapChair||form.canCreatePlan} onCheckedChange={canCreatePlan=>setForm({...form,canCreatePlan})}/></Field>}
@@ -119,5 +127,6 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
     </FieldGroup><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={()=>setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving||(roleNeedsDepartment(form.role)&&form.departments.length===0)}>{saving&&<Spinner data-icon="inline-start"/>}Save user</Button></DialogFooter></form></DialogContent></Dialog>
     <Dialog open={Boolean(reset)} onOpenChange={openState=>{if(!openState&&!saving)setReset(null);}}><DialogContent showCloseButton={!saving}><DialogHeader><DialogTitle>Reset password?</DialogTitle><DialogDescription>{reset?.name} will be signed out. A new password will be shown once for secure sharing.</DialogDescription></DialogHeader>{formError&&<Alert variant="destructive"><AlertDescription>{formError}</AlertDescription></Alert>}<DialogFooter><Button variant="outline" disabled={saving} onClick={()=>setReset(null)}>Cancel</Button><Button disabled={saving} onClick={()=>void save(true)}>{saving&&<Spinner data-icon="inline-start"/>}Reset password</Button></DialogFooter></DialogContent></Dialog>
     <CredentialsDialog credentials={credentials} idPrefix="admin-credential" onClose={()=>setCredentials(null)}/>
+    <DeleteUserDialog user={deleting} endpoint="/api/admin/users" onClose={()=>setDeleting(null)} onDeleted={onChanged}/>
   </div>;
 }

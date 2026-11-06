@@ -21,9 +21,12 @@ import { quarterRemovalProblem, type QuarterUsage } from '@/lib/line-quarters';
 import { nairaFormat } from '@/lib/money-format';
 import type { RatReview } from '@/lib/rat-review';
 import { PlanRatField } from '@/components/plan-rat-field';
+import { rescaleSplits, sideNames } from '@/lib/budget-pairs';
+import { formatKobo } from '@/lib/money-format';
+import { toKobo } from '@/lib/funding-policy';
 
 const money = nairaFormat;
-type SetupData = { plan: ActionPlan; reserved: { year: number; quarter: number }[]; proposed: Partial<Record<FundingComponent, string>>; quarterUsage?: QuarterUsage; canEdit: boolean; lockedReason: string | null; canReplaceRat?: boolean; ratReview?: RatReview | null; ratReplaced?: boolean };
+type SetupData = { plan: ActionPlan; reserved: { year: number; quarter: number }[]; proposed: Partial<Record<FundingComponent | 'ict', string>>; quarterUsage?: QuarterUsage; canEdit: boolean; lockedReason: string | null; canReplaceRat?: boolean; ratReview?: RatReview | null; ratReplaced?: boolean };
 type Props = { planId: number; onClose: () => void; onSaved?: (plan: ActionPlan) => void };
 
 /** Edits the period and funding of an existing plan (UBEC33). The server re-checks every rule. */
@@ -68,8 +71,11 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
   const input = () => ({ plan: planId, version: data?.plan.version ?? 0, planningYear: Number(year), implementationYear: Number(implementation), quarters, stateLodgment: lodgment, fundingSources });
   const sourceErrors = draftSourceErrors(sources);
   const parsed = planEditSchema.safeParse(input());
-  const shortfalls = data && parsed.success && validLodgment && lodgment ? envelopeShortfalls(data.plan, { ...data.plan, stateLodgment: lodgment, fundingSources }, data.proposed) : [];
-  const ictProblem = data && parsed.success && validLodgment && lodgment ? sharedBelowAllocationProblem({ ...data.plan, stateLodgment: lodgment, fundingSources }) : null;
+  // UBEC228: a changed shared budget keeps each budget split's percentage (the server does the same).
+  const split = data && parsed.success && validLodgment && lodgment ? rescaleSplits(data.plan, { ...data.plan, stateLodgment: lodgment, fundingSources }, data.proposed) : null;
+  const covered = new Set<string>((split?.rescaled ?? []).flatMap(r => r.pair === 'teachers-ict' ? ['teachers'] : ['tlm', 'infrastructure']));
+  const shortfalls = data && split ? envelopeShortfalls(data.plan, split.plan, data.proposed).filter(s => !covered.has(s.component)) : [];
+  const ictProblem = split ? [sharedBelowAllocationProblem(split.plan), ...split.problems].filter(Boolean).join(' ') || null : null;
   const implementationError = errors.implementationYear || (year.length === 4 && implementation.length === 4 ? implementationYearError(Number(year), Number(implementation)) : '');
   // Quarters that saved lines use in their timelines cannot be removed (migration 050).
   const quarterProblem = data && quarters.length ? quarterRemovalProblem(data.plan.fundingQuarters, quarters, data.quarterUsage ?? []) : null;
@@ -126,6 +132,7 @@ export function EditPlanDialog({ planId, onClose, onSaved }: Props) {
             </FieldGroup>
             {/* UBEC204: a new RAT can still be uploaded when the rest is locked (plan back from UBEC). */}
             <PlanRatField plan={data.plan} canReplace={!!data.canReplaceRat} review={data.ratReview ?? null} replaced={!!data.ratReplaced} onReplaced={plan => { setData({ ...data, plan, ratReplaced: true }); onSaved?.(plan); }} />
+            {!!split?.rescaled.length && !ictProblem && <Alert><AlertTitle>Budget splits follow the new funding</AlertTitle><AlertDescription><ul className="list-disc pl-4">{split.rescaled.map(r => <li key={r.pair}>{sideNames[r.side]} keeps {r.percent} → {formatKobo(toKobo(r.after))} · {sideNames[r.keeper]} {formatKobo(toKobo(r.keeperAfter))}</li>)}</ul></AlertDescription></Alert>}
             {ictProblem && <Alert variant="destructive"><AlertTitle>Funding is below an allocation</AlertTitle><AlertDescription>{ictProblem}</AlertDescription></Alert>}
             {shortfalls.length > 0 && <Alert variant="destructive"><AlertTitle>Funding is below what is already proposed</AlertTitle><AlertDescription><ul className="list-disc pl-4">{shortfalls.map(s => <li key={s.component}>{shortfallMessage(s)}</li>)}</ul></AlertDescription></Alert>}
           </>}
