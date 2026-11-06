@@ -5,6 +5,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
+import { withProformas } from './test-support/proformas.mjs';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
 
@@ -18,6 +19,7 @@ let planId, saved = null;
 const step = message => console.log('✓', message);
 
 async function api(who, path, body, method = body ? 'POST' : 'GET', origin = base) {
+  await withProformas(db, path, body);
   const isForm = body instanceof FormData;
   const response = await fetch(base + path, { method, headers: { ...(origin ? { Origin: origin } : {}), ...(body && !isForm ? { 'Content-Type': 'application/json' } : {}), ...(cookies[who] ? { Cookie: cookies[who] } : {}) }, ...(body ? { body: isForm ? body : JSON.stringify(body) } : {}) });
   const data = await response.json().catch(() => ({}));

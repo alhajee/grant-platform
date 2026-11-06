@@ -79,7 +79,7 @@ export function ClassroomBlockGrouping({ input, school, disabled, onChange }: Bl
           <p className="text-sm text-muted-foreground">{grouping ? blockGroupingText(grouping) : `${kindCopy[kind].what}: not grouped by block`}</p>
         </div>
         <div className="flex gap-2">
-          {grouping && <Button variant="ghost" size="sm" disabled={disabled} onClick={() => setBlock(kind, undefined)}>Remove</Button>}
+          {grouping && <Button variant="ghost" size="sm" className="action-remove" disabled={disabled} onClick={() => setBlock(kind, undefined)}>Remove</Button>}
           <Button variant="outline" size="sm" disabled={disabled} onClick={() => begin(kind)}>{grouping ? 'Change' : 'Group by block'}</Button>
         </div>
       </div>;

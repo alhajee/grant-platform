@@ -827,3 +827,18 @@
 .sports-unallocated li span { display: flex; flex-direction: column; min-width: 0; }
 .sports-unallocated li small { color: var(--muted-foreground); font-size: 12px; }
 .sports-unallocated li strong { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--destructive); }
+
+/* UBEC220: remove and delete actions read red everywhere: the bin icon, and any button or menu item named Remove… or Delete… */
+svg.lucide-trash-2,
+svg.lucide-trash,
+:is(button, a, [role="menuitem"])[aria-label^="Remove" i],
+:is(button, a, [role="menuitem"])[aria-label^="Delete" i],
+:is(button, a, [role="menuitem"])[title^="Remove" i],
+:is(button, a, [role="menuitem"])[title^="Delete" i],
+.action-remove {
+  color: var(--destructive);
+}
+:is(button, a, [role="menuitem"]):is([aria-label^="Remove" i], [aria-label^="Delete" i], [title^="Remove" i], [title^="Delete" i], .action-remove):not(:disabled):hover {
+  color: var(--destructive);
+  background-color: color-mix(in oklab, var(--destructive) 10%, transparent);
+}

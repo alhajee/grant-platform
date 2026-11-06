@@ -92,7 +92,7 @@ export function DnemisPanel({ onDirty }: { onDirty?: (dirty: boolean) => void })
       <Separator />
       <SettingRow label="Personal access token" htmlFor="dnemis-token" wide
         description={draft.clearToken ? <>Removed when you save. <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => change({ clearToken: false })}>Keep it</Button></>
-          : savedToken && !draft.token ? <>Saved, ends in ••••{settings.tokenLast4}. <Button type="button" variant="link" className="h-auto p-0 text-xs" onClick={() => change({ clearToken: true, token: '', enabled: false })}>Remove</Button></>
+          : savedToken && !draft.token ? <>Saved, ends in ••••{settings.tokenLast4}. <Button type="button" variant="link" className="action-remove h-auto p-0 text-xs" onClick={() => change({ clearToken: true, token: '', enabled: false })}>Remove</Button></>
             : 'Stored encrypted; never shown again after saving'}
         info="Changing the server address needs the token again, so a saved token is never sent to a new host">
         <Input id="dnemis-token" type="password" autoComplete="off" spellCheck={false} value={draft.token} maxLength={300}

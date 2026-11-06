@@ -260,17 +260,20 @@ try {
   ok(await api('ict', url('ict'), { workstream: 'ict', entity: 'line', action: 'delete', id: extraConnect.id }));
   step('ICT send blocked until every line that needs a document has one');
 
-  // Teacher Development keeps the remainder: plan edits may not shrink the shared envelope below ICT's allocation.
-  fails(await editPlan('349999990'), 409, /ICT has already been allocated ₦35,000,000/);
+  // UBEC228: a plan edit that shrinks the shared envelope rescales ICT's allocation to the same percentage instead of refusing.
+  const before = Number(ok(await editPlan('350000000')).plan.ictAllocation);
+  const shrunk = Number(ok(await editPlan('349999990')).plan.ictAllocation);
+  assert.ok(shrunk < before, 'ICT keeps its percentage of a smaller envelope');
   ok(await editPlan('350000000'));
+  ok(await allocate('chair', '35000000')); // shrinking and growing back can leave a kobo of rounding
   ok(await editPlan('400000000'));
-  step('Plan edits refused when the shared Teacher Development & ICT envelope would fall below the ICT allocation');
+  step('Plan edits rescale the ICT allocation with the shared Teacher Development & ICT envelope (UBEC228)');
 
   // Snapshots, visibility and overview.
   // Stage-gated visibility: neither component has been sent to the BEAP Chair or Executive Chairman yet.
   const draftChairView = ok(await api('chair', `/api/plans/review?plan=${planId}`));
   assert.ok(['quality', 'ict'].every(p => !draftChairView.visiblePillars.includes(p) && draftChairView.pillarReviews.some(r => r.pillar === p)));
-  assert.equal(draftChairView.snapshot.ict, undefined); assert.equal(draftChairView.plan.ictAllocation, '35000000.00');
+  assert.equal(draftChairView.snapshot.ict, undefined); assert.equal(draftChairView.plan.ictAllocation, '40000000.00'); // UBEC228: rescaled with the larger envelope
   const qaView = ok(await api('qa', `/api/plans/review?plan=${planId}`));
   assert.deepEqual(qaView.visiblePillars, ['quality']); assert.equal(qaView.snapshot.ict, undefined);
   const overview = ok(await api('ict', `/api/beap?plan=${planId}`));

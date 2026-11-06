@@ -144,10 +144,10 @@ try {
 
   const info = ok(await api('chair', `/api/plans/setup?plan=${planId}`));
   const edit = { plan: planId, version: info.plan.version, planningYear: 2018, implementationYear: 2018, quarters: [1], stateLodgment: '10000', fundingSources: [] };
-  fails(await api('chair', '/api/plans/setup', { ...edit, stateLodgment: '8900' }, 'PATCH'), 409, /Infrastructure would have ₦8,350\.0000 available, but ₦8,500\.0000 is already proposed/);
-  fails(await api('chair', '/api/plans/setup', { ...edit, stateLodgment: '3000' }, 'PATCH'), 409, /Infrastructure & TLM would have ₦4,500\.0000 available, but TLM has already been allocated ₦5,000\.0000/);
+  fails(await api('chair', '/api/plans/setup', { ...edit, stateLodgment: '8900' }, 'PATCH'), 409, /Keeping the Infrastructure & TLM split \(TLM 33\.3%\) leaves TLM ₦4,450\.0000, but its lines already propose ₦5,000\.0000: ₦550\.0000 short/);
+  fails(await api('chair', '/api/plans/setup', { ...edit, stateLodgment: '3000' }, 'PATCH'), 409, /leaves TLM ₦1,500\.0000[^]*leaves Infrastructure ₦3,000\.0000, but its packages already propose ₦8,500\.0000/);
   ok(await api('chair', '/api/plans/setup', { ...edit, fundingSources: [{ component: 'tlm', funder: 'UNICEF', amount: '100' }] }, 'PATCH'));
-  assert.equal(Number(ok(await api('physical', infraUrl)).plan.tlmAllocation), 5000);
+  assert.equal(Number(ok(await api('physical', infraUrl)).plan.tlmAllocation), 5033.33, 'UBEC228: TLM keeps its 33.3% of the larger pool');
   ok(await api('physical', infraUrl, furniture(100)), 200);
   step('plan edits may not shrink the pool below TLM’s allocation or Infrastructure below its packages; added funding goes to Infrastructure');
 
