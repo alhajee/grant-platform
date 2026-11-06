@@ -26,6 +26,11 @@ const amount = z.number().min(0).max(99999999999.99).refine(n => Math.abs(n * 10
 // additional: the auditor's own figure (unset = the calculated shortfall). extra: retired "Extra beyond standard", kept so older rows keep their totals.
 const auditRow = z.object({ existing: quantity.optional(), functional: quantity.optional(), additional: quantity.optional(), extra: quantity.default(0) }).refine(v => (v.functional ?? 0) <= (v.existing ?? 0), 'Functional cannot exceed existing');
 const modelIndex = z.number().int().min(0).max(2);
+/** UBEC171: how many classrooms, offices and stores make up one block when Whole School classrooms are grouped by block. */
+const blockShape = z.object({ classrooms: z.number().int().min(1, 'A block needs at least 1 classroom').max(30, 'Use at most 30 classrooms per block'), offices: z.number().int().min(0).max(10, 'Use at most 10 offices per block'), stores: z.number().int().min(0).max(10, 'Use at most 10 stores per block') });
+export type ClassroomBlock = z.infer<typeof blockShape>;
+/** construct: the Additional (new) Primary/JSS classrooms; renovate: the non-functional ones. */
+export type BlockKind = 'construct' | 'renovate';
 export const profileSchema = z.object({male:quantity, female:quantity, latitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=90),'Invalid latitude'),longitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=180),'Invalid longitude')});
 export const maxDescriptionLength = 500;
 /** Other Facilities rows a New Construction package may add (October 2026). */
@@ -53,6 +58,8 @@ export const packageSchema = z.object({
  lumpSum:amount.default(0),duration:z.string().trim().max(100).default(''),contingency:amount.default(0),preliminaries:amount.default(0),
  // Retired (no longer asked): kept so packages saved earlier still load.
  observations:z.string().max(5000).default(''),dilapidation:z.enum(['Minor repairs required','Moderate deterioration','Unsafe / reconstruction recommended','Severe dilapidation / major rehabilitation']).default('Minor repairs required'),conditionNotes:z.string().max(5000).default(''),
+ /** UBEC171: Whole School classrooms grouped by block, one make-up for new construction and one for renovation (absent = not grouped). */
+ blocks:z.object({construct:blockShape.optional(),renovate:blockShape.optional()}).default({}),
  furniture:z.array(z.object({description:z.string().trim().min(1).max(500),quantity:quantity.refine(n=>n>0),cost:amount.refine(n=>n>0)})).max(100).default([]),
  /** Timeline: implementation quarters within the plan's quarters (migration 050, also the package's quarters column); omitted = the plan's quarters. */
  quarters:lineQuartersSchema.optional(),
@@ -150,7 +157,7 @@ export function wholeRequirements(facts: SchoolFacts, stream: SchoolStream): Rec
 const classroomLabel = (facts: SchoolFacts, stream: SchoolStream) => facts.primary > 0 && facts.jss > 0 ? 'Classroom · Primary & JSS' : stream === 'jss' || (facts.jss > 0 && facts.primary === 0) ? 'Classroom · JSS' : 'Classroom · Primary';
 
 export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'land_area'|'photo'|'supporting';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
-export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string;/** Packages calculated since 17 October 2026; older ones fall back to the workbook text. */description?:string};
+export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string;/** UBEC171: how the classrooms are grouped into blocks, or the offices/stores the blocks already hold. */grouping?:string;/** Packages calculated since 17 October 2026; older ones fall back to the workbook text. */description?:string};
 /** A row's description: the edited one, else (New Construction) the workbook text; Whole School rows have none until one is entered. */
 export const requirementDescription=(input:Pick<InfrastructureInput,'kind'|'descriptions'>,key:string,model:number)=>input.descriptions?.[key]??(input.kind==='new'?deliverableDescription(key,model):'');
 /** The item's operation as shown; toilets saved before October 2026 stored "Supply / installation". */
@@ -228,6 +235,35 @@ export function photoEvidenceProblem(input:InfrastructureInput,gaps:AuditGap[],p
  const missing=photoRows(gaps).find(g=>!rowPhotoIds(input,photoIds,g.key).length);
  return missing?`Attach photographic evidence for ${missing.label}: non-functional units are recorded`:null;
 }
+export type BlockGrouping = { classrooms: number; full: number; remainder: number; blocks: number; offices: number; stores: number; perBlock: ClassroomBlock };
+/** Classrooms shared into blocks: full blocks of the chosen make-up, and one smaller block for any classrooms left over (each block has its offices and stores). */
+export function groupIntoBlocks(classrooms: number, block: ClassroomBlock | undefined): BlockGrouping | null {
+ if (!block || classrooms <= 0) return null;
+ const full = Math.floor(classrooms / block.classrooms), remainder = classrooms % block.classrooms, blocks = full + (remainder > 0 ? 1 : 0);
+ return { classrooms, full, remainder, blocks, offices: blocks * block.offices, stores: blocks * block.stores, perBlock: block };
+}
+const plural = (n: number, one: string) => `${n} ${n === 1 ? one : one + 's'}`;
+/** "3 classrooms with 1 office and 1 store". */
+export const blockMakeup = (classrooms: number, block: Pick<ClassroomBlock, 'offices' | 'stores'>) => {
+ const extras = [block.offices ? plural(block.offices, 'office') : '', block.stores ? plural(block.stores, 'store') : ''].filter(Boolean);
+ return plural(classrooms, 'classroom') + (extras.length ? ` with ${extras.join(' and ')}` : '');
+};
+/** "2 blocks of 3 classrooms with 1 office and 1 store, plus 1 smaller block of 1 classroom with 1 office and 1 store". */
+export function blockGroupingText(g: BlockGrouping): string {
+ const parts = [g.full ? `${plural(g.full, 'block')} of ${blockMakeup(g.perBlock.classrooms, g.perBlock)}` : '', g.remainder ? `${g.full ? '1 smaller block' : '1 block'} of ${blockMakeup(g.remainder, g.perBlock)}` : ''].filter(Boolean);
+ return parts.join(', plus ');
+}
+/** The Primary/JSS classrooms a Whole School package builds (Additional) and renovates (non-functional), the counts block grouping draws from. */
+export function classroomBlockCounts(input: InfrastructureInput, school: SchoolBasis): Record<BlockKind, number> {
+ if (input.kind !== 'whole') return { construct: 0, renovate: 0 };
+ const row = auditGaps(input, school).find(g => g.key === 'classroomPri');
+ return { construct: row?.toBuild ?? 0, renovate: row?.nonFunctional ?? 0 };
+}
+/** Blocks for each kind with classrooms (null when not grouped or nothing to group). */
+export function classroomGroupings(input: InfrastructureInput, school: SchoolBasis): Record<BlockKind, BlockGrouping | null> {
+ const counts = classroomBlockCounts(input, school);
+ return { construct: groupIntoBlocks(counts.construct, input.blocks?.construct), renovate: groupIntoBlocks(counts.renovate, input.blocks?.renovate) };
+}
 export function calculateInfrastructure(input:InfrastructureInput,school:SchoolBasis) {
  const enrolment=totalOf(school),facts=toFacts(school,input.components),stream=schoolStream(input.components);
  const model=packageModel(input,enrolment),items:PackageItem[]=[];
@@ -237,11 +273,16 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
   items.push({key,label,quantity,unit,lump,cost,total,strategy,duration,operation,description});return total;
  }
  if(input.kind==='furniture') input.furniture.forEach((r,i)=>add('furniture-'+i,r.description,r.quantity,'units',false,r.cost,'',''));
+ const groupings=classroomGroupings(input,facts);
  if(input.kind==='whole') for(const gap of auditGaps(input,facts)){
-  const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit)=>{const price=input.packageCosts[key];add(key,gap.label,qty,unit,lump,price?.cost??0,price?.strategy??defaultStrategy,price?.duration??'',operation,requirementDescription(input,gap.key,model));};
-  if(gap.civil&&gap.nonFunctional>0)addGap(gap.key+'-renovate','Renovation',gap.nonFunctional,true);
+  const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit,grouping?:string)=>{const price=input.packageCosts[key];add(key,gap.label,qty,unit,lump,price?.cost??0,price?.strategy??defaultStrategy,price?.duration??'',operation,requirementDescription(input,gap.key,model));if(grouping)items[items.length-1]={...items[items.length-1],grouping};};
+  // UBEC171: grouped classrooms name their blocks; the offices and stores inside the blocks come off the Office and Store rows.
+  const inBlocks=(kind:BlockKind)=>{const g=groupings[kind];return !g?0:gap.key==='office'?g.offices:gap.key==='store'?g.stores:0;};
+  const blockNote=(kind:BlockKind)=>{const g=groupings[kind];if(!g)return undefined;if(gap.key==='classroomPri')return blockGroupingText(g);const held=inBlocks(kind);return held?`${plural(held,gap.key)} ${held===1?'is':'are'} in the classroom blocks`:undefined;};
+  const renovate=Math.max(0,gap.nonFunctional-inBlocks('renovate')),construct=Math.max(0,gap.toBuild-inBlocks('construct'));
+  if(gap.civil&&renovate>0)addGap(gap.key+'-renovate','Renovation',renovate,true,gap.unit,blockNote('renovate'));
   // New ECCDE classrooms are built as ECCDE blocks of 2 classrooms. Toilets read "Supply / New Construction" (client, October 2026).
-  if(gap.toBuild>0)addGap(gap.civil?gap.key+'-construct':gap.key,gap.civil?'New construction':gap.key==='toilet'?'Supply / New Construction':'Supply / installation',gap.key==='classroomEccde'?Math.ceil(gap.toBuild/2):gap.toBuild,!!(gap.civil||gap.lump),gap.key==='classroomEccde'?'blocks':gap.unit);
+  if(construct>0)addGap(gap.civil?gap.key+'-construct':gap.key,gap.civil?'New construction':gap.key==='toilet'?'Supply / New Construction':'Supply / installation',gap.key==='classroomEccde'?Math.ceil(construct/2):construct,!!(gap.civil||gap.lump),gap.key==='classroomEccde'?'blocks':gap.unit,gap.civil?blockNote('construct'):undefined);
  }
  if(input.kind==='new'){
   const price=(key:string)=>input.targeting==='hope'?input.prices[key]??0:0;
@@ -281,3 +322,6 @@ export function packageProblem(input:InfrastructureInput,school:SchoolBasis){
 /** Land documents (C of O, R of O or Community Agreement) a New Construction package needs: at least one, for declaration 2. */
 /** New Construction land uploads, both always required: the evidence that the land is available (`land_area`, October 2026) and the C of O / R of O / Community Agreement (`land`). */
 export const landDocumentProblem=(input:Pick<InfrastructureInput,'kind'|'land'>,attached:{land:number;landArea:number})=>input.kind!=='new'?null:attached.landArea<1?'Attach the document showing the land required for this model is available':attached.land<1?'Attach the C of O, R of O or Community Agreement document':null;
+/** UBEC230: a New Construction package needs the school's drawings (at least one), always, whatever the Supporting documents setting. */
+export const drawingsMessage = 'Attach the drawings for this school before saving the New Construction package';
+export const drawingsDocumentProblem = (input: Pick<InfrastructureInput, 'kind'>, drawings: number) => input.kind === 'new' && drawings < 1 ? drawingsMessage : null;

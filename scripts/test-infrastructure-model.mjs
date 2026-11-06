@@ -128,4 +128,27 @@ const old=packageSchema.parse({kind:'whole',schoolId:1,components:['Primary'],mo
 assert.equal(old.model,2);assert.equal(calculateInfrastructure(old,facts).modelLabel,'');assert.equal(auditGaps(old,facts).find(g=>g.key==='classroomPri').required,6);
 assert.equal(requirements.filter(r=>r.category==='other').length,30);
 const furniture=make('furniture');furniture.furniture=[{description:'Desk',quantity:3,cost:10.15}];assert.equal(calculateInfrastructure(furniture,200).total,30.45);
+// UBEC171: Whole School classrooms grouped by block (new construction and renovation each have their own make-up).
+{
+ const {groupIntoBlocks,blockGroupingText,classroomBlockCounts,drawingsDocumentProblem}=await import('../lib/infrastructure-model.ts');
+ assert.equal(groupIntoBlocks(0,{classrooms:3,offices:1,stores:1}),null,'nothing to group');assert.equal(groupIntoBlocks(5,undefined),null,'not grouped');
+ const g=groupIntoBlocks(7,{classrooms:3,offices:1,stores:1});assert.deepEqual([g.full,g.remainder,g.blocks,g.offices,g.stores],[2,1,3,3,3]);
+ assert.equal(blockGroupingText(g),'2 blocks of 3 classrooms with 1 office and 1 store, plus 1 smaller block of 1 classroom with 1 office and 1 store');
+ assert.equal(blockGroupingText(groupIntoBlocks(6,{classrooms:3,offices:0,stores:2})),'2 blocks of 3 classrooms with 2 stores');
+ assert.equal(blockGroupingText(groupIntoBlocks(2,{classrooms:4,offices:1,stores:0})),'1 block of 2 classrooms with 1 office');
+ const grouped=structuredClone(whole);grouped.audit.classroomPri={existing:4,functional:2,additional:7,extra:0};grouped.audit.office={existing:0,functional:0,additional:5,extra:0};grouped.audit.store={existing:2,functional:0,additional:1,extra:0};
+ assert.deepEqual(classroomBlockCounts(grouped,facts),{construct:7,renovate:2});
+ const before=calculateInfrastructure(grouped,facts);assert.equal(before.items.find(i=>i.key==='classroomPri-construct').grouping,undefined,'not grouped until asked');
+ grouped.blocks={construct:{classrooms:3,offices:1,stores:1},renovate:{classrooms:2,offices:0,stores:1}};
+ assert.ok(packageSchema.safeParse(grouped).success);
+ assert.equal(packageSchema.safeParse({...grouped,blocks:{construct:{classrooms:0,offices:1,stores:1}}}).success,false,'a block needs a classroom');
+ const after=calculateInfrastructure(grouped,facts),item=key=>after.items.find(i=>i.key===key);
+ assert.equal(item('classroomPri-construct').quantity,7);assert.match(item('classroomPri-construct').grouping,/^2 blocks of 3 classrooms with 1 office and 1 store, plus 1 smaller block/);
+ assert.equal(item('classroomPri-renovate').grouping,'1 block of 2 classrooms with 1 store');
+ assert.equal(item('office-construct').quantity,2,'5 new offices − 3 in the blocks');assert.match(item('office-construct').grouping,/3 offices are in the classroom blocks/);
+ assert.equal(item('store-construct'),undefined,'the one new store is in the blocks');assert.equal(item('store-renovate').quantity,1,'2 non-functional stores − 1 in the renovated block');
+ assert.equal(packageSchema.parse({kind:'whole',schoolId:1,components:['Primary']}).blocks.construct,undefined,'older packages parse ungrouped');
+ // UBEC230: New Construction drawings required; other kinds optional.
+ assert.match(drawingsDocumentProblem({kind:'new'},0),/Attach the drawings/);assert.equal(drawingsDocumentProblem({kind:'new'},1),null);assert.equal(drawingsDocumentProblem({kind:'whole'},0),null);assert.equal(drawingsDocumentProblem({kind:'furniture'},0),null);
+}
 console.log('PASS: strict strategies, model-driven New Construction lists (Primary/JSS, no block of 3), land and fence rules, HOPE VAT, enrolment formulas with rounding, editable Additional, per-row photos, older packages and furniture.');

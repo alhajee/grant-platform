@@ -18,7 +18,7 @@ import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
 import { resolveSavedLineDates } from '@/lib/line-dates-db';
 import { clientKeySchema } from '@/lib/save-request';
 import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
-import { packageSchema, packageProblem, calculateInfrastructure, landDocumentProblem, schoolComponents, schoolFacts, auditGaps, photoEvidenceProblem } from '@/lib/infrastructure-model';
+import { packageSchema, packageProblem, calculateInfrastructure, landDocumentProblem, drawingsDocumentProblem, schoolComponents, schoolFacts, auditGaps, photoEvidenceProblem } from '@/lib/infrastructure-model';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 // teachers (DNEMIS D.2) sizes the Whole School staff rooms; enrolment_by_class splits enrolment by level.
 const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude,enrolment_by_class AS "enrolmentByClass",teachers';
@@ -83,6 +83,8 @@ export async function POST(req:NextRequest){
    if(docs.some(d=>d.school_id!==null&&d.school_id!==draft.schoolId))return error('One or more attachments belong to a different school');
    // New Construction: all three land declarations (packageProblem) and the C of O / R of O / Community Agreement document, always required.
    const landProblem=landDocumentProblem(draft,{land:docs.filter(d=>d.kind==='land').length,landArea:docs.filter(d=>d.kind==='land_area').length});if(landProblem)return error(landProblem);
+   // UBEC230: New Construction drawings are always required to save (Whole School and Furniture keep them optional).
+   const drawingsProblem=drawingsDocumentProblem(draft,docs.filter(d=>d.kind==='drawings').length);if(drawingsProblem)return error(drawingsProblem);
    // UBEC170: the school's Bill of Quantities is required to save the package, not only to send it.
    if(!docs.some(d=>d.kind==='boq'))return error('Attach this school’s Bill of Quantities (BOQ) before saving the package');
    // Per-row photographic evidence: keep only keys that name a photo attached to this package (a removed photo drops out).

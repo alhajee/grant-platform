@@ -61,6 +61,7 @@ import { DistributionAllocations, schoolItems } from './distribution-allocations
 import { distributionAllocationProblem } from '@/lib/distribution-lists';
 import { cellMatches, connectionDroppedMessage, isConnectionDropped, newClientKey, postJson } from '@/lib/save-request';
 import { nairaFormat } from '@/lib/money-format';
+import { InlineFieldIssues, issuesByField } from '@/components/inline-field-issues';
 const money=nairaFormat;
 const count=new Intl.NumberFormat('en-NG');
 // Base UI clears a multi-select when Escape is pressed with its list closed; a stray Escape must not wipe the chosen groups or classes.
@@ -83,6 +84,8 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const [data,setData]=useState<Data|null>(null),[draft,setDraft]=useState<Draft>(empty),[baseline,setBaseline]=useState<Draft>(empty);
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[view,setView]=useState('budget'),[picked,setPicked]=useState<number[]>([]),[pinned,setPinned]=useState<number[]>([]),[schoolQuery,setSchoolQuery]=useState(''),[schoolLevel,setSchoolLevel]=useState<SchoolLevelChoice>(allLevels),[query,setQuery]=useState('');
  const [summaryOpen,setSummaryOpen]=useState(false);
+ // UBEC221: after Add item / Save changes is pressed with fields missing, each field shows its message until it is fixed.
+ const [triedSave,setTriedSave]=useState(false);
  const [pending,setPending]=useState<null|(()=>void)>(null),[removal,setRemoval]=useState<{entity:'line'|'school';id?:number;schoolIds?:number[]}|null>(null),[listPicked,setListPicked]=useState<number[]>([]);
  const classesAnchor=useComboboxAnchor();
  const panel=usePanelMode(),{flashId,flash}=useLineFlash();
@@ -116,7 +119,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const blank=blankFor(workstream,data?planQuarters(data.plan):[]),fresh=offered.includes(Number(blank.activity))||!offered.length?blank:{...blank,activity:String(offered[0])};
  // A new item keeps the activity just worked on, so the panel stays on it after a save or cancel.
  const freshFor=(activity:string)=>offered.includes(Number(activity))?{...fresh,activity}:fresh;
- const reset=(activity:string=draft.activity)=>{createKey.current=null;const next=freshFor(activity);setDraft(next);setBaseline(next);setPendingDocs([]);};
+ const reset=(activity:string=draft.activity)=>{createKey.current=null;const next=freshFor(activity);setDraft(next);setBaseline(next);setPendingDocs([]);setTriedSave(false);};
  const guard=(run:()=>void)=>{if(dirty)setPending(()=>run);else run();};
  const perSchool=quantityFromSchools(workstream,Number(draft.activity)), visits=needsFrequency(workstream,Number(draft.activity));
  const training=workstream==='teachers',splitSide=data&&sideSplits(data.plan,workstream)?workstream:null,sharesBudget=!!splitSide;
@@ -137,7 +140,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  // Shared-pool mode: TLM shares one pool with Infrastructure's school packages (partnerProposed), so "left" counts both.
  const pooled=workstream==='tlm'&&!!data&&!isSplitMode(data.plan),poolUsed=pooled?Number(data?.partnerProposed??0):0;
  const savedKobo=(data?.lines??[]).reduce((sum,l)=>sum+budgetKobo(l.unitCost.toFixed(2))*BigInt(l.quantity),BigInt(0));
- const draftCheck=activityLineSchema.safeParse(payload(draft,workstream)),draftValid=draftCheck.success;
+ const draftCheck=activityLineSchema.safeParse(payload(draft,workstream));
  const quartersProblem=data?lineQuartersProblem(draft.quarters,data.plan):null,datesProblem=data?lineDatesProblem(draft,draft.quarters,data.plan.implementationYear):null,timelineProblem=quartersProblem??datesProblem;
  const draftQuantity=lineQuantity(draft,workstream);
  const draftKobo=Number.isSafeInteger(draftQuantity) && draftQuantity>=0 && Number(draft.unitCost)>=0 && Number(draft.unitCost)<=999999999999.99 ? budgetKobo(Number(draft.unitCost||0).toFixed(2))*BigInt(draftQuantity) : BigInt(0);
@@ -195,9 +198,9 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
   const savedId=body.entity==='line'&&body.action!=='delete'?result.id??body.id:undefined;if(savedId&&next.lines.some(l=>l.id===savedId))flash(savedId);
   // If an upload failed, keep the new item open so the documents can be attached again.
   const created=uploadFailed&&result.id?next.lines.find(l=>l.id===result.id):undefined;if(created){const d=toDraft(created);setDraft(d);setBaseline(d);}toast.success(result.added===undefined?'Saved.':`Added ${count.format(result.added)} school${result.added===1?'':'s'}${result.skipped?` · ${count.format(result.skipped)} already on the list`:''}.`);}catch(e){toast.error(e instanceof Error?e.message:'Unable to save');}finally{lock.current=false;setBusy(false);}}
- function save(e:FormEvent){e.preventDefault();const parsed=activityLineSchema.safeParse(payload(draft,workstream));if(!parsed.success){setError('');toast.error(parsed.error.issues[0].message);return;}if(timelineProblem){toast.error(timelineProblem);return;}if(budgetError){toast.error(budgetError);return;}void mutate({...parsed.data,entity:'line',action:draft.id?'update':'create',id:draft.id});}
+ function save(e:FormEvent){e.preventDefault();const parsed=activityLineSchema.safeParse(payload(draft,workstream));if(!parsed.success){setError('');setTriedSave(true);toast.error(parsed.error.issues[0].message);return;}setTriedSave(false);if(timelineProblem){setTriedSave(true);toast.error(timelineProblem);return;}if(budgetError){toast.error(budgetError);return;}void mutate({...parsed.data,entity:'line',action:draft.id?'update':'create',id:draft.id});}
  function toDraft(l:ActivityLine):Draft{return {id:l.id,activity:String(l.activity),customActivity:l.customActivity??'',description:l.description,rationale:l.rationale??'',implementationApproach:l.implementationApproach??'',quantity:String(l.frequency?l.quantity/l.frequency:l.quantity),frequency:l.frequency?String(l.frequency):'',unitCost:String(l.unitCost),strategy:l.strategy,targetGroup:l.targetGroup,equipment:l.equipment,textbookClasses:l.textbookClasses??[],textbookSubject:l.textbookSubject??'',equipmentCategory:l.equipmentCategory??'',equipmentType:l.equipmentType??'',subscriptionTypes:l.subscriptionTypes??[],websiteType:l.websiteType??'',item:l.item??'',censusType:l.censusType??'',priceItemId:l.priceItemId?String(l.priceItemId):'',schoolIds:l.schoolIds??[],beneficiary:l.beneficiary??'',schoolQuantities:l.schoolQuantities??{},trainingProvider:l.trainingProvider??'',targetParticipants:l.targetParticipants??'',schoolLevels:l.schoolLevels??[],trainingDays:l.trainingDays==null?'':String(l.trainingDays),venueType:l.venueType??'',quarters:l.quarters??planQuarters(data?.plan),startDate:l.startDate??null,dueDate:l.dueDate??null};}
- function edit(l:ActivityLine){guard(()=>{createKey.current=null;const d=toDraft(l);setDraft(d);setBaseline(d);setView('budget');panel.follow();});}
+ function edit(l:ActivityLine){guard(()=>{createKey.current=null;const d=toDraft(l);setDraft(d);setTriedSave(false);setBaseline(d);setView('budget');panel.follow();});}
  // UBEC188/191: ?line=<id> (from the plan page's UBEC rejections) opens that item in the form once the lines load.
  const linkedLine=useRef<string|null|undefined>(undefined);
  useEffect(()=>{
@@ -210,7 +213,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
   if(line)void Promise.resolve().then(()=>{createKey.current=null;const d=toDraft(line);setDraft(d);setBaseline(d);setView('budget');panel.follow();});
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[data]);
- function start(activity:number){guard(()=>{createKey.current=null;const next={...fresh,activity:String(activity)};setDraft(next);setBaseline(next);setPendingDocs([]);panel.follow();requestAnimationFrame(()=>document.getElementById('activity')?.focus());});}
+ function start(activity:number){guard(()=>{createKey.current=null;const next={...fresh,activity:String(activity)};setDraft(next);setTriedSave(false);setBaseline(next);setPendingDocs([]);panel.follow();requestAnimationFrame(()=>document.getElementById('activity')?.focus());});}
  // Quantity, unit cost or description edited in the table: the whole line goes through the same schema and API as the form.
  async function saveCell(id:number,field:InlineField,value:string):Promise<string|null>{
   const line=data?.lines.find(l=>l.id===id);if(!line)return 'This item is no longer in the plan';
@@ -277,7 +280,8 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
     {splitSide&&data&&!error&&<SharedBudgetPanel key={storedAllocation(data.plan,splitSide)??'unset'} side={splitSide} plan={data.plan} proposed={total} partnerProposed={Number(data.partnerProposed??0)} canEdit={!!data.canSplit&&!busy} onSaved={async()=>{await load();}}/>}
     {workstream==='ict'&&data&&!error&&<IctConnectPanel plan={data.plan} waivers={data.documents} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
     {choosesUpFront(workstream)&&data&&!error&&<ActivitySelectionPanel key={JSON.stringify(data.plan.qualityActivities)} workstream={workstream} plan={data.plan} lines={savedLines} canEdit={data.canEdit&&!busy} onSaved={async()=>{await load();}}/>}
-    <form id="activity-form" onSubmit={view==='budget'?save:e=>{e.preventDefault();if(picked.length)void mutate({entity:'school',action:'create',schoolIds:picked});}}><LockedOverlay reason={lockReason}><fieldset disabled={disabled}><FieldGroup>
+    {view==='budget'&&triedSave&&!draftCheck.success&&<InlineFieldIssues scope="activity-form" issues={issuesByField(draftCheck.error.issues)}/>}
+    <form id="activity-form" noValidate onSubmit={view==='budget'?save:e=>{e.preventDefault();if(picked.length)void mutate({entity:'school',action:'create',schoolIds:picked});}}><LockedOverlay reason={lockReason}><fieldset disabled={disabled}><FieldGroup>
      {view==='distribution'?<Field><FieldLabel htmlFor="school-search">Schools {required}</FieldLabel><Input id="school-search" type="search" placeholder="Search by school, LGA or level…" value={schoolQuery} onChange={e=>{setPinned(picked);setSchoolQuery(e.target.value);}}/>
       <SchoolLevelFilter schools={data?.schools??[]} value={schoolLevel} disabled={disabled} onChange={level=>{setPinned(picked);setSchoolLevel(level);}}/>
       <div className="school-picker" role="group" aria-label="Schools to add"><label className="school-pick school-pick-all"><Checkbox checked={allPicked?true:somePicked?'indeterminate':false} disabled={disabled||!addable.length} onCheckedChange={v=>toggleAll(v===true)} aria-label="Select all matching schools"/><span>Select all{needle||schoolLevel!==allLevels?' matching':''} ({count.format(addable.length)})</span>{picked.length>0&&<Badge variant="secondary" className="ml-auto">{count.format(picked.length)} selected</Badge>}</label>
@@ -311,12 +315,12 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
       {training?<Field><FieldLabel htmlFor="description">Description {required}</FieldLabel><Textarea id="description" required maxLength={1000} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></Field>
        :<>{select('strategy',workstream==='sbmc'?'Procurement strategy':'Implementation strategy',implementationStrategies)}{targetGroupPicker()}</>}
       <QuarterTimeline id="activity-quarters" year={data?.plan.implementationYear} size="compact" required help="The quarters in which this item will be implemented. Only this plan's quarters can be chosen." value={draft.quarters} onChange={quarters=>setDraft({...draft,quarters,...keepDatesInWindow(draft,quarters,data?.plan.implementationYear)})} available={data?planQuarters(data.plan):[]} disabled={disabled} error={quartersProblem??undefined} selectAll={!!data&&planQuarters(data.plan).length>1}/>
-      <LineDatesField id="activity-dates" value={{startDate:draft.startDate,dueDate:draft.dueDate}} onChange={dates=>setDraft({...draft,...dates})} quarters={draft.quarters} year={data?.plan.implementationYear} disabled={disabled} error={datesProblem}/>
+      <LineDatesField id="activity-dates" value={{startDate:draft.startDate,dueDate:draft.dueDate}} onChange={dates=>setDraft({...draft,...dates})} quarters={draft.quarters} year={data?.plan.implementationYear} disabled={disabled} error={datesProblem} revealMissing={triedSave}/>
       <LineDocumentsField workstream={workstream} activity={Number(draft.activity)} lineId={draft.id&&previous?.activity===Number(draft.activity)?draft.id:undefined} documents={previous?.documents??[]} pending={pendingDocs} onPendingChange={setPendingDocs} required={data?.documentsRequired===true} disabled={disabled} onChanged={async()=>{await load();}}/>
       {budgetError&&!requiredFirst&&<Alert variant="destructive"><AlertTitle>Allocation limit</AlertTitle><AlertDescription>{budgetError}</AlertDescription></Alert>}
      </>}
     </FieldGroup></fieldset></LockedOverlay></form>
-   </div></ScrollArea><div className="editor-footer"><div className="line-total"><span>{view==='budget'?capped?'Sub-total':'Line total':'Distribution schools'}</span><strong>{view==='budget'?money.format((Math.round(Number(draft.unitCost||0)*100)*draftQuantity)/100):data?.distribution.length??0}</strong></div><div className="footer-actions">{draft.id&&<><Button variant="ghost" disabled={busy} onClick={()=>guard(()=>reset())}>Cancel</Button><ButtonGroup className="activity-line-navigation" aria-label="Budget item navigation"><Button size="icon" variant="secondary" aria-label="Previous budget item" title="Previous budget item" disabled={disabled||selectedLineIndex<=0} onClick={()=>navigateLine(-1)}><ChevronLeftIcon/></Button><ButtonGroupSeparator/><Button size="icon" variant="secondary" aria-label="Next budget item" title="Next budget item" disabled={disabled||selectedLineIndex<0||selectedLineIndex===visibleLines.length-1} onClick={()=>navigateLine(1)}><ChevronRightIcon/></Button></ButtonGroup></>}{(()=>{const blocked=disabled||(view==='distribution'&&!picked.length)||(view==='budget'&&(!draftValid||!!timelineProblem))||!!budgetError;
+   </div></ScrollArea><div className="editor-footer"><div className="line-total"><span>{view==='budget'?capped?'Sub-total':'Line total':'Distribution schools'}</span><strong>{view==='budget'?money.format((Math.round(Number(draft.unitCost||0)*100)*draftQuantity)/100):data?.distribution.length??0}</strong></div><div className="footer-actions">{draft.id&&<><Button variant="ghost" disabled={busy} onClick={()=>guard(()=>reset())}>Cancel</Button><ButtonGroup className="activity-line-navigation" aria-label="Budget item navigation"><Button size="icon" variant="secondary" aria-label="Previous budget item" title="Previous budget item" disabled={disabled||selectedLineIndex<=0} onClick={()=>navigateLine(-1)}><ChevronLeftIcon/></Button><ButtonGroupSeparator/><Button size="icon" variant="secondary" aria-label="Next budget item" title="Next budget item" disabled={disabled||selectedLineIndex<0||selectedLineIndex===visibleLines.length-1} onClick={()=>navigateLine(1)}><ChevronRightIcon/></Button></ButtonGroup></>}{(()=>{const blocked=disabled||(view==='distribution'&&!picked.length)||!!budgetError;
    // A disabled button gets no hover, so the reason sits on a wrapper the pointer and keyboard can reach.
    const reason=blocked?saveBlockedReason({busy,canEdit:!!data?.canEdit,failed:!!error,needsIctAllocation:needsSplit,splitName:name,view:view==='distribution'?'distribution':'budget',pickedSchools:picked.length,issues:draftCheck.success?[]:draftCheck.error.issues,timelineError:timelineProblem,budgetError}):null;
    const button=<Button form="activity-form" type="submit" disabled={blocked}>{lockReason&&<LockIcon data-icon="inline-start"/>}{busy?'Saving…':draft.id?'Save changes':view==='budget'?'Add item':`Add ${picked.length?count.format(picked.length)+' ':''}school${picked.length===1?'':'s'}`}</Button>;
