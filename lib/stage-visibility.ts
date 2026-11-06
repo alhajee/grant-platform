@@ -1,6 +1,6 @@
 import type { QueryResult, QueryResultRow } from 'pg';
 import { implementedPillars, type ImplementedPillar } from './beap-pillars';
-import { canViewComponent } from './subeb-access';
+import { canViewComponent, isSupportViewer } from './subeb-access';
 import { normalizeDepartments, type DepartmentAccess } from './user-departments';
 import { holdsComponent } from './component-access';
 
@@ -52,6 +52,8 @@ export function reachedLevels(events: readonly StageEvent[], reviews: readonly {
 export function requiredLevel(user: StageViewer, pillar: ImplementedPillar): StageLevel | null {
   if (!canViewComponent({ role: user.role, departments: normalizeDepartments(user.departments ?? user.department), isBeapChair: user.isBeapChair }, pillar)) return null;
   if (user.role === 'Data Entry Staff') return 0;
+  // UBEC217: the support departments follow every component in real time, from the first saved line.
+  if (isSupportViewer({ role: user.role, departments: normalizeDepartments(user.departments ?? user.department) })) return 0;
   if (user.role === 'Executive Chairman') return 3;
   if (user.role === 'Director') return user.isBeapChair && !holdsComponent(user.departments ?? user.department, pillar) ? 2 : 1;
   return null;

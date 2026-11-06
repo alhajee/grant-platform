@@ -1,16 +1,15 @@
-// Observations before sending to UBEC (bug sheet row 156, migration 075; UBEC168/194, migration 085): the Executive
-// Chairman may ask any of the SUBEB's own Audit, Procurement, Finance and Special Programmes for observations; they see the
-// whole working plan, comment per activity (tagged with their department) and their Director sends them back; the SUBEB
-// sees a department's comments only once sent back, replies to them (the department resolves them, UBEC193), and cannot
-// send to UBEC while a department asked has not replied or an observation is open. Requests can be repeated (earlier
-// comments stay); other states and UBEC do not see them; the formal UBEC review never shows them.
+// Observations before sending to UBEC (bug sheet row 156, migration 075; UBEC168/194, migration 085), retired by UBEC217
+// (6 November 2026): nobody asks any more (POST 410). Requests made before stay readable and are still answered: the
+// departments asked see the whole working plan, comment per activity and their Director sends them back; the SUBEB sees a
+// department's comments only once sent back and replies (the department resolves them, UBEC193). They never hold the
+// send to UBEC. Other states and UBEC do not see them; the formal UBEC review never shows them.
 // Usage: node --env-file=.env scripts/test-observation-requests.mjs [baseUrl]   (local only; throwaway state, users and plan; cleans up)
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
-import { signForUbec } from './test-support/sign-for-ubec.mjs';
+import { signForUbec, uploadFinanceDocuments } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
@@ -62,28 +61,25 @@ try {
   ok(await api('desP', `/api/activities${q}&workstream=monitoring`, { workstream: 'monitoring', entity: 'line', action: 'create', activity: 0, description: 'QA monitoring visit', quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'Schools' }));
   const line = String((await db.query("SELECT id FROM activity_plan_lines WHERE plan_id=$1 AND workstream='monitoring'", [planId])).rows[0].id);
   const version = async () => ok(await api('ec', statePath)).plan.version;
-  const ask = async (who, departments, comment = '') => api(who, requestPath, { action: 'request', departments, comment, version: await version() });
-
-  fails(await ask('ec', ['audit']), 409, /BEAP Chair has sent the plan/);
+  // UBEC217: the Executive Chairman no longer asks; a request made before then is seeded straight into the database.
+  const ask = async (departments, comment = '') => {
+    const id = (await db.query("INSERT INTO plan_observation_requests(plan_id,submission_number,requested_by,requested_by_name,comment,audience) VALUES($1,0,$2,'QA ec',$3,'subeb') RETURNING id", [planId, users.ec, comment])).rows[0].id;
+    await db.query('INSERT INTO plan_observation_departments(request_id,department) SELECT $1, unnest($2::text[])', [id, departments]);
+  };
   for (const [who, action] of [['desP', 'submit'], ['dirP', 'endorse'], ['subebChair', 'forward']]) ok(await api(who, statePath, { action, pillar: 'monitoring', version: await version() }));
+  await uploadFinanceDocuments(db, planId);
+  for (const who of ['ec', 'subebChair']) fails(await api(who, requestPath, { action: 'request', departments: ['audit'], comment: '', version: await version() }), 410, /retired/);
   let status = ok(await api('ec', requestPath));
-  assert.equal(status.canRequest, true); assert.equal(status.problem, null);
-  assert.equal(ok(await api('ec', `/api/ubec/review${q}`)).canSubmit, true, 'asking is optional: the plan can go straight to UBEC');
-  fails(await ask('subebChair', ['audit']), 403);
-  fails(await ask('ec', []), 400);
-  step('the request is optional, only the Executive Chairman asks, and only once the plan has reached them');
+  assert.equal(status.canRequest, false); assert.equal(status.problem, null);
+  step('nobody asks for observations any more (410); the plan page offers no request');
 
-  ok(await ask('ec', ['audit', 'finance'], 'Please check the costs'), 201);
-  for (const who of ['audit', 'finance', 'auditOff']) assert.ok(await notified(who, 'observation_request'), `${who} is notified`);
-  for (const who of ['procurement', 'chair', 'ubecAudit', 'otherAudit']) assert.equal(await notified(who, 'observation_request'), false, `${who} is not asked`);
-  fails(await ask('ec', ['special']), 409, /not sent back/);
-  fails(await ask('ec', ['procurement']), 409, /not sent back/);
+  await ask(['audit', 'finance'], 'Please check the costs');
   status = ok(await api('ec', requestPath));
-  assert.match(status.problem, /Waiting for observations from SUBEB Audit and Finance/);
-  assert.equal(ok(await api('ec', statePath)).observationProblem, status.problem);
-  assert.equal(ok(await api('ec', `/api/ubec/review${q}`)).canSubmit, false);
-  fails(await api('ec', `/api/ubec/review${q}`, { action: 'submit', version: await version() }), 409, /Waiting for observations/);
-  step('the Executive Chairman picks the SUBEB departments; those asked are notified (not UBEC, not other states); sending to UBEC waits for them');
+  assert.equal(status.requests.length, 1, 'an earlier request stays listed');
+  assert.equal(status.problem, null, 'an unanswered earlier request no longer holds the send');
+  assert.equal(ok(await api('ec', statePath)).observationProblem, undefined);
+  assert.equal(ok(await api('ec', `/api/ubec/review${q}`)).canSubmit, true);
+  step('an earlier request stays readable and never holds the send to UBEC (UBEC217)');
 
   const detail = ok(await api('audit', ubecPath));
   assert.ok(detail.snapshot.monitoring.length === 1, 'they see the whole working plan');
@@ -120,12 +116,11 @@ try {
   assert.ok(await notified('ec', 'observation_return'));
   let threads = ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation');
   assert.deepEqual(threads.map(t => t.department), ['audit'], 'Audit’s observations reach the plan; Finance’s are still with Finance');
-  assert.match(ok(await api('ec', requestPath)).problem, /Waiting for observations from SUBEB Finance/);
   ok(await api('finance', ubecPath, { action: 'done', note: '' }));
   status = ok(await api('ec', requestPath));
-  assert.equal(status.openComments, 2); assert.match(status.problem, /Resolve the 2 open observations/);
-  fails(await api('ec', `/api/ubec/review${q}`, { action: 'submit', version: await version() }), 409, /Resolve the 2 open observations/);
-  step('the department Director sends back; the Executive Chairman is notified; open observations then block sending to UBEC');
+  assert.equal(status.openComments, 2); assert.equal(status.problem, null, 'open observations no longer hold the send');
+  assert.equal(ok(await api('ec', `/api/ubec/review${q}`)).canSubmit, true);
+  step('the department Director sends back an earlier request; the Executive Chairman is notified; open observations do not block');
 
   threads = ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation');
   ok(await api('desP', stateComments, { parentId: threads[0].id, body: 'Receipts are attached' }), 201);
@@ -136,14 +131,10 @@ try {
   assert.equal(ok(await api('ec', requestPath)).problem, null);
   step('the SUBEB replies but cannot resolve; the department resolves its observations after sending them back (UBEC193)');
 
-  ok(await ask('ec', ['procurement'], 'One more look, please'), 201);
-  status = ok(await api('ec', requestPath));
-  assert.equal(status.requests.length, 2); assert.equal(ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation').length, 2, 'earlier observations stay visible');
-  ok(await api('procurement', ubecPath, { action: 'done', note: 'Nothing further' }));
-  assert.equal(ok(await api('ec', requestPath)).problem, null);
+  assert.equal(ok(await api('ec', stateComments)).threads.filter(t => t.scope === 'observation').length, 2, 'earlier observations stay visible');
   await signForUbec(db, `/api/ubec/review${q}`);
   ok(await api('ec', `/api/ubec/review${q}`, { action: 'submit', version: await version() }));
-  step('the Executive Chairman can ask again; earlier observations stay; once all is in and resolved the plan goes to UBEC');
+  step('earlier observations stay; the plan goes to UBEC');
 
   fails(await api('audit', ubecPath), 409, /sent to UBEC/);
   assert.ok(!ok(await api('audit', '/api/ubec/observations')).plans.some(p => p.planId === planId));

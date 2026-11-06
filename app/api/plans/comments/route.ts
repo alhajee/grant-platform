@@ -8,6 +8,10 @@ import type { ActionPlan } from '@/lib/action-plans';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
 import { readPillarReviews, statePlanOpen } from '@/lib/pillar-review';
 import { readStageVisibility } from '@/lib/stage-visibility';
+import { readsOnly } from '@/lib/subeb-access';
+
+// UBEC217: Audit, Procurement, Finance and Special Programmes read every component but never comment on it.
+const readOnlyMessage = 'Audit, Procurement, Finance and Special Programmes follow the plan read-only and do not comment';
 import { subebRoles } from '@/lib/subeb-access';
 import { userDepartmentsSql } from '@/lib/user-departments';
 import { commentAbilities, commentColumns, createCommentSchema, displayRole, sharedUbecAbilities, sheetPillar, sheetRows, targetLabel, updateCommentSchema, type PlanCommentThread } from '@/lib/plan-comments';
@@ -81,6 +85,7 @@ export async function POST(request: NextRequest) {
       const role = displayRole(actor.role, actor.isBeapChair);
       if ('parentId' in input) {
         const parent = await readRoot(db, plan.id, input.parentId);
+        if (parent && visible.includes(parent.pillar) && readsOnly(actor, parent.pillar)) return error(readOnlyMessage, 403);
         if (!parent || !visible.includes(parent.pillar) || !threadAbilities(actor, parent, status(parent.pillar)).reply) return error('Comment not found', 404);
         if (parent.resolved_at) return error(parent.scope !== 'state' ? 'This UBEC comment is resolved. Only UBEC can reopen it.' : 'This comment is resolved. Reopen it before replying.', 409);
         const id = (await db.query('INSERT INTO plan_comments(plan_id,pillar,sheet,row_ref,column_id,parent_id,body,author_id,author_name,author_role,submission_number,target_label,scope,ubec_round_id,observation_department) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id',
@@ -89,6 +94,7 @@ export async function POST(request: NextRequest) {
       }
       const pillar = sheetPillar[input.sheet];
       // Only the holder starts threads, and a component always reaches its holder first (lib/stage-visibility.ts).
+      if (readsOnly(actor, pillar)) return error(readOnlyMessage, 403);
       const can = commentAbilities(actor, pillar, status(pillar));
       if (!can.reply) return error('This component is not assigned to your departments', 403);
       if (!can.start) return error('Only the reviewer currently holding this component can start a new comment. You can still reply to existing comments.', 403);
@@ -113,6 +119,7 @@ export async function PATCH(request: NextRequest) {
     const input = parsed.data;
     return await withOpenPlan(request, async (db, { plan, actor, name, status, visible }) => {
       const root = await readRoot(db, plan.id, input.id);
+      if (root && visible.includes(root.pillar) && readsOnly(actor, root.pillar)) return error(readOnlyMessage, 403);
       const can = root && threadAbilities(actor, root, status(root.pillar));
       if (!root || !visible.includes(root.pillar) || !can?.reply) return error('Comment not found', 404);
       if (input.action === 'resolve') {

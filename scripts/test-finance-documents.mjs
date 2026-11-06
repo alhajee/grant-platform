@@ -15,7 +15,7 @@ assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).
 const marker = `FD${randomUUID().slice(0, 8).toUpperCase()}`, password = randomUUID();
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 const cookies = {}, users = {}, created = [];
-let planId, passed = 0;
+let planId, settings, passed = 0;
 const step = message => { passed++; console.log('✓', message); };
 const email = who => `${who}.${marker}@finance.test`.toLowerCase();
 
@@ -63,6 +63,14 @@ try {
   form.append('rat', new Blob([await rat.xlsx.writeBuffer()]), 'rat.xlsx');
   planId = ok(await api('ec', '/api/plans', form), 201).plan.id;
   const path = `/api/plans/finance?plan=${planId}`;
+  // UBEC217: the Executive Chairman cannot send to UBEC until all three are uploaded (checked before readiness in
+  // reviewed-components mode, so an empty plan shows the Finance refusal first).
+  settings = (await db.query("SELECT ubec_submission_mode FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
+  await db.query("UPDATE state_workflow_settings SET ubec_submission_mode='reviewed_components' WHERE state_code='GLOBAL'");
+  const submitToUbec = async () => api('ec', `/api/ubec/review?plan=${planId}`, { action: 'submit', version: ok(await api('ec', `/api/plans/review?plan=${planId}`)).plan.version });
+  assert.match(ok(await api('ec', `/api/plans/review?plan=${planId}`)).financeProblem, /SUBEB Finance must upload the Bank statement, Notification of lodgement, 50% utilisation report before the plan is sent to UBEC/);
+  fails(await submitToUbec(), 409, /SUBEB Finance must upload/);
+  step('the Executive Chairman cannot send to UBEC before Finance uploads the three documents');
 
   fails(await api('physical', path), 403);
   const start = ok(await api('finance', path));
@@ -79,6 +87,9 @@ try {
   assert.equal(full.documents.length, 3, 'a new upload replaces the earlier file of that kind');
   assert.ok(full.documents.some(d => d.name === 'statement-v2.pdf'));
   step('only Finance uploads; one file per kind (PDF/Excel/Word/images checked); submitting needs all three');
+  assert.equal(ok(await api('ec', `/api/plans/review?plan=${planId}`)).financeProblem, null);
+  fails(await submitToUbec(), 409, /At least one component/);
+  step('once all three are uploaded (submitted to the BEAP Chair or not) Finance no longer holds the send');
 
   ok(await api('finance', path, { action: 'submit' }));
   const notice = (await db.query("SELECT 1 FROM plan_notifications n JOIN plan_review_events e ON e.id=n.event_id WHERE n.user_id=$1 AND n.plan_id=$2 AND e.action='finance_submit'", [users.beapChair, planId])).rowCount;
@@ -108,6 +119,7 @@ try {
   step('at UBEC only the Finance Oversight Director and Finance Assessment Officers see them; Finance can still upload while the plan is with UBEC');
   console.log(`\nPASS: ${passed} Finance document checks`);
 } finally {
+  if (settings) await db.query("UPDATE state_workflow_settings SET ubec_submission_mode=$1 WHERE state_code='GLOBAL'", [settings.ubec_submission_mode]);
   if (planId) {
     await db.query('DELETE FROM plan_notifications WHERE plan_id=$1', [planId]);
     await db.query('DELETE FROM ubec_rounds WHERE plan_id=$1', [planId]);

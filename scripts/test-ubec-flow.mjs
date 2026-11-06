@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
-import { signForUbec } from './test-support/sign-for-ubec.mjs';
+import { signForUbec, uploadFinanceDocuments } from './test-support/sign-for-ubec.mjs';
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
@@ -83,6 +83,9 @@ try {
   const decide = async (who, pillar, rowRef, decision, note = '') => api(who, decisions, { roundId: (await view('chair')).round.id, pillar, rowRef, decision, note }, 'PUT');
 
   await throughState('sports', 'desA', 'dirA'); await throughState('monitoring', 'desP', 'dirP');
+  // UBEC217: SUBEB Finance's three documents come first; the send is refused until they are uploaded.
+  fails(await api('ec', path, { action: 'submit', version: ok(await api('ec', path)).plan.version }), 409, /SUBEB Finance must upload the Bank statement/);
+  await uploadFinanceDocuments(db, planId);
   { // UBEC132: the Executive Chairman signs (drawn or uploaded) and attaches a cover letter before sending to UBEC.
     const letterPath = `/api/plans/submission-letter?plan=${planId}`;
     const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63f8ffff3f0005fe02fea7d6a4f50000000049454e44ae426082', 'hex');

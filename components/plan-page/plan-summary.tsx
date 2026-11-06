@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowLeftIcon, CalendarDaysIcon, FileTextIcon, HandCoinsIcon, ListIcon, SchoolIcon } from 'lucide-react';
+import { ArrowLeftIcon, CalendarDaysIcon, ChevronRightIcon, FileTextIcon, HandCoinsIcon, ListIcon, SchoolIcon } from 'lucide-react';
 import { Amount, FundingGauge, amountFormat, compactNaira, mixOrder } from '@/components/dashboard/plan-figures';
 import { OtherFundingInfo } from '@/components/funding-sources-field';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import type { ActionPlan } from '@/lib/action-plans';
 import { otherFundingTotal } from '@/lib/plan-setup';
 import type { PlanTotals } from '@/lib/plan-summary';
+import type { Snapshot } from '@/lib/plan-review';
+import { planSchools } from '@/lib/plan-schools';
+import { planPeriod } from '@/lib/action-plans';
+import { PlanSchoolsDialog } from '@/components/plan-schools-dialog';
 import { FundingDetails } from './funding-details';
 
 const plural = (n: number, one: string, many: string) => n === 1 ? one : many;
@@ -70,7 +74,11 @@ function FlipCard({ flipped, front, back }: { flipped: boolean; front: ReactNode
  * component-coloured gauge and a 2x2 grid of facts; "Funding details & documents" flips it to the back, where
  * the funding sources, plan reference and assessment documents are, with a button to flip back.
  */
-export function PlanSummary({ plan, totals, detailsOpen, onDetailsOpenChange }: { plan: ActionPlan; totals: PlanTotals; detailsOpen: boolean; onDetailsOpenChange: (open: boolean) => void }) {
+export function PlanSummary({ plan, totals, snapshot, detailsOpen, onDetailsOpenChange }: { plan: ActionPlan; totals: PlanTotals;
+  /** UBEC234: the loaded (visible) snapshot, whose schools the "N schools" fact lists. */
+  snapshot?: Snapshot; detailsOpen: boolean; onDetailsOpenChange: (open: boolean) => void }) {
+  const [schoolsOpen, setSchoolsOpen] = useState(false);
+  const schools = useMemo(() => snapshot && schoolsOpen ? planSchools(snapshot) : null, [snapshot, schoolsOpen]);
   const funding = plan.fundingTotal != null ? Number(plan.fundingTotal) : null;
   const other = Number(otherFundingTotal(plan));
   const { budget, schoolCount, lineCount } = totals.total;
@@ -92,9 +100,10 @@ export function PlanSummary({ plan, totals, detailsOpen, onDetailsOpenChange }: 
       <p className="plan-summary-proposed"><strong>{compactNaira.format(budget)}</strong> proposed{share != null && <span>{share}%</span>}</p>
     </div> : <p className="plan-summary-proposed">Nothing proposed yet</p>}
     <dl className="plan-summary-facts">
-      {facts.map(({ key, Icon, value, label, info }) => <div key={key}>
+      {facts.map(({ key, Icon, value, label, info }) => <div key={key} data-fact={key}>
         <dt><Icon aria-hidden="true" />{label}{info && <OtherFundingInfo setup={plan} />}</dt>
-        <dd>{value}</dd>
+        {/* UBEC234: the schools figure opens the list of schools intervened and beneficiary schools. */}
+        <dd>{key === 'schools' && snapshot ? <Button type="button" variant="link" className="plan-summary-schools" onClick={() => setSchoolsOpen(true)} aria-label={`${value} ${label}. Show the list`}>{value}<ChevronRightIcon aria-hidden="true" /></Button> : value}</dd>
       </div>)}
     </dl>
     {plan.beapName && <button type="button" className="plan-summary-details-trigger" aria-expanded={detailsOpen} onClick={() => onDetailsOpenChange(true)}><FileTextIcon aria-hidden="true" />Funding details & documents</button>}
@@ -112,5 +121,7 @@ export function PlanSummary({ plan, totals, detailsOpen, onDetailsOpenChange }: 
     <CardContent>
       {plan.beapName ? <FlipCard flipped={detailsOpen} front={front} back={back} /> : <div className="flip-face" data-side="front">{front}</div>}
     </CardContent>
+    {snapshot && <PlanSchoolsDialog open={schoolsOpen} onOpenChange={setSchoolsOpen} schools={schools} title={`Schools in the ${planPeriod(plan).replace(' · ', ' ')} BEAP`}
+      description="Schools intervened through Infrastructure, and the beneficiary schools of the other components that have reached you" fileName={`schools-${planPeriod(plan).replace(/[^0-9A-Za-z]+/g, '-')}`} />}
   </Card>;
 }

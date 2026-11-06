@@ -93,7 +93,10 @@ function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, 
         <Badge variant={review.status === 'changes_requested' ? 'warning' : 'secondary'}>{reviewLabel(plan.status, review.status)}</Badge>
       </div>
       <div className="component-card-department"><span>{subebDepartmentName(subebComponentDepartments[pillar])}</span><PolicyShare plan={envelopePlan} pillar={pillar} /></div>
-      <p className="component-card-amount component-card-pending"><LockIcon aria-hidden="true" />Details appear once it is sent to you</p>
+      {/* UBEC235: the allocation is plan setup, so it shows before the component is sent; proposals stay hidden. */}
+      <CeilingBar proposed={0} ceiling={ceiling} />
+      <p className="component-card-amount component-card-allocation">{ceiling != null ? <>{pooled ? 'Shared pool' : 'Allocation'} <b>{compactNaira.format(ceiling)}</b></> : 'Allocation not set yet'}</p>
+      <p className="component-card-amount component-card-pending"><LockIcon aria-hidden="true" />Items appear once sent to you</p>
     </div>
   </li>;
   return <li className="component-card" data-component={pillar} data-over={ceiling != null && used > ceiling || undefined} style={{ '--component-fill': palette.fill, '--component-ink': palette.ink } as CSSProperties}>

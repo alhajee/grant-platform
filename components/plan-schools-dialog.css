@@ -1,0 +1,28 @@
+/* UBEC234: the plan's schools list (components/plan-schools-dialog.tsx). */
+.plan-schools-dialog { gap: 14px; }
+.plan-schools-totals { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; margin: 0; }
+.plan-schools-totals > div { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--card); }
+.plan-schools-totals > div[data-total] { background: color-mix(in oklab, #2c7a5e 9%, var(--card)); border-color: color-mix(in oklab, #2c7a5e 28%, var(--border)); }
+.plan-schools-totals dt { font-size: 12px; color: var(--muted-foreground); }
+.plan-schools-totals dd { margin: 2px 0 0; font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.plan-schools-totals > div[data-total] dd { font-size: 28px; color: #1f5c46; }
+.plan-schools-tools { display: flex; gap: 8px; align-items: center; }
+.plan-schools-search { flex: 1; }
+.plan-schools-scroll { max-height: min(440px, 52vh); }
+.plan-schools-scroll section + section { margin-top: 14px; }
+.plan-schools-scroll h3 { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; font-weight: 650; margin: 0 0 6px; position: sticky; top: 0; background: var(--background); padding: 4px 0; z-index: 1; }
+.plan-schools-scroll h3 span { font-weight: 400; color: var(--muted-foreground); font-size: 12px; }
+.plan-schools-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.plan-schools-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 2px; border-top: 1px solid var(--border); }
+.plan-schools-list li > div:first-child { display: flex; flex-direction: column; min-width: 0; }
+.plan-schools-list strong { font-size: 13.5px; font-weight: 600; }
+.plan-schools-list li > div:first-child span { font-size: 12px; color: var(--muted-foreground); }
+.plan-schools-uses { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; align-content: flex-start; max-width: 55%; }
+.plan-schools-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 18px 0; color: var(--muted-foreground); font-size: 13px; }
+@media (max-width: 560px) {
+  .plan-schools-totals { grid-template-columns: 1fr 1fr 1fr; }
+  .plan-schools-list li { flex-direction: column; gap: 6px; }
+  .plan-schools-uses { justify-content: flex-start; max-width: none; }
+  .plan-schools-tools { flex-wrap: wrap; }
+}
+.plan-schools-uses [data-slot=badge] { font-size: 11.5px; }

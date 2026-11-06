@@ -1,4 +1,4 @@
-import { CircleAlertIcon, ScanEyeIcon, SendIcon } from 'lucide-react';
+import { CircleAlertIcon, SendIcon } from 'lucide-react';
 import { rejectionProblem } from '@/lib/ubec-corrections';
 import { componentName } from '@/lib/ubec-flow';
 import { Button } from '@/components/ui/button';
@@ -10,11 +10,9 @@ import type { PlanReview } from '@/lib/plan-review';
  * The whole-plan step for the BEAP Chair (collate and send to the Executive Chairman) and the Executive
  * Chairman (send to UBEC), with how many components have reached them. Nothing for other roles.
  */
-export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSeveral, onRequestObservations }: { data: PlanReview; available: boolean; onForward: () => void; onSendToUbec: () => void;
+export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSeveral }: { data: PlanReview; available: boolean; onForward: () => void; onSendToUbec: () => void;
   /** Individual-components mode: send several reviewed components at once (V2-04). */
-  onSendSeveral?: () => void;
-  /** The Executive Chairman's optional request for observations from the SUBEB's Audit, Procurement, Finance and Special Programmes (row 156, UBEC194); omitted while one is open. */
-  onRequestObservations?: () => void }) {
+  onSendSeveral?: () => void }) {
   if (!statePlanOpen(data.plan.status)) return null;
   const count = (statuses: string[]) => data.pillarReviews.filter(review => statuses.includes(review.status)).length;
   const of = `of ${implementedPillars.length} components`;
@@ -30,19 +28,18 @@ export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSe
     </div>;
   }
   if (data.role !== 'Executive Chairman') return null;
-  // Observations asked of UBEC Audit, Procurement or Finance hold the send until they are in and resolved.
+  // UBEC217: SUBEB Finance's three documents hold the send until they are uploaded (observation requests are retired).
   // UBEC189: and so do items UBEC rejected that nobody has changed or removed yet.
   const rejected = data.pillarReviews.filter(r => r.status === 'chairman_ready').map(r => rejectionProblem(componentName(r.pillar), data.ubecOpenRejections?.[r.pillar])).find(Boolean) ?? null;
   // UBEC205: and a RAT tool UBEC rejected that has not been replaced.
-  const observations = data.observationProblem ?? data.ratProblem ?? rejected;
+  const blocked = data.financeProblem ?? data.ratProblem ?? rejected;
   return <div className="workflow-bar">
     <p>{count(['chairman_ready'])} {of} ready{data.ubecSubmissionMode === 'reviewed_components' ? '. Only ready components are sent to UBEC.' : ''}</p>
     <div className="flex flex-wrap gap-2">
-      {onRequestObservations && <Button variant="outline" className="rounded-full" disabled={!available} onClick={onRequestObservations}><ScanEyeIcon data-icon="inline-start" />Ask SUBEB for observations</Button>}
-      {data.readyForUbec && available && !observations
+      {data.readyForUbec && available && !blocked
         ? <Button className="rounded-full" onClick={onSendToUbec}><SendIcon data-icon="inline-start" />Send to UBEC</Button>
-        : <Button className="rounded-full" disabled aria-describedby={observations ? 'workflow-observations' : undefined}><SendIcon data-icon="inline-start" />Send to UBEC</Button>}
+        : <Button className="rounded-full" disabled aria-describedby={blocked ? 'workflow-observations' : undefined}><SendIcon data-icon="inline-start" />Send to UBEC</Button>}
     </div>
-    {observations && <p id="workflow-observations" role="status" className="workflow-blocked flex items-start gap-1.5 text-sm text-destructive"><CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{observations}</p>}
+    {blocked && <p id="workflow-observations" role="status" className="workflow-blocked flex items-start gap-1.5 text-sm text-destructive"><CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{blocked}</p>}
   </div>;
 }

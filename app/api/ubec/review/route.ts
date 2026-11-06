@@ -20,7 +20,7 @@ import { readRatResubmitProblem, readRatReview } from '@/lib/rat-review-db';
 import { ratRejectedForApproval } from '@/lib/rat-review';
 import { addUbecEvent, approvableComponents, notifyUbec, openOversightCommentCount, oversightCommentsMessage, readActor, readDecisions, readFlow, readRoundComponents, readViewerRounds, releaseRows, ubecVisibleSnapshot, viewerPillars } from '@/lib/ubec-flow-db';
 import { componentName, superAdminRole } from '@/lib/ubec-flow';
-import { readObservationStatus } from '@/lib/observation-requests-db';
+import { readFinanceSendProblem } from '@/lib/finance-documents-db';
 import { subebComponentDepartments, type ImplementedPillar } from "@/lib/beap-pillars";
 import { submissionLetterProblem } from '@/lib/submission-letter';
 import { attachLetters, readPendingLetters, readRoundLetters } from '@/lib/submission-letter-db';
@@ -67,8 +67,6 @@ export async function GET(request: NextRequest) {
       const ubecMode = await readUbecSubmissionMode(db);
       const reviews = user.role === 'Executive Chairman' ? await readPillarReviews(db, plan.id) : [];
       const canSubmit = user.role === 'Executive Chairman' && (!allRounds[0] || allRounds[0].status === 'returned') && (ubecMode === 'reviewed_components' ? statePlanOpen(plan.status) : plan.status === 'awaiting_chairman') && readyForUbecSubmission(ubecMode, reviews, await readPlanSnapshot(db, plan.id), await readReadinessOptions(db))
-        // Observations the Executive Chairman asked UBEC Audit, Procurement or Finance for must be in and resolved (row 156).
-        && !(await readObservationStatus(db, plan.id)).problem
         && !Object.keys(await readOpenRejections(db, plan.id, await readPlanSnapshot(db, plan.id))).some(p => componentsWithExecutiveChairman(reviews).includes(p as ImplementedPillar));
       const setup = round?.snapshot.setup;
       const fundingTotal = setup?.fundingTotal != null ? Number(setup.fundingTotal) : null;
@@ -116,8 +114,9 @@ export async function POST(request: NextRequest) {
         const readiness = await readReadinessOptions(db);
         const unready = unreadySentComponents(snapshot, reviews, readiness)[0];
         if (unready) return error(componentSendProblem(unready, snapshot, readiness)!, 409);
-        const observations = (await readObservationStatus(db, plan.id)).problem;
-        if (observations) return error(observations, 409);
+        // UBEC217: the three Finance documents must be uploaded first (observation requests no longer hold the send).
+        const finance = await readFinanceSendProblem(db, plan.id);
+        if (finance) return error(finance, 409);
         // UBEC205: a RAT tool UBEC rejected must be replaced first.
         const rat = await readRatResubmitProblem(db, plan.id);
         if (rat) return error(rat, 409);

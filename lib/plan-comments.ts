@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { ImplementedPillar } from './beap-pillars';
-import { canViewComponent } from './subeb-access';
+import { canWorkOnComponent } from './subeb-access';
 import { normalizeDepartments, type DepartmentAccess } from './user-departments';
 import { holdsComponent as grantsComponent } from './component-access';
 import type { Snapshot } from './plan-review';
@@ -80,7 +80,8 @@ export function holdsComponent(user: Viewer, pillar: ImplementedPillar, status: 
 export type CommentAbilities = { start: boolean; reply: boolean; resolveAny: boolean; reopen: boolean; /** UBEC210: edit one's own comments on open threads (UBEC and observation threads) */ edit?: boolean };
 /** What a viewer may do on a component's threads at its current review stage (the plan must also be open). */
 export function commentAbilities(user: Viewer, pillar: ImplementedPillar, status: string): CommentAbilities {
-  const view = canViewComponent({ role: user.role, departments: normalizeDepartments(departments(user)), isBeapChair: user.isBeapChair }, pillar);
+  // UBEC217: support departments read every component but never comment on the ones they take no part in.
+  const view = canWorkOnComponent({ role: user.role, departments: normalizeDepartments(departments(user)), isBeapChair: user.isBeapChair }, pillar);
   const holder = view && holdsComponent(user, pillar, status);
   const staff = user.role === 'Data Entry Staff' && grantsComponent(departments(user), pillar);
   return { start: holder, reply: view, resolveAny: view && (staff || holder), reopen: view && isStateReviewer(user) };

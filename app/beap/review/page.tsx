@@ -19,7 +19,6 @@ import { PlanDocuments } from '@/components/plan-page/plan-documents';
 import { StatusPanel } from '@/components/plan-page/status-panel';
 import { SendToUbecDialog } from '@/components/plan-page/send-to-ubec-dialog';
 import { ObservationsCard, usePlanObservations } from '@/components/plan-page/observations-card';
-import { RequestObservationsDialog } from '@/components/plan-page/request-observations-dialog';
 import { BudgetSplitsCard } from '@/components/plan-page/budget-splits-card';
 import { LevelMappingCard } from '@/components/level-mapping-card';
 import { levelMapping } from '@/lib/level-mapping';
@@ -65,7 +64,7 @@ export default function PlanPage() {
   const [deleteBlocked, setDeleteBlocked] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   // One toggle opens the funding details and the full status panel together, so the two cards stay level.
-  const [detailsOpen, setDetailsOpen] = useState(false), [sendingToUbec, setSendingToUbec] = useState(false), [sendingSeveral, setSendingSeveral] = useState(false), [askingObservations, setAskingObservations] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false), [sendingToUbec, setSendingToUbec] = useState(false), [sendingSeveral, setSendingSeveral] = useState(false);
   const requestId = useRef(0);
   const load = useCallback(async (version = 'current') => {
     const id = ++requestId.current;
@@ -170,11 +169,11 @@ export default function PlanPage() {
           <h2 id="plan-components-title" className="plan-section-title plan-glance-head">{data.pillarReviews.length ? 'Components' : 'Your work on this plan'}</h2>
           <section className="plan-components plan-glance-main" id="plan-components" aria-labelledby="plan-components-title">
             {data.pillarReviews.length ? <ComponentCards data={data} totals={totals} comments={comments} actionsFor={actionsFor} ubec={ubecResults} /> : selected === 'current' && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
-            <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} onSendToUbec={() => setSendingToUbec(true)} onSendSeveral={() => setSendingSeveral(true)} onRequestObservations={observations.data?.canRequest ? () => setAskingObservations(true) : undefined} />
+            <WorkflowBar data={data} available={available} onForward={() => setRequest({ action: 'forward' })} onSendToUbec={() => setSendingToUbec(true)} onSendSeveral={() => setSendingSeveral(true)} />
             <SendSeveralDialog open={sendingSeveral} onOpenChange={setSendingSeveral} data={data} problemFor={pillar => nothingToSend(data, pillar) ? 'Nothing saved in this component yet' : data.ratProblem ?? readiness(data, pillar)} onDone={async () => { await load(); }} />
           </section>
           <aside className="plan-glance-side" aria-label="Plan funding and status">
-            <PlanSummary plan={data.plan} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
+            <PlanSummary plan={data.plan} totals={totals} snapshot={data.snapshot} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} />
             {/* Budget splits: set by the BEAP Chair (client, 26 October 2026); the Executive Chairman sees them. */}
             {selected === 'current' && data.snapshot.setup && (data.role === 'Executive Chairman' || data.isBeapChair) && <BudgetSplitsCard plan={data.snapshot.setup} totals={totals} canSplit={data.isBeapChair && open} onSaved={async () => { await load(); }} />}
             <StatusPanel feedback={plan?.status === 'changes_requested' ? latestFeedback : undefined} events={data.events} scopeLabel={scopeLabel} ubecStage={plan ? ubecStageLabels[plan.status] : null} />
@@ -198,7 +197,6 @@ export default function PlanPage() {
     </main>
     {data && <ReviewActionDialog request={request} data={data} comments={comments} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} />}
     {data && <SendToUbecDialog key={sendingToUbec ? 'open' : 'closed'} planId={data.plan.id} review={data} open={sendingToUbec} openUbecComments={comments?.threads.filter(thread => thread.scope === 'ubec' && !thread.resolvedAt).length ?? 0} onClose={() => setSendingToUbec(false)} onSent={() => { setSendingToUbec(false); void load(); }} />}
-    {data && <RequestObservationsDialog key={askingObservations ? 'open' : 'closed'} plan={data.plan} open={askingObservations} onClose={() => setAskingObservations(false)} onSent={() => { setAskingObservations(false); void load(); }} />}
     {editing && data && <EditPlanDialog planId={data.plan.id} onClose={() => setEditing(false)} onSaved={() => void load(selected)} />}
   </div>;
 }
