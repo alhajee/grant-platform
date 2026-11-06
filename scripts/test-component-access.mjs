@@ -6,13 +6,14 @@ import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
 
+import { withProformas } from './test-support/proformas.mjs';
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 const state = `CA${Date.now()}`, password = crypto.randomUUID(), cookies = {}, ids = [], plans = [];
 const step = name => console.log(`- ${name}`);
-async function api(who, path, body, method = body ? 'POST' : 'GET') {
+async function api(who, path, body, method = body ? 'POST' : 'GET') {await withProformas(db,path,body);
   const headers = { Cookie: cookies[who] || '', Origin: base };
   if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
   const r = await fetch(base + path, { method, headers, ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}) });

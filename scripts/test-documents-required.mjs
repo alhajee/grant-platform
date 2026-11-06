@@ -16,6 +16,7 @@ import ExcelJS from 'exceljs';
 import ts from 'typescript';
 import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
+import { withProformas } from './test-support/proformas.mjs';
 const requireModule = createRequire(import.meta.url);
 function load(path) {
   const loaded = { exports: {} };
@@ -36,7 +37,7 @@ const step = message => { passed++; console.log('✓', message); };
 // Unit: the readiness rule skips documents only when they are not required.
 const { componentReadinessProblem } = load(resolve('lib/component-readiness.ts'));
 const compulsoryIct = [{ id: 6, activity: 1, description: 'NDPA' }, { id: 7, activity: 5, description: 'Internet' }, { id: 3, activity: 2, description: 'Smart', schools: [{}] }, { id: 4, activity: 3, description: 'Connect', documents: [{}] }, { id: 5, activity: 6, description: 'Website' }];
-const ictLines = [{ id: 1, activity: 0, description: 'Spec', schools: [{ id: 1 }], documents: [] }, ...compulsoryIct];
+const ictLines = [{ id: 1, activity: 0, description: 'Spec', schools: [{ id: 1 }], documents: [{ kind: 'proforma' }] }, ...compulsoryIct];
 assert.match(componentReadinessProblem('ict', ictLines, null, { documentsRequired: true }) ?? '', /Upload the specification document/);
 assert.equal(componentReadinessProblem('ict', ictLines, null, { documentsRequired: false }), null);
 // UBEC209: the Budget Breakdown and Training List of Participants are required whatever the setting.
@@ -74,7 +75,7 @@ const wholeLine = { school: { id: 8, name: 'Whole school' }, package: { kind: 'w
 assert.equal(infrastructureDocumentProblem({ infrastructure: [wholeLine], infrastructureDocuments: [{ id: 'b8', kind: 'boq', schoolId: 8 }] }, { documentsRequired: false }), null, 'Whole School drawings are optional');
 step('Infrastructure readiness: BOQ always, survey follows the setting, New Construction drawings and land documents always (unit)');
 
-async function api(who, path, body, { method = body ? 'POST' : 'GET', origin = base } = {}) {
+async function api(who, path, body, { method = body ? 'POST' : 'GET', origin = base } = {}) {await withProformas(db,path,body);
   const jar = jars[who] ??= {}, isForm = body instanceof FormData;
   const headers = { Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '), Origin: origin, ...(body && !isForm ? { 'Content-Type': 'application/json' } : {}) };
   const response = await fetch(base + path, { method, headers, ...(body ? { body: isForm ? body : JSON.stringify(body) } : {}) });

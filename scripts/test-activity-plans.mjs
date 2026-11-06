@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import {Client} from 'pg';
 import {hashSync} from 'bcryptjs';
+import { withProformas } from './test-support/proformas.mjs';
 const base=process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost','127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
 const db=new Client({connectionString:process.env.DATABASE_URL});await db.connect();
 const state=`ACT${Date.now()}`,password=crypto.randomUUID(),cookies={},ids=[];let plan,school,school2;
-async function api(who,path,body){const r=await fetch(base+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',Origin:base,Cookie:cookies[who]||''},...(body?{body:JSON.stringify(body)}:{})});const data=await r.json();return {status:r.status,data,cookie:r.headers.get('set-cookie')?.split(';')[0]};}
+async function api(who,path,body){await withProformas(db,path,body);const r=await fetch(base+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',Origin:base,Cookie:cookies[who]||''},...(body?{body:JSON.stringify(body)}:{})});const data=await r.json();return {status:r.status,data,cookie:r.headers.get('set-cookie')?.split(';')[0]};}
 function ok(r,status=200){assert.equal(r.status,status,JSON.stringify(r.data));return r.data;}
 const line={workstream:'sbmc',entity:'line',action:'create',activity:0,description:'Community planning session',rationale:'Improve community participation',implementationApproach:'Facilitated school workshops',quantity:2,unitCost:125.25,strategy:'NCB',targetGroup:'Community level',equipment:''};
 try{
@@ -135,6 +136,10 @@ try{
  const dashboard=ok(await api('social','/api/plans'));assert.equal(dashboard.plans[0].budget,375.75);assert.equal(dashboard.plans[0].schoolCount,0);
  const academicDashboard=ok(await api('director','/api/plans'));assert.equal(academicDashboard.plans[0].budget,501);assert.equal(academicDashboard.plans[0].schoolCount,1);
  const exactReview=ok(await api('social',`/api/plans/review?plan=${plan}`));
+ // UBEC227: Monitoring, tracking and accountability is compulsory; the retired data collection activity takes no new lines.
+ {const missing=await api('social',`/api/plans/review?plan=${plan}`,{action:'submit',pillar:'sbmc',version:exactReview.plan.version});ok(missing,409);assert.match(missing.data.error,/compulsory activity before sending: Monitoring, tracking and accountability/);}
+ ok(await api('social',url,{...line,activity:13}),400);
+ await db.query('UPDATE activity_plan_lines SET activity=12 WHERE id=$1',[lineId]);
  ok(await api('social',`/api/plans/review?plan=${plan}`,{action:'submit',pillar:'sbmc',version:exactReview.plan.version}));
  ok(await api('social',url,{...line,action:'delete',id:saved.lines[0].id}),409);
  console.log('PASS: SBMC/TLM CRUD, validation, department/state isolation, distribution requirement, review locking, Director editing, snapshots and totals.');

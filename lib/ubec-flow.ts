@@ -104,5 +104,5 @@ export type UbecResults = {
   rat?: { review: import('./rat-review').RatReview; replacedSince: boolean } | null;
   components: { pillar: string; counts: { accepted: number; rejected: number; undecided: number; total: number }; directorComment: string; directorName: string | null;
     oversight: { department: string; reviewerName: string; note: string }[]; officers: { name: string; note: string }[];
-    items: { rowRef: string; title: string; detail: string; amount: number; decision: 'accept' | 'reject' | null; note: string }[] }[];
+    items: { rowRef: string; title: string; detail: string; amount: number; decision: 'accept' | 'reject' | null; note: string; /** Who decided (UBEC232: named on the rejection alert in the editors). */ by?: string }[] }[];
 };

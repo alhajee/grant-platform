@@ -9,6 +9,7 @@ import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
+import { withProformas } from './test-support/proformas.mjs';
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname), 'Run this test against a local server only.');
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname), 'Use a local database only.');
@@ -18,7 +19,7 @@ const jars = {}, userIds = [], schoolIds = [];
 let planId, settings, passed = 0;
 const step = message => { passed++; console.log('✓', message); };
 
-async function api(who, path, body, { method = body ? 'POST' : 'GET' } = {}) {
+async function api(who, path, body, { method = body ? 'POST' : 'GET' } = {}) {await withProformas(db,path,body);
   const jar = jars[who] ??= {}, isForm = body instanceof FormData;
   const headers = { Cookie: Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; '), Origin: base, ...(body && !isForm ? { 'Content-Type': 'application/json' } : {}) };
   const response = await fetch(base + path, { method, headers, ...(body ? { body: isForm ? body : JSON.stringify(body) } : {}) });
@@ -36,7 +37,9 @@ async function user(key, role, departments, chair = false, stateCode = state) {
   ok(await api(key, '/api/auth/login', { email, password }));
 }
 const url = workstream => `/api/activities?plan=${planId}&workstream=${workstream}`;
-const line = (workstream, activity, unitCost, extra = {}) => ({ workstream, entity: 'line', action: 'create', activity, description: `QI ${workstream} ${activity}`, quantity: 1, unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...extra });
+// UBEC223: ICT 2 and 8 (like 4) take one item per school chosen, so their quantity is the number of schools.
+const perSchool = (workstream, activity, extra) => workstream === 'ict' && [2, 8].includes(activity) && extra.schoolIds?.length ? extra.schoolIds.length : 1;
+const line = (workstream, activity, unitCost, extra = {}) => ({ workstream, entity: 'line', action: 'create', activity, description: `QI ${workstream} ${activity}`, quantity: perSchool(workstream, activity, extra), unitCost, strategy: 'Request for quotation', targetGroup: 'Schools', ...extra });
 const review = async (who, body) => api(who, `/api/plans/review?plan=${planId}`, { ...body, version: ok(await api(who, `/api/plans/review?plan=${planId}`)).plan.version });
 const allocate = (who, amount) => api(who, `/api/activities/ict-allocation?plan=${planId}`, { amount }, { method: 'PATCH' });
 const upload = async (who, lineId, name, bytes, workstream = 'ict') => { const form = new FormData(); form.set('workstream', workstream); form.set('lineId', String(lineId)); form.set('file', new Blob([bytes]), name); return api(who, `/api/activities/line-documents?plan=${planId}`, form); };
@@ -169,7 +172,9 @@ try {
   fails(await api('ict', url('ict'), line('ict', 2, 100)), 400, /at least one school/);
   fails(await api('ict', url('ict'), line('ict', 2, 100, { schoolIds: [schoolA, foreign] })), 404, /not found in your state/);
   fails(await api('ict', url('ict'), line('ict', 1, 100, { schoolIds: [schoolA] })), 400, /Schools only apply/);
-  const smart = ok(await api('ict', url('ict'), line('ict', 2, 20000000, { schoolIds: [schoolA, schoolB] })));
+  // UBEC223: the quantity must be the number of schools chosen (2 here), so 2 × ₦10,000,000.
+  fails(await api('ict', url('ict'), { ...line('ict', 2, 10000000, { schoolIds: [schoolA, schoolB] }), quantity: 1 }), 400, /One per school: the quantity is the number of schools chosen \(2\)/);
+  const smart = ok(await api('ict', url('ict'), line('ict', 2, 10000000, { schoolIds: [schoolA, schoolB] })));
   fails(await api('ict', url('ict'), line('ict', 2, 10000000.01, { schoolIds: [schoolA] })), 400, /can use up to ₦30,000,000\.0000 \(for all its items together\)\. With this item it would come to ₦30,000,000\.0100, which is ₦0\.0100 over\./);
   ok(await api('ict', url('ict'), line('ict', 2, 10000000, { schoolIds: [schoolB] })));
   fails(await api('ict', url('ict'), { ...line('ict', 2, 20000000.5, { schoolIds: [schoolA] }), action: 'update', id: smart.id }), 400, /₦30,000,000\.0000/);

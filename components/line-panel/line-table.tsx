@@ -29,6 +29,8 @@ export type PanelLine = {
   details?: ReactNode;
   /** Badges after the details, e.g. "Proforma needed". */
   badges?: ReactNode;
+  /** UBEC232: UBEC rejected this item (marked in red until the plan goes back to UBEC). */
+  rejected?: boolean;
   /** How many documents are attached to the line (shown as a paperclip count when above zero). */
   attachments?: number;
   code?: string;
@@ -81,7 +83,7 @@ export function LineTable({ lines, itemLabel, quantityLabel = 'Qty', editable, d
       const open = () => { if (!actionsDisabled || viewOnly) onEdit(line.id); };
       const verb = viewOnly ? 'View' : 'Edit', error = errors.get(line.id);
       return <Fragment key={line.id}><TableRow className="line-row" data-line-row={line.id} tabIndex={0} aria-selected={selectedId === line.id}
-        data-state={selectedId === line.id ? 'selected' : undefined} data-flash={flashId === line.id || undefined} data-error={error ? true : undefined}
+        data-state={selectedId === line.id ? 'selected' : undefined} data-flash={flashId === line.id || undefined} data-ubec-rejected={line.rejected || undefined} data-error={error ? true : undefined}
         aria-label={`${line.label}. Press Enter to ${verb.toLowerCase()} it in the form`} onClick={open}
         onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); open(); } }}>
         <TableCell className="line-item">

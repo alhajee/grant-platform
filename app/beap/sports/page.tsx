@@ -30,6 +30,9 @@ import type { SportsSection } from "@/lib/sports";
 import { lineQuartersProblem, planQuarters } from "@/lib/line-quarters";
 import { lineDatesProblem } from "@/lib/line-dates";
 import { cellMatches, connectionDroppedMessage, isConnectionDropped, newClientKey, postJson } from "@/lib/save-request";
+import { UbecRejectionAlert, flaggedFields, useUbecRejections } from "@/components/ubec-rejection-alert";
+// UBEC232: the form field each Sports workbook column points at (UBEC comments on a rejected line).
+const sportsFieldOf: Record<string, string> = { item: "sports-description", section: "sports-section", activity: "sports-type", timeline: "sports-quarters-label", quantity: "sports-quantity", unitCost: "sports-unit-cost", amount: "sports-unit-cost" };
 
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
@@ -183,6 +186,9 @@ export default function SportsPage() {
   }
   // UBEC188/191: ?line=<id> (from the plan page's UBEC rejections) opens that budget line once the plan loads.
   const linkedLine = useRef<string | null | undefined>(undefined);
+  // UBEC232: the reason UBEC rejected the line open in the form, and its commented fields.
+  const ubec = useUbecRejections(actionPlan?.id, "sports", "sports", actionPlan?.version);
+  const openRejection = view === "budget" && budget.id ? ubec.rejected.get(String(budget.id)) : undefined;
   useEffect(() => {
     if (loading) return;
     if (linkedLine.current === undefined) linkedLine.current = new URLSearchParams(window.location.search).get("line");
@@ -304,6 +310,7 @@ export default function SportsPage() {
     <ScrollArea className="pane-scroll"><div className="editor-canvas">
       <header className="editor-heading"><h1>{view === "budget" ? editingId ? "Edit budget item" : "Add a budget item" : editingId ? "Edit school allocation" : "Add a beneficiary school"}</h1></header>
       {loadError && <Alert variant="destructive"><AlertTitle>Unable to refresh the plan</AlertTitle><AlertDescription>{loadError}<Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); void initialize(); }}>Try again</Button></AlertDescription></Alert>}
+      {openRejection && <UbecRejectionAlert rejection={openRejection} fields={flaggedFields(ubec.threads, "sports", openRejection.rowRef, sportsFieldOf)} />}
       <form id="sports-form" onSubmit={save} noValidate><fieldset className="project-fields" disabled={disabled}>
         {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { if (next.section !== budget.section || next.activityType !== budget.activityType) panel.follow(); setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} implementationYear={actionPlan?.implementationYear} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
       </fieldset></form>

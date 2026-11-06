@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         pillar: c.pillar, counts: c.counts, directorComment: c.directorComment, directorName: c.directorName,
         oversight: c.oversight.map(o => ({ department: o.department, reviewerName: o.reviewerName, note: o.note })),
         officers: c.officers.map(o => ({ name: o.officerName, note: o.completionNote })),
-        items: componentItems(round.snapshot, c.pillar).map(item => { const d = decisions.find(x => x.pillar === c.pillar && x.rowRef === item.rowRef); return { rowRef: item.rowRef, title: item.title, detail: item.detail, amount: item.amount, decision: d?.decision ?? null, note: d?.note ?? '' }; }),
+        items: componentItems(round.snapshot, c.pillar).map(item => { const d = decisions.find(x => x.pillar === c.pillar && x.rowRef === item.rowRef); return { rowRef: item.rowRef, title: item.title, detail: item.detail, amount: item.amount, decision: d?.decision ?? null, note: d?.note ?? '', by: d?.officerName ?? '' }; }),
       })),
     };
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });

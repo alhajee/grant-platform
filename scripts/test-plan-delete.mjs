@@ -6,13 +6,14 @@ import { Client } from 'pg';
 import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
 
+import { withProformas } from './test-support/proformas.mjs';
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 const state = `PD${Date.now()}`, password = crypto.randomUUID(), cookies = {}, ids = [], plans = [];
 const step = name => console.log(`- ${name}`);
-async function api(who, path, body, method = body ? 'POST' : 'GET', origin = base) {
+async function api(who, path, body, method = body ? 'POST' : 'GET', origin = base) {await withProformas(db,path,body);
   const headers = { Cookie: cookies[who] || '' };
   if (origin) headers.Origin = origin;
   if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
@@ -28,7 +29,7 @@ function create(year) {
   form.append('rat', ratFile, 'rat.xlsx');
   return api('chair', '/api/plans', form);
 }
-const line = { workstream: 'sbmc', entity: 'line', action: 'create', activity: 0, description: 'Community planning session', rationale: 'Improve participation', implementationApproach: 'Workshops', quantity: 1, unitCost: 10000, strategy: 'NCB', targetGroup: 'Community level', equipment: '' };
+const line = { workstream: 'sbmc', entity: 'line', action: 'create', activity: 12, description: 'Community planning session', rationale: 'Improve participation', implementationApproach: 'Workshops', quantity: 1, unitCost: 10000, strategy: 'NCB', targetGroup: 'Community level', equipment: '' };
 const remaining = async planId => Object.fromEntries(await Promise.all(['action_plans', 'activity_plan_lines', 'plan_review_events', 'plan_pillar_reviews', 'plan_notifications', 'plan_documents', 'plan_quarters', 'plan_comments']
   .map(async table => [table, Number((await db.query(`SELECT count(*) FROM ${table} WHERE ${table === 'action_plans' ? 'id' : 'plan_id'}=$1`, [planId])).rows[0].count)])));
 

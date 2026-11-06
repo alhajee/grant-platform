@@ -11,6 +11,7 @@ import { hashSync } from 'bcryptjs';
 import ExcelJS from 'exceljs';
 import { signForUbec } from './test-support/sign-for-ubec.mjs';
 
+import { withProformas } from './test-support/proformas.mjs';
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.match(base, /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/, 'Run this test against a local server only.');
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname), 'Use a local database only.');
@@ -20,7 +21,7 @@ const jars = {}, users = {}, created = [];
 let settings, savedLimits, savedDefaults, planId, passed = 0;
 const step = message => { passed++; console.log('✓', message); };
 
-async function api(who, path, body, method = body ? 'POST' : 'GET', origin = true) {
+async function api(who, path, body, method = body ? 'POST' : 'GET', origin = true) {await withProformas(db,path,body);
   const jar = jars[who] ?? {};
   const cookie = Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
   const response = await fetch(base + path, { method, redirect: 'manual', headers: { ...(origin ? { Origin: base } : {}), ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}), ...(cookie ? { Cookie: cookie } : {}) }, ...(body ? { body: body instanceof FormData ? body : JSON.stringify(body) } : {}) });

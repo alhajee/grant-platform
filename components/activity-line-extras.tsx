@@ -20,6 +20,7 @@ import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/com
 import { currentPlanHref } from '@/lib/action-plans';
 import { teacherDocumentHint } from '@/lib/teacher-development';
 import { SchoolLevelFilter, allLevels, filterByLevel, type SchoolLevelChoice } from '@/components/school-level-filter';
+import { CollapsibleSchoolPicker } from '@/components/school-picker-collapse';
 
 // Quality Assurance and ICT pieces of the activity editor (migration 038), kept out of activity-plan-editor.tsx.
 const count = new Intl.NumberFormat('en-NG');
@@ -131,11 +132,11 @@ export function BeneficiaryField({ workstream, draft, disabled, onChange }: { wo
     <ToggleGroup type="single" variant="outline" value={draft.beneficiary || undefined} disabled={disabled} onValueChange={value => { if (value) onChange(value as Beneficiary); }} aria-label="Beneficiaries" className="justify-start">
       {beneficiaryTypes.map(type => <ToggleGroupItem key={type} value={type} className="px-4">{beneficiaryLabels[type]}</ToggleGroupItem>)}
     </ToggleGroup>
-    <FieldDescription>{draft.beneficiary === 'school' ? 'Choose the schools and share the quantity across them' : draft.beneficiary ? `Procured for the ${beneficiaryLabels[draft.beneficiary as Beneficiary]}: no schools` : 'Who the equipment is for'}</FieldDescription>
+    <FieldDescription>{draft.beneficiary === 'school' ? 'Choose the schools and give each its items; the quantity adds them up' : draft.beneficiary ? `Procured for the ${beneficiaryLabels[draft.beneficiary as Beneficiary]}: no schools` : 'Who the equipment is for'}</FieldDescription>
   </Field>;
 }
 
-export function LineSchoolPicker({ workstream, draft, schools, onChange, disabled, quantity, onQuantities }: { workstream: ActivityWorkstream; draft: ExtraDraft; schools: DistributionSchool[]; onChange: (schoolIds: number[]) => void; disabled: boolean; /** UBEC160: the line's quantity, shared across the chosen schools. */ quantity?: number; onQuantities?: (quantities: Record<string, number>) => void }) {
+export function LineSchoolPicker({ workstream, draft, schools, onChange, disabled, onQuantities }: { workstream: ActivityWorkstream; draft: ExtraDraft; schools: DistributionSchool[]; onChange: (schoolIds: number[]) => void; disabled: boolean; onQuantities?: (quantities: Record<string, number>) => void }) {
   const [query, setQuery] = useState(''), [level, setLevel] = useState<SchoolLevelChoice>(allLevels);
   if (!hasLineSchools(workstream, Number(draft.activity), draft.beneficiary)) return null;
   const allocating = allocatesToSchools(workstream, Number(draft.activity), draft.beneficiary) && !!onQuantities;
@@ -146,26 +147,28 @@ export function LineSchoolPicker({ workstream, draft, schools, onChange, disable
   return <Field><FieldLabel htmlFor="line-school-search">Schools {required}</FieldLabel>
     <Input id="line-school-search" type="search" placeholder="Search by school, LGA or level…" value={query} onChange={e => setQuery(e.target.value)} />
     <SchoolLevelFilter schools={schools} value={level} disabled={disabled} onChange={setLevel} />
-    <FieldDescription>Tick every school this item covers. Schools come from your School list.</FieldDescription>
-    <div className="school-picker" role="group" aria-label="Schools for this item">
-      <div className="school-pick school-pick-all"><span>{count.format(chosen.size)} selected</span>{chosen.size > 0 && <Button type="button" variant="ghost" size="sm" className="ml-auto" disabled={disabled} onClick={() => onChange([])}>Clear</Button>}</div>
+    <FieldDescription>Tick every school this item covers; the quantity follows the schools chosen. Schools come from your School list</FieldDescription>
+    <CollapsibleSchoolPicker label="Schools for this item" header={<><span>{count.format(chosen.size)} selected</span>{chosen.size > 0 && <Button type="button" variant="ghost" size="sm" className="ml-auto" disabled={disabled} onClick={() => onChange([])}>Clear</Button>}</>}>
       {matches.slice(0, pickerLimit).map(s => <label key={s.id} className="school-pick"><Checkbox checked={chosen.has(s.id)} disabled={disabled} onCheckedChange={v => toggle(s.id, v === true)} aria-label={`Select ${s.name}`} /><span className="school-option"><span>{s.name}</span><small>{s.lga} · {s.level}</small></span></label>)}
       {!matches.length && <p className="school-pick-empty">{schools.length ? 'No schools match your search' : 'No schools are available in your state register'}</p>}
       {matches.length > pickerLimit && <p className="school-pick-empty">Showing {pickerLimit} of {count.format(matches.length)} schools. Search to narrow the list.</p>}
-    </div>
-    {allocating && chosen.size > 0 && <SchoolQuantities schools={schools.filter(s => chosen.has(s.id))} quantities={draft.schoolQuantities ?? {}} total={quantity ?? 0} disabled={disabled} onChange={onQuantities!} />}
+    </CollapsibleSchoolPicker>
+    {allocating && chosen.size > 0 && <SchoolQuantities schools={schools.filter(s => chosen.has(s.id))} quantities={draft.schoolQuantities ?? {}} disabled={disabled} onChange={onQuantities!} />}
   </Field>;
 }
 
-/** UBEC160: the items each chosen school gets; together they must make the line's quantity. "Share evenly" splits it. */
-function SchoolQuantities({ schools, quantities, total, disabled, onChange }: { schools: DistributionSchool[]; quantities: Record<string, number>; total: number; disabled: boolean; onChange: (quantities: Record<string, number>) => void }) {
+/**
+ * UBEC160: the items each chosen school gets. Since UBEC223 the line's quantity is these added up (no separate figure to
+ * match), so a newly ticked school starts with 1 item and the total follows.
+ */
+function SchoolQuantities({ schools, quantities, disabled, onChange }: { schools: DistributionSchool[]; quantities: Record<string, number>; disabled: boolean; onChange: (quantities: Record<string, number>) => void }) {
   const allocated = schools.reduce((sum, s) => sum + (quantities[String(s.id)] ?? 0), 0);
-  const even = () => { const base = Math.floor(total / schools.length), extra = total % schools.length; onChange(Object.fromEntries(schools.map((s, i) => [String(s.id), base + (i < extra ? 1 : 0)]).filter(([, q]) => Number(q) > 0))); };
-  return <div className="school-quantities" data-off={allocated !== total || undefined}>
-    <div className="school-quantities-head"><strong>Items per school</strong><span>{count.format(allocated)} of {count.format(total)} allocated</span>{total >= schools.length && <Button type="button" size="sm" variant="ghost" disabled={disabled} onClick={even}>Share evenly</Button>}</div>
+  const missing = schools.filter(s => !quantities[String(s.id)]).length;
+  return <div className="school-quantities" data-off={missing > 0 || undefined}>
+    <div className="school-quantities-head"><strong>Items per school</strong><span>{count.format(allocated)} item{allocated === 1 ? '' : 's'} in total</span></div>
     <ul>{schools.map(s => <li key={s.id}><span><b>{s.name}</b><small>{s.lga} · {s.level}</small></span>
       <Input type="number" min={1} step={1} inputMode="numeric" aria-label={`Items for ${s.name}`} disabled={disabled} value={quantities[String(s.id)] ?? ''} onChange={e => { const n = Math.max(0, Math.floor(Number(e.target.value) || 0)); const next = { ...quantities }; if (n) next[String(s.id)] = n; else delete next[String(s.id)]; onChange(next); }} /></li>)}</ul>
-    {allocated !== total && <p role="status">{allocated < total ? `${count.format(total - allocated)} more to allocate` : `${count.format(allocated - total)} more than the quantity`}</p>}
+    {missing > 0 && <p role="status">{`Give ${missing === 1 ? 'one school' : `${count.format(missing)} schools`} at least 1 item`}</p>}
   </div>;
 }
 

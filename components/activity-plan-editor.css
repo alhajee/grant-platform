@@ -118,3 +118,11 @@
 
 /* UBEC216: remove several schools from the distribution list at once. */
 .distribution-bulk { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 8px; font-size: 13px; color: var(--muted-foreground); }
+/* UBEC223: school lists fold away under their header (components/school-picker-collapse.tsx). */
+.school-picker-toggle { margin-left:auto;flex:none;border-radius:999px; }
+.school-picker-toggle svg { transition:transform 160ms ease; }
+.school-picker[data-collapsed] .school-picker-toggle svg { transform:rotate(-90deg); }
+.school-picker[data-collapsed] .school-pick-all { border-bottom:0; }
+.school-pick-all > label { display:flex;align-items:center;gap:10px;flex:1;cursor:pointer; }
+@media (prefers-reduced-motion:reduce){ .school-picker-toggle svg { transition:none; } }
+.school-pick-all > .ml-auto ~ .school-picker-toggle { margin-left:0; }

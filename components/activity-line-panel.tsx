@@ -50,6 +50,8 @@ type ActivityLinePanelProps = {
   onRemove: (line: ActivityLine) => void;
   /** Chooses an activity in the form to add its first item. */
   onStart?: (activity: number) => void;
+  /** UBEC232: items UBEC rejected (by line id), marked in the list. */
+  rejected?: ReadonlyMap<string, { reason: string }>;
 };
 
 function details(workstream: ActivityWorkstream, l: ActivityLine): string {
@@ -61,7 +63,7 @@ function details(workstream: ActivityWorkstream, l: ActivityLine): string {
 
 /** The saved lines beside the activity editor: summary, view toggle and one section per activity. */
 export function ActivityLinePanel(props: ActivityLinePanelProps) {
-  const { workstream, activities, lines, setup, documentsRequired, summary, notices, selectedActivity, selectedId, dirtyId, mode, onMode, query, onQuery, flashId, inlineEditable, actionsDisabled, viewOnly, shareNote, onSaveCell, onEdit, onRemove, onStart } = props;
+  const { rejected, workstream, activities, lines, setup, documentsRequired, summary, notices, selectedActivity, selectedId, dirtyId, mode, onMode, query, onQuery, flashId, inlineEditable, actionsDisabled, viewOnly, shareNote, onSaveCell, onEdit, onRemove, onStart } = props;
   const { isOpen, toggle } = useCollapsed();
   const all = lines ?? [];
   const needle = query.trim().toLowerCase();
@@ -80,7 +82,11 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
     details: details(workstream, l) || undefined, code: l.code, quarters: l.quarters, startDate: l.startDate, dueDate: l.dueDate, quantity: l.quantity, unitCost: l.unitCost,
     attachments: l.documents?.length ?? 0,
     // Only the documents the Supporting documents setting governs; optional supporting documents never show "needed".
-    badges: missingLineDocument(workstream, l.activity, l.documents, documentsRequired) ? <Badge variant="warning">{missingLineDocument(workstream, l.activity, l.documents, documentsRequired)!.label} needed</Badge> : undefined,
+    badges: (missingLineDocument(workstream, l.activity, l.documents, documentsRequired) || rejected?.has(String(l.id))) ? <>
+      {rejected?.has(String(l.id)) && <Badge variant="destructive" title={rejected.get(String(l.id))!.reason || undefined}>Rejected by UBEC</Badge>}
+      {missingLineDocument(workstream, l.activity, l.documents, documentsRequired) && <Badge variant="warning">{missingLineDocument(workstream, l.activity, l.documents, documentsRequired)!.label} needed</Badge>}
+    </> : undefined,
+    rejected: rejected?.has(String(l.id)) || undefined,
   });
   const titleOf = (i: number) => <>{nameOf(i)}</>;
   const badgesOf = (i: number) => <><RequiredBadge workstream={workstream} activity={i} setup={setup} /><ActivityInfoHint workstream={workstream} activity={i} /></>;
