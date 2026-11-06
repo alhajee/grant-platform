@@ -1,5 +1,5 @@
 import type { QueryResult, QueryResultRow } from 'pg';
-import { observationProblem, type ObservationRequest, type ObservationStatus } from './observation-requests';
+import { type ObservationRequest, type ObservationStatus } from './observation-requests';
 
 // Server reads for observation requests (migration 075, lib/observation-requests.ts).
 type Db = { query<R extends QueryResultRow = QueryResultRow>(sql: string, values?: unknown[]): Promise<QueryResult<R>> };
@@ -22,5 +22,6 @@ export async function openObservationCount(db: Db, planId: number) {
 
 export async function readObservationStatus(db: Db, planId: number): Promise<ObservationStatus> {
   const requests = await readObservationRequests(db, planId), openComments = await openObservationCount(db, planId);
-  return { requests, openComments, problem: observationProblem(requests, openComments) };
+  // UBEC217 (6 November 2026): requests are retired and never hold the send to UBEC, answered or not.
+  return { requests, openComments, problem: null };
 }

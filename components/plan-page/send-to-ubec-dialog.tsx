@@ -22,7 +22,7 @@ const reviewUrl = (planId: number) => `/api/ubec/review?plan=${encodeURIComponen
 const nameOf = (pillar: ImplementedPillar) => componentSections[pillar][0].name;
 
 /** The confirmation summary: the components that go (only ready ones), their total, and what UBEC review locks. */
-function ubecConfirmation(review: PlanReview, returned: boolean, openUbecComments: number, financeMissing: readonly string[], letters: readonly SubmissionLetter[]): { facts: ConfirmFact[]; notes: ConfirmNote[] } {
+function ubecConfirmation(review: PlanReview, returned: boolean, openUbecComments: number, letters: readonly SubmissionLetter[]): { facts: ConfirmFact[]; notes: ConfirmNote[] } {
   const totals = summarizeSnapshot(review.snapshot);
   const ready = review.pillarReviews.filter(r => r.status === 'chairman_ready').map(r => r.pillar);
   // Components with saved lines that haven't reached the Executive Chairman stay behind (reviewed-components mode).
@@ -42,8 +42,6 @@ function ubecConfirmation(review: PlanReview, returned: boolean, openUbecComment
   if (letter) facts.push({ label: 'Cover letter', value: letter.name });
   if (leftOut.length) facts.push({ label: 'Left out (not ready)', value: <ul>{leftOut.map(p => <li key={p}>{nameOf(p)}</li>)}</ul> });
   if (openUbecComments > 0) facts.push({ label: 'UBEC comments', value: `${openUbecComments} still open; UBEC sees your team’s replies` });
-  // UBEC130: Finance documents never block the send, but the Executive Chairman is told what is missing.
-  if (financeMissing.length) facts.push({ label: 'Finance documents', value: <span className="text-warning-foreground">Not uploaded: {financeMissing.join(', ')}</span> });
   return { facts, notes: [
     { kind: 'lock', text: 'The whole plan is locked while UBEC reviews it. Nobody at the SUBEB can edit it until UBEC returns it.' },
     { kind: 'warning', text: returned ? 'This starts a new UBEC review of the revised plan. It can’t be withdrawn once sent.' : 'A submission to UBEC can’t be withdrawn once sent' },
@@ -64,7 +62,7 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
   const step = useConfirmStep('send-to-ubec-note');
   const [financeMissing, setFinanceMissing] = useState<string[]>([]), [letters, setLetters] = useState<SubmissionLetter[] | null>(null);
   const lettersMissing = letters ? missingSubmissionLetters(letters) : ['Signature', 'Cover letter'];
-  const summary = useMemo(() => ubecConfirmation(review, !!status?.returned, openUbecComments, financeMissing, letters ?? []), [review, status?.returned, openUbecComments, financeMissing, letters]);
+  const summary = useMemo(() => ubecConfirmation(review, !!status?.returned, openUbecComments, letters ?? []), [review, status?.returned, openUbecComments, letters]);
 
   useEffect(() => {
     if (!open) return;
@@ -75,7 +73,7 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
       if (!response.ok) throw Error(detail.error || 'The plan could not be checked');
       if (active) setStatus({ version: detail.plan.version, roundId: detail.round?.id, returned: detail.round?.status === 'returned', canSubmit: detail.canSubmit });
     }).catch(cause => { if (active) setLoadError(cause instanceof Error ? cause.message : 'The plan could not be checked'); });
-    // The Finance documents the Finance department has not uploaded (a warning only, UBEC130).
+    // UBEC217: the Finance documents the Finance department has not uploaded hold the send.
     void fetch(`/api/plans/finance?plan=${planId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<{ missing: string[] }> : null).then(body => { if (active && body) setFinanceMissing(body.missing); }).catch(() => {});
     return () => { active = false; };
   }, [open, planId]);
@@ -84,6 +82,7 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
   function toConfirm() {
     if (!status?.canSubmit) return;
     if (status.returned && !comment.trim()) { setError('Describe how the UBEC feedback was addressed'); return; }
+    if (financeMissing.length) { setError(`SUBEB Finance must upload the ${financeMissing.join(', ')} first`); return; }
     if (lettersMissing.length) { setError(`Add your ${lettersMissing.map(m => m.toLowerCase()).join(' and ')} first`); return; }
     setError(''); step.review();
   }
@@ -116,7 +115,8 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
         {loadError && <p className="text-sm text-destructive" role="alert">{loadError}</p>}
         {status && !status.canSubmit && <p className="text-sm text-muted-foreground" role="status">This plan can’t be sent to UBEC right now. It may already be with UBEC, or components are still being reviewed.</p>}
         {status?.canSubmit && <FieldGroup>
-          {financeMissing.length > 0 && <p className="ubec-dialog-note finance-missing-note" role="status">Finance has not uploaded the {financeMissing.join(', ')}. You can still send the plan; UBEC Finance will not see {financeMissing.length === 1 ? 'it' : 'them'} until Finance uploads {financeMissing.length === 1 ? 'it' : 'them'}.</p>}
+          {/* UBEC217: the send waits for SUBEB Finance's three documents, like the signature and cover letter. */}
+          {financeMissing.length > 0 && <p className="ubec-dialog-note finance-missing-note" role="status">SUBEB Finance must upload the {financeMissing.join(', ')} before the plan is sent to UBEC</p>}
           {openUbecComments > 0 && <p className="ubec-dialog-note">{openUbecComments} UBEC {openUbecComments === 1 ? 'comment is' : 'comments are'} still open. UBEC will see your team’s replies with this submission.</p>}
           <Field data-invalid={!!error || undefined}>
             <FieldLabel htmlFor="send-to-ubec-note">{status.returned ? 'Response to UBEC feedback' : 'Comment (optional)'}</FieldLabel>
@@ -128,7 +128,7 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
       </div>
       <DialogFooter>
         <DialogClose asChild><Button type="button" variant="outline" disabled={saving}>Cancel</Button></DialogClose>
-        <Button type="submit" disabled={!status?.canSubmit || saving || lettersMissing.length > 0} title={lettersMissing.length ? `Add your ${lettersMissing.map(m => m.toLowerCase()).join(' and ')} first` : undefined}>{saving && <Spinner data-icon="inline-start" />}Send to UBEC</Button>
+        <Button type="submit" disabled={!status?.canSubmit || saving || lettersMissing.length > 0 || financeMissing.length > 0} title={financeMissing.length ? `SUBEB Finance must upload the ${financeMissing.join(', ')} first` : lettersMissing.length ? `Add your ${lettersMissing.map(m => m.toLowerCase()).join(' and ')} first` : undefined}>{saving && <Spinner data-icon="inline-start" />}Send to UBEC</Button>
       </DialogFooter>
       </form>
       </>}

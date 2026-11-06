@@ -34,6 +34,7 @@ export type ObservationStatus = {
 /** Departments of the latest request that have not sent their observations back. */
 export const waitingDepartments = (requests: readonly ObservationRequest[]) => requests[0]?.departments.filter(d => !d.completedAt).map(d => d.department) ?? [];
 
+/** Earlier rule (row 156); since UBEC217 no request holds the send to UBEC, so only tests call it. */
 export function observationProblem(requests: readonly ObservationRequest[], openComments: number): string | null {
   const waiting = waitingDepartments(requests), who = prefix(requests[0]?.audience ?? 'subeb');
   if (waiting.length) return `Waiting for observations from ${who} ${listDepartments(waiting)}. You can send to UBEC once ${waiting.length === 1 ? 'it replies' : 'they reply'}`;

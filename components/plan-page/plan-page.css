@@ -20,6 +20,13 @@
 .plan-summary-facts dt svg { width: 13px; height: 13px; opacity: .75; }
 .plan-summary-facts dt .field-help-trigger { width: 16px; height: 16px; flex-basis: 16px; }
 .plan-summary-facts dd { font-size: 15px; font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; }
+/* UBEC234: the schools figure is the card's most prominent fact and opens the schools list. */
+.plan-summary-facts > div[data-fact="schools"] { position: relative; background: color-mix(in oklab, #2c7a5e 10%, #f6f7f5); }
+.plan-summary-facts > div[data-fact="schools"] dd { font-size: 20px; }
+.plan-summary-schools { height: auto; padding: 0; font-size: inherit; font-weight: inherit; color: inherit; gap: 2px; }
+.plan-summary-schools::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
+.plan-summary-schools:hover::after { box-shadow: inset 0 0 0 1px color-mix(in oklab, #2c7a5e 40%, transparent); }
+.plan-summary-schools svg { width: 16px; height: 16px; }
 .plan-summary-details { margin-top: 12px; }
 .plan-summary-details-trigger { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 6px; margin-left: -6px; border: 0; border-radius: 999px; background: none; font-size: 13px; color: var(--muted-foreground); cursor: pointer; }
 .plan-summary-details-trigger:hover { background: var(--accent); color: var(--foreground); }
@@ -85,6 +92,8 @@
 /* A component not yet sent to the viewer: status only, no figures. */
 .component-card-pending { display: flex; align-items: center; gap: 5px; white-space: normal; }
 .component-card-pending svg { width: 12px; height: 12px; flex: none; }
+.component-card-allocation { color: var(--muted-foreground); }
+.component-card-allocation b { color: var(--foreground); }
 .component-card-foot { grid-column: 1 / -1; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; margin-top: 10px; }
 
 .component-card-foot :is(a, button) { position: relative; z-index: 1; }

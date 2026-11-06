@@ -2,10 +2,12 @@
 import "./dashboard.css";
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRightIcon, FileTextIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronRightIcon, FileTextIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { BudgetArtwork, PlansArtwork, SchoolsArtwork } from "@/components/metric-artwork";
 import { CreatePlanDialog } from "@/components/create-plan-dialog";
 import { EditPlanDialog } from "@/components/edit-plan-dialog";
+import { PlanSchoolsDialog } from "@/components/plan-schools-dialog";
+import type { PlanSchool } from "@/lib/plan-schools";
 import { OtherFundingInfo } from "@/components/funding-sources-field";
 import { ComponentBudgets } from "@/components/dashboard/component-budgets";
 import { LevelMappingCard } from "@/components/level-mapping-card";
@@ -27,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { planPeriod, type PlanOverview } from "@/lib/action-plans";
 import { subebDisplayName } from '@/lib/state-names';
+import { isSupportDepartment } from '@/lib/subeb-departments';
 import type { LocalUser } from "@/lib/local-session";
 import { nairaFormat, compactNairaFormat } from '@/lib/money-format';
 
@@ -46,6 +49,8 @@ export default function DashboardPage() {
   const [investmentFilters, setInvestmentFilters] = useState(emptyInvestmentFilters);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<number | null>(null);
+  // UBEC234: the Targeted schools card lists the schools of the plans shown.
+  const [schoolsOpen, setSchoolsOpen] = useState(false), [schoolList, setSchoolList] = useState<PlanSchool[] | null>(null), [schoolsError, setSchoolsError] = useState("");
   const load = useCallback(async () => {
     setError("");
     try {
@@ -68,7 +73,9 @@ export default function DashboardPage() {
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   function beginPlan() { setOpen(true); }
-  const isOfficer = user?.role === 'Data Entry Staff';
+  // UBEC217: a Data Entry officer of a support department only (Audit, Procurement, Finance, Special Programmes) reads plans.
+  const supportOnly = (user?.departments ?? []).length > 0 && (user?.departments ?? []).every(isSupportDepartment);
+  const isOfficer = user?.role === 'Data Entry Staff' && !supportOnly;
   const activeInvestmentFilters = investmentFilterCount(investmentFilters);
   const dashboardPlans = plans.filter(plan => {
     const quarters = plan.fundingQuarters ?? [1, 2, 3, 4];
@@ -115,6 +122,17 @@ export default function DashboardPage() {
   const allAreas: InvestmentArea[] = ["infrastructure", "sports", "sbmc", "tlm", "monitoring", "gscci", "curriculum", "quality", "teachers", "ict", "planning"];
   const visiblePlans = dashboardPlans.filter((p) => `${planPeriod(p)} action plan ${p.status}`.includes(query.toLowerCase().trim()) || (/^\d{4}$/.test(query.trim()) && Number(query) >= p.startYear && Number(query) <= p.endYear));
   const unavailable = loading || Boolean(error);
+  async function openSchools() {
+    setSchoolsOpen(true); setSchoolList(null); setSchoolsError("");
+    try {
+      const ids = dashboardPlans.map(plan => plan.id).slice(0, 200);
+      if (!ids.length) { setSchoolList([]); return; }
+      const response = await fetch(`/api/plans/schools?plans=${ids.join(",")}`, { cache: "no-store" });
+      const body = await response.json().catch(() => ({})) as { schools?: PlanSchool[]; error?: string };
+      if (!response.ok || !body.schools) throw new Error(body.error || "The schools could not be loaded");
+      setSchoolList(body.schools);
+    } catch (cause) { setSchoolsError(cause instanceof Error ? cause.message : "The schools could not be loaded"); }
+  }
 
   return <div className="dashboard-page">
     <SubebHeader user={user} />
@@ -128,6 +146,7 @@ export default function DashboardPage() {
               <CardHeader><CardTitle className="stat-label"><stat.artwork />{stat.label}</CardTitle></CardHeader>
               <CardContent>
                 {loading ? <Skeleton className="h-8 w-24" /> : <strong title={stat.label === "Total plan funding" ? money.format(totalFunding) : undefined}>{error ? "—" : stat.value}</strong>}
+                {stat.label === "Targeted schools" && !loading && !error && <Button type="button" variant="link" className="stat-schools-open" onClick={() => void openSchools()} aria-label={`Show the ${dashboardSchoolCount} targeted schools`}>View list<ChevronRightIcon data-icon="inline-end" /></Button>}
                 {stat.label === "Total plan funding" && !loading && !error && <span className="stat-sub" title={money.format(Number(otherFundingTotal(otherFunding)))}>Other funding {compactMoney.format(Number(otherFundingTotal(otherFunding)))}<OtherFundingInfo setup={otherFunding} /></span>}
               </CardContent>
             </Card>
@@ -163,6 +182,8 @@ export default function DashboardPage() {
       <Separator className="dashboard-footer-separator" />
       <footer className="dashboard-footer"><span>Universal Basic Education Commission</span><span>© {new Date().getFullYear()}</span></footer>
     </main>
+    <PlanSchoolsDialog open={schoolsOpen} onOpenChange={setSchoolsOpen} schools={schoolList} error={schoolsError} title="Targeted schools" fileName="targeted-schools"
+      description={`Schools intervened through Infrastructure and beneficiary schools across ${dashboardPlans.length === 1 ? "this plan" : `these ${dashboardPlans.length} plans`}, from the components that have reached you`} />
     {editing !== null && <EditPlanDialog planId={editing} onClose={() => setEditing(null)} onSaved={() => void load()} />}
     {open && <CreatePlanDialog stateName={stateName} plans={plans} onClose={() => setOpen(false)} />}
   </div>;

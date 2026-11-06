@@ -1,6 +1,6 @@
 // Finance documents of a plan (UBEC130, migration 073): uploaded by the SUBEB Finance department, submitted to the
-// BEAP Chair, never required to send the plan to UBEC (the Executive Chairman is warned), and seen at UBEC only by the
-// Finance Oversight Director and Finance Assessment Officers.
+// BEAP Chair, and seen at UBEC only by the Finance Oversight Director and Finance Assessment Officers. Since UBEC217
+// (6 November 2026) the Executive Chairman cannot send the plan to UBEC until all three are uploaded.
 import { ubecRoles } from './ubec';
 
 export const financeDocumentKinds = ['bank_statement', 'lodgement_notification', 'utilisation_report'] as const;
@@ -35,3 +35,9 @@ export const missingFinanceDocuments = (documents: readonly { kind: FinanceDocum
 
 /** A plan sent to UBEC with its Finance documents, for UBEC Finance's overview (UBEC94, app/api/ubec/finance-documents). */
 export type FinancePlan = { planId: number; state: string; period: string; submittedAt: string; status: string; documents: { id: string; kind: FinanceDocumentKind; label: string; name: string; size: number }[]; missing: string[] };
+
+/** UBEC217: why the plan cannot go to UBEC yet because SUBEB Finance has not uploaded all three documents, or null. */
+export function financeSendProblem(missing: readonly string[]): string | null {
+  if (!missing.length) return null;
+  return `SUBEB Finance must upload the ${missing.join(', ')} before the plan is sent to UBEC`;
+}
