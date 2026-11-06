@@ -45,7 +45,7 @@ try {
   const [school, other] = (await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES($1,'PHE School A','QA','Primary','Rural'),($1,'PHE School B','QA','JSS','Rural') RETURNING id", [state])).rows.map(r => r.id);
   const foreign = (await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES('YO','PHE foreign school','QA','Primary','Rural') RETURNING id")).rows[0].id;
   foreignSchool = foreign;
-  ok(await api('academic', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Training of PHE Officers', description: 'Train PHE officers', quantity: 10, unitCost: 1000 }), 201);
+  ok(await api('academic', `/api/sports${q}`, { entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'equipment', activityType: 'Training of PHE Officers', description: 'Train PHE officers', quantity: 10, unitCost: 1000 }), 201);
   const send = async () => api('academic', review, { action: 'submit', pillar: 'sports', version: ok(await api('ec', review)).plan.version });
   fails(await send(), 409, /PHE training distribution list/);
   step('Sports with Training of PHE Officers lines is not sent without PHE training schools');

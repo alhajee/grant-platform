@@ -103,7 +103,7 @@ try {
   step('distribution list: single and bulk school adds are idempotent');
 
   // Sports budget lines and allocations.
-  const sportsLine = clientKey => ({ entity: 'budget', action: 'create', section: 'equipment', activityType: "Children's football", description: 'Training balls', quantity: 10, unitCost: 1000, ...(clientKey ? { clientKey } : {}) });
+  const sportsLine = clientKey => ({ entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'equipment', activityType: "Children's football", description: 'Training balls', quantity: 10, unitCost: 1000, ...(clientKey ? { clientKey } : {}) });
   const sportsKey = randomUUID();
   const created = ok(await api('academic', sportsUrl(), sportsLine(sportsKey)), 201);
   const replayed = ok(await api('academic', sportsUrl(), sportsLine(sportsKey)), 200);

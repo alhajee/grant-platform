@@ -73,7 +73,8 @@ export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null,
     const { downloadWorkbook } = await import('./export-xlsx');
     const sheet = sheets.find(s => s.key === current)!;
     if (scope === 'sheet') return downloadWorkbook(`${baseName} - ${sheet.label}.xlsx`, [{ name: sheet.label, columns: sheet.columns, rows: view?.rows ?? sheet.rows }]);
-    return downloadWorkbook(`${baseName} - workbook.xlsx`, [...sheets.map(s => ({ name: s.label, columns: s.columns, rows: s.rows })), ...detailExportSheets(snapshot, sheets)]);
+    const { workbookCover } = await import('./cover');
+    return downloadWorkbook(`${baseName} - workbook.xlsx`, [...sheets.map(s => ({ name: s.label, columns: s.columns, rows: s.rows })), ...detailExportSheets(snapshot, sheets)], workbookCover(snapshot, sheets, setup?.beapName || title));
   };
   const label = expanded ? 'Exit full screen' : 'Expand workbook';
   return <AssessmentProvider value={assessment}><CommentsProvider value={comments}><div ref={slotRef} className="plan-workbook-slot" style={placeholderHeight ? { height: placeholderHeight } : undefined}>

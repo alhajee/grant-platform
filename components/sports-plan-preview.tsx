@@ -42,14 +42,14 @@ type BudgetPreviewProps = {
 };
 
 const sameType = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-const panelLine = (line: SportsLine): PanelLine => ({ id: line.id, label: line.description, description: line.description, code: line.section === "equipment" ? line.code : undefined, quarters: line.quarters, startDate: line.startDate, dueDate: line.dueDate, quantity: line.quantity, unitCost: line.unitCost });
+const panelLine = (line: SportsLine): PanelLine => ({ id: line.id, label: line.description, description: line.description, details: line.targetGroup ? `Target group: ${line.targetGroup}` : undefined, code: line.section === "equipment" ? line.code : undefined, quarters: line.quarters, startDate: line.startDate, dueDate: line.dueDate, quantity: line.quantity, unitCost: line.unitCost });
 
 /** The sports budget beside the form: one section per UBEC budget section, grouped by sport or sub-activity. */
 export function SportsBudgetPreview({ plan, disabled, selectedSection, selectedType, editingId, dirtyId, flashId, mode, onShowAll, query, onEdit, onRemove, onSaveCell, onStart }: BudgetPreviewProps) {
   const { isOpen, toggle } = useCollapsed();
   if (!plan.lines.length) return <Empty><EmptyHeader><EmptyMedia><EmptySportsFieldArt label="No sports items yet" /></EmptyMedia><EmptyTitle>Your sports plan starts here</EmptyTitle></EmptyHeader></Empty>;
   const needle = query.trim().toLowerCase();
-  const matching = needle ? plan.lines.filter((line) => `${line.description} ${line.activityType} ${line.code}`.toLowerCase().includes(needle)) : plan.lines;
+  const matching = needle ? plan.lines.filter((line) => `${line.description} ${line.activityType} ${line.targetGroup ?? ""} ${line.code}`.toLowerCase().includes(needle)) : plan.lines;
   const target = (id: number): SportsTarget | null => { const item = plan.lines.find((line) => line.id === id); return item ? { entity: "budget", item } : null; };
   const table = (lines: SportsLine[], itemLabel: string) => <LineTable lines={lines.map(panelLine)} itemLabel={itemLabel} editable={!disabled} describe
     lockReason={(id) => id === dirtyId ? "Save or cancel the changes in the form first" : null} actionsDisabled={disabled} selectedId={editingId} flashId={flashId}
@@ -99,7 +99,7 @@ export function SportsBeneficiaryPreview({ plan, disabled, onEdit, onRemove, edi
         <TableBody>{allocations.map((allocation) => {
           const line = plan.lines.find((item) => item.id === allocation.lineId);
           return <TableRow key={allocation.id} className="sports-editable-row" tabIndex={0} aria-label={`Edit ${line?.description ?? "equipment"} for ${school.name}`} aria-selected={editingId === allocation.id} data-sports-row-id={`allocation-${allocation.id}`} data-state={editingId === allocation.id ? "selected" : undefined} onClick={() => !disabled && onEdit({ entity: "allocation", item: allocation })} onKeyDown={(event) => { if (!disabled && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onEdit({ entity: "allocation", item: allocation }); } }}>
-            <TableCell className="school-cell"><div className="school-name">{line?.description}</div><div className="school-location">{line?.activityType}</div>{(allocation.longitude || allocation.latitude) && <div className="school-code">Long. {allocation.longitude || "—"} · Lat. {allocation.latitude || "—"}</div>}</TableCell>
+            <TableCell className="school-cell"><div className="school-name">{line?.description}</div><div className="school-location">{line?.activityType}</div></TableCell>
             <TableCell className="quantity-cell text-right tabular-nums">{allocation.quantity.toLocaleString()}</TableCell>
             <TableCell className="line-actions" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}><RowActions label={`${line?.description} — ${school.name}`} disabled={disabled} onEdit={() => onEdit({ entity: "allocation", item: allocation })} onRemove={() => onRemove({ entity: "allocation", item: allocation })} /></TableCell>
           </TableRow>;

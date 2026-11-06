@@ -69,9 +69,9 @@ try {
   assert.deepEqual(await ratNames(), ['rat-v2.xlsx', 'rat.xlsx'], 'a new RAT is added beside the first one, newest first (UBEC205: never overwritten)');
   const q = `?plan=${planId}`, statePath = `/api/plans/review${q}`, path = `/api/ubec/review${q}`, components = `/api/ubec/components${q}`, decisions = `/api/ubec/decisions${q}`, sports = `/api/sports${q}`;
   const school = (await db.query("INSERT INTO schools(name,lga,level,location,state_code) VALUES($1,'QA','Primary','Urban',$1) RETURNING id", [marker])).rows[0].id;
-  const budget = { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'QA equipment', quantity: 5, unitCost: 100 };
+  const budget = { entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'equipment', activityType: 'Football', description: 'QA equipment', quantity: 5, unitCost: 100 };
   const sportsLine = ok(await api('desA', sports, budget), 201).id;
-  ok(await api('desA', sports, { entity: 'allocation', action: 'create', lineId: sportsLine, schoolId: school, quantity: 5 }), 201);
+  const sportsAllocation = ok(await api('desA', sports, { entity: 'allocation', action: 'create', lineId: sportsLine, schoolId: school, quantity: 5 }), 201).id;
   ok(await api('desP', `/api/activities${q}&workstream=monitoring`, { workstream: 'monitoring', entity: 'line', action: 'create', activity: 0, description: 'QA monitoring visit', quantity: 1, unitCost: 1000, strategy: 'Request for quotation', targetGroup: 'Schools' }));
   const monitoringLine = String((await db.query("SELECT id FROM activity_plan_lines WHERE plan_id=$1 AND workstream='monitoring'", [planId])).rows[0].id);
   // Each send step returns the plan's new version, so several can be sent in a row (BEAP Chair "Send several", V2-04).
@@ -258,6 +258,7 @@ try {
   fails(await api('desA', statePath, { action: 'submit', pillar: 'sports', version: ok(await api('desA', statePath)).plan.version, comment: 'Nothing changed.' }), 409, /Correct the item UBEC rejected in Sports, Quiz & Debate Activities first/);
   assert.deepEqual(ok(await api('desA', statePath)).ubecOpenRejections, { sports: [String(sportsLine)] });
   ok(await api('desA', sports, { ...budget, action: 'update', id: sportsLine, quantity: 6, description: 'Revised equipment' }));
+  ok(await api('desA', sports, { entity: 'allocation', action: 'update', id: sportsAllocation, lineId: sportsLine, schoolId: school, quantity: 6 })); // UBEC224: every equipment item is given out in full before Sports is sent.
   assert.deepEqual(ok(await api('desA', statePath)).ubecOpenRejections, {}, 'a changed item no longer blocks');
   await stateStep('desA', 'submit', 'sports', 'Quantity reduced.'); await stateStep('dirA', 'endorse', 'sports');
   { // UBEC204/205: the SUBEB sees the RAT rejection, cannot resubmit until a new RAT is uploaded, and only the RAT is editable.

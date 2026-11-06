@@ -18,9 +18,10 @@ import { DiscardChangesDialog } from '@/components/discard-changes-dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { TargetGroupPicker } from '@/components/target-group-picker';
 import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, useComboboxAnchor } from '@/components/ui/combobox';
 import { SchoolLevelFilter, allLevels, filterByLevel, type SchoolLevelChoice } from '@/components/school-level-filter';
-import { activityHints, activityInfo, isAdvisoryShare, strategyLabel, splitStrategy, nonApplicableStrategy, maxStrategyDetailLength, activityNames, activityLineSchema, activityTitles, capActivities, emptyDistributionMessage, hasDistribution, isOtherActivity, maxActivityNameLength, selectableActivityIndexes, textbookActivityIndex, textbookClasses, textbookSubjects, implementationStrategies, targetGroups, splitTargetGroups, joinTargetGroups, type ActivityLine, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
+import { activityHints, activityInfo, isAdvisoryShare, strategyLabel, splitStrategy, nonApplicableStrategy, maxStrategyDetailLength, activityNames, activityLineSchema, activityTitles, capActivities, emptyDistributionMessage, hasDistribution, isOtherActivity, maxActivityNameLength, selectableActivityIndexes, textbookActivityIndex, textbookClasses, textbookSubjects, implementationStrategies, type ActivityLine, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
 import { activityBudgetProblem, componentEnvelopeKobo, activityCap, activityCapKobo, activityPercent, activityFixedCaps, isCapped, isCappedFor, type BudgetLine } from '@/lib/activity-budget';
 import { budgetPairs, pairOf, sideSplits, storedAllocation } from '@/lib/budget-pairs';
 import { isSplitMode } from '@/lib/funding-policy';
@@ -83,7 +84,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[view,setView]=useState('budget'),[picked,setPicked]=useState<number[]>([]),[pinned,setPinned]=useState<number[]>([]),[schoolQuery,setSchoolQuery]=useState(''),[schoolLevel,setSchoolLevel]=useState<SchoolLevelChoice>(allLevels),[query,setQuery]=useState('');
  const [summaryOpen,setSummaryOpen]=useState(false);
  const [pending,setPending]=useState<null|(()=>void)>(null),[removal,setRemoval]=useState<{entity:'line'|'school';id?:number;schoolIds?:number[]}|null>(null),[listPicked,setListPicked]=useState<number[]>([]);
- const classesAnchor=useComboboxAnchor(),targetAnchor=useComboboxAnchor();
+ const classesAnchor=useComboboxAnchor();
  const panel=usePanelMode(),{flashId,flash}=useLineFlash();
  // A new item's client key (migration 058): made on its first save attempt and kept for every retry of the same draft,
  // so a save whose reply was lost on a weak connection is never stored twice. A new or discarded draft gets a new key.
@@ -224,7 +225,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
   return null;
  }
  /** Target group: one or more, kept in the draft as the stored text ("Schools, Teachers"). */
- function targetGroupPicker(){const chosen=splitTargetGroups(draft.targetGroup);return <Field><FieldLabel htmlFor="targetGroup">Target group {required}</FieldLabel><Combobox multiple items={[...targetGroups]} value={chosen} onValueChange={(groups,details)=>{if(!keepsChoices(details))setDraft({...draft,targetGroup:joinTargetGroups(groups)});}}><ComboboxChips ref={targetAnchor}><>{chosen.map(group=><ComboboxChip key={group}>{group}</ComboboxChip>)}</><ComboboxChipsInput id="targetGroup" placeholder={chosen.length?'Add another group…':'Choose one or more groups…'} aria-required="true" /></ComboboxChips><ComboboxContent anchor={targetAnchor}><ComboboxEmpty>No groups match your search</ComboboxEmpty><ComboboxList>{targetGroups.map(group=><ComboboxItem key={group} value={group}>{group}</ComboboxItem>)}</ComboboxList></ComboboxContent></Combobox></Field>;}
+ function targetGroupPicker(){return <TargetGroupPicker value={draft.targetGroup} onChange={targetGroup=>setDraft({...draft,targetGroup})} />;}
  function select(key:'strategy',label:string,options:readonly string[]){
   // UBEC159: Non-Applicable names what is used instead ("Non-Applicable: E-payment"), typed in a box under the list.
   const name=strategyLabel,split=splitStrategy(draft.strategy),value=split.strategy,retired=!!value&&!options.includes(value);

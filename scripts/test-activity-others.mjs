@@ -81,9 +81,10 @@ try {
     const created = ok(await api(who, url(workstream), line(workstream, others, 1000, { customActivity: name })));
     const back = ok(await api(who, url(workstream))).lines.find(l => l.id === created.id);
     assert.equal(back.activity, others); assert.equal(back.customActivity, name.trim());
-    // Every line gets a reference code like Sports (migration 053): UBEC/SUBEB/<COMPONENT>/<id>/<plan period>.
+    // Every line gets a reference code like Sports: UBEC/SUBEB/<COMPONENT>/<number from 001 in the plan>/<year> (UBEC233, migration 091).
     const prefix = { sbmc: 'SBMC', tlm: 'TLM', monitoring: 'MON', gscci: 'GSCCI', curriculum: 'CURR', quality: 'QA', ict: 'ICT', teachers: 'TD', planning: 'PRS' }[workstream];
-    assert.match(back.code, new RegExp(`^UBEC/SUBEB/${prefix}/0*${created.id}/\\d{4}`), `${workstream} line code`);
+    const codes = ok(await api(who, url(workstream))).lines.sort((a, b) => a.id - b.id).map(l => l.code);
+    assert.deepEqual(codes, codes.map((_, i) => new RegExp(`^UBEC/SUBEB/${prefix}/${String(i + 1).padStart(3, '0')}/\\d{4}$`).test(codes[i]) ? codes[i] : `numbered ${i + 1}`), `${workstream} line codes count from 001`);
     // Renaming works; moving the line to a listed activity needs the name cleared.
     ok(await api(who, url(workstream), { ...line(workstream, others, 1000, { customActivity: `Renamed ${workstream} ${tag}` }), action: 'update', id: created.id }));
     fails(await api(who, url(workstream), { ...line(workstream, plain, 1000, { customActivity: `Renamed ${workstream} ${tag}` }), action: 'update', id: created.id }), 400, /Others \(specify\)/);

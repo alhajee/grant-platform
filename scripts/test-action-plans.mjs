@@ -61,9 +61,9 @@ try {
     assert.equal(ok(await api("des", `${path}?plan=${b}`)).plan.endYear, 2017, path);
   }
 
-  const sportsBody = { entity: "budget", action: "create", section: "equipment", activityType: "Football", description: "QA balls", quantity: 10, unitCost: 100.25 };
+  const sportsBody = { entity: "budget", action: "create", targetGroup: "Schools", section: "equipment", activityType: "Football", description: "QA balls", quantity: 10, unitCost: 100.25 };
   const line = ok(await api("des", `/api/sports?plan=${a}`, sportsBody), 201);
-  assert.match(line.code, /^UBEC\/SUBEB\/SPORT\/\d+\/2026 · Q1–Q2$/, "The reference carries the plan period");
+  assert.equal(line.code, "UBEC/SUBEB/SPORT/001/2026", "The reference counts from 001 in the plan and carries the year, not the quarters (UBEC233)");
   assert.equal(ok(await api("des", "/api/plans")).targetedSchools, 0, "Unallocated equipment must not count as a school");
   assert.equal(ok(await api("des", `/api/sports?plan=${b}`)).lines.length, 0);
   for (const action of ["update", "delete"]) assert.equal((await api("des", `/api/sports?plan=${b}`, { ...sportsBody, action, id: line.id })).status, 404);
@@ -74,7 +74,7 @@ try {
   assert.equal((await api("des", `/api/sports?plan=${b}`, { ...allocation, action: "delete", id: allocated.id })).status, 404);
 
   const lineB = ok(await api("des", `/api/sports?plan=${b}`, { ...sportsBody, description: "QA kits", quantity: 4, unitCost: 250.25 }), 201);
-  assert.match(lineB.code, /\/2017 · Q1$/);
+  assert.equal(lineB.code, "UBEC/SUBEB/SPORT/001/2017", "Each plan counts its own codes from 001");
   ok(await api("des", `/api/sports?plan=${b}`, { ...allocation, lineId: lineB.id }), 201);
   const overviewA = ok(await api("des", `/api/beap?plan=${a}`));
   const overviewB = ok(await api("des", `/api/beap?plan=${b}`));

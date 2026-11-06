@@ -4,6 +4,7 @@ import { componentEnvelope, toKobo, type EnvelopePlan } from "./funding-policy.t
 import { lineQuartersSchema } from "./line-quarters.ts";
 import { lineDatesShape } from "./line-dates.ts";
 import { formatKobo, nairaFormat } from "./money-format.ts";
+import { targetGroupField } from "./target-groups.ts";
 
 // The four UBEC sports budget sections (QA UBEC18) with their share of the sports
 // allocation. Each share is a cap: a section's lines may not exceed share × the sports envelope.
@@ -80,6 +81,8 @@ export function sportsCatalogError(line: { section: SportsSection; activityType:
 export type SportsSection = typeof sportsSections[number]["id"];
 export type SportsSchool = { id: number; name: string; lga: string; level: string; location: "Rural" | "Urban" };
 export type SportsLine = { id: number; code: string; section: SportsSection; activityType: string; description: string; quantity: number; unitCost: number;
+  /** UBEC219 (migration 091): target groups joined ("Schools, Teachers"); '' on lines saved before. */
+  targetGroup: string;
   /** Timeline: implementation quarters within the plan's quarters (migration 050). */
   quarters: number[];
   /** Expected start and due dates (migration 059, YYYY-MM-DD); null on lines saved before. */
@@ -95,6 +98,8 @@ export const sportsLineSchema = z.object({
   section: z.enum(["equipment", "competitions", "publicity", "supervision", "debate"]),
   activityType: z.string().trim().min(1, "Choose a sport or sub-activity").max(160),
   description: z.string().trim().min(1, "Enter an item or activity description").max(1000),
+  /** UBEC219: one or more target groups, required on every save (lines saved before keep '' until edited). */
+  targetGroup: targetGroupField.refine((value) => value !== "", "Choose the target group"),
   quantity,
   unitCost: z.number().positive("Enter a unit cost greater than zero").max(999999999999.99)
     .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.01, "Use no more than two decimal places"),
@@ -201,5 +206,25 @@ export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: b
  * sportsBudgetProblem for snapshot lines (unit_cost strings), used by every send step. UBEC167: the Debate amount must be
  * answered first (₦0 if none); snapshots taken before migration 084 have no `debateAllocation` field and are not asked.
  */
-export const sportsSnapshotProblem = (lines: readonly { section: string; unit_cost: string | number; quantity: number; activity_type?: string }[] | undefined, plan: EnvelopePlan | null | undefined) =>
-  !plan ? null : "debateAllocation" in plan && plan.debateAllocation == null ? `${debateNotSet}, then send Sports, Quiz & Debate` : sportsBudgetProblem((lines ?? []).map((line) => ({ section: line.section, kobo: sportsLineKobo(line), activityType: line.activity_type })), plan);
+type SnapshotSportsLine = { section: string; unit_cost: string | number; quantity: number; activity_type?: string; description?: string; allocations?: readonly { quantity: number }[] };
+export const sportsSnapshotProblem = (lines: readonly SnapshotSportsLine[] | undefined, plan: EnvelopePlan | null | undefined) =>
+  !plan ? null : "debateAllocation" in plan && plan.debateAllocation == null ? `${debateNotSet}, then send Sports, Quiz & Debate` : sportsBudgetProblem((lines ?? []).map((line) => ({ section: line.section, kobo: sportsLineKobo(line), activityType: line.activity_type })), plan)
+    ?? sportsAllocationProblem((lines ?? []).flatMap((line) => line.allocations ? [{ section: line.section, activityType: line.activity_type ?? "", description: line.description ?? "", quantity: Number(line.quantity), allocated: line.allocations.reduce((sum, a) => sum + Number(a.quantity), 0) }] : []));
+
+/** An equipment item (procurement, not PHE training) with the quantity given to beneficiary schools so far. */
+export type SportsItemAllocation = { section: string; activityType: string; description: string; quantity: number; allocated: number };
+/** UBEC224: equipment items not yet given out in full to beneficiary schools (Training of PHE Officers lines are not given out). */
+export const unallocatedSportsItems = (items: readonly SportsItemAllocation[]) => items.filter((item) => item.section === "equipment" && !isPheTraining(item) && item.allocated < item.quantity);
+/** "“Match balls” (4 of 10 allocated)" for each item, the first few named. */
+export function unallocatedSportsList(items: readonly SportsItemAllocation[], limit = 3) {
+  const named = items.slice(0, limit).map((item) => `“${item.description.trim() || item.activityType}” (${item.allocated.toLocaleString("en-NG")} of ${item.quantity.toLocaleString("en-NG")} allocated)`);
+  return items.length > limit ? `${named.join(", ")} and ${items.length - limit} more` : named.join(", ");
+}
+/**
+ * UBEC224: every equipment item must be given out in full to beneficiary schools before Sports, Quiz & Debate is sent, at
+ * every send step (with sportsSnapshotProblem). Null when all are allocated.
+ */
+export function sportsAllocationProblem(items: readonly SportsItemAllocation[]): string | null {
+  const open = unallocatedSportsItems(items);
+  return open.length ? `Allocate every equipment item to beneficiary schools before sending: ${unallocatedSportsList(open)}` : null;
+}

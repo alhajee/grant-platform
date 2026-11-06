@@ -1,4 +1,5 @@
 'use client';
+import { lineCodeLabel } from '@/lib/line-code';
 import { Fragment, useState, type ReactNode } from 'react';
 import { CircleAlertIcon, EyeIcon, PaperclipIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -93,7 +94,7 @@ export function LineTable({ lines, itemLabel, quantityLabel = 'Qty', editable, d
             {Boolean(line.attachments) && <span className="line-attachments" title={`${line.attachments} document${line.attachments === 1 ? '' : 's'} attached`}><PaperclipIcon aria-hidden="true" />{line.attachments}<span className="sr-only"> document{line.attachments === 1 ? '' : 's'} attached</span></span>}
             {line.badges}
           </div>}
-          {line.code && <p className="line-code" title="Reference code">{line.code}</p>}
+          {line.code && <p className="line-code" title="Reference code">{lineCodeLabel(line.code)}</p>}
         </TableCell>
         <TableCell className="line-timeline" data-label="Timeline"><QuarterBadge quarters={line.quarters} /><LineDatesNote startDate={line.startDate} dueDate={line.dueDate} /></TableCell>
         <TableCell className="line-number line-qty" data-label={quantityLabel}>

@@ -72,8 +72,8 @@ try {
   const q = `?plan=${planId}`, ubec = `/api/ubec/comments${q}`, stateComments = `/api/plans/comments${q}`, reviewPath = `/api/plans/review${q}`, ubecReview = `/api/ubec/review${q}`;
   const review = async (who, action, pillar, comment = '') => ok(await api(who, reviewPath, { action, pillar, version: ok(await api(who, reviewPath)).plan.version, comment }));
   const decide = async (action, extra = {}) => { const d = ok(await api('uchair', ubecReview)); return api('uchair', ubecReview, { action, version: d.plan.version, roundId: d.round.id, comment: 'Consolidated UBEC feedback.', ...extra }); };
-  const balls = String(ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 10, unitCost: 15000 }), 201).id);
-  const kits = String(ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', section: 'competitions', activityType: 'State Finals Competition', description: 'State finals', quantity: 1, unitCost: 900000 }), 201).id);
+  const balls = String(ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'publicity', activityType: 'Electronic Media', description: 'Match balls', quantity: 10, unitCost: 15000 }), 201).id);
+  const kits = String(ok(await api('des', `/api/sports${q}`, { entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'competitions', activityType: 'State Finals Competition', description: 'State finals', quantity: 1, unitCost: 900000 }), 201).id);
   ok(await api('des', `/api/activities${q}`, { workstream: 'sbmc', entity: 'line', action: 'create', activity: 1, description: 'Rehabilitate ECCDE centres', rationale: 'Collapsed roofs', implementationApproach: 'Community labour', quantity: 100, unitCost: 500000, strategy: 'Least cost', targetGroup: 'Community level', location: 'Rural' }));
   const sbmcLine = String((await db.query("SELECT id FROM activity_plan_lines WHERE plan_id=$1 AND workstream='sbmc'", [planId])).rows[0].id);
   for (const pillar of ['sports', 'sbmc']) await review('des', 'submit', pillar);

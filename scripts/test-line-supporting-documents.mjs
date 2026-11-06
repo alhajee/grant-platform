@@ -87,7 +87,7 @@ try {
   for (const activity of [4, 2, 3, 6, 7, 8, 9, 10]) qaLines[activity] = await create('me', 'quality', activity, 100000);
   for (const activity of [0, 2, 3, 5]) await create('planning', 'planning', activity, 100000);
   const gscci = await create('academic', 'gscci', 0, 1000);
-  ok(await api('academic', `/api/sports?plan=${planId}`, { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 2, unitCost: 15000 }), 201);
+  ok(await api('academic', `/api/sports?plan=${planId}`, { entity: 'budget', action: 'create', targetGroup: 'Schools', section: 'equipment', activityType: 'Football', description: 'Match balls', quantity: 2, unitCost: 15000 }), 201);
   step(`plan ${planId} in throwaway state ${state}: SBMC, TLM, Quality Assurance, Planning, Greening and Sports lines`);
 
   // Uploads: every listed component's lines, PDF/Excel plus Word and images.
