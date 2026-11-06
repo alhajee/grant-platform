@@ -18,6 +18,7 @@ function load(path) {
   return loaded.exports;
 }
 const { componentEnvelope, allocatedAmount, defaultAllocation, fundingComponentIds, sharedEnvelope } = load(resolve('lib/funding-policy.ts'));
+const { rescaleSplits } = load(resolve('lib/budget-pairs.ts'));
 
 const base = process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname));
@@ -147,6 +148,46 @@ try {
   const blocked = await api('chair', '/api/plans/setup', { ...edit, version: locked.plan.version, planningYear: 2024, implementationYear: 2025, quarters: [2, 3], stateLodgment: '1' }, 'PATCH'); ok(blocked, 409); assert.match(blocked.data.error, /with UBEC/);
   assert.ok(other.id);
   console.log('PASS: component and plan-wide funding sources, ceilings, plan detail edits, history and locks.');
+
+  step('UBEC228 (unit): a changed shared budget keeps each split percentage, rounded to the kobo');
+  {
+    const before = { stateLodgment: '10000.00', otherFunding: '0.00', ictAllocation: '709.00', tlmAllocation: '6000.00', infrastructureTlmMode: 'split', fundingSources: [] };
+    const after = rescaleSplits(before, { ...before, stateLodgment: '5000.00' }, {});
+    // Teachers 5% of ₦20,000 = ₦1,000 → ₦500: ICT 70.9% = ₦354.50; pool 75% of ₦20,000 = ₦15,000 → ₦7,500: TLM 40% = ₦3,000.
+    assert.equal(after.plan.ictAllocation, '354.50'); assert.equal(after.plan.tlmAllocation, '3000.00'); assert.deepEqual(after.problems, []);
+    assert.equal(after.rescaled[0].percent, '70.9%');
+    const odd = rescaleSplits({ ...before, ictAllocation: '333.33' }, { ...before, ictAllocation: '333.33', stateLodgment: '7000.00' }, {});
+    assert.equal(odd.plan.ictAllocation, '233.33'); // 333.33 × 700/1000 = 233.331
+    const shared = rescaleSplits({ ...before, infrastructureTlmMode: 'shared_pool' }, { ...before, infrastructureTlmMode: 'shared_pool', stateLodgment: '5000.00' }, {});
+    assert.equal(shared.plan.tlmAllocation, '6000.00'); assert.equal(shared.rescaled.length, 1);
+    const blocked = rescaleSplits(before, { ...before, stateLodgment: '5000.00' }, { ict: '400.00', infrastructure: '4600.00' });
+    assert.equal(blocked.problems.length, 2); assert.match(blocked.problems[0], /leaves ICT ₦354\.5000, but its lines already propose ₦400\.0000: ₦45\.5000 short/); assert.match(blocked.problems[1], /Infrastructure .*packages/);
+    assert.equal(rescaleSplits(before, { ...before, stateLodgment: '20000.00' }, { ict: '700.00' }).problems.length, 0); // raising never blocks
+  }
+
+  step('UBEC228 (API): lowering the funding rescales the ICT allocation instead of refusing, and records it');
+  {
+    const plan = (await db.query('SELECT version FROM action_plans WHERE id=$1', [wide.id])).rows[0];
+    // ICT keeps 70.9% of the Teacher Development & ICT budget (the policy's share of ₦25,000).
+    const envelope = { ...ok(await api('chair', `/api/plans/setup?plan=${wide.id}`)).plan, ictAllocation: null };
+    const sources = envelope.fundingSources.map(({ component, funder, amount }) => ({ component, funder, amount }));
+    const ictBefore = (Math.round(kobo(componentEnvelope(envelope, 'teachers')) * 0.709) / 100).toFixed(2);
+    await db.query('UPDATE action_plans SET ict_allocation=$2 WHERE id=$1', [wide.id, ictBefore]);
+    const expected = rescaleSplits({ ...envelope, ictAllocation: ictBefore }, { ...envelope, ictAllocation: ictBefore, stateLodgment: '5000.00' }, {}).rescaled[0];
+    const wideEdit = { plan: wide.id, version: plan.version, planningYear: 2026, implementationYear: 2026, quarters: [1], stateLodgment: '5000', fundingSources: sources };
+    // The SBMC and Planning lines would fall short: give them room first.
+    await db.query('UPDATE activity_plan_lines SET unit_cost=1 WHERE plan_id=$1', [wide.id]);
+    // An ICT line ₦100 above the rescaled ICT part is refused with the amount short.
+    await db.query("INSERT INTO activity_plan_lines(plan_id,workstream,activity,description,quantity,unit_cost,strategy,target_group) VALUES($1,'ict',1,'Laptops',1,$2,'NCB','Schools')", [wide.id, (Number(expected.after) + 100).toFixed(2)]);
+    const fmt = v => `₦${Number(v).toLocaleString('en-US', { minimumFractionDigits: 4 })}`.replace(/\./g, '\\.');
+    const refused = await api('chair', '/api/plans/setup', wideEdit, 'PATCH'); ok(refused, 409);
+    assert.match(refused.data.error, new RegExp(`leaves ICT ${fmt(expected.after)}, but its lines already propose ${fmt(Number(expected.after) + 100)}: ₦100\\.0000 short`));
+    await db.query("DELETE FROM activity_plan_lines WHERE plan_id=$1 AND workstream='ict'", [wide.id]);
+    const saved = ok(await api('chair', '/api/plans/setup', wideEdit, 'PATCH'));
+    assert.equal(saved.plan.ictAllocation, expected.after);
+    const history = ok(await api('chair', `/api/plans/review?plan=${wide.id}`)).events.find(e => e.action === 'edit');
+    assert.match(history.comment, new RegExp(`ICT keeps 70\\.9% of the Teacher Development & ICT budget: ${fmt(ictBefore)} → ${fmt(expected.after)}`));
+  }
 } finally {
   const plans = (await db.query('SELECT id FROM action_plans WHERE state_code=$1', [state])).rows.map(r => r.id);
   for (const table of ['plan_notifications', 'plan_review_events', 'plan_submissions', 'plan_pillar_reviews', 'activity_plan_lines']) await db.query(`DELETE FROM ${table} WHERE plan_id=ANY($1::int[])`, [plans]);

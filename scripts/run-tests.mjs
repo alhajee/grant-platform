@@ -55,13 +55,20 @@ function runOne(name) {
 const { Client } = await import('pg');
 if (existsSync(envFile) && !process.env.DATABASE_URL) process.loadEnvFile(envFile);
 const settingsDb = process.env.DATABASE_URL ? new Client({ connectionString: process.env.DATABASE_URL }) : null;
-let fullAllocation = null;
+let fullAllocation = null, eccdeShare = null;
 if (settingsDb) {
   await settingsDb.connect();
   fullAllocation = (await settingsDb.query("SELECT full_allocation_required AS v FROM state_workflow_settings WHERE state_code='GLOBAL'").catch(() => ({ rows: [] }))).rows[0]?.v ?? null;
   if (fullAllocation !== null) await settingsDb.query("UPDATE state_workflow_settings SET full_allocation_required=FALSE WHERE state_code='GLOBAL'");
+  // UBEC231: most tests send plans with no ECCDE spending; test-eccde-share.mjs turns the rule on for its own run.
+  eccdeShare = (await settingsDb.query("SELECT eccde_share_required AS v FROM state_workflow_settings WHERE state_code='GLOBAL'").catch(() => ({ rows: [] }))).rows[0]?.v ?? null;
+  if (eccdeShare !== null) await settingsDb.query("UPDATE state_workflow_settings SET eccde_share_required=FALSE WHERE state_code='GLOBAL'");
 }
-const restore = async () => { if (settingsDb && fullAllocation !== null) await settingsDb.query("UPDATE state_workflow_settings SET full_allocation_required=$1 WHERE state_code='GLOBAL'", [fullAllocation]); await settingsDb?.end(); };
+const restore = async () => {
+  if (settingsDb && fullAllocation !== null) await settingsDb.query("UPDATE state_workflow_settings SET full_allocation_required=$1 WHERE state_code='GLOBAL'", [fullAllocation]);
+  if (settingsDb && eccdeShare !== null) await settingsDb.query("UPDATE state_workflow_settings SET eccde_share_required=$1 WHERE state_code='GLOBAL'", [eccdeShare]);
+  await settingsDb?.end();
+};
 process.once('SIGINT', () => { void restore().finally(() => process.exit(130)); });
 
 console.log(`Running ${tests.length} test scripts against ${base}${existsSync(envFile) ? '' : ' (no env file found)'}\n`);

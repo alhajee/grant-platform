@@ -1,11 +1,11 @@
 'use client';
 
 import { createColumnHelper } from '@tanstack/react-table';
-import { MoreHorizontalIcon, PencilIcon, KeyRoundIcon } from 'lucide-react';
+import { MoreHorizontalIcon, PencilIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { departments as ubecDepartments } from '@/lib/ubec';
 import { subebDepartments, supportDepartments } from '@/lib/subeb-departments';
 const departments = [...subebDepartments,...ubecDepartments];
@@ -22,7 +22,7 @@ export const departmentLabel = (user: User) => {
   return subebDepartments.every(d => assigned.includes(d.id)) ? ['All departments', ...supportDepartments.filter(d => assigned.includes(d.id)).map(d => d.name)].join(', ') : accessLabel(assigned) || assigned.map(value => departments.find(d => d.id === value)?.name ?? value).join(', ');
 };
 
-export function userColumns(actorId: number, actorRole: string, actorDepartments: string[], onEdit: (user: User) => void, onReset: (user: User) => void) {
+export function userColumns(actorId: number, actorRole: string, actorDepartments: string[], onEdit: (user: User) => void, onReset: (user: User) => void, onDelete?: (user: User) => void) {
   return helper.columns([
     helper.accessor('name', {
       header: ({ column }) => <SortHeader column={column} title="User" />,
@@ -81,6 +81,7 @@ export function userColumns(actorId: number, actorRole: string, actorDepartments
               <DropdownMenuContent align="end"><DropdownMenuGroup>
                 <DropdownMenuItem onSelect={() => onEdit(user)}><PencilIcon />Edit user</DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onReset(user)}><KeyRoundIcon />Reset password</DropdownMenuItem>
+                {onDelete && <><DropdownMenuSeparator /><DropdownMenuItem variant="destructive" onSelect={() => onDelete(user)}><Trash2Icon />Delete user</DropdownMenuItem></>}
               </DropdownMenuGroup></DropdownMenuContent>
             </DropdownMenu> :
             <span className="flex size-8 items-center justify-center text-muted-foreground" aria-label="No available actions">—</span>}

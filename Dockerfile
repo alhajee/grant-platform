@@ -31,6 +31,7 @@ COPY --chown=node:node scripts/seed-production-users.mjs ./scripts/seed-producti
 COPY --chown=node:node scripts/purge-schools-and-plans.mjs ./scripts/purge-schools-and-plans.mjs
 COPY --chown=node:node scripts/seed-ubec-users.mjs ./scripts/seed-ubec-users.mjs
 COPY --chown=node:node scripts/seed-component-data-entry.mjs ./scripts/seed-component-data-entry.mjs
+COPY --chown=node:node scripts/randomize-passwords.mjs ./scripts/randomize-passwords.mjs
 COPY --chown=node:node lib/nigeria-map.json ./lib/nigeria-map.json
 USER node
 EXPOSE 3000

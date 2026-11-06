@@ -11,12 +11,14 @@ import { officerLimitProblem, pruneDefaultOfficers } from '@/lib/ubec-officer-li
 import { normalizeDepartments, replaceUserDepartments, userDepartmentsSql } from '@/lib/user-departments';
 import { isUbecEmail, maxRoleTitleLength, ubecEmailError } from '@/lib/officer-title';
 import { hasComponentGrants, normalizeAccess, tokenDepartment } from '@/lib/component-access';
+import { deleteUserAccount, deletedMessage } from '@/lib/user-delete';
+import { nextOfficerRoleTitle } from '@/lib/officer-title-db';
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 const roles = z.enum(['Data Entry Staff', 'Director', 'Executive Chairman', ...ubecRoleList] as [string, ...string[]]);
 const profile = z.object({
   name: z.string().trim().min(2).max(120),
-  // Assessment Officers only (UBEC150): "UBEC Assessment Officer 1 - Infrastructure".
+  // Assessment Officers only (UBEC150); set automatically since UBEC237, so a value sent here is ignored.
   roleTitle: z.string().trim().max(maxRoleTitleLength).optional(),
   role: roles,
   stateCode: z.string().trim().toUpperCase().min(2).max(8),
@@ -32,8 +34,16 @@ const edit = profile.extend({ id: z.number().int().positive() }).strict();
 const reset = z.object({ id: z.number().int().positive(), action: z.literal('reset_password') }).strict();
 const fields = `id, full_name AS name, role_title AS "roleTitle", email, role, department, ${userDepartmentsSql('users')} AS departments, state_code AS "stateCode", active, can_create_plan AS "canCreatePlan", can_manage_schools AS "canManageSchools", is_beap_chair AS "isBeapChair"`;
 
-/** Only Assessment Officers keep a role name; an edit that leaves it out keeps the stored one. */
-const roleTitleFor = (input: { role: string; roleTitle?: string }, stored = '') => input.role === ubecRoles.officer ? input.roleTitle ?? stored : '';
+/**
+ * Only Assessment Officers have a role name, set automatically (UBEC237, lib/officer-title-db.ts): a new officer, an account
+ * made an officer and an officer moved to another department get the department's next "UBEC Assessment Officer N"; any
+ * other edit keeps the stored one. A roleTitle sent by older clients is ignored.
+ */
+async function roleTitleFor(db: Parameters<typeof nextOfficerRoleTitle>[0], input: { role: string }, department: string | undefined, target?: { id: number; role: string; department: string | null; roleTitle: string | null }) {
+  if (input.role !== ubecRoles.officer || !department) return '';
+  if (target && target.role === ubecRoles.officer && target.department === department && target.roleTitle) return target.roleTitle;
+  return nextOfficerRoleTitle(db, department, target?.id ?? 0);
+}
 
 async function requireAdmin(request: NextRequest) {
   const actor = await getAuthenticatedUser(request);
@@ -79,7 +89,7 @@ async function mutate(request: NextRequest, creating: boolean) {
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['admin:user-management']);
       const validActor = (await db.query("SELECT id FROM users WHERE id=$1 AND active AND role='Super Admin' AND session_version=$2 FOR SHARE", [actor.userId, actor.sessionVersion])).rows[0];
       if (!validActor) return json({ error: 'Your administrator access has changed. Sign in again.' }, 403);
-      const target = 'id' in input ? (await db.query(`SELECT ${fields} FROM users WHERE id=$1 AND role<>'Super Admin' FOR UPDATE`, [input.id])).rows[0] : null;
+      const target = 'id' in input ? (await db.query(`SELECT ${fields} FROM users WHERE id=$1 AND role<>'Super Admin' AND deleted_at IS NULL FOR UPDATE`, [input.id])).rows[0] : null;
       if ('id' in input && !target) return json({ error: 'User not found' }, 404);
       const resetting = 'action' in input;
       if (!resetting) {
@@ -106,17 +116,16 @@ async function mutate(request: NextRequest, creating: boolean) {
       let id = target?.id;
       if ('email' in input) {
         // New Assessment Officers (UBEC150) need a role name and a UBEC email; earlier accounts keep theirs when edited.
-        if (input.role === ubecRoles.officer && (input.roleTitle ?? '').length < 2) return json({ error: 'Enter the role name, e.g. UBEC Assessment Officer 1 - Infrastructure' }, 400);
         if (input.role === ubecRoles.officer && !isUbecEmail(input.email)) return json({ error: ubecEmailError }, 400);
         if ((await db.query('SELECT id FROM users WHERE email=$1', [input.email])).rowCount) return json({ error: 'An account already uses this email address' }, 409);
         const selectedDepartments = accessFor(input);
-        id = (await db.query('INSERT INTO users(full_name,email,password_hash,role,department,state_code,active,can_create_plan,is_beap_chair,can_manage_schools,role_title) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id', [input.name, input.email, hashSync(password!, 10), input.role, selectedDepartments[0] || null, input.stateCode, input.active, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? false, roleTitleFor(input)])).rows[0].id;
+        id = (await db.query('INSERT INTO users(full_name,email,password_hash,role,department,state_code,active,can_create_plan,is_beap_chair,can_manage_schools,role_title) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id', [input.name, input.email, hashSync(password!, 10), input.role, selectedDepartments[0] || null, input.stateCode, input.active, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? false, await roleTitleFor(db, input, selectedDepartments[0])])).rows[0].id;
         await replaceUserDepartments(db, id, selectedDepartments);
       } else if (resetting) {
         await db.query('UPDATE users SET password_hash=$1,session_version=session_version+1 WHERE id=$2', [hashSync(password!, 10), id]);
       } else {
         const selectedDepartments = accessFor(input);
-        await db.query('UPDATE users SET full_name=$1,role=$2,department=$3,active=$4,session_version=session_version+1,can_create_plan=$6,is_beap_chair=$7,can_manage_schools=$8,role_title=$9 WHERE id=$5', [input.name, input.role, selectedDepartments[0] || null, input.active, id, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? target.canManageSchools, roleTitleFor(input, target.roleTitle)]);
+        await db.query('UPDATE users SET full_name=$1,role=$2,department=$3,active=$4,session_version=session_version+1,can_create_plan=$6,is_beap_chair=$7,can_manage_schools=$8,role_title=$9 WHERE id=$5', [input.name, input.role, selectedDepartments[0] || null, input.active, id, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? target.canManageSchools, await roleTitleFor(db, input, selectedDepartments[0], target)]);
         await replaceUserDepartments(db, id!, selectedDepartments);
         // Default officer choices follow the account: none once it is deactivated, another role or department.
         await pruneDefaultOfficers(db, id!);
@@ -134,3 +143,30 @@ async function mutate(request: NextRequest, creating: boolean) {
 
 export const POST = (request: NextRequest) => mutate(request, true);
 export const PATCH = (request: NextRequest) => mutate(request, false);
+
+const remove = z.object({ id: z.number().int().positive() }).strict();
+
+/** UBEC236: the Super Admin deletes any account but their own and the last Super Admin (lib/user-delete.ts). */
+export async function DELETE(request: NextRequest) {
+  try {
+    if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
+    const actor = await requireAdmin(request);
+    if (!actor) return json({ error: 'Super-admin access required' }, 403);
+    const parsed = remove.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return json({ error: 'Choose a user to delete' }, 400);
+    return await getPostgres().transaction(async db => {
+      await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['admin:user-management']);
+      const validActor = (await db.query("SELECT id FROM users WHERE id=$1 AND active AND role='Super Admin' AND session_version=$2 FOR SHARE", [actor.userId, actor.sessionVersion])).rows[0];
+      if (!validActor) return json({ error: 'Your administrator access has changed. Sign in again.' }, 403);
+      if (parsed.data.id === actor.userId) return json({ error: 'You cannot delete your own account' }, 403);
+      const target = (await db.query('SELECT id, full_name AS name, email, role, department, state_code AS "stateCode" FROM users WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [parsed.data.id])).rows[0];
+      if (!target) return json({ error: 'User not found' }, 404);
+      if (target.role === 'Super Admin' && !(await db.query("SELECT 1 FROM users WHERE role='Super Admin' AND active AND deleted_at IS NULL AND id<>$1 LIMIT 1", [target.id])).rowCount) return json({ error: 'The last Super Admin cannot be deleted' }, 409);
+      const outcome = await deleteUserAccount(db, target, actor.userId);
+      return json({ ...outcome, message: deletedMessage(outcome, target.name) });
+    });
+  } catch (cause) {
+    console.error('Administrator user delete failed', cause);
+    return json({ error: 'The user could not be deleted. Please try again.' }, 503);
+  }
+}

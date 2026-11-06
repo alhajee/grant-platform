@@ -2,6 +2,7 @@
 // (unit test, no server). Usage: node scripts/test-level-mapping.mjs
 import assert from 'node:assert/strict';
 import { levelMapping, levelOf, sumMappings } from '../lib/level-mapping.ts';
+import { eccdeShare, eccdeShareProblem } from '../lib/eccde-share.ts';
 
 const school = level => ({ name: `${level} school`, lga: 'Damaturu', level, location: 'Urban' });
 const line = (unit_cost, quantity = 1, extra = {}) => ({ id: 1, unit_cost: String(unit_cost), quantity, ...extra });
@@ -26,4 +27,15 @@ assert.equal(Math.round((odd.eccde + odd.primary + odd.jss) * 100), 10, 'whole k
 assert.equal(levelOf('SSS'), 'none'); assert.equal(levelOf('JSS 3'), 'jss'); assert.equal(levelOf('Pre-primary'), 'eccde');
 assert.deepEqual(sumMappings([m, m]), { eccde: 1600, primary: 3800, jss: 1400, none: 1240, total: 8040 });
 assert.deepEqual(levelMapping({ infrastructure: [], sports: [] }), { eccde: 0, primary: 0, jss: 0, none: 0, total: 0 });
+// UBEC231: a line with no schools, classes or list follows the school levels named in its target groups.
+const groups = levelMapping({ infrastructure: [], sports: [], monitoring: [line(100, 1, { target_group: 'ECCDE Learners' }), line(90, 1, { target_group: 'ECCDE Learners and Teachers, Primary School Learners, Teachers' }), line(50, 1, { target_group: 'Schools, Teachers' })], curriculum: [line(40, 1, { target_group: 'JSS Learners' })] });
+assert.deepEqual(groups, { eccde: 145, primary: 45, jss: 40, none: 50, total: 280 });
+// A distribution list still comes first.
+assert.equal(levelMapping({ infrastructure: [], sports: [], tlm: [line(100, 1, { target_group: 'ECCDE Learners' })], tlmDistribution: [school('Primary')] }).primary, 100);
+// UBEC231: the 15% ECCDE rule.
+assert.equal(eccdeShareProblem({ infrastructure: [], sports: [] }), null, 'nothing proposed: nothing to check');
+assert.equal(eccdeShareProblem({ infrastructure: [], sports: [], monitoring: [line(15, 1, { target_group: 'ECCDE Learners' }), line(85, 1)] }), null, 'exactly 15% passes');
+const short = eccdeShare({ infrastructure: [], sports: [], monitoring: [line(14.99, 1, { target_group: 'ECCDE Learners' }), line(85.01, 1)] });
+assert.equal(short.met, false); assert.equal(short.shortKobo, 1); assert.equal(short.percent, 14.9);
+assert.match(eccdeShareProblem({ infrastructure: [], sports: [], monitoring: [line(100, 1, { target_group: 'ECCDE Learners' }), line(900, 1)] }), /^ECCDE must be at least 15% of the plan before it goes to the Executive Chairman: it is ₦100\.0000 \(10%\), ₦50\.0000 short\./);
 console.log('PASS: spending by school level');

@@ -40,6 +40,14 @@ function share(kobo: number, weights: Weights): Record<SchoolLevelKey, number> {
   const largest = entries.reduce((best, entry) => entry[1] > best[1] ? entry : best)[0];
   return { ...parts, [largest]: parts[largest] + kobo - given };
 }
+/**
+ * UBEC231: a line with no schools, classes or distribution list follows its target groups when they name a school level
+ * ("ECCDE Learners", "ECCDE Learners and Teachers" → ECCDE; Primary and JSS the same), evenly across those levels;
+ * other groups (Schools, Teachers, State level…) say nothing about the level, so such lines stay not school-specific.
+ */
+export function targetGroupWeights(targetGroup: string | null | undefined): Weights {
+  return count(String(targetGroup ?? '').split(',').map(group => group.trim()).filter(group => levelOf(group) !== 'none'));
+}
 /** The components made of activity lines (every component but Infrastructure and Sports). */
 const activityComponents = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
 const koboOf = (line: { quantity: number; unit_cost: string }) => Math.round(Number(line.unit_cost) * 100) * Number(line.quantity);
@@ -68,7 +76,7 @@ export function levelMapping(snapshot: Snapshot): LevelMapping {
       else if (line.textbook_classes?.length) add(share(kobo, count(line.textbook_classes)));
       else if (pillar === 'teachers' && line.school_levels?.length) add(share(kobo, count(line.school_levels)));
       else if (distribution[pillar]?.length) add(share(kobo, count(distribution[pillar]!.map(s => s.level))));
-      else add(share(kobo, {}));
+      else add(share(kobo, targetGroupWeights(line.target_group)));
     }
   }
   const naira = Object.fromEntries(schoolLevelKeys.map(key => [key, totals[key] / 100])) as Record<SchoolLevelKey, number>;

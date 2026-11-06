@@ -17,6 +17,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { subebDepartments as departments, supportDepartments } from '@/lib/subeb-departments';
 import { toast } from 'sonner';
 import { DepartmentCheckboxes } from '@/components/department-checkboxes';
+import { DeleteUserDialog, type DeletableUser } from '@/components/delete-user-dialog';
 
 type Directory = { users: User[]; department: string | null; departments: string[]; role: string; actorId: number; stateName: string };
 const blank = { name: '', email: '', role: 'Data Entry Staff', department: '', departments: [] as string[], active: true, canCreatePlan: false, canManageSchools: false, isBeapChair: false };
@@ -26,6 +27,7 @@ export default function UsersPage() {
   const [editing, setEditing] = useState<User | 'new' | null>(null), [form, setForm] = useState(blank);
   const [reset, setReset] = useState<User | null>(null), [credentials, setCredentials] = useState<{email:string;password:string}|null>(null);
   const [saving, setSaving] = useState(false), [formError, setFormError] = useState('');
+  const [deleting, setDeleting] = useState<DeletableUser | null>(null);
   const pending = useRef(false);
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -60,7 +62,7 @@ export default function UsersPage() {
     <div className="state-users-heading"><div><p className="text-muted-foreground">{data?.stateName ?? 'SUBEB'}</p><h1>Users</h1></div>{data && !error && <Button onClick={() => open('new')}><PlusIcon data-icon="inline-start" />Add user</Button>}</div>
     {error && <Alert variant="destructive"><AlertTitle>Users unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" onClick={load}>Try again</Button></AlertDescription></Alert>}
     {loading ? <Skeleton className="h-80 w-full" /> : data && !error && <>
-      <UsersDataTable users={data.users} actorId={data.actorId} actorRole={data.role} actorDepartments={data.departments} onEdit={open} onReset={user=>{setReset(user);setFormError('');}} />
+      <UsersDataTable users={data.users} actorId={data.actorId} actorRole={data.role} actorDepartments={data.departments} onEdit={open} onReset={user=>{setReset(user);setFormError('');}} onDelete={user=>setDeleting(user)} />
     </>}
     <Dialog open={Boolean(editing)} onOpenChange={open=>{if(!open&&!saving)setEditing(null);}}><DialogContent aria-describedby={undefined} className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-4xl" showCloseButton={!saving}><DialogHeader><DialogTitle>{editing==='new'?'Add state user':'Edit state user'}</DialogTitle></DialogHeader><form onSubmit={e=>{e.preventDefault();void save();}}>
       {/* Account details on the left, department access on the right, so the dialog fits without scrolling on a laptop. */}
@@ -78,5 +80,6 @@ export default function UsersPage() {
       </div><DialogFooter className="mt-6"><Button type="button" variant="outline" disabled={saving} onClick={()=>setEditing(null)}>Cancel</Button><Button type="submit" disabled={saving||form.departments.length===0}>{saving&&<Spinner data-icon="inline-start" />}Save user</Button></DialogFooter></form></DialogContent></Dialog>
     <Dialog open={Boolean(reset)} onOpenChange={open=>{if(!open&&!saving)setReset(null);}}><DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto" showCloseButton={!saving}><DialogHeader><DialogTitle>Reset password?</DialogTitle><DialogDescription>{reset?.name} will be signed out. A new password will be shown once for you to share securely.</DialogDescription></DialogHeader>{formError&&<FieldError role="alert">{formError}</FieldError>}<DialogFooter><Button variant="outline" disabled={saving} onClick={()=>setReset(null)}>Cancel</Button><Button disabled={saving} onClick={()=>void save(true)}>{saving&&<Spinner data-icon="inline-start" />}Reset password</Button></DialogFooter></DialogContent></Dialog>
     <CredentialsDialog credentials={credentials} onClose={()=>setCredentials(null)} />
+    <DeleteUserDialog user={deleting} endpoint="/api/users" onClose={()=>setDeleting(null)} onDeleted={load} />
   </main></div>;
 }

@@ -113,3 +113,43 @@ export function creationSplitProblem(plan: EnvelopePlan, splits: Partial<Creatio
   if (tlm.problem !== undefined) return { problem: tlm.problem };
   return { ictAllocation: ict.allocation, tlmAllocation: tlm.allocation };
 }
+
+/** UBEC228: one budget split carried over a funding change, keeping the stored side's percentage of the shared budget. */
+export type SplitRescale = { pair: BudgetPair; label: string; side: SplitSide; keeper: SplitSide; percent: string; before: string; after: string; keeperBefore: string; keeperAfter: string };
+export type SplitRescaleResult = { plan: EnvelopePlan; rescaled: SplitRescale[]; problems: string[] };
+const percentFormat = new Intl.NumberFormat('en', { maximumFractionDigits: 1 });
+/** The stored side's share of the shared budget as "70.9%". */
+export const splitPercent = (stored: string, shared: string) => toKobo(shared) > BigInt(0) ? `${percentFormat.format(Number(toKobo(stored) * BigInt(1000000) / toKobo(shared)) / 10000)}%` : '0%';
+
+/**
+ * UBEC228: when a plan edit changes the shared budget of a split pair (Teacher Development & ICT; Infrastructure & TLM in
+ * split mode), the stored allocation keeps the same percentage of the new shared budget (rounded to the kobo) instead of
+ * blocking the edit. Returns the plan with the rescaled allocations, what changed (for the review history and the dialog)
+ * and why it cannot be saved: a side that would fall below its own saved lines (or packages), when the edit lowers it.
+ * `proposed` holds each side's saved total (ICT lines are their own workstream).
+ */
+export function rescaleSplits(before: EnvelopePlan, after: EnvelopePlan, proposed: Partial<Record<SplitSide, string>>): SplitRescaleResult {
+  const rescaled: SplitRescale[] = [], problems: string[] = [];
+  let plan: EnvelopePlan = after;
+  for (const id of ['teachers-ict', 'infrastructure-tlm'] as const) {
+    const pair = budgetPairs[id];
+    if (id === 'infrastructure-tlm' && !isSplitMode(after)) continue;
+    const stored = before[pair.field], sharedBefore = pair.envelope(before), sharedAfter = pair.envelope(after);
+    if (stored == null || sharedBefore == null || sharedAfter == null) continue;
+    const oldShared = toKobo(sharedBefore), newShared = toKobo(sharedAfter), oldStored = toKobo(stored);
+    if (oldShared === newShared || oldShared <= BigInt(0)) continue;
+    // Round half up to the kobo; never past the new shared budget.
+    const scaled = (oldStored * newShared * BigInt(2) + oldShared) / (oldShared * BigInt(2));
+    const newStored = scaled > newShared ? newShared : scaled;
+    const change: SplitRescale = { pair: id, label: pair.label, side: pair.stored, keeper: pair.keeper, percent: splitPercent(stored, sharedBefore), before: fromKobo(oldStored), after: fromKobo(newStored), keeperBefore: fromKobo(oldShared - oldStored), keeperAfter: fromKobo(newShared - newStored) };
+    rescaled.push(change);
+    plan = { ...plan, [pair.field]: change.after };
+    for (const [side, next, previous] of [[pair.stored, newStored, oldStored], [pair.keeper, newShared - newStored, oldShared - oldStored]] as const) {
+      const used = toKobo(proposed[side] ?? '0');
+      if (used > next && next < previous) problems.push(`Keeping the ${pair.label} split (${sideNames[pair.stored]} ${change.percent}) leaves ${sideNames[side]} ${formatKobo(next)}, but its ${sideItems[side]} already propose ${formatKobo(used)}: ${formatKobo(used - next)} short. Reduce them first or keep this funding.`);
+    }
+  }
+  return { plan, rescaled, problems };
+}
+/** "ICT keeps 70.9% of the Teacher Development & ICT budget: ₦X → ₦Y" for the review history and the edit dialog. */
+export const rescaleNote = (r: SplitRescale) => `${sideNames[r.side]} keeps ${r.percent} of the ${r.label} budget: ${formatKobo(toKobo(r.before))} → ${formatKobo(toKobo(r.after))} (${sideNames[partnerOf(r.side)]} ${formatKobo(toKobo(r.keeperBefore))} → ${formatKobo(toKobo(r.keeperAfter))})`;

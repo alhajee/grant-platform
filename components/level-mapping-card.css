@@ -33,3 +33,8 @@
 .level-mapping.ubec-level-mapping .level-mapping-body { gap: 10px; }
 .level-mapping.ubec-level-mapping .level-mapping-bar { height: 10px; }
 .level-mapping.ubec-level-mapping .level-mapping-table th, .level-mapping.ubec-level-mapping .level-mapping-table td { padding-block: 3px; }
+
+/* UBEC231: the ECCDE 15% indicator under the card title. */
+.level-mapping-eccde { margin-top: 0.4rem; width: fit-content; gap: 0.3rem; border-color: color-mix(in oklab, var(--destructive) 40%, transparent); color: var(--destructive); background: color-mix(in oklab, var(--destructive) 6%, transparent); }
+.level-mapping-eccde[data-met] { border-color: color-mix(in oklab, #2f7d4f 40%, transparent); color: #2f7d4f; background: color-mix(in oklab, #2f7d4f 7%, transparent); }
+.level-mapping-eccde svg { width: 0.85rem; height: 0.85rem; }

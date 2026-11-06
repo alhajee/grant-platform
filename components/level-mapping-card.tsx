@@ -1,6 +1,8 @@
 'use client';
 import './level-mapping-card.css';
-import { SchoolIcon } from 'lucide-react';
+import { CircleAlertIcon, CircleCheckIcon, SchoolIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import type { EccdeShare } from '@/lib/eccde-share';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { schoolLevelKeys, schoolLevelLabels, type LevelMapping } from '@/lib/level-mapping';
@@ -14,11 +16,19 @@ const pct = (part: number, whole: number) => whole > 0 ? Math.round(part / whole
  * not school-specific, with every part labelled (amount and share) below it, so colour never carries the meaning alone.
  * How lines are shared out: lib/level-mapping.ts.
  */
-export function LevelMappingCard({ mapping, title = 'Spending by school level', description, className }: { mapping: LevelMapping | null | undefined; title?: string; description?: string; className?: string }) {
+export function LevelMappingCard({ mapping, title = 'Spending by school level', description, className, eccde }: { mapping: LevelMapping | null | undefined; title?: string; description?: string; className?: string;
+  /** UBEC231: the whole plan's ECCDE share while the 15% rule is on (plan page). */
+  eccde?: (EccdeShare & { problem?: string | null }) | null }) {
   const total = mapping?.total ?? 0;
   return <Card className={['level-mapping', className].filter(Boolean).join(' ')}>
     <CardHeader><CardTitle><h2 className="level-mapping-title"><SchoolIcon aria-hidden="true" />{title}</h2></CardTitle>
-      <CardDescription>{description ?? 'Proposed budget for ECCDE, Primary, JSS and Others (not tied to a school level)'}</CardDescription></CardHeader>
+      <CardDescription>{description ?? 'Proposed budget for ECCDE, Primary, JSS and Others (not tied to a school level)'}</CardDescription>
+      {eccde && eccde.total > 0 && <Tooltip><TooltipTrigger asChild>
+        <Badge variant="outline" className="level-mapping-eccde" data-met={eccde.met || undefined} tabIndex={0}>
+          {eccde.met ? <CircleCheckIcon aria-hidden="true" /> : <CircleAlertIcon aria-hidden="true" />}ECCDE {eccde.percent}% · needs {eccde.required}%
+        </Badge>
+      </TooltipTrigger><TooltipContent className="max-w-xs">{eccde.problem ?? `ECCDE has at least ${eccde.required}% of the whole plan, so the BEAP Chair can send it to the Executive Chairman`}</TooltipContent></Tooltip>}
+    </CardHeader>
     <CardContent className="level-mapping-body">
       {!mapping || total <= 0 ? <p className="level-mapping-empty">Nothing proposed yet</p> : <>
         <div className="level-mapping-bar" role="img" aria-label={schoolLevelKeys.map(key => `${schoolLevelLabels[key]} ${pct(mapping[key], total)}%`).join(', ')}>

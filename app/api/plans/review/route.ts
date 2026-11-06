@@ -1,6 +1,8 @@
 import { withDistributionCoordinates } from '@/lib/distribution-coordinates';
 import { readRatResubmitProblem } from '@/lib/rat-review-db';
 import { readReadinessOptions } from '@/lib/full-allocation-setting';
+import { readEccdeShareRequired } from '@/lib/eccde-share-setting';
+import { eccdeShare, eccdeShareProblem } from '@/lib/eccde-share';
 import { allocationUseProblem } from '@/lib/allocation-use';
 import { visibleComponents, visibleSnapshot } from '@/lib/plan-visibility';
 import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
@@ -68,8 +70,12 @@ export async function GET(request: NextRequest) {
       const ubecOpenRejections = Object.fromEntries(Object.entries(allOpen).filter(([pillar]) => (visiblePillars as readonly string[]).includes(pillar)));
       // UBEC205: a RAT UBEC rejected must be re-uploaded before the BEAP Chair (or the Executive Chairman) sends on.
       const ratProblem = canViewWholeStatePlan(workspace) && !selectedSubmission ? await readRatResubmitProblem(db, plan.id) : null;
-      const chairRejection = pillarReviews.filter(r => r.status === 'beap_review').map(r => rejectionProblem(componentName(r.pillar), allOpen[r.pillar])).find(Boolean) ?? (pillarReviews.some(r => r.status === 'beap_review') ? ratProblem : null) ?? null;
-      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => ceiling.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && !chairRejection && readyForExecutiveChairman(pillarReviews, snapshot, { documentsRequired, fullAllocation }), executiveChairmanProblem: workspace.isBeapChair ? executiveChairmanProblem(pillarReviews, snapshot, { documentsRequired, fullAllocation }) ?? chairRejection : null, ubecOpenRejections, readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot, { documentsRequired, fullAllocation }), fullAllocation, financeProblem: canViewWholeStatePlan(workspace) ? await readFinanceSendProblem(db, plan.id) : null, ratProblem, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, documentsRequired, snapshot: visibleSnapshot(snapshot, visiblePillars), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
+      // UBEC231: ECCDE must be at least 15% of the whole working plan before the BEAP Chair sends anything on (Super Admin setting).
+      const eccdeRequired = !selectedSubmission && await readEccdeShareRequired(db);
+      const eccde = eccdeRequired && canViewWholeStatePlan(workspace) ? { ...eccdeShare(snapshot), problem: eccdeShareProblem(snapshot) } : null;
+      const eccdeProblem = workspace.isBeapChair ? eccde?.problem ?? null : null;
+      const chairRejection = pillarReviews.filter(r => r.status === 'beap_review').map(r => rejectionProblem(componentName(r.pillar), allOpen[r.pillar])).find(Boolean) ?? (pillarReviews.some(r => r.status === 'beap_review') ? ratProblem ?? eccdeProblem : null) ?? null;
+      return NextResponse.json({ visiblePillars, pillarReviews: pillarReviews.filter(review => ceiling.includes(review.pillar)), readyForExecutiveChairman: workspace.isBeapChair && !chairRejection && readyForExecutiveChairman(pillarReviews, snapshot, { documentsRequired, fullAllocation }), executiveChairmanProblem: workspace.isBeapChair ? executiveChairmanProblem(pillarReviews, snapshot, { documentsRequired, fullAllocation }) ?? chairRejection : null, ubecOpenRejections, readyForUbec: canViewWholeStatePlan(workspace) && readyForUbecSubmission(ubecSubmissionMode, pillarReviews, snapshot, { documentsRequired, fullAllocation }), fullAllocation, financeProblem: canViewWholeStatePlan(workspace) ? await readFinanceSendProblem(db, plan.id) : null, ratProblem, eccdeShare: eccde, eccdeShareProblem: eccdeProblem, plan, role: workspace.role, department: workspace.department, departments: workspace.departments, isBeapChair: workspace.isBeapChair, beapChairSubmissionMode, ubecSubmissionMode, documentsRequired, snapshot: visibleSnapshot(snapshot, visiblePillars), selectedSubmission, submissions: visibleSubmissions, events: visibleEvents }, { headers: { 'Cache-Control': 'no-store' } });
     });
   } catch (cause) { console.error('Review could not be loaded', cause); return error('Unable to load the review. Please try again.', 503); }
 }
@@ -98,6 +104,8 @@ export async function POST(request: NextRequest) {
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send the plan to the SUBEB Executive Chairman', 403);
         if (input.pillar) return error('This state sends the complete BEAP to the Executive Chairman at once', 409);
         { const rat = await readRatResubmitProblem(db, plan.id); if (rat) return error(rat, 409); }
+        // UBEC231: ECCDE at least 15% of the whole plan (Super Admin setting).
+        if (await readEccdeShareRequired(db)) { const problem = eccdeShareProblem(snapshot); if (problem) return error(problem, 409); }
         { const problem = executiveChairmanProblem(reviews,snapshot,readiness) ?? reviews.filter(r => r.status === 'beap_review').map(r => rejectionProblem(componentName(r.pillar), openRejected[r.pillar])).find(Boolean); if (problem) return error(problem, 409); }
         const recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Executive Chairman'", [workspace.stateCode])).rows;
         if (!recipients.length) return error('No active SUBEB Executive Chairman is configured for this state',409);
@@ -141,6 +149,8 @@ export async function POST(request: NextRequest) {
         if (beapChairSubmissionMode !== 'individual_components') return error('This state sends the complete BEAP to the Executive Chairman at once', 409);
         if (actor.role !== 'Director' || !actor.is_beap_chair) return error('Only the nominated BEAP Chair can send this component to the SUBEB Executive Chairman', 403);
         { const rat = await readRatResubmitProblem(db, plan.id); if (rat) return error(rat, 409); }
+        // UBEC231: the whole working plan's ECCDE share, at every send to the Executive Chairman.
+        if (await readEccdeShareRequired(db)) { const problem = eccdeShareProblem(snapshot); if (problem) return error(problem, 409); }
         status = 'chairman_ready'; recipientLabel = 'SUBEB Executive Chairman';
         recipients = (await db.query("SELECT id FROM users WHERE state_code=$1 AND active AND role='Executive Chairman'", [workspace.stateCode])).rows;
       } else {

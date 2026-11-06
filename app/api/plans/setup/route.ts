@@ -9,6 +9,7 @@ import { stateDisplayName } from '@/lib/state-names';
 import { canCreateStatePlan } from '@/lib/subeb-access';
 import { statePlanOpen } from '@/lib/pillar-review';
 import { isSameRequestOrigin } from '@/lib/request-origin';
+import { rescaleNote, rescaleSplits } from '@/lib/budget-pairs';
 import { beapName, envelopeShortfalls, futureYearError, sharedBelowAllocationProblem, planEditSchema, shortfallMessage, sourcesSum } from '@/lib/plan-setup';
 import { fundingComponentIds, fundingSourceLabels, type FundingComponent, type FundingSource } from '@/lib/funding-policy';
 import { formatQuarters } from '@/lib/format-quarters';
@@ -34,7 +35,8 @@ async function proposedByComponent(db: Db, planId: number) {
   const rows = (await db.query<{ component: string; amount: string }>(`SELECT 'infrastructure' AS component, ROUND(COALESCE(SUM(total_cost),0),2)::text AS amount FROM infrastructure_packages WHERE plan_id=$1
     UNION ALL SELECT 'sports', ROUND(COALESCE(SUM(unit_cost*quantity),0),2)::text FROM sports_budget_lines WHERE plan_id=$1
     UNION ALL SELECT workstream, ROUND(SUM(unit_cost*quantity),2)::text FROM activity_plan_lines WHERE plan_id=$1 GROUP BY workstream`, [planId])).rows;
-  return Object.fromEntries(rows.filter(r => (fundingComponentIds as readonly string[]).includes(String(r.component))).map(r => [r.component, r.amount])) as Partial<Record<FundingComponent, string>>;
+  // ICT lines are their own workstream: kept as 'ict' so the Teacher Development & ICT split can be checked (UBEC228).
+  return Object.fromEntries(rows.filter(r => r.component === 'ict' || (fundingComponentIds as readonly string[]).includes(String(r.component))).map(r => [r.component, r.amount])) as Partial<Record<FundingComponent | 'ict', string>>;
 }
 const reservedQuarters = async (db: Db, stateCode: string, planId: number) =>
   (await db.query<{ year: number; quarter: number }>('SELECT planning_year AS year, quarter FROM plan_quarters WHERE state_code=$1 AND plan_id<>$2 ORDER BY planning_year, quarter', [stateCode, planId])).rows;
@@ -110,10 +112,15 @@ export async function PATCH(request: NextRequest) {
         const quarterProblem = quarterRemovalProblem(plan.fundingQuarters, input.quarters, await readQuarterUsage(db, plan.id));
         if (quarterProblem) return error(quarterProblem, 409);
       }
-      const after = { stateLodgment: input.stateLodgment, otherFunding: plan.otherFunding, fundingPolicy: plan.fundingPolicy, fundingSources: input.fundingSources, ictAllocation: plan.ictAllocation, tlmAllocation: plan.tlmAllocation, infrastructureTlmMode: plan.infrastructureTlmMode };
-      const shortfalls = envelopeShortfalls(plan, after, await proposedByComponent(db, plan.id));
+      const proposed = await proposedByComponent(db, plan.id);
+      // UBEC228: a changed shared budget carries the budget splits over at the same percentage instead of blocking the edit.
+      const split = rescaleSplits(plan, { stateLodgment: input.stateLodgment, otherFunding: plan.otherFunding, fundingPolicy: plan.fundingPolicy, fundingSources: input.fundingSources, ictAllocation: plan.ictAllocation, tlmAllocation: plan.tlmAllocation, infrastructureTlmMode: plan.infrastructureTlmMode }, proposed);
+      const after = split.plan;
+      // The split sides of a rescaled pair are checked by rescaleSplits (with the amount short); the rest as before.
+      const covered = new Set<string>(split.rescaled.flatMap(r => r.pair === 'teachers-ict' ? ['teachers'] : ['tlm', 'infrastructure']));
+      const shortfalls = envelopeShortfalls(plan, after, proposed).filter(s => !covered.has(s.component));
       const ictProblem = sharedBelowAllocationProblem(after);
-      if (shortfalls.length || ictProblem) return error([...shortfalls.map(shortfallMessage), ictProblem].filter(Boolean).join(' '), 409);
+      if (shortfalls.length || ictProblem || split.problems.length) return error([...split.problems, ...shortfalls.map(shortfallMessage), ictProblem].filter(Boolean).join(' '), 409);
       const name = beapName(stateDisplayName(workspace.stateCode), input.planningYear, input.quarters);
       await db.query('UPDATE action_plans SET start_year=$1,end_year=$1,implementation_year=$2,funding_quarters=$3,state_lodgment=$4,beap_name=$5,version=version+1 WHERE id=$6', [input.planningYear, input.implementationYear, input.quarters, input.stateLodgment, name, plan.id]);
       // Line dates sit in the implementation year (migration 059): a new year moves them by whole years, so each keeps
@@ -130,7 +137,8 @@ export async function PATCH(request: NextRequest) {
         await db.query('DELETE FROM plan_funding_sources WHERE plan_id=$1', [plan.id]);
         for (const source of input.fundingSources) await db.query('INSERT INTO plan_funding_sources(plan_id,component,funder,amount,created_by) VALUES($1,$2,$3,$4,$5)', [plan.id, source.component, source.funder, source.amount, workspace.userId]);
       }
-      const comment = `Plan details updated: ${changes.join('; ')}.`;
+      for (const change of split.rescaled) await db.query(`UPDATE action_plans SET ${change.pair === 'teachers-ict' ? 'ict_allocation' : 'tlm_allocation'}=$1 WHERE id=$2`, [change.after, plan.id]);
+      const comment = `Plan details updated: ${[...changes, ...split.rescaled.map(rescaleNote)].join('; ')}.`;
       await db.query("INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,'edit',$3,$4,$5,$6,'general')", [plan.id, plan.submissionNumber, actor.full_name, actor.email, actor.role, comment.slice(0, 5000)]);
       const updated = (await db.query(`SELECT ${planFields} FROM action_plans WHERE id=$1`, [plan.id])).rows[0];
       return NextResponse.json({ plan: updated, changed: true });

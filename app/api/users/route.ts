@@ -4,11 +4,13 @@ import { hashSync } from 'bcryptjs';
 import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
+import { isSameRequestOrigin } from '@/lib/request-origin';
 import { canManageRole, canManageStateUsers, subebRoles } from '@/lib/subeb-access';
 import { stateDepartments as departments } from '@/lib/subeb-departments';
 import { stateDisplayName } from '@/lib/state-names';
 import { replaceUserDepartments, userDepartmentsSql } from '@/lib/user-departments';
 import { hasComponentGrants, normalizeAccess, tokenDepartment } from '@/lib/component-access';
+import { deleteUserAccount, deletedMessage } from '@/lib/user-delete';
 
 const fail = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const profile = z.object({ name: z.string().trim().min(2).max(120), role: z.enum(['Data Entry Staff', 'Director']), department: z.string().nullable().optional(), departments: z.array(z.string().trim().min(1)).min(1).max(32).optional(), active: z.boolean(), canCreatePlan: z.boolean().optional(), canManageSchools: z.boolean().optional(), isBeapChair: z.boolean().optional() });
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
     const actor = await getWorkspaceState(request);
     if (!actor) return fail('Sign in to manage users', 401);
     if (!canManageStateUsers(actor.role, actor.isBeapChair)) return fail('Only your Executive Chairman and BEAP Chair can manage users', 403);
-    const all = (await getPostgres().query(`SELECT ${fields} FROM users WHERE state_code=$1 AND role=ANY($2::text[]) ORDER BY active DESC, full_name, id`, [actor.stateCode, subebRoles])).rows;
+    const all = (await getPostgres().query(`SELECT ${fields} FROM users WHERE state_code=$1 AND role=ANY($2::text[]) AND deleted_at IS NULL ORDER BY active DESC, full_name, id`, [actor.stateCode, subebRoles])).rows;
     // The BEAP Chair sees themselves and the Data Entry Staff they manage
     const users = actor.role === 'Director' ? all.filter(user => user.id === actor.userId || user.role === 'Data Entry Staff') : all;
     return NextResponse.json({ users, actorId: actor.userId, role: actor.role, isBeapChair: actor.isBeapChair, department: actor.department, departments: actor.departments, stateName: stateDisplayName(actor.stateCode) }, { headers: noStore });
@@ -43,7 +45,7 @@ async function mutate(request: NextRequest, creating: boolean) {
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`users:${workspace.stateCode}`]);
       const actor = (await db.query(`SELECT role,department,is_beap_chair AS "isBeapChair",${userDepartmentsSql('users')} AS departments FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE`, [workspace.userId, workspace.sessionVersion])).rows[0];
       if (!actor || !canManageStateUsers(actor.role, actor.isBeapChair)) return fail('Your access has changed. Sign in again.', 403);
-      const target = 'id' in input ? (await db.query(`SELECT ${fields} FROM users WHERE id=$1 AND state_code=$2 FOR UPDATE`, [input.id, workspace.stateCode])).rows[0] : null;
+      const target = 'id' in input ? (await db.query(`SELECT ${fields} FROM users WHERE id=$1 AND state_code=$2 AND deleted_at IS NULL FOR UPDATE`, [input.id, workspace.stateCode])).rows[0] : null;
       if ('id' in input && !target) return fail('User not found', 404);
       if (target && (target.id === workspace.userId || !canManageRole(actor.role, target.role, actor.isBeapChair))) return fail('You cannot change this account', 403);
       const resetting = 'action' in input;
@@ -86,3 +88,31 @@ async function mutate(request: NextRequest, creating: boolean) {
 }
 export const POST = (request: NextRequest) => mutate(request, true);
 export const PATCH = (request: NextRequest) => mutate(request, false);
+
+const remove = z.object({ id: z.number().int().positive() }).strict();
+
+/** UBEC236: the Executive Chairman and the BEAP Chair delete the accounts they manage (BEAP Chair: Data Entry Staff). */
+export async function DELETE(request: NextRequest) {
+  try {
+    if (!isSameRequestOrigin(request)) return fail('This action must come from the portal', 403);
+    const workspace = await getWorkspaceState(request);
+    if (!workspace) return fail('Sign in to manage users', 401);
+    if (!canManageStateUsers(workspace.role, workspace.isBeapChair)) return fail('Only your Executive Chairman and BEAP Chair can manage users', 403);
+    const parsed = remove.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return fail('Choose a user to delete');
+    return await getPostgres().transaction(async db => {
+      await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`users:${workspace.stateCode}`]);
+      await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['admin:user-management']);
+      const actor = (await db.query('SELECT role, is_beap_chair AS "isBeapChair" FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [workspace.userId, workspace.sessionVersion])).rows[0];
+      if (!actor || !canManageStateUsers(actor.role, actor.isBeapChair)) return fail('Your access has changed. Sign in again.', 403);
+      const target = (await db.query('SELECT id, full_name AS name, email, role, department, state_code AS "stateCode" FROM users WHERE id=$1 AND state_code=$2 AND deleted_at IS NULL FOR UPDATE', [parsed.data.id, workspace.stateCode])).rows[0];
+      if (!target) return fail('User not found', 404);
+      if (target.id === workspace.userId || !canManageRole(actor.role, target.role, actor.isBeapChair)) return fail('You cannot delete this account', 403);
+      const outcome = await deleteUserAccount(db, target, workspace.userId);
+      return NextResponse.json({ ...outcome, message: deletedMessage(outcome, target.name) }, { headers: noStore });
+    });
+  } catch (cause) {
+    console.error('User delete failed', cause);
+    return fail('The user could not be deleted. Please try again.', 503);
+  }
+}
