@@ -1,6 +1,7 @@
 // Explicit .ts so the Node test scripts can load this file directly.
 import { implementedPillars, type ImplementedPillar } from './beap-pillars.ts';
 import type { Snapshot } from './plan-review';
+import { fromMinor, toMinor } from './money.ts';
 
 // The correction loop after UBEC returns a plan (UBEC189/195/196, 28 October 2026). A rejected item counts as corrected
 // once the SUBEB has changed it (any of its figures, details, schools, documents or allocations) or removed it. While a
@@ -12,16 +13,20 @@ type Row = Record<string, unknown>;
 
 // Fields that change on any save, so they do not count as a correction.
 const volatile = new Set(['updated_at', 'created_at', 'client_key', 'version', 'updatedAt', 'createdAt', 'code']);
+// Money read back at a different scale is the same amount: rounds returned before migration 093 hold '12.50', the
+// working plan '12.5000' (UBEC238). Compared as canonical amounts so widening the columns never counts as a correction.
+const moneyKeys = new Set(['unit_cost', 'total_cost', 'unit_price', 'total']);
+const canonicalMoney = (value: unknown) => (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) || typeof value === 'number' ? fromMinor(toMinor(value as string | number)) : value;
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Row).filter(([key]) => !volatile.has(key)).sort(([a], [b]) => a.localeCompare(b)).map(([key, v]) => [key, stable(v)]));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Row).filter(([key]) => !volatile.has(key)).sort(([a], [b]) => a.localeCompare(b)).map(([key, v]) => [key, moneyKeys.has(key) ? canonicalMoney(v) : stable(v)]));
   return value;
 }
 
 /** Each item of a component by its row ref, as comparable text. Infrastructure items include their school's documents. */
 function itemsOf(snapshot: Snapshot, pillar: ImplementedPillar): Map<string, string> {
   if (pillar === 'infrastructure') return new Map((snapshot.infrastructure ?? []).map(line => [String(line.id), JSON.stringify(stable({
-    quantity: line.quantity, unit_cost: line.unit_cost, input: line.package?.input, total: line.package?.total_cost, quarters: line.quarters, start: line.start_date, due: line.due_date,
+    quantity: line.quantity, unit_cost: canonicalMoney(line.unit_cost), input: line.package?.input, total: canonicalMoney(line.package?.total_cost), quarters: line.quarters, start: line.start_date, due: line.due_date,
     documents: (snapshot.infrastructureDocuments ?? []).filter(d => d.schoolId === line.school.id).map(d => d.id).sort(),
   }))]));
   const lines = (pillar === 'sports' ? snapshot.sports : snapshot[pillar]) as unknown as Row[] | undefined;

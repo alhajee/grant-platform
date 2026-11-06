@@ -1,5 +1,5 @@
-import { infrastructurePoolEnvelope, toKobo, type EnvelopePlan } from './funding-policy';
-import { formatKobo } from './money-format';
+import { infrastructurePoolEnvelope, toMinor, type EnvelopePlan } from './funding-policy';
+import { formatMinor } from './money-format';
 
 /**
  * Shared-pool mode (state_workflow_settings.infrastructure_tlm_mode, migration 051; split mode is lib/budget-pairs.ts).
@@ -13,19 +13,19 @@ export const poolPartner = (component: PoolComponent): PoolComponent => componen
 export const poolLabels: Record<PoolComponent, string> = { infrastructure: 'Infrastructure', tlm: 'TLM' };
 export type PoolProposed = Record<PoolComponent, bigint>;
 
-const naira = formatKobo;
+const naira = formatMinor;
 
-/** What is left of the pool (kobo, may be negative) after both sides' proposals, or null until the plan funding is set. */
-export function poolRemainingKobo(plan: EnvelopePlan, proposed: PoolProposed): bigint | null {
+/** What is left of the pool (minor units, lib/money.ts; may be negative) after both sides' proposals, or null until the plan funding is set. */
+export function poolRemainingMinor(plan: EnvelopePlan, proposed: PoolProposed): bigint | null {
   const pool = infrastructurePoolEnvelope(plan);
-  return pool == null ? null : toKobo(pool) - proposed.infrastructure - proposed.tlm;
+  return pool == null ? null : toMinor(pool) - proposed.infrastructure - proposed.tlm;
 }
 
 /** Why these proposals cannot be saved or sent (combined total above the shared pool), or null (also while the plan has no funding). */
 export function infrastructurePoolProblem(plan: EnvelopePlan, proposed: PoolProposed): string | null {
   const pool = infrastructurePoolEnvelope(plan);
   if (pool == null) return null; // No plan funding yet: no ceiling (as before the pool existed).
-  const over = proposed.infrastructure + proposed.tlm - toKobo(pool);
+  const over = proposed.infrastructure + proposed.tlm - toMinor(pool);
   if (over <= BigInt(0)) return null;
-  return `Infrastructure and TLM share ${naira(toKobo(pool))}. Together they would exceed it by ${naira(over)}. Reduce the budget to continue.`;
+  return `Infrastructure and TLM share ${naira(toMinor(pool))}. Together they would exceed it by ${naira(over)}. Reduce the budget to continue.`;
 }

@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { CheckIcon, CircleAlertIcon, PencilIcon } from 'lucide-react';
-import { CurrencyInput } from '@/components/currency-input';
+import { CurrencyInput, unitCostDecimals } from '@/components/currency-input';
+import { hasMoneyDecimals, maxUnitCost, moneyDecimalsMessage } from '@/lib/money';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,7 +13,7 @@ export type InlineKind = 'integer' | 'money' | 'text';
 export type InlineSave = (value: string) => Promise<string | null>;
 
 const maxQuantity = 1_000_000;
-const maxMoney = 999_999_999_999.99;
+const maxMoney = maxUnitCost;
 const savedMs = 1600;
 
 /** The same limits as the line forms, worded for a single cell. */
@@ -24,7 +25,8 @@ function problem(kind: InlineKind, raw: string): string | null {
     return /^\d+$/.test(value) && n >= 1 && n <= maxQuantity ? null : `Enter a whole number from 1 to ${maxQuantity.toLocaleString('en-NG')}.`;
   }
   const n = Number(value);
-  return value && Number.isFinite(n) && n > 0 && n <= maxMoney ? null : 'Enter an amount greater than zero';
+  if (!value || !Number.isFinite(n) || n <= 0 || n > maxMoney) return 'Enter an amount greater than zero';
+  return hasMoneyDecimals(n) ? null : moneyDecimalsMessage;
 }
 
 type InlineCellProps = {
@@ -99,7 +101,7 @@ export function InlineCell({ kind, value, format, label, editable, lockedReason,
   return <div className={cn('inline-cell', className)} data-kind={kind} data-status={status} data-error={error ? true : undefined} data-editing={editing || undefined}
     onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
     {editing
-      ? kind === 'money' ? <CurrencyInput {...field} value={text} onValueChange={setText} maxIntegerDigits={12} />
+      ? kind === 'money' ? <CurrencyInput {...field} decimals={unitCostDecimals} value={text} onValueChange={setText} maxIntegerDigits={11} />
         : kind === 'integer' ? <Input {...field} type="number" inputMode="numeric" min={1} max={maxQuantity} step={1} value={text} onChange={event => setText(event.target.value)} />
           : <Textarea {...field} rows={2} maxLength={1000} value={text} onChange={event => setText(event.target.value)} />
       : locked && status !== 'saving'

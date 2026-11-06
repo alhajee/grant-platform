@@ -36,6 +36,6 @@ assert.equal(levelMapping({ infrastructure: [], sports: [], tlm: [line(100, 1, {
 assert.equal(eccdeShareProblem({ infrastructure: [], sports: [] }), null, 'nothing proposed: nothing to check');
 assert.equal(eccdeShareProblem({ infrastructure: [], sports: [], monitoring: [line(15, 1, { target_group: 'ECCDE Learners' }), line(85, 1)] }), null, 'exactly 15% passes');
 const short = eccdeShare({ infrastructure: [], sports: [], monitoring: [line(14.99, 1, { target_group: 'ECCDE Learners' }), line(85.01, 1)] });
-assert.equal(short.met, false); assert.equal(short.shortKobo, 1); assert.equal(short.percent, 14.9);
+assert.equal(short.met, false); assert.equal(short.shortMinor, 100, 'one kobo short, in minor units (1/10,000 naira)'); assert.equal(short.percent, 14.9);
 assert.match(eccdeShareProblem({ infrastructure: [], sports: [], monitoring: [line(100, 1, { target_group: 'ECCDE Learners' }), line(900, 1)] }), /^ECCDE must be at least 15% of the plan before it goes to the Executive Chairman: it is ₦100\.0000 \(10%\), ₦50\.0000 short\./);
 console.log('PASS: spending by school level');

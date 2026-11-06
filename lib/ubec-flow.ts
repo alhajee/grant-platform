@@ -2,6 +2,7 @@ import { componentSections, implementedPillars, type ImplementedPillar } from '.
 import { activityLabel, activityWorkstreams, type ActivityWorkstream } from './activity-plans';
 import type { Snapshot } from './plan-review';
 import { oversightIds, type OversightDepartment } from './ubec';
+import { MONEY_SCALE_NUMBER, lineMinor, minorOfNumber, minorToNaira } from './money';
 
 // The UBEC review flow shared by the server and the client (docs/ubec-flow.md, migration 055).
 
@@ -76,18 +77,18 @@ export const componentName = (pillar: string) => componentSections[pillar as Imp
 export const isPillar = (value: string): value is ImplementedPillar => (implementedPillars as readonly string[]).includes(value);
 
 export type ComponentItem = { rowRef: string; title: string; detail: string; code: string; quantity: number; unitCost: number; amount: number };
-const kobo = (unitCost: string, quantity: number) => Math.round(Number(unitCost) * 100) * quantity;
+const amountOf = (unitCost: string, quantity: number) => minorToNaira(lineMinor(unitCost, quantity));
 /** The items (lines) of a component in a round snapshot: what officers accept or reject. Row refs are the workbook row ids. */
 export function componentItems(snapshot: Snapshot, pillar: ImplementedPillar): ComponentItem[] {
-  if (pillar === 'infrastructure') return snapshot.infrastructure.map(line => ({ rowRef: String(line.id), title: line.construction?.name || 'Infrastructure project', detail: `${line.school.name} · ${line.school.lga}`, code: line.code ?? '', quantity: line.quantity, unitCost: Number(line.unit_cost), amount: kobo(line.unit_cost, line.quantity) / 100 }));
-  if (pillar === 'sports') return snapshot.sports.map(line => ({ rowRef: String(line.id), title: line.description || line.activity_type, detail: `${line.activity_type} · ${line.section}`, code: line.code ?? '', quantity: line.quantity, unitCost: Number(line.unit_cost), amount: kobo(line.unit_cost, line.quantity) / 100 }));
+  if (pillar === 'infrastructure') return snapshot.infrastructure.map(line => ({ rowRef: String(line.id), title: line.construction?.name || 'Infrastructure project', detail: `${line.school.name} · ${line.school.lga}`, code: line.code ?? '', quantity: line.quantity, unitCost: Number(line.unit_cost), amount: amountOf(line.unit_cost, line.quantity) }));
+  if (pillar === 'sports') return snapshot.sports.map(line => ({ rowRef: String(line.id), title: line.description || line.activity_type, detail: `${line.activity_type} · ${line.section}`, code: line.code ?? '', quantity: line.quantity, unitCost: Number(line.unit_cost), amount: amountOf(line.unit_cost, line.quantity) }));
   const lines = snapshot[pillar] ?? [];
   return lines.map(line => {
     const activity = (activityWorkstreams as readonly string[]).includes(pillar) ? activityLabel(pillar as ActivityWorkstream, line.activity, line.custom_activity ?? '') : '';
-    return { rowRef: String(line.id), title: activity || line.description || `Line ${line.id}`, detail: line.description && line.description !== activity ? line.description : '', code: line.code ?? '', quantity: line.quantity, unitCost: Number(line.unit_cost), amount: kobo(line.unit_cost, line.quantity) / 100 };
+    return { rowRef: String(line.id), title: activity || line.description || `Line ${line.id}`, detail: line.description && line.description !== activity ? line.description : '', code: line.code ?? '', quantity: line.quantity, unitCost: Number(line.unit_cost), amount: amountOf(line.unit_cost, line.quantity) };
   });
 }
-export const componentAmount = (snapshot: Snapshot, pillar: ImplementedPillar) => componentItems(snapshot, pillar).reduce((sum, item) => sum + Math.round(item.amount * 100), 0) / 100;
+export const componentAmount = (snapshot: Snapshot, pillar: ImplementedPillar) => componentItems(snapshot, pillar).reduce((sum, item) => sum + minorOfNumber(item.amount), 0) / MONEY_SCALE_NUMBER;
 
 export function decisionCounts(items: readonly { rowRef: string }[], decisions: readonly { rowRef: string; decision: ItemDecisionValue }[]): DecisionCounts {
   const byRow = new Map(decisions.map(d => [d.rowRef, d.decision]));

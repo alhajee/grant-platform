@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasMoneyDecimals, maxUnitCost, moneyDecimalsMessage } from "./money.ts";
 
 export const roomFields = [
   { key: "classrooms", label: "Classrooms", singular: "classroom", plural: "classrooms" },
@@ -25,7 +26,7 @@ export const constructionTypeSchema = z.object({
   toilets: count,
   officesStores: count,
   duration: z.number().int().min(1, "Enter a duration of at least one week").max(520),
-  unitCost: z.number().positive("Enter a unit cost greater than zero").max(999999999999.99).refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.01, "Use no more than two decimal places"),
+  unitCost: z.number().positive("Enter a unit cost greater than zero").max(maxUnitCost, "Enter a unit cost below ₦100 billion").refine(hasMoneyDecimals, moneyDecimalsMessage),
 }).refine((value) => roomFields.some(({ key }) => value[key] > 0), { message: "Enter at least one room or facility", path: ["classrooms"] });
 
 export function constructionTypeName(counts: RoomCounts) {

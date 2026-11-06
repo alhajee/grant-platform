@@ -11,6 +11,7 @@ import type { ImplementedPillar } from '@/lib/beap-pillars';
 import { componentAmount, componentItems, componentName, decisionCounts, type ItemDecisionValue, type PipelineComponent } from '@/lib/ubec-flow';
 import { seesEverything, ubecSeesPillarSql, ubecVisibleSnapshot } from '@/lib/ubec-flow-db';
 import { planPeriod } from '@/lib/action-plans';
+import { MONEY_SCALE_NUMBER, minorOfNumber } from '@/lib/money';
 
 type RoundRow = UbecRound & { state_code: string; start_year: number; end_year: number; funding_quarters: number[] | null };
 type ComponentRow = { id: number; round_id: number; pillar: ImplementedPillar; department: string; stage: PipelineComponent['stage'] };
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
       const released = pipeline.filter(p => p.stage !== 'unreleased');
       return {
         id: r.id, planId: r.plan_id, state, stateCode: r.state_code, startYear: r.start_year, endYear: r.end_year, fundingQuarters: r.funding_quarters, status: r.status, round: r.number, submittedAt: r.submitted_at, decidedAt: r.decided_at,
-        budget: pipeline.reduce((sum, p) => sum + Math.round(p.amount * 100), 0) / 100, infrastructure: amounts.infrastructure ?? 0, sports: amounts.sports ?? 0, schools: [...new Set(schools)],
+        budget: pipeline.reduce((sum, p) => sum + minorOfNumber(p.amount), 0) / MONEY_SCALE_NUMBER, infrastructure: amounts.infrastructure ?? 0, sports: amounts.sports ?? 0, schools: [...new Set(schools)],
         pending: open ? released.filter(p => p.stage !== 'chair').length : 0, completed: released.filter(p => p.stage === 'chair').length,
         fundingTotal: r.snapshot.setup?.fundingTotal != null ? Number(r.snapshot.setup.fundingTotal) : null, amounts, components: pipeline,
         levels: levelMapping(ubecVisibleSnapshot(r.snapshot, pillars)),

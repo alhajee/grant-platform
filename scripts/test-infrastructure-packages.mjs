@@ -64,7 +64,7 @@ try{
  for(const kind of ['boq','boq','survey'])await upload(kind);
  secondSchool=(await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES($1,'Second school','QA','Primary','Rural') RETURNING id",[marker])).rows[0].id;
  await db.query('UPDATE schools SET enrolment_male=150,enrolment_female=100 WHERE id=$1',[secondSchool]);
- const furniture=packageSchema.parse({kind:'furniture',schoolId:secondSchool,components:['Primary'],furniture:[{description:'Desks',quantity:1,cost:100}]});
+ const furniture=packageSchema.parse({kind:'furniture',schoolId:secondSchool,components:['Primary'],furniture:[{description:'Desks',quantity:3,cost:100.0202}]}); // UBEC238: four-decimal unit cost
  ok(await api('officer',path,{action:'save',input:{...furniture,documentIds:[docs[1]]}}),400);
  // UBEC170: no BOQ, no save.
  const noBoq=await api('officer',path,{action:'save',input:furniture});ok(noBoq,400);assert.match(noBoq.data.error,/Bill of Quantities/);
@@ -73,6 +73,8 @@ try{
  schoolDocument.set('schoolId','2147483647');ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,schoolDocument),404);
  schoolDocument.set('schoolId',String(secondSchool));const secondBoq=ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,schoolDocument)).id;docs.push(secondBoq);
  ok(await api('officer',path,{action:'save',input:{...furniture,documentIds:[secondBoq]}}));
+ assert.equal((await db.query('SELECT total_cost::text AS total FROM infrastructure_packages WHERE plan_id=$1 AND school_id=$2',[plan,secondSchool])).rows[0].total,'300.0606','3 × ₦100.0202 is kept exactly');
+ assert.equal((await api('officer',path,{action:'save',input:{...furniture,furniture:[{description:'Desks',quantity:1,cost:1.02025}],documentIds:[secondBoq]}})).data.error,'Use at most four decimal places');
  // A package left without its BOQ (saved before the rule, or the file removed) is still caught at the send step.
  await db.query('UPDATE infrastructure_documents SET removed_at=NOW() WHERE id=$1',[secondBoq]);
  review=ok(await api('officer',reviewPath));const missing=await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version});ok(missing,400);assert.match(missing.data.error,/Second school/);

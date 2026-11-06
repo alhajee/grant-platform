@@ -3,13 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CurrencyInput } from '@/components/currency-input';
+import { CurrencyInput, unitCostDecimals } from '@/components/currency-input';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EditorEmpty } from '@/components/empty-art/editor-empty';
 import { EmptyFurnitureArt } from '@/components/empty-art/infrastructure';
 import { nairaFormat } from '@/lib/money-format';
 import type { InfrastructureInput } from '@/lib/infrastructure-model';
+import { hasMoneyDecimals, lineMinor, minorToNaira, moneyDecimalsMessage } from '@/lib/money';
 
 type FurnitureItem = InfrastructureInput['furniture'][number];
 type Draft = { description: string; quantity: string; cost: string };
@@ -23,7 +24,6 @@ interface FurnitureItemsProps {
 }
 const empty: Draft = { description: '', quantity: '1', cost: '' };
 const maxItems = 100;
-const cents = (n: number) => Math.round(n * 100);
 
 /** Why the item cannot be added, per field (UBEC221: messages under the fields). */
 export function furnitureDraftProblems(draft: Draft): Partial<Record<DraftField, string>> {
@@ -31,7 +31,7 @@ export function furnitureDraftProblems(draft: Draft): Partial<Record<DraftField,
   return {
     ...(!draft.description.trim() ? { description: 'Enter the item, for example Dual-seater desk' } : draft.description.trim().length > 500 ? { description: 'Use up to 500 characters' } : {}),
     ...(!draft.quantity.trim() || !Number.isInteger(quantity) || quantity <= 0 ? { quantity: 'Enter a whole number greater than zero' } : quantity > 1000000 ? { quantity: 'Use at most 1,000,000' } : {}),
-    ...(!draft.cost.trim() || !(cost > 0) ? { cost: 'Enter a unit cost greater than zero' } : {}),
+    ...(!draft.cost.trim() || !(cost > 0) ? { cost: 'Enter a unit cost greater than zero' } : !hasMoneyDecimals(cost) ? { cost: moneyDecimalsMessage } : {}),
   };
 }
 
@@ -49,8 +49,8 @@ export function FurnitureItemsEditor({ items, disabled, onChange, onPendingChang
 
   const problems = furnitureDraftProblems(draft);
   const valid = Object.keys(problems).length === 0;
-  const subTotal = valid ? (cents(Number(draft.quantity)) * cents(Number(draft.cost))) / 10000 : null;
-  const total = items.reduce((sum, item) => sum + cents(item.quantity * item.cost), 0) / 100;
+  const subTotal = valid ? minorToNaira(lineMinor(Number(draft.cost), Number(draft.quantity))) : null;
+  const total = minorToNaira(items.reduce((sum, item) => sum + lineMinor(item.cost, item.quantity), BigInt(0)));
   const full = editing === null && items.length >= maxItems;
 
   const reset = () => { setDraft(empty); setEditing(null); setTried(false); };
@@ -95,7 +95,7 @@ export function FurnitureItemsEditor({ items, disabled, onChange, onPendingChang
             </Field>
             <Field data-invalid={error('cost') ? true : undefined}>
               <FieldLabel htmlFor="furniture-cost">Unit cost (₦)<span className="text-destructive" aria-hidden="true">*</span></FieldLabel>
-              <CurrencyInput id="furniture-cost" required aria-required="true" aria-invalid={error('cost') ? true : undefined} placeholder="0.00" disabled={disabled}
+              <CurrencyInput id="furniture-cost" decimals={unitCostDecimals} required aria-required="true" aria-invalid={error('cost') ? true : undefined} placeholder="0.0000" disabled={disabled}
                 value={draft.cost} onValueChange={cost => setDraft(d => ({ ...d, cost }))} />
               {error('cost') && <FieldError>{error('cost')}</FieldError>}
             </Field>
@@ -116,7 +116,7 @@ export function FurnitureItemsEditor({ items, disabled, onChange, onPendingChang
       <TableBody>{items.map((item, index) => <TableRow key={index} data-state={editing === index ? 'selected' : undefined}>
         <TableCell className="whitespace-normal"><strong>{item.description}</strong><p className="text-xs text-muted-foreground tabular-nums">{nairaFormat.format(item.cost)} each</p></TableCell>
         <TableCell className="text-right tabular-nums">{item.quantity.toLocaleString()}</TableCell>
-        <TableCell className="text-right tabular-nums">{nairaFormat.format(cents(item.quantity * item.cost) / 100)}</TableCell>
+        <TableCell className="text-right tabular-nums">{nairaFormat.format(minorToNaira(lineMinor(item.cost, item.quantity)))}</TableCell>
         <TableCell><div className="flex justify-end gap-1">
           <Button type="button" size="icon" variant="ghost" disabled={disabled} aria-label={`Edit ${item.description}`} onClick={() => edit(index)}><PencilIcon /></Button>
           <Button type="button" size="icon" variant="ghost" disabled={disabled} aria-label={`Remove ${item.description}`} onClick={() => remove(index)}><Trash2Icon /></Button>

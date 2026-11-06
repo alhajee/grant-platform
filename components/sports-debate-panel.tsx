@@ -7,15 +7,15 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { CurrencyInput } from "@/components/currency-input";
-import { formatKobo } from "@/lib/money-format";
-import { toKobo } from "@/lib/funding-policy";
+import { formatMinor } from "@/lib/money-format";
+import { toMinor } from "@/lib/funding-policy";
 
 type Props = {
   /** The Sports allocation ("123.45"), null until the plan has funding. */
   envelope: string | null;
   /** The Debate amount ("123.45"), null until set. */
   amount: string | null;
-  /** What Debate items already come to, in kobo. */
+  /** What Debate items already come to, in minor units (lib/money.ts). */
   used: bigint;
   disabled: boolean;
   planHref: (path: string) => string;
@@ -32,8 +32,8 @@ export function SportsDebatePanel({ envelope, amount, used, disabled, planHref, 
   const asked = useRef(false);
   useEffect(() => { if (unset && !disabled && !asked.current) { asked.current = true; setOpen(true); } }, [unset, disabled]);
   if (envelope == null) return null;
-  const whole = toKobo(envelope), typed = /^\d{1,13}(\.\d{1,2})?$/.test(value) ? toKobo(value) : null;
-  const problem = typed == null ? "Enter the Debate amount in naira (₦0 if none)" : typed > whole ? `The Debate amount can be at most the Sports allocation (${formatKobo(whole)})` : typed < used ? `Debate items already come to ${formatKobo(used)}` : "";
+  const whole = toMinor(envelope), typed = /^\d{1,13}(\.\d{1,2})?$/.test(value) ? toMinor(value) : null;
+  const problem = typed == null ? "Enter the Debate amount in naira (₦0 if none)" : typed > whole ? `The Debate amount can be at most the Sports allocation (${formatMinor(whole)})` : typed < used ? `Debate items already come to ${formatMinor(used)}` : "";
 
   async function save() {
     if (saving || problem) { setError(problem); return; }
@@ -50,16 +50,16 @@ export function SportsDebatePanel({ envelope, amount, used, disabled, planHref, 
   return <>
     <div className="sports-debate" data-unset={unset || undefined}>
       <MessagesSquareIcon aria-hidden="true" />
-      <p>{unset ? <><b>Debate</b> · not set yet. Set how much of the Sports allocation goes to Debate</> : <><b>Debate</b> · {formatKobo(toKobo(amount!))} of the Sports allocation{used > BigInt(0) ? ` · ${formatKobo(used)} used` : ""}</>}</p>
+      <p>{unset ? <><b>Debate</b> · not set yet. Set how much of the Sports allocation goes to Debate</> : <><b>Debate</b> · {formatMinor(toMinor(amount!))} of the Sports allocation{used > BigInt(0) ? ` · ${formatMinor(used)} used` : ""}</>}</p>
       <Button size="sm" variant={unset ? "default" : "outline"} className="rounded-full" disabled={disabled} onClick={() => { setValue(amount ?? ""); setError(""); setOpen(true); }}>{unset ? "Set amount" : "Adjust"}</Button>
     </div>
     <Dialog open={open} onOpenChange={(next) => { if (!saving) setOpen(next); }}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Amount for Debate</DialogTitle><DialogDescription>How much of the Sports allocation ({formatKobo(whole)}) goes to Debate? Enter ₦0 if none. Debate items must use this amount in full, and the other Sports sections share what is left</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Amount for Debate</DialogTitle><DialogDescription>How much of the Sports allocation ({formatMinor(whole)}) goes to Debate? Enter ₦0 if none. Debate items must use this amount in full, and the other Sports sections share what is left</DialogDescription></DialogHeader>
         <Field data-invalid={!!error}>
           <FieldLabel htmlFor="debate-amount">Debate (₦)</FieldLabel>
           <CurrencyInput id="debate-amount" autoFocus value={value} maxIntegerDigits={13} onValueChange={(next) => { setValue(next); setError(""); }} aria-invalid={!!error} />
-          {typed != null && typed <= whole && <FieldDescription>Left for the other Sports sections: {formatKobo(whole - typed)}</FieldDescription>}
+          {typed != null && typed <= whole && <FieldDescription>Left for the other Sports sections: {formatMinor(whole - typed)}</FieldDescription>}
           {error && <FieldError>{error}</FieldError>}
         </Field>
         <DialogFooter><Button variant="outline" disabled={saving} onClick={() => setOpen(false)}>{unset ? "Later" : "Cancel"}</Button><Button disabled={saving || !value} onClick={() => void save()}>{saving && <Spinner data-icon="inline-start" />}Save amount</Button></DialogFooter>

@@ -8,10 +8,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { QuarterBadge, LineDatesNote } from '@/components/quarter-timeline';
 import { InlineCell } from './inline-cell';
 import { nairaFormat } from '@/lib/money-format';
+import { lineMinor, minorToNaira } from '@/lib/money';
 
 const money = nairaFormat;
 const count = new Intl.NumberFormat('en-NG');
-export const lineAmount = (line: { quantity: number; unitCost: number }) => Math.round(line.unitCost * 100) * line.quantity / 100;
+export const lineAmount = (line: { quantity: number; unitCost: number }) => minorToNaira(lineMinor(line.unitCost, line.quantity));
 export const formatMoney = (value: number) => money.format(value);
 
 export type InlineField = 'quantity' | 'unitCost' | 'description';

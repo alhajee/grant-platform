@@ -24,7 +24,7 @@ await db.connect();
 try {
   assert.equal(sportsLineTotal({ quantity: 3, unitCost: 0.1 }), 0.3);
   assert.equal(sportsBudget([{ quantity: 3, unitCost: 0.1 }, { quantity: 2, unitCost: 0.2 }]), 0.7);
-  for (const change of [{ quantity: 0 }, { quantity: 1.5 }, { unitCost: 0 }, { unitCost: 1.234 }, { quantity: 1000000, unitCost: 999999999999.99 }, { activityType: " " }, { description: " " }, { section: "invalid" }]) {
+  for (const change of [{ quantity: 0 }, { quantity: 1.5 }, { unitCost: 0 }, { unitCost: 1.23456 }, { unitCost: 100000000000 }, { quantity: 1000000, unitCost: 99999999999.9999 }, { activityType: " " }, { description: " " }, { section: "invalid" }]) {
     assert.equal(sportsLineSchema.safeParse({ ...budget, ...change }).success, false);
   }
   // UBEC219: one or more listed target groups, required, stored joined in list order.
@@ -62,7 +62,7 @@ try {
   assert.equal(empty.body.lines.length, 0);
   assert.equal(empty.body.allocations.length, 0);
   assert.equal(empty.body.schools.length, 2);
-  for (const change of [{ quantity: -1 }, { unitCost: 1.234 }, { section: "unknown" }, { id: foreignLine }, { description: " " }]) assert.equal((await api({ ...budget, ...change })).status, 400);
+  for (const change of [{ quantity: -1 }, { unitCost: 1.23456 }, { section: "unknown" }, { id: foreignLine }, { description: " " }]) assert.equal((await api({ ...budget, ...change })).status, 400);
   const created = await api(budget);
   assert.equal(created.status, 201, JSON.stringify(created.body));
   const lineId = created.body.id;
@@ -70,6 +70,13 @@ try {
   assert.equal(created.body.code, "UBEC/SUBEB/SPORT/001/2025");
   assert.equal((await api()).body.lines[0].targetGroup, "Schools");
   assert.equal((await api({ ...budget, targetGroup: undefined })).body.error, "Choose the target group");
+  // UBEC238: a four-decimal unit cost is kept exactly and 3 × ₦1.0202 totals ₦3.0606; a fifth decimal is refused.
+  const precise = await api({ ...budget, description: "Whistles", quantity: 3, unitCost: 1.0202 });
+  assert.equal(precise.status, 201, JSON.stringify(precise.body));
+  assert.deepEqual((await db.query("SELECT unit_cost::text AS cost, (unit_cost * quantity)::text AS total FROM sports_budget_lines WHERE id = $1", [precise.body.id])).rows[0], { cost: "1.0202", total: "3.0606" });
+  assert.equal((await api()).body.lines.find((line) => line.id === precise.body.id).unitCost, 1.0202);
+  assert.equal((await api({ ...budget, unitCost: 1.02025 })).body.error, "Use at most four decimal places");
+  assert.equal((await api({ entity: "budget", action: "delete", id: precise.body.id })).status, 200);
   assert.equal((await api({ ...budget, targetGroup: "Aliens" })).status, 400);
   const otherPlanLine = (await db.query("INSERT INTO sports_budget_lines (state_code, section, activity_type, description, quantity, unit_cost, plan_id) VALUES ($1, 'equipment', 'Other sport', 'Second item', 1, 1, $2) RETURNING code", [foreignMarker, foreignPlan])).rows[0];
   assert.equal(otherPlanLine.code, "UBEC/SUBEB/SPORT/001/2025", "Each plan counts from 001 (the other plan's first line had a code of its own)");

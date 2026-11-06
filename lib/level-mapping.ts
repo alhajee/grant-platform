@@ -1,9 +1,10 @@
 import type { Snapshot } from './plan-review';
 import { isPheTrainingLine } from './distribution-lists.ts';
+import { MONEY_SCALE_NUMBER, lineMinor, minorOfNumber } from './money.ts';
 
 // Resource mapping by school level (UBEC127, client 26 October 2026): how much of a plan's proposed budget goes to ECCDE,
 // Primary and JSS, and how much is not school-specific (training, census, equipment, SUBEB activities…). Shown on the plan
-// page and on the SUBEB and UBEC dashboards. Each line's amount is shared out, in whole kobo, by what the line says:
+// page and on the SUBEB and UBEC dashboards. Each line's amount is shared out, in whole minor units (1/10,000 naira, lib/money.ts), by what the line says:
 //   Infrastructure      the package's school level;
 //   Sports              each allocation's school level by quantity allocated (the unallocated rest: not school-specific);
 //   lines with schools  evenly across the chosen schools' levels (ICT and any other line that names schools);
@@ -29,16 +30,16 @@ export function levelOf(value: string | null | undefined): SchoolLevelKey {
 }
 const count = (levels: readonly string[]): Weights => levels.reduce<Weights>((weights, level) => { const key = levelOf(level); return { ...weights, [key]: (weights[key] ?? 0) + 1 }; }, {});
 
-/** Shares `kobo` by `weights` in whole kobo; the remainder goes to the largest weight so the parts add up exactly. */
-function share(kobo: number, weights: Weights): Record<SchoolLevelKey, number> {
+/** Shares `minor` by `weights` in whole minor units; the remainder goes to the largest weight so the parts add up exactly. */
+function share(minor: number, weights: Weights): Record<SchoolLevelKey, number> {
   const parts = { eccde: 0, primary: 0, jss: 0, none: 0 };
   const entries = schoolLevelKeys.map(key => [key, weights[key] ?? 0] as const).filter(([, weight]) => weight > 0);
   const whole = entries.reduce((sum, [, weight]) => sum + weight, 0);
-  if (!whole) return { ...parts, none: kobo };
+  if (!whole) return { ...parts, none: minor };
   let given = 0;
-  for (const [key, weight] of entries) { const part = Math.floor(kobo * weight / whole); parts[key] = part; given += part; }
+  for (const [key, weight] of entries) { const part = Math.floor(minor * weight / whole); parts[key] = part; given += part; }
   const largest = entries.reduce((best, entry) => entry[1] > best[1] ? entry : best)[0];
-  return { ...parts, [largest]: parts[largest] + kobo - given };
+  return { ...parts, [largest]: parts[largest] + minor - given };
 }
 /**
  * UBEC231: a line with no schools, classes or distribution list follows its target groups when they name a school level
@@ -50,41 +51,41 @@ export function targetGroupWeights(targetGroup: string | null | undefined): Weig
 }
 /** The components made of activity lines (every component but Infrastructure and Sports). */
 const activityComponents = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
-const koboOf = (line: { quantity: number; unit_cost: string }) => Math.round(Number(line.unit_cost) * 100) * Number(line.quantity);
+const minorOf = (line: { quantity: number; unit_cost: string }) => Number(lineMinor(line.unit_cost, line.quantity));
 
 /** The plan's proposed budget by school level, from a snapshot (or the part of one the viewer may see). */
 export function levelMapping(snapshot: Snapshot): LevelMapping {
   const totals = { eccde: 0, primary: 0, jss: 0, none: 0 };
   const add = (parts: Record<SchoolLevelKey, number>) => { for (const key of schoolLevelKeys) totals[key] += parts[key]; };
-  for (const line of snapshot.infrastructure ?? []) add(share(koboOf(line), { [levelOf(line.school?.level)]: 1 }));
+  for (const line of snapshot.infrastructure ?? []) add(share(minorOf(line), { [levelOf(line.school?.level)]: 1 }));
   for (const line of snapshot.sports ?? []) {
-    const kobo = koboOf(line), allocated = (line.allocations ?? []).reduce((sum, a) => sum + Number(a.quantity), 0);
+    const minor = minorOf(line), allocated = (line.allocations ?? []).reduce((sum, a) => sum + Number(a.quantity), 0);
     const weights = (line.allocations ?? []).reduce<Weights>((w, a) => { const key = levelOf(a.school?.level); return { ...w, [key]: (w[key] ?? 0) + Number(a.quantity) }; }, {});
     // UBEC74: PHE officer training is shared across the levels of its training schools.
-    if (isPheTrainingLine(line) && snapshot.pheDistribution?.length) { add(share(kobo, count(snapshot.pheDistribution.map(s => s.level)))); continue; }
+    if (isPheTrainingLine(line) && snapshot.pheDistribution?.length) { add(share(minor, count(snapshot.pheDistribution.map(s => s.level)))); continue; }
     // Equipment not yet allocated to schools stays not school-specific.
     const unallocated = Math.max(Number(line.quantity) - allocated, 0);
-    add(share(kobo, unallocated > 0 ? { ...weights, none: (weights.none ?? 0) + unallocated } : weights));
+    add(share(minor, unallocated > 0 ? { ...weights, none: (weights.none ?? 0) + unallocated } : weights));
   }
   const distribution: Partial<Record<string, readonly { level: string }[] | undefined>> = { tlm: snapshot.tlmDistribution, curriculum: snapshot.curriculumDistribution, gscci: snapshot.gscciDistribution };
   for (const pillar of activityComponents) {
     for (const line of snapshot[pillar] ?? []) {
-      const kobo = koboOf(line);
+      const minor = minorOf(line);
       // UBEC160: items allocated per school weigh by their quantity; otherwise each school counts once.
-      if (line.schools?.some(s => s.quantity)) add(share(kobo, line.schools.reduce<Weights>((w, s) => { const key = levelOf(s.level); return { ...w, [key]: (w[key] ?? 0) + (s.quantity ?? 0) }; }, {})));
-      else if (line.schools?.length) add(share(kobo, count(line.schools.map(s => s.level))));
-      else if (line.textbook_classes?.length) add(share(kobo, count(line.textbook_classes)));
-      else if (pillar === 'teachers' && line.school_levels?.length) add(share(kobo, count(line.school_levels)));
-      else if (distribution[pillar]?.length) add(share(kobo, count(distribution[pillar]!.map(s => s.level))));
-      else add(share(kobo, targetGroupWeights(line.target_group)));
+      if (line.schools?.some(s => s.quantity)) add(share(minor, line.schools.reduce<Weights>((w, s) => { const key = levelOf(s.level); return { ...w, [key]: (w[key] ?? 0) + (s.quantity ?? 0) }; }, {})));
+      else if (line.schools?.length) add(share(minor, count(line.schools.map(s => s.level))));
+      else if (line.textbook_classes?.length) add(share(minor, count(line.textbook_classes)));
+      else if (pillar === 'teachers' && line.school_levels?.length) add(share(minor, count(line.school_levels)));
+      else if (distribution[pillar]?.length) add(share(minor, count(distribution[pillar]!.map(s => s.level))));
+      else add(share(minor, targetGroupWeights(line.target_group)));
     }
   }
-  const naira = Object.fromEntries(schoolLevelKeys.map(key => [key, totals[key] / 100])) as Record<SchoolLevelKey, number>;
-  return { ...naira, total: schoolLevelKeys.reduce((sum, key) => sum + totals[key], 0) / 100 };
+  const naira = Object.fromEntries(schoolLevelKeys.map(key => [key, totals[key] / MONEY_SCALE_NUMBER])) as Record<SchoolLevelKey, number>;
+  return { ...naira, total: schoolLevelKeys.reduce((sum, key) => sum + totals[key], 0) / MONEY_SCALE_NUMBER };
 }
 
 /** Adds several mappings (dashboards: every plan shown). */
 export function sumMappings(mappings: readonly LevelMapping[]): LevelMapping {
-  const kobo = (key: SchoolLevelKey | 'total') => mappings.reduce((sum, m) => sum + Math.round(m[key] * 100), 0) / 100;
-  return { eccde: kobo('eccde'), primary: kobo('primary'), jss: kobo('jss'), none: kobo('none'), total: kobo('total') };
+  const minor = (key: SchoolLevelKey | 'total') => mappings.reduce((sum, m) => sum + minorOfNumber(m[key]), 0) / MONEY_SCALE_NUMBER;
+  return { eccde: minor('eccde'), primary: minor('primary'), jss: minor('jss'), none: minor('none'), total: minor('total') };
 }

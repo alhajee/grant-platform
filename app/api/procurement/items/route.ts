@@ -6,6 +6,7 @@ import { isSameRequestOrigin } from '@/lib/request-origin';
 import { isProcurement, isProcurementDirector, type ProcurementItem } from '@/lib/procurement';
 import { readPriceListRequired } from '@/lib/procurement-db';
 import { isUbec } from '@/lib/ubec';
+import { hasMoneyDecimals, maxUnitCost, moneyDecimalsMessage } from '@/lib/money';
 
 // The state's Procurement price list (UBEC130 part 2, migration 074). GET: Procurement sees every live item (pending and
 // approved); everyone else in the state sees the approved items, for the editors' pickers. POST (Procurement, same
@@ -17,7 +18,8 @@ const fields = {
   maker: z.string().trim().max(120).default(''),
   modelYear: z.number().int().min(1950).max(2100).nullable().default(null),
   description: z.string().trim().max(1000).default(''),
-  unitPrice: z.number().positive('Enter a price above ₦0').max(999_999_999_999.99).refine(v => Number.isInteger(Math.round(v * 100)), 'Enter a valid price'),
+  // UBEC238: up to four decimals (₦1,250.0202), kept exactly (NUMERIC(17, 4), migration 093).
+  unitPrice: z.number().positive('Enter a price above ₦0').max(maxUnitCost, 'Enter a price below ₦100 billion').refine(hasMoneyDecimals, moneyDecimalsMessage),
 };
 const command = z.discriminatedUnion('action', [
   z.object({ action: z.literal('create'), ...fields }).strict(),
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
     const input = parsed.data, director = isProcurementDirector(user), db = getPostgres();
     if (input.action === 'create') {
       const row = (await db.query<Row>(`INSERT INTO procurement_items(state_code,name,maker,model_year,description,unit_price,status,created_by,created_by_name,updated_by_name,approved_by_name,approved_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11) RETURNING *`, [user.stateCode, input.name, input.maker, input.modelYear, input.description, input.unitPrice.toFixed(2), director ? 'approved' : 'pending', user.userId, user.name, director ? user.name : null, director ? new Date() : null])).rows[0];
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10,$11) RETURNING *`, [user.stateCode, input.name, input.maker, input.modelYear, input.description, input.unitPrice.toFixed(4), director ? 'approved' : 'pending', user.userId, user.name, director ? user.name : null, director ? new Date() : null])).rows[0];
       return json({ item: toItem(row) }, 201);
     }
     const current = (await db.query<Row>("SELECT * FROM procurement_items WHERE id=$1 AND state_code=$2 AND status<>'archived'", [input.id, user.stateCode])).rows[0];
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
     // An edit by Data Entry goes back for approval; the Director's edit stays approved. Saved lines keep their price.
     const row = (await db.query<Row>(`UPDATE procurement_items SET name=$1,maker=$2,model_year=$3,description=$4,unit_price=$5,status=$6,updated_by_name=$7,approved_by_name=$8,approved_at=$9,updated_at=NOW() WHERE id=$10 RETURNING *`,
-      [input.name, input.maker, input.modelYear, input.description, input.unitPrice.toFixed(2), director ? 'approved' : 'pending', user.name, director ? user.name : null, director ? new Date() : null, current.id])).rows[0];
+      [input.name, input.maker, input.modelYear, input.description, input.unitPrice.toFixed(4), director ? 'approved' : 'pending', user.name, director ? user.name : null, director ? new Date() : null, current.id])).rows[0];
     return json({ item: toItem(row) });
   } catch (cause) { console.error('Price list write failed', cause); return json({ error: 'Unable to save the price list. Please try again.' }, 503); }
 }

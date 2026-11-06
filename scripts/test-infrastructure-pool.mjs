@@ -49,8 +49,8 @@ assert.equal(componentEnvelope(plan, 'tlm'), '15750.00'); assert.equal(component
 const legacy = { ...plan, fundingPolicy: { id: 1, allocation: { ...defaultAllocation, tlmWithinInfrastructure: 2000 } } };
 assert.equal(componentEnvelope(legacy, 'tlm'), '15750.00');
 assert.ok(allocationSchema.safeParse(legacy.fundingPolicy.allocation).success, 'stored policies with the retired TLM split still parse');
-assert.equal(infrastructurePoolProblem(plan, { infrastructure: 0n, tlm: 1575000n }), null);
-assert.match(infrastructurePoolProblem(plan, { infrastructure: 1n, tlm: 1575000n }), /exceed it by ₦0\.0100/);
+assert.equal(infrastructurePoolProblem(plan, { infrastructure: 0n, tlm: 157500000n }), null);
+assert.match(infrastructurePoolProblem(plan, { infrastructure: 100n, tlm: 157500000n }), /exceed it by ₦0\.0100/);
 assert.equal(infrastructurePoolProblem({ stateLodgment: null }, { infrastructure: 10n ** 12n, tlm: 0n }), null, 'no ceiling until funding is set');
 const shortfalls = envelopeShortfalls(plan, { ...plan, fundingSources: [] }, { infrastructure: '10000.00', tlm: '5500.00' });
 assert.deepEqual(shortfalls.map(s => [s.component, s.ceiling, s.proposed]), [['infrastructure', '15000.00', '15500.00']]);

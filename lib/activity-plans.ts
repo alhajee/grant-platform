@@ -4,6 +4,7 @@ import { maxActivityNameLength, othersActivityName, teacherActivityInfo, teacher
 import { teacherTrainingIssues, teacherTrainingShape } from './teacher-training-schema.ts';
 import { lineQuartersSchema } from './line-quarters.ts';
 import { lineDatesShape } from './line-dates.ts';
+import { hasMoneyDecimals, lineTotalIsSafe, maxUnitCost, moneyDecimalsMessage } from './money.ts';
 import { targetGroupField, targetGroups, targetGroupSeparator, splitTargetGroups, joinTargetGroups } from './target-groups.ts';
 export { maxActivityNameLength, othersActivityName };
 export const activityWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
@@ -157,7 +158,8 @@ export const activityLineSchema = z.object({
   rationale: z.string().trim().max(1000).default(''),
   implementationApproach: z.string().trim().max(1000).default(''),
   quantity: z.number().int().min(1).max(1000000),
-  unitCost: z.number().positive().max(999999999999.99).refine(n=>Math.abs(n*100-Math.round(n*100))<.001, 'Use at most two decimal places'),
+  /** UBEC238: up to four decimals (₦1,250.0202), kept exactly (NUMERIC(16, 4), migration 093). */
+  unitCost: z.number().positive().max(maxUnitCost, 'Enter a unit cost below ₦100 billion').refine(hasMoneyDecimals, moneyDecimalsMessage),
   strategy: z.union([z.enum(implementationStrategies), z.enum(retiredStrategies), z.literal(''), z.string().regex(new RegExp(`^${nonApplicableStrategy}: \\S.{0,${maxStrategyDetailLength - 1}}$`), 'Say what is used instead (up to 100 characters)')]).default(''), targetGroup: targetGroupField, location: z.enum(['','Rural','Urban']).default(''),
   equipment: z.string().max(100).default(''),
   customActivity: z.string().trim().max(maxActivityNameLength, `Use up to ${maxActivityNameLength} characters for the activity name`).default(''),
@@ -238,7 +240,7 @@ export const activityLineSchema = z.object({
   if(isTextbook&&!v.textbookClasses.length)ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Choose at least one class for the textbooks'});
   if(isTextbook&&!v.textbookSubject)ctx.addIssue({code:'custom',path:['textbookSubject'],message:'Choose a subject for the textbooks'});
   if(!isTextbook&&(v.textbookClasses.length||v.textbookSubject))ctx.addIssue({code:'custom',path:['textbookClasses'],message:'Class and subject only apply to textbooks'});
-  if(!Number.isSafeInteger(Math.round(v.unitCost*100)*v.quantity))ctx.addIssue({code:'custom',path:['unitCost'],message:'Line total is too large'});
+  if(!lineTotalIsSafe(v.unitCost,v.quantity))ctx.addIssue({code:'custom',path:['unitCost'],message:'Line total is too large'});
 });
 export type ActivityLine = z.infer<typeof activityLineSchema> & {id:number;/** Reference code set by the database (migration 053), e.g. UBEC/SUBEB/SBMC/012/2026 · Q1–Q4. */code?:string;/** The client key the line was created with (migration 058), null for older lines. */clientKey?:string|null;schools?:LineSchool[];documents?:LineDocument[];/** UBEC161/163: items per school on the distribution list, by school id (items bought for schools). */allocations?:Record<string,number>};
 export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'implementationApproach'|'customActivity'|'textbookClasses'|'textbookSubject'|'equipmentCategory'|'equipmentType'|'subscriptionTypes'|'websiteType'|'item'|'censusType'|'frequency'|'schoolIds'|'beneficiary'|'schoolQuantities'|'trainingProvider'|'targetParticipants'|'schoolLevels'|'trainingDays'|'venueType'> & {unit_cost:string;target_group:string;implementation_approach?:string;custom_activity?:string;textbook_classes?:string[];textbook_subject?:string;equipment_category?:string;equipment_type?:string;subscription_types?:string[];website_type?:string;item?:string;census_type?:string;/** Visits (migration 078), monitoring officer allowances only. */frequency?:number|null;/** ICT procurement beneficiaries (migration 080). */beneficiary?:string|null;
@@ -249,13 +251,13 @@ export type ComponentDocument = {id:string;component:typeof documentWorkstreams[
 export type DistributionSchool = {id:number;name:string;lga:string;level:string;location:string;enrolment?:number;latitude?:string;longitude?:string;
   /** DNEMIS learners per class (P1…JSS3), read by the TLM editor for the textbook quantity warning; not in snapshots. */
   enrolmentByClass?:Record<string,{male?:number;female?:number}>|null};
-/** Splits a budget (kobo) across schools in proportion to enrolment; remainders go to the largest fractions so shares sum exactly. Empty when no school has learners. */
-export function allocateByEnrolment(totalKobo: number, schools: readonly {id:number;enrolment?:number}[]): Map<number, number> {
+/** Splits a whole-number budget (kobo, or items) across schools in proportion to enrolment; remainders go to the largest fractions so shares sum exactly. Empty when no school has learners. */
+export function allocateByEnrolment(totalMinor: number, schools: readonly {id:number;enrolment?:number}[]): Map<number, number> {
   const learners = schools.reduce((sum, s) => sum + Math.max(0, s.enrolment ?? 0), 0), shares = new Map<number, number>();
-  if (!learners || totalKobo <= 0) return shares;
-  const exact = schools.map(s => ({ id: s.id, value: totalKobo * Math.max(0, s.enrolment ?? 0) / learners }));
+  if (!learners || totalMinor <= 0) return shares;
+  const exact = schools.map(s => ({ id: s.id, value: totalMinor * Math.max(0, s.enrolment ?? 0) / learners }));
   const floors = exact.map(e => ({ ...e, floor: Math.floor(e.value) }));
-  const left = totalKobo - floors.reduce((sum, e) => sum + e.floor, 0);
+  const left = totalMinor - floors.reduce((sum, e) => sum + e.floor, 0);
   const order = [...floors].sort((a, b) => (b.value - b.floor) - (a.value - a.floor));
   const bonus = new Set(order.slice(0, left).map(e => e.id));
   for (const e of floors) shares.set(e.id, e.floor + (bonus.has(e.id) ? 1 : 0));

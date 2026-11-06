@@ -6,6 +6,7 @@ import { activityLabel, strategyLabel, type ActivityWorkstream } from './activit
 import { sportsSections } from './sports';
 import { formatQuarters } from './format-quarters';
 import { nairaFormat } from './money-format';
+import { lineMinor, minorToNaira } from './money';
 
 // The items of one component as the UBEC "Assess items" screen shows them (UBEC138): grouped like the SUBEB editor
 // (activity, Sports section or package type), with the figures that matter and every uploaded document as a link.
@@ -16,7 +17,7 @@ export type AssessmentDocument = { id: string; name: string; size: number; href:
 export type AssessmentItem = { rowRef: string; group: string; title: string; subtitle: string; amount: number; facts: { label: string; value: string }[]; documents: AssessmentDocument[]; package?: InfrastructurePackage };
 export type AssessmentGroup = { name: string; items: AssessmentItem[] };
 
-const kobo = (unitCost: string | number, quantity: number) => Math.round(Number(unitCost) * 100) * Number(quantity);
+const amountOf = (unitCost: string | number, quantity: number) => minorToNaira(lineMinor(unitCost, quantity));
 const money = (value: number) => nairaFormat.format(value);
 const costFacts = (quantity: number, unitCost: string | number) => [{ label: 'Quantity', value: Number(quantity).toLocaleString('en-NG') }, { label: 'Unit cost', value: money(Number(unitCost)) }];
 const timeline = (quarters?: number[], start?: string | null, due?: string | null) => quarters?.length ? [{ label: 'Timeline', value: `${formatQuarters(quarters)}${start && due ? ` · ${start} to ${due}` : ''}` }] : [];
@@ -27,21 +28,21 @@ export function assessmentItems(snapshot: Snapshot, pillar: ImplementedPillar): 
   if (pillar === 'infrastructure') return snapshot.infrastructure.map(line => {
     const docs = (snapshot.infrastructureDocuments ?? []).filter(d => d.schoolId != null && d.schoolId === line.school.id);
     return { rowRef: String(line.id), group: line.construction?.name || 'Infrastructure', title: line.school.name, subtitle: `${line.school.lga} · ${line.school.level}`,
-      amount: kobo(line.unit_cost, line.quantity) / 100,
+      amount: amountOf(line.unit_cost, line.quantity),
       facts: present([{ label: 'Strategy', value: line.strategy }, { label: 'Duration', value: line.package?.input?.duration ?? '' }, ...timeline(line.quarters, line.start_date, line.due_date)]),
       package: line.package,
       documents: docs.map(d => ({ id: d.id, name: d.name, size: d.size, href: `/api/infrastructure/documents?id=${d.id}`, label: d.kind.toUpperCase() === 'BOQ' ? 'BOQ' : d.kind.replace(/_/g, ' ') })) };
   });
   if (pillar === 'sports') return snapshot.sports.map(line => ({
     rowRef: String(line.id), group: sportsSections.find(s => s.id === line.section)?.label ?? line.section, title: line.description || line.activity_type, subtitle: line.activity_type,
-    amount: kobo(line.unit_cost, line.quantity) / 100,
+    amount: amountOf(line.unit_cost, line.quantity),
     facts: present([...costFacts(line.quantity, line.unit_cost), { label: 'Schools', value: line.allocations.length ? `${line.allocations.length} (${line.allocations.reduce((s, a) => s + Number(a.quantity), 0)} allocated)` : '' }, ...timeline(line.quarters, line.start_date, line.due_date)]),
     documents: [],
   }));
   return (snapshot[pillar] ?? []).map(line => ({
     rowRef: String(line.id), group: activityLabel(pillar as ActivityWorkstream, line.activity, line.custom_activity ?? ''),
     title: line.description || line.item || line.custom_activity || `Item ${line.id}`, subtitle: lineCodeLabel(line.code),
-    amount: kobo(line.unit_cost, line.quantity) / 100,
+    amount: amountOf(line.unit_cost, line.quantity),
     facts: present([...costFacts(line.quantity, line.unit_cost),
       { label: 'Strategy', value: line.strategy ? strategyLabel(line.strategy) : '' }, { label: 'Target group', value: line.target_group },
       { label: 'Item', value: line.item }, { label: 'Classes', value: line.textbook_classes?.join(', ') }, { label: 'Equipment', value: line.equipment_type },

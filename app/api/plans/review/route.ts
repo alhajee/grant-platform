@@ -18,8 +18,8 @@ import { getWorkspaceState } from '@/lib/workspace-state';
 import { resolveActionPlan, planFields } from '@/lib/plan-workspace';
 import { type ActionPlan } from '@/lib/action-plans';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
-import { budgetKobo, sbmcBudgetProblem } from '@/lib/sbmc-budget';
-import { activityBudgetProblem, isCappedFor, lineKobo } from '@/lib/activity-budget';
+import { budgetMinor, sbmcBudgetProblem } from '@/lib/sbmc-budget';
+import { activityBudgetProblem, isCappedFor, lineMinor } from '@/lib/activity-budget';
 import { isSplitMode } from '@/lib/funding-policy';
 import { infrastructurePoolProblem, isPoolComponent } from '@/lib/infrastructure-pool';
 import { implementedPillars } from '@/lib/beap-pillars';
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
       const eventComment = input.comment || (openComments ? `${openComments} ${openComments === 1 ? 'comment' : 'comments'} on specific cells` : '');
       if (!recipients.length) return error(`No active ${recipientLabel} is configured for this state`, 409);
       if(input.action!=='request_changes' && input.pillar==='sbmc') {
-        const problem=sbmcBudgetProblem((snapshot.sbmc??[]).reduce((sum,line)=>sum+budgetKobo(line.unit_cost)*BigInt(line.quantity),BigInt(0)),plan,true);
+        const problem=sbmcBudgetProblem((snapshot.sbmc??[]).reduce((sum,line)=>sum+budgetMinor(line.unit_cost)*BigInt(line.quantity),BigInt(0)),plan,true);
         if(problem)return error(problem);
         if(snapshot.sbmc?.some(line=>!line.rationale?.trim()||!line.implementation_approach?.trim()))return error('Complete the rationale and implementation approach for every SBMC item before sending it');
       }
@@ -176,14 +176,14 @@ export async function POST(request: NextRequest) {
       // Split mode (migration 051): Infrastructure and TLM need their split set and each side within its own part.
       if (input.action !== 'request_changes') { const problem=splitReadinessProblem(input.pillar,snapshot); if(problem)return error(problem,409); }
       // Shared-pool mode: Infrastructure and TLM share one pool, so neither is sent while their combined proposals exceed it.
-      if (input.action !== 'request_changes' && isPoolComponent(input.pillar) && !isSplitMode(plan)) { const problem=infrastructurePoolProblem(plan,{infrastructure:(snapshot.infrastructure??[]).reduce((sum,item)=>sum+lineKobo(item),BigInt(0)),tlm:(snapshot.tlm??[]).reduce((sum,line)=>sum+lineKobo(line),BigInt(0))}); if(problem)return error(problem,409); }
+      if (input.action !== 'request_changes' && isPoolComponent(input.pillar) && !isSplitMode(plan)) { const problem=infrastructurePoolProblem(plan,{infrastructure:(snapshot.infrastructure??[]).reduce((sum,item)=>sum+lineMinor(item),BigInt(0)),tlm:(snapshot.tlm??[]).reduce((sum,line)=>sum+lineMinor(line),BigInt(0))}); if(problem)return error(problem,409); }
       // Sports: the envelope and each section's share of it are caps at every send step.
       if (input.action !== 'request_changes' && input.pillar === 'sports') { const problem=pheDistributionProblem(snapshot)??sportsSnapshotProblem(snapshot.sports,plan); if(problem)return error(problem,409); }
       // UBEC79: the component (and every share inside it) must use its whole allocation (Super Admin setting, migration 076).
       if (input.action !== 'request_changes' && readiness.fullAllocation) { const problem=allocationUseProblem(input.pillar,snapshot); if(problem)return error(problem,409); }
       // UBEC161/163: the items bought for schools are shared out across the distribution list (last: once the items themselves are settled).
       if (input.action !== 'request_changes' && hasDistribution(input.pillar)) { const problem=distributionAllocationProblem(input.pillar,snapshot[input.pillar]??[],snapshot[distributionSnapshotKeys[input.pillar]],snapshot.distributionAllocations); if(problem)return error(problem,409); }
-      if (input.action !== 'request_changes' && (isCappedFor(input.pillar, plan) || input.pillar === 'sbmc')) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,kobo:lineKobo(line)})),plan); if(problem)return error(problem); }
+      if (input.action !== 'request_changes' && (isCappedFor(input.pillar, plan) || input.pillar === 'sbmc')) { const problem=activityBudgetProblem(input.pillar,(snapshot[input.pillar]??[]).map(line=>({activity:line.activity,minor:lineMinor(line)})),plan); if(problem)return error(problem); }
       await db.query('INSERT INTO plan_pillar_reviews(plan_id,pillar,status) VALUES($1,$2,$3) ON CONFLICT(plan_id,pillar) DO UPDATE SET status=EXCLUDED.status,updated_at=NOW()', [plan.id,input.pillar,status]);
       const number = plan.submissionNumber + 1;
       await db.query('INSERT INTO plan_submissions(plan_id,number,snapshot) VALUES($1,$2,$3::jsonb)', [plan.id,number,JSON.stringify(snapshot)]);

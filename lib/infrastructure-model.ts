@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { lineQuartersSchema } from './line-quarters.ts';
 import { lineDatesShape } from './line-dates.ts';
+import { MONEY_SCALE_NUMBER, hasMoneyDecimals, maxUnitCost, minorOfNumber, moneyDecimalsMessage } from './money.ts';
 import { requirements, fenceDeliverable, appliesToStream, auditKeys, describableKeys, deliverableDescription, solarKva, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
 export { quantityLabel, requirements, fenceDeliverable, minimumKeys, appliesToStream, eccdeOnlyKeys, standardText, deliverableGroups, deliverableGroup, deliverableCategory, deliverableInfo, deliverableDescription, groupDeliverables, inDeliverableOrder, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
 
@@ -21,7 +22,8 @@ export const kindNames = { new: 'New Construction', whole: 'Whole School Renovat
 export const modelNames = ['Model 1 · Small School', 'Model 2 · Medium School', 'Model 3 · Large School'];
 export const modelFor = (enrolment: number) => enrolment <= 240 ? 0 : enrolment <= 320 ? 1 : 2;
 const quantity = z.number().int().min(0).max(1000000);
-const amount = z.number().min(0).max(99999999999.99).refine(n => Math.abs(n * 100 - Math.round(n * 100)) < .001, 'Use at most two decimal places');
+// UBEC238: costs take up to four decimals (₦1,250.0202) and are totalled exactly in minor units (lib/money.ts).
+const amount = z.number().min(0).max(maxUnitCost).refine(hasMoneyDecimals, moneyDecimalsMessage);
 // Existing/functional stay unset until the auditor enters them (a Minimum Standard row is complete once both are set).
 // additional: the auditor's own figure (unset = the calculated shortfall). extra: retired "Extra beyond standard", kept so older rows keep their totals.
 const auditRow = z.object({ existing: quantity.optional(), functional: quantity.optional(), additional: quantity.optional(), extra: quantity.default(0) }).refine(v => (v.functional ?? 0) <= (v.existing ?? 0), 'Functional cannot exceed existing');
@@ -168,8 +170,9 @@ export type InfrastructurePackage = {id:number;/** The client key the package wa
  quarters?:number[];
  /** Expected start and due dates (migration 059, YYYY-MM-DD): authoritative over input.startDate/dueDate; null on packages saved before. */
  start_date?:string|null;due_date?:string|null};
-const cents = (n:number) => Math.round(n*100);
-const money = (n:number) => Math.round(n)/100;
+// Exact money: naira ⇄ minor units (1/10,000 naira, lib/money.ts).
+const units = (n:number) => minorOfNumber(n);
+const money = (n:number) => Math.round(n)/MONEY_SCALE_NUMBER;
 /** The model a New Construction package is built to: the chosen one, else (older packages) the one enrolment suggests. */
 export const packageModel=(input:Pick<InfrastructureInput,'kind'|'model'>,enrolment:number)=>input.kind==='new'&&input.model!==undefined?input.model:modelFor(enrolment);
 /** Classroom block rows per model (no block of 3, client feedback October 2026). */
@@ -269,7 +272,7 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
  const model=packageModel(input,enrolment),items:PackageItem[]=[];
  let classroomSubtotal=0,otherSubtotal=0,vat=0;
  function add(key:string,label:string,quantity:number,unit:string,lump:boolean,cost:number,strategy:string=defaultStrategy,duration='',operation?:string,description?:string){
-  const total=money(cents(cost)*(lump?1:quantity));
+  const total=money(units(cost)*(lump?1:quantity));
   items.push({key,label,quantity,unit,lump,cost,total,strategy,duration,operation,description});return total;
  }
  if(input.kind==='furniture') input.furniture.forEach((r,i)=>add('furniture-'+i,r.description,r.quantity,'units',false,r.cost,'',''));
@@ -296,11 +299,13 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
   else{
    otherSubtotal+=add('contingency','Contingency',1,'lot',true,input.contingency,'—');
    otherSubtotal+=add('preliminaries','Preliminaries',1,'lot',true,input.preliminaries,'—');
-   vat=money(Math.round((cents(otherSubtotal)+(input.classroomStrategy==='NCB'?cents(classroomSubtotal):0))*75/1000));
+   // VAT stays rounded to the kobo, as before (a share, like the allocations).
+   const kobo=MONEY_SCALE_NUMBER/100;
+   vat=money(Math.round((units(otherSubtotal)+(input.classroomStrategy==='NCB'?units(classroomSubtotal):0))*75/1000/kobo)*kobo);
    add('vat','VAT (7.5%)',1,'lot',true,vat,'—');
   }
  }
- const total=money(items.reduce((sum,item)=>sum+cents(item.total),0));
+ const total=money(items.reduce((sum,item)=>sum+units(item.total),0));
  // Only New Construction has a model; Whole School records the enrolment basis of its formulas instead.
  return {model,modelLabel:input.kind==='new'?modelNames[model]:'',enrolment,...(input.kind==='whole'?{basis:{eccde:facts.eccde,primary:facts.primary,jss:facts.jss,teachers:facts.teachers}}:{}),items,classroomSubtotal,otherSubtotal,vat,total};
 }
@@ -314,7 +319,7 @@ export function packageProblem(input:InfrastructureInput,school:SchoolBasis){
  const auditProblem=wholeAuditProblem(input,school);if(auditProblem)return auditProblem;
  const result=calculateInfrastructure(input,school);
  if(!result.items.length||result.total<=0)return 'Add and cost the required items before saving';
- if(!Number.isSafeInteger(cents(result.total)))return 'The package total is too large';
+ if(!Number.isSafeInteger(units(result.total)))return 'The package total is too large';
  if(input.kind==='whole'&&result.items.some(i=>i.cost<=0||!i.duration))return 'Enter a cost and duration for each intervention';
  if(input.kind==='new'&&input.targeting==='nonhope'&&!input.duration)return 'Enter the construction duration';
  return null;

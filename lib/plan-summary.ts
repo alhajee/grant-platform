@@ -1,5 +1,6 @@
 import { implementedPillars, type ImplementedPillar, type PillarSummary } from './beap-pillars';
 import type { Snapshot } from './plan-review';
+import { MONEY_SCALE_NUMBER, lineMinor, minorOfNumber, minorToNaira } from './money';
 
 export type PlanTotals = Record<ImplementedPillar, PillarSummary> & { total: PillarSummary };
 
@@ -10,8 +11,8 @@ const schoolKey = (school: SchoolKey) => JSON.stringify([school.name, school.lga
 const summarize = (lines: readonly Costed[], schools: readonly string[] = []): PillarSummary => ({
   lineCount: lines.length,
   schoolCount: new Set(schools).size,
-  // Kobo arithmetic keeps line totals exact before converting back to naira.
-  budget: lines.reduce((sum, line) => sum + Math.round(Number(line.unit_cost) * 100) * line.quantity, 0) / 100,
+  // Minor units (1/10,000 naira, lib/money.ts) keep line totals exact before converting back to naira.
+  budget: minorToNaira(lines.reduce((sum, line) => sum + lineMinor(line.unit_cost, line.quantity), BigInt(0))),
 });
 
 /**
@@ -38,7 +39,7 @@ export function summarizeSnapshot(snapshot: Snapshot): PlanTotals {
   const total: PillarSummary = {
     lineCount: implementedPillars.reduce((sum, pillar) => sum + parts[pillar].lineCount, 0),
     schoolCount: new Set(implementedPillars.flatMap(pillar => schools[pillar])).size,
-    budget: implementedPillars.reduce((sum, pillar) => sum + Math.round(parts[pillar].budget * 100), 0) / 100,
+    budget: implementedPillars.reduce((sum, pillar) => sum + minorOfNumber(parts[pillar].budget), 0) / MONEY_SCALE_NUMBER,
   };
   return { ...parts, total };
 }
