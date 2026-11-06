@@ -5,11 +5,12 @@ import { UbecLogo } from './ubec-logo';
 import { AccountMenu } from './workspace-account-menu';
 import type { LocalUser } from '@/lib/local-session';
 
-export type AdminSection = 'admin' | 'users' | 'schools';
+export type AdminSection = 'admin' | 'users' | 'schools' | 'plans';
 const links: { section: AdminSection; href: string; label: string }[] = [
   { section: 'admin', href: '/admin', label: 'Administration' },
   { section: 'users', href: '/admin/users', label: 'Users' },
   { section: 'schools', href: '/admin/schools', label: 'Schools' },
+  { section: 'plans', href: '/admin/plans', label: 'Plans' },
 ];
 
 /** Super Admin header: the SUBEB capsule nav with the admin pages. Plain links, as next/link breaks in the production build. */

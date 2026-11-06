@@ -1,5 +1,6 @@
 // Deleting a plan (DELETE /api/plans/setup): plan creators only, same origin, current version, never once sent to UBEC;
 // the plan goes with its lines, documents, comments, review history and notifications.
+// The Super Admin deletes any plan from Admin > Plans (/api/admin/plans), even one sent to UBEC, after typing its state code.
 // Usage: node --env-file=.env scripts/test-plan-delete.mjs [baseUrl]   (local only; cleans up)
 import assert from 'node:assert/strict';
 import { Client } from 'pg';
@@ -35,9 +36,9 @@ const remaining = async planId => Object.fromEntries(await Promise.all(['action_
 
 await db.connect();
 try {
-  for (const [who, role, department] of [['chair', 'Executive Chairman', null], ['director', 'Director', 'social'], ['social', 'Data Entry Staff', 'social']]) {
+  for (const [who, role, department] of [['chair', 'Executive Chairman', null], ['director', 'Director', 'social'], ['social', 'Data Entry Staff', 'social'], ['admin', 'Super Admin', null]]) {
     const email = `${who}.${state.toLowerCase()}@test.local`;
-    ids.push((await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id', [`QA ${who}`, email, role, department, state, hashSync(password, 4)])).rows[0].id);
+    ids.push((await db.query('INSERT INTO users(full_name,email,role,department,state_code,password_hash) VALUES($1,$2,$3,$4,$5,$6) RETURNING id', [`QA ${who}`, email, role, department, who === 'admin' ? 'UBEC' : state, hashSync(password, 4)])).rows[0].id);
     if (department) await db.query('INSERT INTO user_departments(user_id,department) VALUES($1,$2)', [ids.at(-1), department]);
     const r = await api(who, '/api/auth/login', { email, password }); ok(r); cookies[who] = r.cookie;
   }
@@ -84,7 +85,24 @@ try {
   ok(await api('chair', '/api/plans/setup', body, 'DELETE'), 404);
 
   step('its quarters are free again: a new plan can take them');
-  plans.push(ok(await create(2024), 201).plan.id);
+  const again = ok(await create(2024), 201).plan; plans.push(again.id);
+
+  step('Super Admin: lists every plan and deletes one already sent to UBEC');
+  ok(await api('social', `/api/activities?plan=${again.id}&workstream=sbmc`, line));
+  const sent = (await db.query('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,1,1,$2,$3) RETURNING id', [again.id, '{}', ids[0]])).rows[0].id;
+  await db.query("INSERT INTO ubec_round_components(round_id,pillar,department) VALUES($1,'sbmc','social')", [sent]);
+  const listed = ok(await api('admin', '/api/admin/plans')).plans.find(p => p.id === again.id);
+  assert.ok(listed); assert.equal(listed.stateCode, state); assert.equal(listed.ubecRounds, 1); assert.equal(listed.lines, 1); assert.deepEqual(listed.quarters, [1, 2]);
+  ok(await api('chair', '/api/admin/plans'), 403);
+  const adminBody = { id: again.id, confirm: state };
+  ok(await api('admin', '/api/admin/plans', adminBody, 'DELETE', null), 403);
+  ok(await api('chair', '/api/admin/plans', adminBody, 'DELETE'), 403);
+  const wrong = await api('admin', '/api/admin/plans', { ...adminBody, confirm: 'XX' }, 'DELETE'); ok(wrong, 400); assert.match(wrong.data.error, /Type .* to confirm/);
+  ok(await api('admin', '/api/admin/plans', { id: 'x' }, 'DELETE'), 400);
+  assert.equal(ok(await api('admin', '/api/admin/plans', { ...adminBody, confirm: state.toLowerCase() }, 'DELETE')).deleted, again.id);
+  assert.ok(Object.values(await remaining(again.id)).every(count => count === 0), JSON.stringify(await remaining(again.id)));
+  assert.equal(Number((await db.query('SELECT count(*) FROM ubec_rounds WHERE plan_id=$1', [again.id])).rows[0].count), 0);
+  ok(await api('admin', '/api/admin/plans', adminBody, 'DELETE'), 404);
   console.log('PASS plan delete');
 } finally {
   for (const table of ['plan_notifications', 'plan_comments', 'plan_review_events', 'plan_submissions', 'plan_pillar_reviews', 'activity_plan_lines', 'ubec_rounds']) await db.query(`DELETE FROM ${table} WHERE plan_id=ANY($1::int[])`, [plans]);
