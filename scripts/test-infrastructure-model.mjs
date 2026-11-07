@@ -128,40 +128,73 @@ const old=packageSchema.parse({kind:'whole',schoolId:1,components:['Primary'],mo
 assert.equal(old.model,2);assert.equal(calculateInfrastructure(old,facts).modelLabel,'');assert.equal(auditGaps(old,facts).find(g=>g.key==='classroomPri').required,6);
 assert.equal(requirements.filter(r=>r.category==='other').length,30);
 const furniture=make('furniture');furniture.furniture=[{description:'Desk',quantity:3,cost:10.15}];assert.equal(calculateInfrastructure(furniture,200).total,30.45);
-// UBEC171: Whole School classrooms grouped by block, in groups of blocks of different sizes (revised 7 November 2026).
+// UBEC171: Whole School classrooms, ECCDE classrooms and toilets grouped by block, in groups of blocks of different sizes (revised 7 November 2026).
 {
- const {groupIntoBlocks,toBlockGroups,blockGroupingText,blockGroupingProblem,classroomBlockCounts,drawingsDocumentProblem}=await import('../lib/infrastructure-model.ts');
+ const {groupIntoBlocks,toBlockGroups,blockGroupingText,blockGroupText,blockGroupingProblem,classroomBlockCounts,drawingsDocumentProblem}=await import('../lib/infrastructure-model.ts');
  assert.equal(groupIntoBlocks(0,[{count:1,classrooms:3,offices:1,stores:1}]),null,'nothing to group');assert.equal(groupIntoBlocks(5,undefined),null,'not grouped');assert.equal(groupIntoBlocks(5,[]),null,'no groups');
- // The client's example: 24 classrooms as 2 blocks of 6, 2 blocks of 3 and 1 block of 6.
+ // The client's example: 24 classrooms as 2 blocks of 6, 2 blocks of 3 and 1 block of 6 (groups saved without toilets or type read as Primary/JSS, no toilets).
  const mixed=[{count:2,classrooms:6,offices:1,stores:1},{count:2,classrooms:3,offices:0,stores:1},{count:1,classrooms:6,offices:2,stores:0}];
- const g=groupIntoBlocks(24,mixed);assert.deepEqual([g.grouped,g.left,g.blocks,g.offices,g.stores],[24,0,5,4,4]);
- assert.equal(blockGroupingText(g),'2 blocks of 6 classrooms with 1 office and 1 store, 2 blocks of 3 classrooms with 1 store, 1 block of 6 classrooms with 2 offices');
- const part=groupIntoBlocks(24,mixed.slice(0,1));assert.equal(part.left,12);assert.match(blockGroupingText(part),/· 12 classrooms not in a block yet$/);
+ const g=groupIntoBlocks(24,mixed);assert.deepEqual([g.grouped.classrooms,g.left.classrooms,g.blocks,g.offices,g.stores,g.toiletsWithClassrooms],[24,0,5,4,4,0]);
+ assert.equal(blockGroupingText(g),'2 blocks of 6 classrooms, 1 office, 1 store; 2 blocks of 3 classrooms, 1 store; 1 block of 6 classrooms, 2 offices');
+ const part=groupIntoBlocks(24,mixed.slice(0,1));assert.equal(part.left.classrooms,12);assert.match(blockGroupingText(part),/· 12 classrooms not in a block yet$/);
  // Packages saved before 7 November 2026 kept one make-up: full blocks plus one smaller block.
- assert.deepEqual(toBlockGroups(7,{classrooms:3,offices:1,stores:1}),[{classrooms:3,offices:1,stores:1,count:2},{classrooms:1,offices:1,stores:1,count:1}]);
- assert.equal(blockGroupingText(groupIntoBlocks(6,{classrooms:3,offices:0,stores:2})),'2 blocks of 3 classrooms with 2 stores');
- const grouped=structuredClone(whole);grouped.audit.classroomPri={existing:4,functional:2,additional:7,extra:0};grouped.audit.office={existing:0,functional:0,additional:5,extra:0};grouped.audit.store={existing:2,functional:0,additional:1,extra:0};
- assert.deepEqual(classroomBlockCounts(grouped,facts),{construct:7,renovate:2});
+ assert.deepEqual(toBlockGroups(7,{classrooms:3,offices:1,stores:1}),[{classrooms:3,offices:1,stores:1,count:2,toilets:0,classroomType:'primary'},{classrooms:1,offices:1,stores:1,count:1,toilets:0,classroomType:'primary'}]);
+ assert.equal(blockGroupingText(groupIntoBlocks(6,{classrooms:3,offices:0,stores:2})),'2 blocks of 3 classrooms, 2 stores');
+ // Wording: the client's "classroom, office, store, toilet"; ECCDE blocks; toilet blocks on their own.
+ assert.equal(blockGroupText({count:2,classrooms:6,offices:1,stores:1,toilets:4,classroomType:'primary'}),'2 blocks of 6 classrooms, 1 office, 1 store, 4 toilets');
+ assert.equal(blockGroupText({count:1,classrooms:2,offices:0,stores:0,toilets:2,classroomType:'eccde'}),'1 block of 2 ECCDE classrooms, 2 toilets');
+ assert.equal(blockGroupText({count:1,classrooms:0,offices:0,stores:0,toilets:6,classroomType:'primary'}),'1 toilet block of 6 compartments');
+ assert.equal(blockGroupText({count:2,classrooms:0,offices:0,stores:0,toilets:6,classroomType:'primary'}),'2 toilet blocks of 6 compartments');
+ const grouped=structuredClone(whole);grouped.audit.classroomPri={existing:4,functional:2,additional:7,extra:0};grouped.audit.office={existing:0,functional:0,additional:5,extra:0};grouped.audit.store={existing:2,functional:0,additional:1,extra:0};grouped.audit.toilet={existing:0,functional:0,additional:12,extra:0};
+ assert.deepEqual(classroomBlockCounts(grouped,facts),{construct:{classrooms:7,eccde:3,toilets:12},renovate:{classrooms:2,eccde:0,toilets:0}},'new toilets are grouped; toilets are not civil, so none to renovate');
  const before=calculateInfrastructure(grouped,facts);assert.equal(before.items.find(i=>i.key==='classroomPri-construct').grouping,undefined,'not grouped until asked');
+ assert.equal(before.items.find(i=>i.key==='classroomEccde-construct').quantity,2,'ungrouped: 3 ECCDE classrooms → 2 ECCDE blocks of 2');
  assert.equal(blockGroupingProblem(grouped,facts),null);
- grouped.blocks={construct:[{count:1,classrooms:4,offices:1,stores:1},{count:1,classrooms:3,offices:1,stores:0}],renovate:[{count:1,classrooms:2,offices:0,stores:1}]};
- assert.ok(packageSchema.safeParse(grouped).success);assert.equal(blockGroupingProblem(grouped,facts),null);
- assert.equal(packageSchema.safeParse({...grouped,blocks:{construct:[{count:1,classrooms:0,offices:1,stores:1}]}}).success,false,'a block needs a classroom');
+ grouped.blocks={construct:[{count:1,classrooms:4,offices:1,stores:1,toilets:6},{count:1,classrooms:3,offices:1,stores:0},{count:1,classrooms:3,offices:0,stores:0,classroomType:'eccde'},{count:1,classrooms:0,offices:0,stores:0,toilets:6}],renovate:[{count:1,classrooms:2,offices:0,stores:1}]};
+ const parsed=packageSchema.safeParse(grouped);assert.ok(parsed.success);assert.deepEqual(parsed.data.blocks.renovate[0],{count:1,classrooms:2,offices:0,stores:1,toilets:0,classroomType:'primary'},'older groups read as Primary/JSS with no toilets');
+ assert.equal(blockGroupingProblem(grouped,facts),null);
+ assert.equal(packageSchema.safeParse({...grouped,blocks:{construct:[{count:1,classrooms:0,offices:1,stores:1}]}}).success,false,'a block needs a classroom or a toilet');
+ assert.ok(packageSchema.safeParse({...grouped,blocks:{construct:[{count:2,classrooms:0,offices:0,stores:0,toilets:6}]}}).success,'a block of toilets alone');
+ assert.equal(packageSchema.safeParse({...grouped,blocks:{construct:[{count:1,classrooms:3,offices:1,stores:1,toilets:31}]}}).success,false,'at most 30 toilets per block');
+ assert.equal(packageSchema.safeParse({...grouped,blocks:{construct:[{count:1,classrooms:3,offices:1,stores:1,classroomType:'sss'}]}}).success,false,'listed classroom types only');
  assert.equal(packageSchema.safeParse({...grouped,blocks:{construct:[{count:0,classrooms:3,offices:1,stores:1}]}}).success,false,'a group needs a block');
- const after=calculateInfrastructure(grouped,facts),item=key=>after.items.find(i=>i.key===key);
- assert.equal(item('classroomPri-construct').quantity,7);assert.equal(item('classroomPri-construct').grouping,'1 block of 4 classrooms with 1 office and 1 store, 1 block of 3 classrooms with 1 office');
- assert.equal(item('classroomPri-renovate').grouping,'1 block of 2 classrooms with 1 store');
+ const after=calculateInfrastructure(parsed.data,facts),item=key=>after.items.find(i=>i.key===key);
+ assert.equal(item('classroomPri-construct').quantity,7);assert.equal(item('classroomPri-construct').grouping,'1 block of 4 classrooms, 1 office, 1 store, 6 toilets; 1 block of 3 classrooms, 1 office');
+ assert.equal(item('classroomPri-renovate').grouping,'1 block of 2 classrooms, 1 store');
+ assert.deepEqual([item('classroomEccde-construct').quantity,item('classroomEccde-construct').unit,item('classroomEccde-construct').grouping],[3,'classrooms','1 block of 3 ECCDE classrooms'],'grouped ECCDE classrooms name their blocks instead of blocks of 2');
+ assert.equal(item('toilet').quantity,6,'12 new toilets − 6 in a classroom block');assert.equal(item('toilet').grouping,'1 toilet block of 6 compartments · 6 toilets are in the classroom blocks');
  assert.equal(item('office-construct').quantity,3,'5 new offices − 2 in the blocks');assert.match(item('office-construct').grouping,/2 offices are in the classroom blocks/);
  assert.equal(item('store-construct'),undefined,'the one new store is in the blocks');assert.equal(item('store-renovate').quantity,1,'2 non-functional stores − 1 in the renovated block');
- // Every classroom in a block, no more: Continue and save wait.
- const short={...grouped,blocks:{construct:[{count:1,classrooms:4,offices:1,stores:1}]}};
- assert.equal(blockGroupingProblem(short,facts),'Put all 7 classrooms to build into blocks: 3 classrooms left');assert.equal(packageProblem(short,facts),blockGroupingProblem(short,facts));
- assert.match(blockGroupingProblem({...grouped,blocks:{renovate:[{count:2,classrooms:2,offices:0,stores:0}]}},facts),/hold 4 classrooms, but only 2 are to be renovated/);
- // A single make-up saved earlier still costs the same blocks.
- const legacy={...grouped,blocks:{construct:{classrooms:3,offices:1,stores:1}}};assert.ok(packageSchema.safeParse(legacy).success);
- assert.match(calculateInfrastructure(legacy,facts).items.find(i=>i.key==='classroomPri-construct').grouping,/^2 blocks of 3 classrooms with 1 office and 1 store, 1 block of 1 classroom/);assert.equal(blockGroupingProblem(legacy,facts),null);
+ // Every classroom, ECCDE classroom and toilet in a block, no more: Continue and save wait.
+ const short={...parsed.data,blocks:{...parsed.data.blocks,construct:parsed.data.blocks.construct.slice(1)}};
+ assert.equal(blockGroupingProblem(short,facts),'Put all 7 classrooms to build into blocks: 4 classrooms left');assert.equal(packageProblem(short,facts),blockGroupingProblem(short,facts));
+ const noEccde={...parsed.data,blocks:{...parsed.data.blocks,construct:parsed.data.blocks.construct.filter(x=>x.classroomType!=='eccde')}};
+ assert.equal(blockGroupingProblem(noEccde,facts),'Put all 3 ECCDE classrooms to build into blocks: 3 ECCDE classrooms left');
+ const noToiletBlock={...parsed.data,blocks:{...parsed.data.blocks,construct:parsed.data.blocks.construct.slice(0,3)}};
+ assert.equal(blockGroupingProblem(noToiletBlock,facts),'Put all 12 toilets to build into blocks: 6 toilets left');
+ assert.match(blockGroupingProblem({...parsed.data,blocks:{renovate:[{count:2,classrooms:2,offices:0,stores:0}]}},facts),/hold 4 classrooms, but only 2 are to be renovated/);
+ assert.match(blockGroupingProblem({...parsed.data,blocks:{renovate:[{count:1,classrooms:2,offices:0,stores:0,toilets:4}]}},facts),/hold 4 toilets, but only 0 are to be renovated/,'non-functional toilets are not renovated in blocks');
+ // A grouping saved before toilets were grouped must be completed before the package is saved again.
+ const legacy={...grouped,audit:{...grouped.audit,classroomEccde:{existing:0,functional:0,additional:0,extra:0}},blocks:{construct:{classrooms:3,offices:1,stores:1}}};assert.ok(packageSchema.safeParse(legacy).success);
+ assert.match(calculateInfrastructure(legacy,facts).items.find(i=>i.key==='classroomPri-construct').grouping,/^2 blocks of 3 classrooms, 1 office, 1 store; 1 block of 1 classroom/);
+ assert.equal(blockGroupingProblem(legacy,facts),'Put all 12 toilets to build into blocks: 12 toilets left');
+ const oldGroups={...legacy,blocks:{construct:[{count:1,classrooms:7,offices:1,stores:1}]}};assert.equal(blockGroupingProblem(oldGroups,facts),'Put all 12 toilets to build into blocks: 12 toilets left');
+ assert.equal(blockGroupingProblem({...oldGroups,blocks:{construct:[...oldGroups.blocks.construct,{count:2,classrooms:0,offices:0,stores:0,toilets:6}]}},facts),null,'completed with toilet blocks');
  assert.equal(packageSchema.parse({kind:'whole',schoolId:1,components:['Primary']}).blocks.construct,undefined,'older packages parse ungrouped');
  // UBEC230: New Construction drawings required; other kinds optional.
  assert.match(drawingsDocumentProblem({kind:'new'},0),/Attach the drawings/);assert.equal(drawingsDocumentProblem({kind:'new'},1),null);assert.equal(drawingsDocumentProblem({kind:'whole'},0),null);assert.equal(drawingsDocumentProblem({kind:'furniture'},0),null);
 }
-console.log('PASS: strict strategies, model-driven New Construction lists (Primary/JSS, no block of 3), land and fence rules, HOPE VAT, enrolment formulas with rounding, editable Additional, per-row photos, older packages and furniture.');
+// Provisions (client, 7 November 2026): handwashing stations and magnetic boards are listed with their quantities but not costed.
+{
+ const {provisionNotes,isProvisionKey}=await import('../lib/infrastructure-model.ts');
+ assert.ok(isProvisionKey('handwashing')&&isProvisionKey('magneticBoard'));assert.ok(!isProvisionKey('teachersFurniture')&&!isProvisionKey('dualDesk')&&!isProvisionKey('storageShelf'),'teachers’ furniture, desks and cupboards stay costed');
+ const p=structuredClone(whole);p.packageCosts={...p.packageCosts,handwashing:{cost:500,strategy:'NCB',duration:'1 week'},magneticBoard:{cost:200,strategy:'NCB',duration:'1 week'}};
+ const res=calculateInfrastructure(p,facts),hw=res.items.find(i=>i.key==='handwashing'),mb=res.items.find(i=>i.key==='magneticBoard');
+ assert.ok(hw&&mb,'still in the package items');assert.equal(hw.quantity,1);assert.equal(mb.quantity,wholeRequirements(facts,'primary').magneticBoard.qty);
+ for(const i of [hw,mb]){assert.equal(i.cost,0,'a cost saved before is ignored');assert.equal(i.total,0);assert.equal(i.operation,'Provision');}
+ assert.equal(itemOperation(hw),'Provision · included in the solar borehole cost');assert.equal(itemOperation(mb),provisionNotes.magneticBoard);
+ const costed=res.items.filter(i=>!i.provision).reduce((s,i)=>s+i.total,0);assert.equal(res.total,costed,'provisions add nothing to the total');
+ assert.equal(packageProblem(p,facts),null,'provisions need no cost or duration');
+ assert.ok(res.items.find(i=>i.key==='teachersFurniture').total>0,'teachers’ furniture still costed');
+}
+console.log('PASS: strict strategies, model-driven New Construction lists (Primary/JSS, no block of 3), land and fence rules, HOPE VAT, enrolment formulas with rounding, editable Additional, per-row photos, block grouping with ECCDE and toilets, provisions, older packages and furniture.');

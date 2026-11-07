@@ -28,15 +28,30 @@ const amount = z.number().min(0).max(maxUnitCost).refine(hasMoneyDecimals, money
 // additional: the auditor's own figure (unset = the calculated shortfall). extra: retired "Extra beyond standard", kept so older rows keep their totals.
 const auditRow = z.object({ existing: quantity.optional(), functional: quantity.optional(), additional: quantity.optional(), extra: quantity.default(0) }).refine(v => (v.functional ?? 0) <= (v.existing ?? 0), 'Functional cannot exceed existing');
 const modelIndex = z.number().int().min(0).max(2);
-/** UBEC171: how many classrooms, offices and stores make up one block when Whole School classrooms are grouped by block. */
+/** UBEC171: one block make-up as saved before 7 November 2026 (classrooms, offices and stores), repeated over the Primary/JSS classrooms. */
 const blockShape = z.object({ classrooms: z.number().int().min(1, 'A block needs at least 1 classroom').max(30, 'Use at most 30 classrooms per block'), offices: z.number().int().min(0).max(10, 'Use at most 10 offices per block'), stores: z.number().int().min(0).max(10, 'Use at most 10 stores per block') });
 export type ClassroomBlock = z.infer<typeof blockShape>;
-/** UBEC171 (7 November 2026): a group of identical blocks; a kind's classrooms are shared across several groups of different sizes. */
-const blockGroupShape = blockShape.extend({ count: z.number().int().min(1, 'Enter at least 1 block').max(100, 'Use at most 100 blocks in one group') });
+/** Which classrooms a group of blocks holds (client, 7 November 2026: ECCDE classrooms are grouped too). */
+export const blockClassroomTypes = ['primary', 'eccde'] as const;
+export type BlockClassroomType = typeof blockClassroomTypes[number];
+/**
+ * UBEC171 (7 November 2026): a group of identical blocks; a kind's classrooms and toilets are shared across several groups
+ * of different sizes. A block holds classrooms (Primary/JSS or ECCDE), offices, stores and toilet compartments; a block of
+ * toilets alone is allowed (client: "if they are going to be grouped on their own, fine"). Groups saved before toilets and
+ * ECCDE were grouped read as Primary/JSS blocks with no toilets.
+ */
+const blockGroupShape = z.object({
+ count: z.number().int().min(1, 'Enter at least 1 block').max(100, 'Use at most 100 blocks in one group'),
+ classrooms: z.number().int().min(0).max(30, 'Use at most 30 classrooms per block'),
+ offices: z.number().int().min(0).max(10, 'Use at most 10 offices per block'),
+ stores: z.number().int().min(0).max(10, 'Use at most 10 stores per block'),
+ toilets: z.number().int().min(0).max(30, 'Use at most 30 toilets per block').default(0),
+ classroomType: z.enum(blockClassroomTypes).default('primary'),
+}).refine(g => g.classrooms + g.toilets > 0, 'A block needs at least 1 classroom or 1 toilet');
 export type BlockGroup = z.infer<typeof blockGroupShape>;
 /** Groups of blocks, or (packages saved before 7 November 2026) one block make-up repeated over the classrooms. */
 const blockGroupsShape = z.union([z.array(blockGroupShape).max(30, 'Use at most 30 groups of blocks'), blockShape]);
-/** construct: the Additional (new) Primary/JSS classrooms; renovate: the non-functional ones. */
+/** construct: the Additional (new) classrooms and toilets; renovate: the non-functional classrooms. */
 export type BlockKind = 'construct' | 'renovate';
 export const profileSchema = z.object({male:quantity, female:quantity, latitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=90),'Invalid latitude'),longitude:z.string().max(30).refine(v=>!v||(Number.isFinite(Number(v))&&Math.abs(Number(v))<=180),'Invalid longitude')});
 export const maxDescriptionLength = 500;
@@ -164,11 +179,11 @@ export function wholeRequirements(facts: SchoolFacts, stream: SchoolStream): Rec
 const classroomLabel = (facts: SchoolFacts, stream: SchoolStream) => facts.primary > 0 && facts.jss > 0 ? 'Classroom · Primary & JSS' : stream === 'jss' || (facts.jss > 0 && facts.primary === 0) ? 'Classroom · JSS' : 'Classroom · Primary';
 
 export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'land_area'|'photo'|'supporting';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
-export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string;/** UBEC171: how the classrooms are grouped into blocks, or the offices/stores the blocks already hold. */grouping?:string;/** Packages calculated since 17 October 2026; older ones fall back to the workbook text. */description?:string};
+export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string;/** UBEC171: how the classrooms and toilets are grouped into blocks, or the offices/stores/toilets the blocks already hold. */grouping?:string;/** Provision (7 November 2026): listed with its quantity but costed inside another item; says which. */provision?:string;/** Packages calculated since 17 October 2026; older ones fall back to the workbook text. */description?:string};
 /** A row's description: the edited one, else (New Construction) the workbook text; Whole School rows have none until one is entered. */
 export const requirementDescription=(input:Pick<InfrastructureInput,'kind'|'descriptions'>,key:string,model:number)=>input.descriptions?.[key]??(input.kind==='new'?deliverableDescription(key,model):'');
-/** The item's operation as shown; toilets saved before October 2026 stored "Supply / installation". */
-export const itemOperation=(item:Pick<PackageItem,'key'|'operation'>)=>item.key==='toilet'&&item.operation==='Supply / installation'?'Supply / New Construction':item.operation;
+/** The item's operation as shown: a provision says what it is included in; toilets saved before October 2026 stored "Supply / installation". */
+export const itemOperation=(item:Pick<PackageItem,'key'|'operation'>&{provision?:string})=>item.provision?item.provision:item.key==='toilet'&&item.operation==='Supply / installation'?'Supply / New Construction':item.operation;
 export type InfrastructureResult = ReturnType<typeof calculateInfrastructure>;
 export type InfrastructurePackage = {id:number;/** The client key the package was created with (migration 058), null for older packages. */client_key?:string|null;/** Reference code (migration 053), e.g. UBEC/SUBEB/INFRA/007/2026 · Q1–Q4. */code?:string;version:number;kind:InfrastructureInput['kind'];input:InfrastructureInput;result:InfrastructureResult;school:InfrastructureSchool;total_cost:string;
  /** Timeline (infrastructure_packages.quarters, migration 050): authoritative over input.quarters, which packages saved earlier lack. */
@@ -243,60 +258,100 @@ export function photoEvidenceProblem(input:InfrastructureInput,gaps:AuditGap[],p
  const missing=photoRows(gaps).find(g=>!rowPhotoIds(input,photoIds,g.key).length);
  return missing?`Attach photographic evidence for ${missing.label}: non-functional units are recorded`:null;
 }
-export type BlockGrouping = { classrooms: number; grouped: number; left: number; blocks: number; offices: number; stores: number; groups: BlockGroup[] };
-type StoredBlocks = BlockGroup[] | ClassroomBlock | undefined;
-/** The groups of blocks stored for a kind. A single make-up saved before 7 November 2026 becomes its full blocks plus one smaller block for the classrooms left over. */
+/** What a kind of block grouping must hold: Primary/JSS classrooms, ECCDE classrooms and toilet compartments. */
+export type BlockCounts = { classrooms: number; eccde: number; toilets: number };
+export type BlockGrouping = { counts: BlockCounts; grouped: BlockCounts; left: BlockCounts; blocks: number; offices: number; stores: number; /** Toilets inside blocks that also hold classrooms (they come off the Toilet row). */toiletsWithClassrooms: number; groups: BlockGroup[] };
+/** A group as stored: groups saved before 7 November 2026 have no toilets or classroom type. */
+type StoredGroup = Omit<BlockGroup, 'toilets' | 'classroomType'> & Partial<Pick<BlockGroup, 'toilets' | 'classroomType'>>;
+type StoredBlocks = StoredGroup[] | ClassroomBlock | undefined;
+const noCounts: BlockCounts = { classrooms: 0, eccde: 0, toilets: 0 };
+const countsOf = (counts: number | BlockCounts): BlockCounts => typeof counts === 'number' ? { ...noCounts, classrooms: counts } : counts;
+const fullGroup = (g: StoredGroup): BlockGroup => ({ ...g, toilets: g.toilets ?? 0, classroomType: g.classroomType ?? 'primary' });
+/** The groups of blocks stored for a kind. A single make-up saved before 7 November 2026 becomes its full blocks plus one smaller block for the Primary/JSS classrooms left over. */
 export function toBlockGroups(classrooms: number, stored: StoredBlocks): BlockGroup[] {
  if (!stored) return [];
- if (Array.isArray(stored)) return stored;
+ if (Array.isArray(stored)) return stored.map(fullGroup);
  if (classrooms <= 0) return [];
  const full = Math.floor(classrooms / stored.classrooms), remainder = classrooms % stored.classrooms;
- return [...(full ? [{ ...stored, count: full }] : []), ...(remainder ? [{ ...stored, classrooms: remainder, count: 1 }] : [])];
+ return [...(full ? [{ ...stored, count: full }] : []), ...(remainder ? [{ ...stored, classrooms: remainder, count: 1 }] : [])].map(fullGroup);
 }
-/** Classrooms shared into groups of blocks (each block has its offices and stores); null when not grouped or nothing to group. */
-export function groupIntoBlocks(classrooms: number, stored: StoredBlocks): BlockGrouping | null {
- const groups = toBlockGroups(classrooms, stored);
- if (!groups.length || classrooms <= 0) return null;
+/** What a list of groups holds. */
+export function groupedCounts(groups: readonly BlockGroup[]): BlockCounts {
+ return groups.reduce((t, g) => ({ classrooms: t.classrooms + (g.classroomType === 'eccde' ? 0 : g.count * g.classrooms), eccde: t.eccde + (g.classroomType === 'eccde' ? g.count * g.classrooms : 0), toilets: t.toilets + g.count * g.toilets }), noCounts);
+}
+/** Classrooms and toilets shared into groups of blocks; null when not grouped or nothing to group. A number means Primary/JSS classrooms only. */
+export function groupIntoBlocks(counts: number | BlockCounts, stored: StoredBlocks): BlockGrouping | null {
+ const need = countsOf(counts);
+ const groups = toBlockGroups(need.classrooms, stored);
+ if (!groups.length || need.classrooms + need.eccde + need.toilets <= 0) return null;
  const sum = (pick: (g: BlockGroup) => number) => groups.reduce((total, g) => total + g.count * pick(g), 0);
- const grouped = sum(g => g.classrooms);
- return { classrooms, grouped, left: classrooms - grouped, blocks: sum(() => 1), offices: sum(g => g.offices), stores: sum(g => g.stores), groups };
+ const grouped = groupedCounts(groups);
+ return { counts: need, grouped, left: { classrooms: need.classrooms - grouped.classrooms, eccde: need.eccde - grouped.eccde, toilets: need.toilets - grouped.toilets },
+  blocks: sum(() => 1), offices: sum(g => g.offices), stores: sum(g => g.stores), toiletsWithClassrooms: sum(g => g.classrooms > 0 ? g.toilets : 0), groups };
 }
 const plural = (n: number, one: string) => `${n} ${n === 1 ? one : one + 's'}`;
-/** "3 classrooms with 1 office and 1 store". */
-export const blockMakeup = (classrooms: number, block: Pick<ClassroomBlock, 'offices' | 'stores'>) => {
- const extras = [block.offices ? plural(block.offices, 'office') : '', block.stores ? plural(block.stores, 'store') : ''].filter(Boolean);
- return plural(classrooms, 'classroom') + (extras.length ? ` with ${extras.join(' and ')}` : '');
+/** "6 classrooms, 1 office, 1 store, 4 toilets" (ECCDE: "2 ECCDE classrooms, 2 toilets"). */
+export const blockMakeup = (g: Pick<BlockGroup, 'classrooms' | 'offices' | 'stores'> & Partial<Pick<BlockGroup, 'toilets' | 'classroomType'>>) =>
+ [g.classrooms ? plural(g.classrooms, g.classroomType === 'eccde' ? 'ECCDE classroom' : 'classroom') : '', g.offices ? plural(g.offices, 'office') : '', g.stores ? plural(g.stores, 'store') : '', g.toilets ? plural(g.toilets, 'toilet') : ''].filter(Boolean).join(', ');
+/** "2 blocks of 6 classrooms, 1 office, 1 store, 4 toilets" for one group; a block of toilets alone reads "1 toilet block of 6 compartments". */
+export const blockGroupText = (g: BlockGroup) => {
+ if (g.classrooms > 0) return `${plural(g.count, 'block')} of ${blockMakeup(g)}`;
+ const extras = [g.offices ? plural(g.offices, 'office') : '', g.stores ? plural(g.stores, 'store') : ''].filter(Boolean);
+ return `${plural(g.count, 'toilet block')} of ${plural(g.toilets, 'compartment')}${extras.length ? `, ${extras.join(', ')}` : ''}`;
 };
-/** "2 blocks of 6 classrooms with 1 office and 1 store" for one group. */
-export const blockGroupText = (g: BlockGroup) => `${plural(g.count, 'block')} of ${blockMakeup(g.classrooms, g)}`;
-/** "2 blocks of 6 classrooms with 1 office and 1 store, 3 blocks of 4 classrooms with 1 store", plus what is not grouped yet. */
+/** "4 classrooms, 2 toilets" still to place, or '' when nothing is left. */
+const leftText = (left: BlockCounts) => [left.classrooms > 0 ? plural(left.classrooms, 'classroom') : '', left.eccde > 0 ? plural(left.eccde, 'ECCDE classroom') : '', left.toilets > 0 ? plural(left.toilets, 'toilet') : ''].filter(Boolean).join(', ');
+/** Every group of a kind, plus what is not in a block yet. */
 export function blockGroupingText(g: BlockGrouping): string {
- const text = g.groups.map(blockGroupText).join(', ');
- return g.left > 0 ? `${text} · ${plural(g.left, 'classroom')} not in a block yet` : text;
+ const text = g.groups.map(blockGroupText).join('; '), left = leftText(g.left);
+ return left ? `${text} · ${left} not in a block yet` : text;
 }
-/** The Primary/JSS classrooms a Whole School package builds (Additional) and renovates (non-functional), the counts block grouping draws from. */
-export function classroomBlockCounts(input: InfrastructureInput, school: SchoolBasis): Record<BlockKind, number> {
- if (input.kind !== 'whole') return { construct: 0, renovate: 0 };
- const row = auditGaps(input, school).find(g => g.key === 'classroomPri');
- return { construct: row?.toBuild ?? 0, renovate: row?.nonFunctional ?? 0 };
+/**
+ * What a Whole School package builds (Additional) and renovates (non-functional), the counts block grouping draws from:
+ * Primary/JSS classrooms, ECCDE classrooms and toilets. Toilets are not civil works, so only new ones are grouped (non-functional
+ * toilets are replaced through the Additional figure).
+ */
+export function classroomBlockCounts(input: InfrastructureInput, school: SchoolBasis): Record<BlockKind, BlockCounts> {
+ if (input.kind !== 'whole') return { construct: noCounts, renovate: noCounts };
+ const gaps = auditGaps(input, school), row = (key: string) => gaps.find(g => g.key === key);
+ const renovate = (key: string) => { const g = row(key); return g?.civil ? g.nonFunctional : 0; };
+ return {
+  construct: { classrooms: row('classroomPri')?.toBuild ?? 0, eccde: row('classroomEccde')?.toBuild ?? 0, toilets: row('toilet')?.toBuild ?? 0 },
+  renovate: { classrooms: renovate('classroomPri'), eccde: renovate('classroomEccde'), toilets: renovate('toilet') },
+ };
 }
-/** Blocks for each kind with classrooms (null when not grouped or nothing to group). */
+/** Whether a kind has anything to group. */
+export const hasBlockCounts = (c: BlockCounts) => c.classrooms + c.eccde + c.toilets > 0;
+/** Blocks for each kind (null when not grouped or nothing to group). */
 export function classroomGroupings(input: InfrastructureInput, school: SchoolBasis): Record<BlockKind, BlockGrouping | null> {
  const counts = classroomBlockCounts(input, school);
  return { construct: groupIntoBlocks(counts.construct, input.blocks?.construct), renovate: groupIntoBlocks(counts.renovate, input.blocks?.renovate) };
 }
-const blockVerb: Record<BlockKind, string> = { construct: 'build', renovate: 'renovate' };
-/** A grouped kind must place every classroom in a block, and no more (UBEC171): checked on Continue and on save. */
+const blockVerb: Record<BlockKind, [string, string]> = { construct: ['build', 'built'], renovate: ['renovate', 'renovated'] };
+const blockParts = [['classrooms', 'classroom'], ['eccde', 'ECCDE classroom'], ['toilets', 'toilet']] as const;
+/** A grouped kind must place every Primary/JSS classroom, ECCDE classroom and toilet in a block, and no more (UBEC171): checked on Continue and on save. */
 export function blockGroupingProblem(input: InfrastructureInput, school: SchoolBasis): string | null {
  const groupings = classroomGroupings(input, school);
  for (const kind of ['construct', 'renovate'] as const) {
   const g = groupings[kind];
   if (!g) continue;
-  if (g.left < 0) return `The blocks to ${blockVerb[kind]} hold ${g.grouped} classrooms, but only ${g.classrooms} are to be ${kind === 'construct' ? 'built' : 'renovated'}. Remove or change a group of blocks`;
-  if (g.left > 0) return `Put all ${g.classrooms} classrooms to ${blockVerb[kind]} into blocks: ${plural(g.left, 'classroom')} left`;
+  const [verb, done] = blockVerb[kind];
+  for (const [part, one] of blockParts) {
+   if (g.left[part] < 0) return `The blocks to ${verb} hold ${plural(g.grouped[part], one)}, but only ${g.counts[part]} ${g.counts[part] === 1 ? 'is' : 'are'} to be ${done}. Remove or change a group of blocks`;
+   if (g.left[part] > 0) return `Put all ${plural(g.counts[part], one)} to ${verb} into blocks: ${plural(g.left[part], one)} left`;
+  }
  }
  return null;
 }
+/**
+ * Provisions (client, 7 November 2026): Whole School rows kept with their quantities but not costed on their own, because their
+ * cost is part of another item. Handwashing stations come with the solar borehole; magnetic boards with building or renovating the classroom.
+ */
+export const provisionNotes: Record<string, string> = {
+ handwashing: 'Provision · included in the solar borehole cost',
+ magneticBoard: 'Provision · included in the classroom construction or renovation cost',
+};
+export const isProvisionKey = (key: string) => key in provisionNotes;
 export function calculateInfrastructure(input:InfrastructureInput,school:SchoolBasis) {
  const enrolment=totalOf(school),facts=toFacts(school,input.components),stream=schoolStream(input.components);
  const model=packageModel(input,enrolment),items:PackageItem[]=[];
@@ -309,13 +364,24 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
  const groupings=classroomGroupings(input,facts);
  if(input.kind==='whole') for(const gap of auditGaps(input,facts)){
   const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit,grouping?:string)=>{const price=input.packageCosts[key];add(key,gap.label,qty,unit,lump,price?.cost??0,price?.strategy??defaultStrategy,price?.duration??'',operation,requirementDescription(input,gap.key,model));if(grouping)items[items.length-1]={...items[items.length-1],grouping};};
-  // UBEC171: grouped classrooms name their blocks; the offices and stores inside the blocks come off the Office and Store rows.
-  const inBlocks=(kind:BlockKind)=>{const g=groupings[kind];return !g?0:gap.key==='office'?g.offices:gap.key==='store'?g.stores:0;};
-  const blockNote=(kind:BlockKind)=>{const g=groupings[kind];if(!g)return undefined;if(gap.key==='classroomPri')return blockGroupingText(g);const held=inBlocks(kind);return held?`${plural(held,gap.key)} ${held===1?'is':'are'} in the classroom blocks`:undefined;};
+  // Provisions keep their quantity but no cost of their own (a cost saved on them before is ignored).
+  if(isProvisionKey(gap.key)){if(gap.toBuild>0)items.push({key:gap.key,label:gap.label,quantity:gap.toBuild,unit:gap.unit,lump:false,cost:0,total:0,strategy:'',duration:'',operation:'Provision',provision:provisionNotes[gap.key],description:requirementDescription(input,gap.key,model)});continue;}
+  // UBEC171: grouped classrooms and toilets name their blocks; the offices, stores and toilets inside classroom blocks come off
+  // their own rows (blocks of toilets alone stay on the Toilet row, which names them).
+  const inBlocks=(kind:BlockKind)=>{const g=groupings[kind];return !g?0:gap.key==='office'?g.offices:gap.key==='store'?g.stores:gap.key==='toilet'?g.toiletsWithClassrooms:0;};
+  const blockNote=(kind:BlockKind)=>{
+   const g=groupings[kind];if(!g)return undefined;
+   const type=gap.key==='classroomPri'?'primary':gap.key==='classroomEccde'?'eccde':null;
+   if(type){const left=type==='eccde'?g.left.eccde:g.left.classrooms;return [g.groups.filter(x=>x.classrooms>0&&x.classroomType===type).map(blockGroupText).join('; '),left>0?`${plural(left,'classroom')} not in a block yet`:''].filter(Boolean).join(' · ')||undefined;}
+   const held=inBlocks(kind),own=gap.key==='toilet'?g.groups.filter(x=>x.classrooms===0).map(blockGroupText).join('; '):'';
+   return [own,held?`${plural(held,gap.key)} ${held===1?'is':'are'} in the classroom blocks`:''].filter(Boolean).join(' · ')||undefined;
+  };
   const renovate=Math.max(0,gap.nonFunctional-inBlocks('renovate')),construct=Math.max(0,gap.toBuild-inBlocks('construct'));
   if(gap.civil&&renovate>0)addGap(gap.key+'-renovate','Renovation',renovate,true,gap.unit,blockNote('renovate'));
-  // New ECCDE classrooms are built as ECCDE blocks of 2 classrooms. Toilets read "Supply / New Construction" (client, October 2026).
-  if(construct>0)addGap(gap.civil?gap.key+'-construct':gap.key,gap.civil?'New construction':gap.key==='toilet'?'Supply / New Construction':'Supply / installation',gap.key==='classroomEccde'?Math.ceil(construct/2):construct,!!(gap.civil||gap.lump),gap.key==='classroomEccde'?'blocks':gap.unit,gap.civil?blockNote('construct'):undefined);
+  // New ECCDE classrooms are built as ECCDE blocks of 2 classrooms, unless the new classrooms are grouped by block: the groups
+  // then say how the ECCDE blocks are made up and the row counts classrooms. Toilets read "Supply / New Construction" (October 2026).
+  const eccdePairs=gap.key==='classroomEccde'&&!groupings.construct;
+  if(construct>0)addGap(gap.civil?gap.key+'-construct':gap.key,gap.civil?'New construction':gap.key==='toilet'?'Supply / New Construction':'Supply / installation',eccdePairs?Math.ceil(construct/2):construct,!!(gap.civil||gap.lump),eccdePairs?'blocks':gap.unit,gap.civil||gap.key==='toilet'?blockNote('construct'):undefined);
  }
  if(input.kind==='new'){
   const price=(key:string)=>input.targeting==='hope'?input.prices[key]??0:0;
@@ -351,7 +417,7 @@ export function packageProblem(input:InfrastructureInput,school:SchoolBasis){
  const result=calculateInfrastructure(input,school);
  if(!result.items.length||result.total<=0)return 'Add and cost the required items before saving';
  if(!Number.isSafeInteger(units(result.total)))return 'The package total is too large';
- if(input.kind==='whole'&&result.items.some(i=>i.cost<=0||!i.duration))return 'Enter a cost and duration for each intervention';
+ if(input.kind==='whole'&&result.items.some(i=>!i.provision&&(i.cost<=0||!i.duration)))return 'Enter a cost and duration for each intervention';
  if(input.kind==='new'&&input.targeting==='nonhope'&&!input.duration)return 'Enter the construction duration';
  return null;
 }
