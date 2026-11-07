@@ -47,7 +47,7 @@ export function CompulsoryChecklist({ workstream, lines, setup }: { workstream: 
   const retired = [...new Set(lines.filter(line => isRetiredActivity(workstream, line.activity)).map(line => line.activity))];
   return <>
     {retired.length > 0 && <Alert variant="destructive" className="activity-compulsory"><CircleAlertIcon /><AlertTitle>No longer allowable · move or remove these items before sending</AlertTitle><AlertDescription><ul>{retired.map(i => <li key={i}>{activityNames[workstream][i]}</li>)}</ul></AlertDescription></Alert>}
-    {missing.length ? <Alert className="activity-compulsory"><CircleAlertIcon /><AlertTitle>Required before sending · {missing.length} missing</AlertTitle><AlertDescription><ul>{compulsoryNames(workstream, missing).map(name => <li key={name}>{name}</li>)}</ul></AlertDescription></Alert>
+    {missing.length ? <Alert variant="warning" className="activity-compulsory"><CircleAlertIcon /><AlertTitle>Required before sending · {missing.length} missing</AlertTitle><AlertDescription><ul>{compulsoryNames(workstream, missing).map(name => <li key={name}>{name}</li>)}</ul></AlertDescription></Alert>
       : <p className="activity-compulsory-done"><CheckIcon aria-hidden="true" />Every required activity has a budget line</p>}
   </>;
 }

@@ -61,11 +61,11 @@ export default function ResetPasswordPage() {
         <CardContent>
           {stage === "checking" && <div className="flex flex-col gap-3" aria-busy="true"><Skeleton className="h-4 w-40" /><Skeleton className="h-11 w-full" /><Skeleton className="h-11 w-full" /></div>}
           {stage === "invalid" && <div className="flex flex-col gap-4">
-            <Alert><TriangleAlertIcon /><AlertTitle>This reset link has expired or was already used</AlertTitle><AlertDescription>Links work once and for an hour. Ask for a new one.</AlertDescription></Alert>
+            <Alert variant="warning"><TriangleAlertIcon /><AlertTitle>This reset link has expired or was already used</AlertTitle><AlertDescription>Links work once and for an hour. Ask for a new one.</AlertDescription></Alert>
             <Button asChild><a href="/forgot-password">Send a new link</a></Button>
           </div>}
           {stage === "done" && <div className="flex flex-col gap-4">
-            <Alert><CircleCheckIcon /><AlertTitle>Your new password is set</AlertTitle><AlertDescription>You have been signed out everywhere. Sign in with your new password.</AlertDescription></Alert>
+            <Alert variant="success"><CircleCheckIcon /><AlertTitle>Your new password is set</AlertTitle><AlertDescription>You have been signed out everywhere. Sign in with your new password.</AlertDescription></Alert>
             <Button asChild className="signin-button mt-0"><a href={signInHref}>Sign in to BEAPMS</a></Button>
           </div>}
           {stage === "form" && <form onSubmit={submit} noValidate>

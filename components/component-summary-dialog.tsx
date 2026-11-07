@@ -59,7 +59,7 @@ export function ComponentSummaryDialog({ open, onOpenChange, workstream, title, 
         <TableFooter><TableRow><TableCell>Total</TableCell><TableCell className="text-right tabular-nums">{lines.length}</TableCell><TableCell className="text-right tabular-nums">{nairaFormat.format(total)}</TableCell></TableRow></TableFooter>
       </Table></div> : <p className="text-sm text-muted-foreground">No items saved yet</p>}
       {unfunded && <Alert className="component-summary-missing"><CircleAlertIcon /><AlertTitle>Nothing to send</AlertTitle><AlertDescription>{unfunded}</AlertDescription></Alert>}
-      {!unfunded && missing.length > 0 && <Alert className="component-summary-missing"><CircleAlertIcon /><AlertTitle>Required activities without items</AlertTitle><AlertDescription>{missing.join(' · ')}</AlertDescription></Alert>}
+      {!unfunded && missing.length > 0 && <Alert variant="warning" className="component-summary-missing"><CircleAlertIcon /><AlertTitle>Required activities without items</AlertTitle><AlertDescription>{missing.join(' · ')}</AlertDescription></Alert>}
       <DialogFooter>
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}><PencilIcon data-icon="inline-start" />Keep editing</Button>
         <Button type="button" disabled={!lines.length} onClick={onContinue}><SendHorizontalIcon data-icon="inline-start" />Continue to send</Button>

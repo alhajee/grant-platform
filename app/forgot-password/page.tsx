@@ -44,8 +44,8 @@ export default function ForgotPasswordPage() {
         <CardContent>
           {sent ? <div className="flex flex-col gap-4">
             {sent.emailReady
-              ? <Alert><MailCheckIcon /><AlertTitle>Check your email</AlertTitle><AlertDescription>If an account uses {sent.email}, a link to reset its password is on its way. It works once and expires in an hour.</AlertDescription></Alert>
-              : <Alert><MailIcon /><AlertTitle>Email is not set up yet</AlertTitle><AlertDescription>The portal cannot send email yet. Ask your Executive Chairman or the UBEC administrator to reset your password.</AlertDescription></Alert>}
+              ? <Alert variant="success"><MailCheckIcon /><AlertTitle>Check your email</AlertTitle><AlertDescription>If an account uses {sent.email}, a link to reset its password is on its way. It works once and expires in an hour.</AlertDescription></Alert>
+              : <Alert variant="warning"><MailIcon /><AlertTitle>Email is not set up yet</AlertTitle><AlertDescription>The portal cannot send email yet. Ask your Executive Chairman or the UBEC administrator to reset your password.</AlertDescription></Alert>}
             <Button type="button" variant="outline" onClick={() => setSent(null)}>Use a different email</Button>
           </div>
           : <form onSubmit={submit} noValidate={false}>

@@ -20,7 +20,7 @@ export function ImpersonationBanner(){
   const expired=!status.session||new Date(status.session.expiresAt).getTime()<=now;
   async function stop(){setBusy(true);try{await switchUser();}catch(e){toast.error(e instanceof Error?e.message:'Unable to return to admin');setBusy(false);}}
   return <div className="impersonation-strip" role="region" aria-label="Impersonation">
-    <Alert className="impersonation-strip-inner">
+    <Alert icon={false} className="impersonation-strip-inner">
       <AlertTitle className="impersonation-strip-label">{expired?'Session ended':'Impersonating'}</AlertTitle>
       <AlertDescription className="impersonation-strip-description">
         {expired ? null : <>

@@ -8,6 +8,7 @@ import { CurrencyInput, unitCostDecimals } from '@/components/currency-input';
 import { NoItemsArt, UbecEmpty } from '@/components/empty-art/ubec-flow';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Banner } from '@/components/ui/banner';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
@@ -32,7 +33,7 @@ const blank: Form = { name: '', maker: '', modelYear: '', description: '', unitP
  */
 export default function ProcurementPage() {
   const [data, setData] = useState<Data | null>(null), [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(''), [onlyPending, setOnlyPending] = useState(false);
   const [form, setForm] = useState<Form | null>(null), [saving, setSaving] = useState(false), [formError, setFormError] = useState(''), [busy, setBusy] = useState<number | null>(null);
   const load = useCallback(async () => {
     setError('');
@@ -78,13 +79,15 @@ export default function ProcurementPage() {
 
   const pending = data?.items.filter(i => i.status === 'pending').length ?? 0;
   const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const shown = data?.items.filter(item => words.every(word => procurementItemSearch(item).toLowerCase().includes(word))) ?? [];
+  const shown = data?.items.filter(item => (!onlyPending || item.status === 'pending') && words.every(word => procurementItemSearch(item).toLowerCase().includes(word))) ?? [];
   const startEdit = (item: ProcurementItem) => { setFormError(''); setForm({ id: item.id, name: item.name, maker: item.maker, modelYear: item.modelYear ? String(item.modelYear) : '', description: item.description, unitPrice: item.unitPrice.toFixed(4) }); };
   return <div className="dashboard-page"><SubebHeader procurement /><main className="state-users-main">
     <div className="state-users-heading"><div><h1>Price list</h1><p>{data?.canEdit ? 'Things to be procured and their prices. Everyone in the state can pick approved items, and the price is filled in for them' : 'Things to be procured and their prices, kept by Procurement. Pick them when you add an item, and the price is filled in for you'}</p></div>
       {data?.canEdit && <Button className="rounded-full" onClick={() => { setFormError(''); setForm(blank); }}><PlusIcon data-icon="inline-start" />Add item</Button>}</div>
     {error && <Alert variant="destructive"><AlertTitle>Price list unavailable</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
-    {data?.canApprove && pending > 0 && <Alert className="mb-4"><AlertTitle>{pending} {pending === 1 ? 'item waits' : 'items wait'} for your approval</AlertTitle><AlertDescription>Only approved items can be picked in the plan</AlertDescription></Alert>}
+    {data?.canApprove && pending > 0 && <Banner tone="warning" className="mb-4" title={`${pending} ${pending === 1 ? 'item waits' : 'items wait'} for your approval`}
+      action={<Button size="sm" className="rounded-full" onClick={() => setOnlyPending(value => !value)}>{onlyPending ? 'Show all items' : 'Review them'}</Button>}>Only approved items can be picked in the plan</Banner>}
+    {onlyPending && pending === 0 && <Alert variant="success" className="mb-4"><AlertTitle>Nothing waits for your approval</AlertTitle><AlertDescription><Button size="sm" variant="outline" className="rounded-full" onClick={() => setOnlyPending(false)}>Show all items</Button></AlertDescription></Alert>}
     {!data && !error ? <Skeleton className="h-64 w-full rounded-2xl" /> : data && <Card>
       <CardHeader><CardTitle>Items <Badge variant="secondary">{data.items.length}</Badge></CardTitle><CardDescription>{data.canEdit ? 'Changing a price does not change items already saved in a plan' : 'Approved items you can pick when adding an item to buy'}</CardDescription>
         {data.items.length > 0 && <CardAction><InputGroup className="w-64 max-w-full"><InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon><InputGroupInput aria-label="Search the price list" placeholder="Search items…" value={search} onChange={e => setSearch(e.target.value)} /></InputGroup></CardAction>}</CardHeader>

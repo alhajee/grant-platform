@@ -24,7 +24,7 @@ export function SharedBudgetPanel({ side, plan, proposed, partnerProposed, canEd
   const name = sideNames[side], otherName = sideNames[partnerOf(side)];
   // Asked on arrival: the dialog opens by itself while the split is unset (once per mount; the button reopens it).
   const [open, setOpen] = useState(stored == null && shared != null && canEdit);
-  if (shared == null) return <Alert><AlertTitle>Plan funding not set</AlertTitle><AlertDescription>Set the plan funding before allocating the {name} budget.</AlertDescription></Alert>;
+  if (shared == null) return <Alert variant="warning"><AlertTitle>Plan funding not set</AlertTitle><AlertDescription>Set the plan funding before allocating the {name} budget.</AlertDescription></Alert>;
   const dialog = canEdit && <BudgetSplitDialog side={side} plan={plan} proposed={proposed} partnerProposed={partnerProposed} open={open} onOpenChange={setOpen} onSaved={onSaved} />;
   if (stored == null) return <section className="ict-allocation" aria-labelledby={`${side}-split-title`}>
     <h2 id={`${side}-split-title`}>How much of the shared {pair.label} budget will {name} use?</h2>

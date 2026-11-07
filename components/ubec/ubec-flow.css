@@ -45,7 +45,7 @@
 .ubec-release-note { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
 .ubec-release-note p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .ubec-release-note small { color: var(--muted-foreground); }
-.ubec-decision-note[data-status=returned] { border-color: color-mix(in srgb, var(--warning, #e3a008) 40%, var(--border)); }
+
 .ubec-role-note, .ubec-decision-note { margin-bottom: 14px; }
 .ubec-chair-bar { border-radius: 22px; }
 .ubec-chair-actions { display: flex; flex-wrap: wrap; gap: 8px; }
