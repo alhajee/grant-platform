@@ -13,7 +13,7 @@ export default function SubmissionsPage() {
   return <UbecPageFrame eyebrow="UBEC" title="Submissions" data={data} error={error} loading={loading} year={year} onYear={value => { setYear(value); setFilters({ search: '', status: 'all', state: 'all' }); }} onRefresh={load}>
     {d => { const items = filterItems(d.items, filters); return <section className="national-panel" aria-labelledby="ubec-submissions-title">
       <div className="national-section-heading"><h2 id="ubec-submissions-title">Latest submissions <Badge variant="secondary">{items.length}</Badge></h2><span>Proposed, not disbursed funding</span></div>
-      <PlanFiltersBar value={filters} onChange={setFilters} national={isNational(d.user.role)} />
+      <PlanFiltersBar value={filters} onChange={setFilters} national={isNational(d.user.role, d.user.chair)} />
       <SubmissionsTable data={d} items={items} />
     </section>; }}
   </UbecPageFrame>;

@@ -48,11 +48,12 @@ const department = (data, id) => data.departments.find(d => d.department === id)
 
 await db.connect();
 try {
-  settings = (await db.query("SELECT beap_chair_submission_mode, ubec_submission_mode FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
+  settings = (await db.query("SELECT beap_chair_submission_mode, ubec_submission_mode, full_allocation_required, eccde_share_required FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0];
   savedLimits = (await db.query('SELECT * FROM ubec_officer_limits')).rows;
   savedDefaults = (await db.query('SELECT * FROM ubec_default_officers')).rows;
   await db.query('DELETE FROM ubec_officer_limits'); await db.query('DELETE FROM ubec_default_officers');
-  await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode='individual_components', ubec_submission_mode='reviewed_components' WHERE state_code='GLOBAL'");
+  // The small test line neither uses the whole allocation nor reaches 15% ECCDE, so those two rules are off for the run.
+  await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode='individual_components', ubec_submission_mode='reviewed_components', full_allocation_required=FALSE, eccde_share_required=FALSE WHERE state_code='GLOBAL'");
   await user('admin', 'Super Admin', [], { state: 'ADMIN' });
   const u = { state: 'UBEC' };
   await user('chair', 'UBEC BEAP Chair', [], u); await user('es', 'UBEC Executive Secretary', [], u);
@@ -95,16 +96,15 @@ try {
   fails(await add('dme', 'q1'), 409, /already has \d+ of \d+ Assessment Officer/);
   assert.equal(await activeOfficers('quality'), n, 'a refused addition creates nothing');
   await setLimit('quality', n + 1);
-  // UBEC237: the role name is set by the server, the next "UBEC Assessment Officer N" in the department (a typed one is ignored).
-  const nextTitle = ok(await api('dme', '/api/ubec/officers')).nextRoleTitles.quality;
-  assert.match(nextTitle, /^UBEC Assessment Officer \d+$/);
+  // UBEC240: the role name is typed by whoever adds the officer and kept as typed (no automatic number, nothing pre-filled).
+  const nextTitle = 'QA Officer role q1';
+  assert.equal(ok(await api('dme', '/api/ubec/officers')).nextRoleTitles, undefined, 'no automatic role names are offered');
   const q1 = ok(await add('dme', 'q1'), 201); created.push(q1.id);
   assert.equal(q1.roleTitle, nextTitle);
-  const [, used] = nextTitle.match(/(\d+)$/);
-  assert.equal(ok(await api('dme', '/api/ubec/officers')).nextRoleTitles.quality, `UBEC Assessment Officer ${Number(used) + 1}`);
   // UBEC150: a @ubec.gov.ng email; Directors see "Role name (Full name)".
   fails(await api('dme', '/api/ubec/officers', { name: 'QA Gmail', roleTitle: 'QA role', email: `gmail.${marker}@gmail.com`.toLowerCase() }), 400, /@ubec\.gov\.ng/);
-  fails(await api('dme', '/api/ubec/officers', { name: 'QA No role', email: `norole.${marker}@ubec.gov.ng`.toLowerCase() }), 409, /already has/); // no role name needed: only the limit refuses it
+  fails(await api('dme', '/api/ubec/officers', { name: 'QA No role', email: `norole.${marker}@ubec.gov.ng`.toLowerCase() }), 400, /role name/);
+  fails(await api('dme', '/api/ubec/officers', { name: 'QA Long role', roleTitle: 'x'.repeat(121), email: `longrole.${marker}@ubec.gov.ng`.toLowerCase() }), 400, /role name/);
   const listed = ok(await api('dme', '/api/ubec/officers')).officers.find(o => o.id === q1.id);
   assert.equal(listed.label, `${nextTitle} (QA Officer q1)`);
   assert.equal((await db.query('SELECT display_name FROM users WHERE id=$1', [q1.id])).rows[0].display_name, `${nextTitle} (QA Officer q1)`);
@@ -117,17 +117,20 @@ try {
   const edit = (id, profile) => api('admin', '/api/admin/users', { id, name: `QA edit ${id}`, stateCode: 'UBEC', ...profile }, 'PATCH');
   fails(await adminCreate('a1'), 409, /already has/);
   fails(await api('admin', '/api/admin/users', { name: 'QA Admin gmail', roleTitle: 'QA role', email: `ag.${marker}@gmail.com`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: false }), 400, /@ubec\.gov\.ng/);
-  // UBEC237: no role name to type; the server gives the next number in the department.
-  const noRole = ok(await api('admin', '/api/admin/users', { name: 'QA Admin no role', email: `an.${marker}@ubec.gov.ng`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: false }), 201).id;
+  // UBEC240: a new officer needs a typed role name; it is stored as typed and never numbered by the server.
+  fails(await api('admin', '/api/admin/users', { name: 'QA Admin no role', email: `an.${marker}@ubec.gov.ng`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: false }), 400, /role name/);
+  const noRole = ok(await api('admin', '/api/admin/users', { name: 'QA Admin typed role', roleTitle: 'QA typed role', email: `an.${marker}@ubec.gov.ng`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: false }), 201).id;
   created.push(noRole);
-  assert.equal((await db.query('SELECT role_title FROM users WHERE id=$1', [noRole])).rows[0].role_title, `UBEC Assessment Officer ${Number(used) + 1}`);
-  // Moving an officer to another department gives them that department's next number; other edits keep it.
+  const titleOf = async id => (await db.query('SELECT role_title FROM users WHERE id=$1', [id])).rows[0].role_title;
+  assert.equal(await titleOf(noRole), 'QA typed role');
+  assert.equal((await api('admin', '/api/admin/impersonation')).data.nextRoleTitles, undefined);
+  // Edits that leave the role name out keep it, moving department included; a typed one replaces it.
   ok(await edit(noRole, { role: 'UBEC Assessment Officer', departments: ['quality'], active: false }));
-  assert.equal((await db.query('SELECT role_title FROM users WHERE id=$1', [noRole])).rows[0].role_title, `UBEC Assessment Officer ${Number(used) + 1}`);
-  const physicalNext = (await api('admin', '/api/admin/impersonation')).data.nextRoleTitles.physical;
+  assert.equal(await titleOf(noRole), 'QA typed role');
   ok(await edit(noRole, { role: 'UBEC Assessment Officer', departments: ['physical'], active: false }));
-  assert.equal((await db.query('SELECT role_title FROM users WHERE id=$1', [noRole])).rows[0].role_title, physicalNext);
-  ok(await edit(noRole, { role: 'UBEC Assessment Officer', departments: ['quality'], active: false }));
+  assert.equal(await titleOf(noRole), 'QA typed role');
+  ok(await edit(noRole, { role: 'UBEC Assessment Officer', roleTitle: 'QA renamed role', departments: ['quality'], active: false }));
+  assert.equal(await titleOf(noRole), 'QA renamed role');
   ok(await api('admin', '/api/admin/users', { name: 'QA inactive officer', roleTitle: 'QA inactive role', email: `a2.${marker}@ubec.gov.ng`.toLowerCase(), role: 'UBEC Assessment Officer', stateCode: 'UBEC', departments: ['quality'], active: false }), 201);
   created.push((await db.query('SELECT id FROM users WHERE email=$1', [`a2.${marker}@ubec.gov.ng`.toLowerCase()])).rows[0].id);
   ok(await edit(users.offQ, { role: 'UBEC Assessment Officer', departments: ['quality'], active: true }), 200);
@@ -212,7 +215,7 @@ try {
   step('deactivating an officer removes their default assignments');
   console.log(`\nPASS: ${passed} UBEC officer checks.`);
 } finally {
-  if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);
+  if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2, full_allocation_required=$3, eccde_share_required=$4 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode, settings.full_allocation_required, settings.eccde_share_required]);
   if (savedLimits) {
     await db.query('DELETE FROM ubec_officer_limits');
     for (const r of savedLimits) await db.query('INSERT INTO ubec_officer_limits(department,max_officers,updated_by_name,updated_at) VALUES($1,$2,$3,$4)', [r.department, r.max_officers, r.updated_by_name, r.updated_at]);

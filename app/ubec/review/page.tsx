@@ -148,7 +148,7 @@ export default function UbecReviewPage() {
   ];
   const released = flow?.components ?? [];
   const activeTab = released.some(c => c.pillar === tab) ? tab : (released.find(c => can?.assess.includes(c.pillar) || can?.observe.includes(c.pillar) || can?.comment?.includes(c.pillar)) ?? released[0])?.pillar ?? '';
-  const role = data?.role ?? '', chair = role === ubecRoles.chair;
+  const role = data?.role ?? '', chair = role === ubecRoles.chair || !!data?.chair;
   const envelope = round?.snapshot.setup ? { id: data!.plan.id, startYear: data!.plan.start_year, endYear: data!.plan.end_year, createdAt: round.submitted_at, status: 'submitted_ubec', version: data!.plan.version, submissionNumber: round.state_submission, ...round.snapshot.setup } as ActionPlan : null;
   const arrived = released.filter(c => c.stage === 'chair').length;
 

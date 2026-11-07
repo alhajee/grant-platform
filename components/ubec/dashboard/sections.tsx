@@ -24,11 +24,12 @@ const money = compactNairaFormat(2);
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
 const actionLabels: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to departments', assign_officer: 'Officers assigned', assign_observer: 'Oversight officers assigned', unassign_observer: 'Oversight officer removed', unassign_officer: 'Assessment Officer removed', reopen_assessment: 'Assessment sent back', default_officers: 'Default officers assigned', complete_assessment: 'Assessment completed', send_oversight: 'Sent to the Oversight Departments', observations_done: 'Observations done', observer_done: 'Officer observations done', ready_for_chair: 'Ready for BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned', feedback: 'Department review completed' };
 
-export const isNational = (role: string) => role === ubecRoles.es || role === ubecRoles.chair;
+/** The national view: the ES and whoever holds the UBEC BEAP Chair duty (the role or a flagged Director, UBEC241). */
+export const isNational = (role: string, chair = false) => role === ubecRoles.es || role === ubecRoles.chair || chair;
 export type PlanFilters = { search: string; status: string; state: string };
 export const filterItems = (items: UbecDashboard['items'], { search, status, state }: PlanFilters) =>
   items.filter(p => (state === 'all' || normalizeStateCode(p.stateCode) === state) && (status === 'all' || p.status === status) && `${p.state} ${p.startYear} ${p.endYear}`.toLowerCase().includes(search.toLowerCase()));
-const plansTitle = (role: string) => isNational(role) ? 'Action plans' : role === ubecRoles.officer ? 'Your assigned plans' : role === ubecRoles.oversight ? 'Plans in oversight' : 'Your department’s plans';
+const plansTitle = (role: string, chair = false) => isNational(role, chair) ? 'Action plans' : role === ubecRoles.officer ? 'Your assigned plans' : role === ubecRoles.oversight ? 'Plans in oversight' : 'Your department’s plans';
 const seeAll = (href: string, label: string) => <Button asChild variant="ghost" size="sm"><a href={href}>{label}<ArrowUpRight data-icon="inline-end" /></a></Button>;
 
 /** Search, stage and state filters for plans and submissions. */
@@ -42,10 +43,10 @@ export function PlanFiltersBar({ value, onChange, national }: { value: PlanFilte
 
 /** Plan cards; `limit` with `moreHref` shows a preview with a link to the Plans page. */
 export function PlansSection({ data, items, limit, moreHref, filtered, tools }: { data: UbecDashboard; items: UbecDashboard['items']; limit?: number; moreHref?: string; filtered?: boolean; tools?: React.ReactNode }) {
-  const role = data.user.role, national = isNational(role), shown = limit ? items.slice(0, limit) : items;
+  const role = data.user.role, chair = role === ubecRoles.chair || !!data.user.chair, national = isNational(role, chair), shown = limit ? items.slice(0, limit) : items;
   return <section className="ubec-plans" aria-labelledby="ubec-plans-title">
-    <div className="national-section-heading"><h2 id="ubec-plans-title">{plansTitle(role)} <Badge variant="secondary">{items.length}</Badge></h2>{tools ?? (moreHref && items.length > shown.length ? seeAll(moreHref, 'All plans') : <span>Latest submission per plan</span>)}</div>
-    {shown.length ? <div className="dashboard-plan-list ubec-plan-list">{shown.map(item => <UbecPlanCard key={item.id} item={item} action={role === ubecRoles.chair && item.status === 'received' ? 'Review and release' : undefined} />)}</div>
+    <div className="national-section-heading"><h2 id="ubec-plans-title">{plansTitle(role, chair)} <Badge variant="secondary">{items.length}</Badge></h2>{tools ?? (moreHref && items.length > shown.length ? seeAll(moreHref, 'All plans') : <span>Latest submission per plan</span>)}</div>
+    {shown.length ? <div className="dashboard-plan-list ubec-plan-list">{shown.map(item => <UbecPlanCard key={item.id} item={item} action={chair && item.status === 'received' ? 'Review and release' : undefined} />)}</div>
       : <Card><CardContent>{filtered && data.items.length ? <UbecEmpty art={<NoAssignmentsArt />} title="No plans match your filters">{tools ? 'Choose another year or state' : 'Clear the search, stage or state filter'}</UbecEmpty>
         : national ? <UbecEmpty art={<EmptySubmissionsArt label="No plans submitted yet" />} title="No plans submitted yet">Submissions from SUBEB Executive Chairmen appear here</UbecEmpty>
         : role === ubecRoles.oversight ? <UbecEmpty art={<ObservationsArt />} title="Nothing sent to your department yet">Directors send components here once their officers finish</UbecEmpty>

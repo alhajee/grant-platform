@@ -1,4 +1,4 @@
-import { oversightDepartments, oversightIds, ubecRoles, type OversightDepartment } from './ubec';
+import { holdsUbecChair, oversightDepartments, oversightIds, ubecRoles, type OversightDepartment } from './ubec';
 
 // Observations before sending to UBEC (bug sheet row 156, migration 075). The SUBEB Executive Chairman may ask any of the
 // oversight departments to look at the whole plan before it is sent. Each department asked comments per activity
@@ -49,10 +49,10 @@ export function observationProblem(requests: readonly ObservationRequest[], open
  * Only a Director sends the department's observations back.
  */
 export type ObservationViewer = { audience: ObservationAudience; stateCode: string | null; department: OversightDepartment | null; director: boolean; chair: boolean };
-type ViewerUser = { role: string; department?: string | null; departments?: readonly string[] | null; stateCode?: string | null };
+type ViewerUser = { role: string; department?: string | null; departments?: readonly string[] | null; stateCode?: string | null; /** UBEC241 */ isUbecBeapChair?: boolean | null; chair?: boolean | null };
 const isObservationDepartment = (department: string | null | undefined): department is OversightDepartment => (oversightIds as readonly string[]).includes(department ?? '');
 export function observationViewer(user: ViewerUser): ObservationViewer | null {
-  if (user.role === ubecRoles.chair) return { audience: 'ubec', stateCode: null, department: null, director: false, chair: true };
+  if (holdsUbecChair(user)) return { audience: 'ubec', stateCode: null, department: null, director: false, chair: true };
   if ((user.role === ubecRoles.oversight || user.role === ubecRoles.officer) && isObservationDepartment(user.department)) return { audience: 'ubec', stateCode: null, department: user.department, director: user.role === ubecRoles.oversight, chair: false };
   if ((user.role === 'Director' || user.role === 'Data Entry Staff') && user.stateCode && user.stateCode !== 'UBEC') {
     const department = [...(user.departments ?? []), user.department ?? ''].find(isObservationDepartment);

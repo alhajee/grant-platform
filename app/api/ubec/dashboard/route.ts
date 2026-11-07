@@ -4,7 +4,7 @@ import { readCorrections } from '@/lib/ubec-corrections-db';
 import { NextRequest, NextResponse } from 'next/server';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
-import { activePillars, isUbec, ubecRoles, type NationalItem, type UbecDashboard, type UbecQueueItem, type UbecRound } from '@/lib/ubec';
+import { activePillars, holdsUbecChair, isUbec, ubecRoles, type NationalItem, type UbecDashboard, type UbecQueueItem, type UbecRound } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import { coversPlanningYear } from '@/lib/national-analytics';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     const yearValue = request.nextUrl.searchParams.get('year');
     if (yearValue && !/^\d{4}$/.test(yearValue)) return NextResponse.json({ error: 'Invalid funding year' }, { status: 400 });
     const year = yearValue ? Number(yearValue) : null;
-    const viewer = { id: user.userId, role: user.role, department: user.department };
+    const viewer = { id: user.userId, role: user.role, department: user.department, chair: holdsUbecChair(user) };
     const db = getPostgres();
     const all = (await db.query<RoundRow>(`SELECT r.*,p.state_code,p.start_year,p.end_year,p.funding_quarters FROM ubec_rounds r JOIN action_plans p ON p.id=r.plan_id
       WHERE r.number=(SELECT MAX(number) FROM ubec_rounds WHERE plan_id=r.plan_id) AND ${ubecSeesPillarSql('r', 'NULL::text', '$1::text', '$2::int', '$3::text', { wide: false })} ORDER BY r.submitted_at DESC`, [viewer.role, viewer.id, viewer.department])).rows;
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     // Same rule as ubecSeesPillarSql, applied to the loaded rows.
     const visibleIn = (round: RoundRow) => activePillars(round.snapshot).filter(pillar => {
-      if (seesEverything(viewer.role)) return true;
+      if (seesEverything(viewer)) return true;
       const c = components.find(x => x.round_id === round.id && x.pillar === pillar);
       if (viewer.role === ubecRoles.director) return c?.department === viewer.department || legacy.some(l => l.round_id === round.id && l.pillar === pillar && l.department === viewer.department);
       if (viewer.role === ubecRoles.oversight) return !!c && c.stage !== 'director';
@@ -68,8 +68,8 @@ export async function GET(request: NextRequest) {
           oversightDone: c ? oversight.filter(o => o.round_component_id === c.id).map(o => o.department as PipelineComponent['oversightDone'][number]) : [] };
       });
       const push = (kind: UbecQueueItem['kind'], label: string, detail: string, anchor = '') => queue.push({ planId: r.plan_id, state, label, detail: `${state} · ${period} BEAP${detail ? ` · ${detail}` : ''}`, href: href + anchor, kind });
-      if (viewer.role === ubecRoles.chair && r.status === 'received') push('release', 'Review and release to the UBEC departments', '');
-      if (viewer.role === ubecRoles.chair && open && pipeline.length && pipeline.every(p => p.stage === 'chair')) push('decide', 'Approve or return the plan', 'every component has arrived');
+      if (viewer.chair && r.status === 'received') push('release', 'Review and release to the UBEC departments', '');
+      if (viewer.chair && open && pipeline.length && pipeline.every(p => p.stage === 'chair')) push('decide', 'Approve or return the plan', 'every component has arrived');
       for (const p of open ? pipeline : []) {
         const name = componentName(p.pillar), anchor = `#ubec-${p.pillar}`;
         if (viewer.role === ubecRoles.director && p.department === viewer.department && p.stage === 'director') {
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
       pending: components.filter(c => c.department === department && c.stage === 'director' && items.some(i => i.id === c.round_id && i.status === 'reviewing')).length,
       completed: components.filter(c => c.department === department && c.stage !== 'director').length }));
     const events = (await db.query<{ id: number; round_id: number; plan_id: number; action: string; actor: string; created_at: string; state_code: string; pillar: ImplementedPillar | null }>(`SELECT e.id,e.round_id,e.plan_id,e.action,e.actor,e.created_at,e.pillar,p.state_code FROM ubec_events e JOIN action_plans p ON p.id=e.plan_id WHERE e.plan_id=ANY($1::int[]) ORDER BY e.id DESC LIMIT 200`, [planIds])).rows;
-    const activity = events.filter(e => { const r = rounds.find(x => x.id === e.round_id); return seesEverything(viewer.role) || (!!r && (e.pillar ? visibleIn(r).includes(e.pillar) : ['submit', 'release', 'return', 'approve'].includes(e.action))); })
+    const activity = events.filter(e => { const r = rounds.find(x => x.id === e.round_id); return seesEverything(viewer) || (!!r && (e.pillar ? visibleIn(r).includes(e.pillar) : ['submit', 'release', 'return', 'approve'].includes(e.action))); })
       .slice(0, 8).map(e => ({ id: e.id, plan_id: e.plan_id, action: e.action, actor: e.actor, created_at: e.created_at, pillar: e.pillar, stateName: stateDisplayName(e.state_code) }));
     const monthly = (await db.query<{ month: string; submissions: number }>(`SELECT to_char(m.month,'Mon YYYY') AS month,COUNT(r.id)::int AS submissions FROM generate_series(date_trunc('month',NOW())-interval '5 months',date_trunc('month',NOW()),interval '1 month') AS m(month)
       LEFT JOIN ubec_rounds r ON r.submitted_at>=m.month AND r.submitted_at<m.month+interval '1 month' AND r.plan_id=ANY($1::int[]) GROUP BY m.month ORDER BY m.month`, [planIds])).rows;
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
       WHERE r.number=(SELECT MAX(number) FROM ubec_rounds WHERE plan_id=r.plan_id) AND r.status IN ('reviewing','returned','approved') AND ${ubecSeesPillarSql('r', 'NULL::text', '$1::text', '$2::int', '$3::text')} ORDER BY r.submitted_at DESC`, [viewer.role, viewer.id, viewer.department])).rows
       .filter(r => !own.has(r.id) && coversPlanningYear(r.start_year, r.end_year, year))
       .map(r => ({ planId: r.plan_id, state: stateDisplayName(r.state_code), period: planPeriod({ startYear: r.start_year, endYear: r.end_year, fundingQuarters: r.funding_quarters }), status: r.status, round: r.number })) : [];
-    const body: UbecDashboard = { user: { name: user.name, role: user.role, department: user.department }, items, queue, workload, activity, monthly, years, observing };
+    const body: UbecDashboard = { user: { name: user.name, role: user.role, department: user.department, chair: viewer.chair }, items, queue, workload, activity, monthly, years, observing };
     return NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });
   } catch (cause) { console.error(cause); return NextResponse.json({ error: 'Unable to load the UBEC dashboard' }, { status: 503 }); }
 }

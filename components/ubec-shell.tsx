@@ -14,7 +14,7 @@ const navigation = [
 ];
 const subscribeToPath = (callback: () => void) => { window.addEventListener('popstate', callback); return () => window.removeEventListener('popstate', callback); };
 
-export function UbecShell({ children, user, review = false, allocations = false, team = false }: { children: React.ReactNode; user?: { name: string; role: string; department?: string | null } | null; review?: boolean; allocations?: boolean; team?: boolean }) {
+export function UbecShell({ children, user, review = false, allocations = false, team = false }: { children: React.ReactNode; user?: { name: string; role: string; department?: string | null; chair?: boolean } | null; review?: boolean; allocations?: boolean; team?: boolean }) {
   const path = useSyncExternalStore(subscribeToPath, () => window.location.pathname.replace(/\/$/, ''), () => '');
   const admin = user?.role === 'Super Admin';
   const active = review ? '/ubec/submissions' : allocations || team ? '' : path;
@@ -39,7 +39,7 @@ export function UbecShell({ children, user, review = false, allocations = false,
           {!admin && <NotificationBell />}
           <div className="national-header-account">
             {/* The account shows the role and department, e.g. "UBEC Director · Physical Planning (DPP)". */}
-            <AccountMenu user={user ? { ...user, role: ubecRoleTitle(user.role, user.department), email: '' } : null} />
+            <AccountMenu user={user ? { ...user, role: ubecRoleTitle(user.role, user.department, !!user.chair), email: '' } : null} />
           </div>
         </div>
       </header>

@@ -12,7 +12,7 @@ export default function PlansPage() {
   const { data, error, loading, load } = useUbecDashboard(year);
   return <UbecPageFrame eyebrow="UBEC" title="Plans" data={data} error={error} loading={loading} year={year} onYear={value => { setYear(value); setFilters({ search: '', status: 'all', state: 'all' }); }} onRefresh={load}>
     {d => <>
-      <PlanFiltersBar value={filters} onChange={setFilters} national={isNational(d.user.role)} />
+      <PlanFiltersBar value={filters} onChange={setFilters} national={isNational(d.user.role, d.user.chair)} />
       <PlansSection data={d} items={filterItems(d.items, filters)} filtered={filters.search !== '' || filters.status !== 'all' || filters.state !== 'all'} />
       {/* UBEC149: every unit sees the other units' plans and may leave observative comments. */}
       {(d.observing?.length ?? 0) > 0 && <ObservingPlans plans={d.observing!} />}

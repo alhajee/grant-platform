@@ -6,19 +6,18 @@ import { getAuthenticatedUser } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
 import { stateDepartments } from '@/lib/subeb-departments';
-import { isComponentDepartment, ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
+import { holdsUbecChair, isComponentDepartment, maxUbecChairs, tooManyChairsMessage, ubecChairSql, ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
 import { officerLimitProblem, pruneDefaultOfficers } from '@/lib/ubec-officer-limits';
 import { normalizeDepartments, replaceUserDepartments, userDepartmentsSql } from '@/lib/user-departments';
-import { isUbecEmail, maxRoleTitleLength, ubecEmailError } from '@/lib/officer-title';
+import { isUbecEmail, maxRoleTitleLength, roleTitleRequiredError, ubecEmailError } from '@/lib/officer-title';
 import { hasComponentGrants, normalizeAccess, tokenDepartment } from '@/lib/component-access';
 import { deleteUserAccount, deletedMessage } from '@/lib/user-delete';
-import { nextOfficerRoleTitle } from '@/lib/officer-title-db';
 
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 const roles = z.enum(['Data Entry Staff', 'Director', 'Executive Chairman', ...ubecRoleList] as [string, ...string[]]);
 const profile = z.object({
   name: z.string().trim().min(2).max(120),
-  // Assessment Officers only (UBEC150); set automatically since UBEC237, so a value sent here is ignored.
+  // Assessment Officers only (UBEC150): typed by the Super Admin (UBEC240 undid the automatic numbers of UBEC237).
   roleTitle: z.string().trim().max(maxRoleTitleLength).optional(),
   role: roles,
   stateCode: z.string().trim().toUpperCase().min(2).max(8),
@@ -28,22 +27,16 @@ const profile = z.object({
   canCreatePlan: z.boolean().optional(),
   canManageSchools: z.boolean().optional(),
   isBeapChair: z.boolean().optional(),
+  // UBEC241: a UBEC Director who also holds the UBEC BEAP Chair duty.
+  isUbecBeapChair: z.boolean().optional(),
 });
 const create = profile.extend({ email: z.string().trim().toLowerCase().email().max(254) }).strict();
 const edit = profile.extend({ id: z.number().int().positive() }).strict();
 const reset = z.object({ id: z.number().int().positive(), action: z.literal('reset_password') }).strict();
-const fields = `id, full_name AS name, role_title AS "roleTitle", email, role, department, ${userDepartmentsSql('users')} AS departments, state_code AS "stateCode", active, can_create_plan AS "canCreatePlan", can_manage_schools AS "canManageSchools", is_beap_chair AS "isBeapChair"`;
+const fields = `id, full_name AS name, role_title AS "roleTitle", email, role, department, ${userDepartmentsSql('users')} AS departments, state_code AS "stateCode", active, can_create_plan AS "canCreatePlan", can_manage_schools AS "canManageSchools", is_beap_chair AS "isBeapChair", is_ubec_beap_chair AS "isUbecBeapChair"`;
 
-/**
- * Only Assessment Officers have a role name, set automatically (UBEC237, lib/officer-title-db.ts): a new officer, an account
- * made an officer and an officer moved to another department get the department's next "UBEC Assessment Officer N"; any
- * other edit keeps the stored one. A roleTitle sent by older clients is ignored.
- */
-async function roleTitleFor(db: Parameters<typeof nextOfficerRoleTitle>[0], input: { role: string }, department: string | undefined, target?: { id: number; role: string; department: string | null; roleTitle: string | null }) {
-  if (input.role !== ubecRoles.officer || !department) return '';
-  if (target && target.role === ubecRoles.officer && target.department === department && target.roleTitle) return target.roleTitle;
-  return nextOfficerRoleTitle(db, department, target?.id ?? 0);
-}
+/** Only Assessment Officers keep a role name, as typed (UBEC240); an edit that leaves it out keeps the stored one. */
+const roleTitleFor = (input: { role: string; roleTitle?: string }, stored: string | null = '') => input.role === ubecRoles.officer ? input.roleTitle ?? stored ?? '' : '';
 
 async function requireAdmin(request: NextRequest) {
   const actor = await getAuthenticatedUser(request);
@@ -67,6 +60,7 @@ function validProfile(input: z.infer<typeof profile>) {
   if (ubec && needsDepartment && selected.length !== 1) return `A ${input.role} must have exactly one department`;
   if (!needsDepartment && selected.length) return 'This role is not assigned to a department';
   if (input.isBeapChair && (ubec || input.role !== 'Director')) return 'The BEAP Chair must be a SUBEB Director';
+  if (input.isUbecBeapChair && (!ubec || input.role !== ubecRoles.director)) return 'Only a UBEC Director can also be the UBEC BEAP Chair';
   if (input.canManageSchools && ubec) return 'School list access applies to SUBEB accounts only';
   return null;
 }
@@ -100,8 +94,12 @@ async function mutate(request: NextRequest, creating: boolean) {
         if (!target && !(await db.query("SELECT 1 FROM users WHERE state_code=$1 AND role<>'Super Admin' LIMIT 1", [input.stateCode])).rowCount) return json({ error: 'Choose an existing workspace' }, 400);
         const chair = input.isBeapChair ?? target?.isBeapChair ?? false;
         if (chair && (await db.query('SELECT id FROM users WHERE state_code=$1 AND is_beap_chair AND id<>$2', [input.stateCode, target?.id ?? 0])).rowCount) return json({ error: 'This SUBEB already has a BEAP Chair' }, 409);
-        // UBEC keeps one active BEAP Chair, one Director per component department and one Oversight Director per oversight department.
-        if (input.active && [ubecRoles.chair, ubecRoles.director, ubecRoles.oversight].includes(input.role as typeof ubecRoles.chair) && (await db.query('SELECT 1 FROM users WHERE role=$1 AND active AND department IS NOT DISTINCT FROM $2 AND id<>$3 LIMIT 1', [input.role, input.role === ubecRoles.chair ? null : selectedDepartments[0], target?.id ?? 0])).rowCount) return json({ error: input.role === ubecRoles.chair ? 'UBEC already has an active BEAP Chair' : 'This department already has an active account in this role' }, 409);
+        // UBEC keeps one Director per component department and one Oversight Director per oversight department (checked when
+        // an account takes that place: created, activated, or given the role or department; UBEC241 flags change nothing here).
+        const keepsPlace = !!target && target.active && target.role === input.role && target.department === (selectedDepartments[0] ?? null);
+        if (input.active && !keepsPlace && [ubecRoles.director, ubecRoles.oversight].includes(input.role as typeof ubecRoles.director) && (await db.query('SELECT 1 FROM users WHERE role=$1 AND active AND department IS NOT DISTINCT FROM $2 AND id<>$3 LIMIT 1', [input.role, selectedDepartments[0], target?.id ?? 0])).rowCount) return json({ error: 'This department already has an active account in this role' }, 409);
+        // UBEC241/242: at most two active BEAP Chair holders, counting the UBEC BEAP Chair role and Directors given the duty.
+        if (input.active && holdsUbecChair({ role: input.role, isUbecBeapChair: input.isUbecBeapChair ?? target?.isUbecBeapChair }) && (await db.query<{ n: number }>(`SELECT COUNT(*)::int AS n FROM users WHERE active AND deleted_at IS NULL AND id<>$1 AND ${ubecChairSql()}`, [target?.id ?? 0])).rows[0].n >= maxUbecChairs) return json({ error: tooManyChairsMessage }, 409);
         // Assessment Officers per department are capped (migration 056): creating, reactivating, changing the role to
         // officer or moving an officer to another department needs a free place there.
         const officerDepartment = selectedDepartments[0];
@@ -116,22 +114,23 @@ async function mutate(request: NextRequest, creating: boolean) {
       let id = target?.id;
       if ('email' in input) {
         // New Assessment Officers (UBEC150) need a role name and a UBEC email; earlier accounts keep theirs when edited.
+        if (input.role === ubecRoles.officer && (input.roleTitle ?? '').length < 2) return json({ error: roleTitleRequiredError, field: 'roleTitle' }, 400);
         if (input.role === ubecRoles.officer && !isUbecEmail(input.email)) return json({ error: ubecEmailError }, 400);
         if ((await db.query('SELECT id FROM users WHERE email=$1', [input.email])).rowCount) return json({ error: 'An account already uses this email address' }, 409);
         const selectedDepartments = accessFor(input);
-        id = (await db.query('INSERT INTO users(full_name,email,password_hash,role,department,state_code,active,can_create_plan,is_beap_chair,can_manage_schools,role_title) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id', [input.name, input.email, hashSync(password!, 10), input.role, selectedDepartments[0] || null, input.stateCode, input.active, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? false, await roleTitleFor(db, input, selectedDepartments[0])])).rows[0].id;
+        id = (await db.query('INSERT INTO users(full_name,email,password_hash,role,department,state_code,active,can_create_plan,is_beap_chair,can_manage_schools,role_title,is_ubec_beap_chair) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id', [input.name, input.email, hashSync(password!, 10), input.role, selectedDepartments[0] || null, input.stateCode, input.active, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? false, roleTitleFor(input), input.role === ubecRoles.director && !!input.isUbecBeapChair])).rows[0].id;
         await replaceUserDepartments(db, id, selectedDepartments);
       } else if (resetting) {
         await db.query('UPDATE users SET password_hash=$1,session_version=session_version+1 WHERE id=$2', [hashSync(password!, 10), id]);
       } else {
         const selectedDepartments = accessFor(input);
-        await db.query('UPDATE users SET full_name=$1,role=$2,department=$3,active=$4,session_version=session_version+1,can_create_plan=$6,is_beap_chair=$7,can_manage_schools=$8,role_title=$9 WHERE id=$5', [input.name, input.role, selectedDepartments[0] || null, input.active, id, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? target.canManageSchools, await roleTitleFor(db, input, selectedDepartments[0], target)]);
+        await db.query('UPDATE users SET full_name=$1,role=$2,department=$3,active=$4,session_version=session_version+1,can_create_plan=$6,is_beap_chair=$7,can_manage_schools=$8,role_title=$9,is_ubec_beap_chair=$10 WHERE id=$5', [input.name, input.role, selectedDepartments[0] || null, input.active, id, input.canCreatePlan ?? false, input.isBeapChair ?? false, input.canManageSchools ?? target.canManageSchools, roleTitleFor(input, target.roleTitle), input.role === ubecRoles.director && (input.isUbecBeapChair ?? target.isUbecBeapChair)]);
         await replaceUserDepartments(db, id!, selectedDepartments);
         // Default officer choices follow the account: none once it is deactivated, another role or department.
         await pruneDefaultOfficers(db, id!);
       }
       const stateCode = resetting ? target.stateCode : input.stateCode;
-      await db.query('INSERT INTO user_management_events(actor_id,target_id,state_code,action,details) VALUES($1,$2,$3,$4,$5::jsonb)', [actor.userId, id, stateCode, creating ? 'create' : resetting ? 'reset_password' : 'update', JSON.stringify(resetting ? {} : { role: input.role, departments: normalizeDepartments(input.departments?.length ? input.departments : input.department), active: input.active, canCreatePlan: input.canCreatePlan ?? false, canManageSchools: input.canManageSchools ?? target?.canManageSchools ?? false, isBeapChair: input.isBeapChair ?? false })]);
+      await db.query('INSERT INTO user_management_events(actor_id,target_id,state_code,action,details) VALUES($1,$2,$3,$4,$5::jsonb)', [actor.userId, id, stateCode, creating ? 'create' : resetting ? 'reset_password' : 'update', JSON.stringify(resetting ? {} : { role: input.role, departments: normalizeDepartments(input.departments?.length ? input.departments : input.department), active: input.active, canCreatePlan: input.canCreatePlan ?? false, canManageSchools: input.canManageSchools ?? target?.canManageSchools ?? false, isBeapChair: input.isBeapChair ?? false, isUbecBeapChair: input.role === ubecRoles.director && (input.isUbecBeapChair ?? target?.isUbecBeapChair ?? false) })]);
       return json({ id, password }, creating ? 201 : 200);
     });
   } catch (cause) {
