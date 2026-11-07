@@ -13,6 +13,12 @@ const wholeSchool = { kind: 'whole', result: { items: [
   { key: 'classroomEccde-renovate', quantity: 1, unit: 'classrooms' }, { key: 'classroomEccde-construct', quantity: 1, unit: 'block' },
   { key: 'toilet-construct', quantity: 4 }, { key: 'rwh', quantity: 1 }, { key: 'laptop', quantity: 5 },
 ] } };
+// UBEC171: grouped new ECCDE classrooms are counted in classrooms; ungrouped ones as blocks of two (the model writes "blocks").
+const eccdeKinds = { kind: 'whole', result: { items: [{ key: 'classroomEccde-construct', quantity: 3, unit: 'classrooms' }] } };
+assert.equal(countDeliverables([eccdeKinds]).eccde, 3);
+assert.equal(countDeliverables([{ kind: 'whole', result: { items: [{ key: 'classroomEccde-construct', quantity: 2, unit: 'blocks' }] } }]).eccde, 4);
+// Provisions (7 November 2026) still count: magnetic boards and handwashing stations keep their quantities.
+assert.deepEqual([countDeliverables([{ kind: 'whole', result: { items: [{ key: 'magneticBoard', quantity: 7, total: 0 }, { key: 'handwashing', quantity: 1, total: 0 }] } }])].map(c => [c.equipment, c.water])[0], [7, 1]);
 const furniture = { kind: 'furniture', result: { items: [{ key: 'furniture-0', quantity: 220 }, { key: 'furniture-1', quantity: 1 }] } };
 const small = { kind: 'new', result: { items: [{ key: 'eccdeBlock1', quantity: 1, unit: 'block' }] } };
 const older = { kind: 'new', result: { items: [{ key: 'block3os', quantity: 2 }, { key: 'block3', quantity: 2 }] } };

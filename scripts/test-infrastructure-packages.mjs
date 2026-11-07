@@ -148,7 +148,23 @@ try{
  current=ok(await api('officer',path));const assessment=current.packages.find(p=>p.kind==='whole');
  ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole}),400);
  const updatedBoq=await upload('boq');whole.documentIds.push(updatedBoq.id);
+ // Provisions (7 November 2026): magnetic boards and handwashing stations keep their quantities but are not costed, even with a cost sent.
+ assert.deepEqual([item('magneticBoard').total,item('magneticBoard').operation,item('magneticBoard').provision],[0,'Provision','Provision · included in the classroom construction or renovation cost']);
+ assert.equal(item('handwashing').quantity,1);assert.equal(item('handwashing').total,0);assert.match(item('handwashing').provision,/solar borehole/);
+ assert.equal(Number(savedWhole.total_cost),savedWhole.result.items.filter(i=>!i.provision).reduce((sum,i)=>sum+i.total,0),'provisions add nothing to the package total');
+ // UBEC171: grouping by block covers Primary/JSS classrooms, ECCDE classrooms and toilets; a grouped kind must hold them all.
+ const firstGroup={count:3,classrooms:3,offices:1,stores:1,toilets:4};
+ const unfinished=await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:{...whole,blocks:{construct:[firstGroup]}}});ok(unfinished,400);assert.equal(unfinished.data.error,'Put all 2 ECCDE classrooms to build into blocks: 2 ECCDE classrooms left');
+ const noToilets=await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:{...whole,blocks:{construct:[{...firstGroup,toilets:0},{count:1,classrooms:2,offices:0,stores:0,classroomType:'eccde'}]}}});ok(noToilets,400);assert.equal(noToilets.data.error,'Put all 14 toilets to build into blocks: 14 toilets left','a grouping without toilets must be completed');
+ ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:{...whole,blocks:{construct:[{count:1,classrooms:0,offices:0,stores:0,toilets:0}]}}}),400);
+ whole.blocks={construct:[firstGroup,{count:1,classrooms:2,offices:0,stores:0,classroomType:'eccde'},{count:1,classrooms:0,offices:0,stores:0,toilets:2}]};
  ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole}));
+ const regrouped=ok(await api('officer',path)).packages.find(p=>p.kind==='whole'),gItem=key=>regrouped.result.items.find(i=>i.key===key);
+ assert.equal(gItem('classroomPri-construct').grouping,'3 blocks of 3 classrooms, 1 office, 1 store, 4 toilets');
+ assert.deepEqual([gItem('classroomEccde-construct').quantity,gItem('classroomEccde-construct').unit,gItem('classroomEccde-construct').grouping],[2,'classrooms','1 block of 2 ECCDE classrooms']);
+ assert.equal(gItem('toilet').quantity,2,'14 toilets − 12 in the classroom blocks');assert.equal(gItem('toilet').grouping,'1 toilet block of 2 compartments · 12 toilets are in the classroom blocks');
+ assert.equal(gItem('office-construct').quantity,1,'4 offices − 3 in the blocks');
+ assert.deepEqual(regrouped.input.blocks.construct[0],{...firstGroup,classroomType:'primary'},'stored with its classroom type');
  const overview=ok(await api('officer','/api/beap?plan='+plan));assert.equal(overview.infrastructure.budget,1000+calculateInfrastructure(whole,facts).total);
  const dashboard=ok(await api('officer','/api/plans'));assert.equal(dashboard.plans[0].budget,overview.infrastructure.budget);assert.equal(dashboard.targetedSchools,1);
  review=ok(await api('officer',reviewPath));ok(await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version}));
