@@ -16,10 +16,11 @@ const json = (body: unknown, status = 200) => NextResponse.json(body, { status, 
 const fields = {
   name: z.string().trim().min(1, 'Enter the item name').max(160),
   maker: z.string().trim().max(120).default(''),
-  modelYear: z.number().int().min(1950).max(2100).nullable().default(null),
-  description: z.string().trim().max(1000).default(''),
+  modelYear: z.number().int('Enter the year as four digits, e.g. 2025').min(1950, 'Enter the year as four digits, e.g. 2025').max(2100, 'Enter the year as four digits, e.g. 2025').nullable().default(null),
+  // UBEC244: the client's list (Item, Maker, Year, Description, Amount); Maker and Year are optional.
+  description: z.string().trim().min(1, 'Enter the description').max(1000),
   // UBEC238: up to four decimals (₦1,250.0202), kept exactly (NUMERIC(17, 4), migration 093).
-  unitPrice: z.number().positive('Enter a price above ₦0').max(maxUnitCost, 'Enter a price below ₦100 billion').refine(hasMoneyDecimals, moneyDecimalsMessage),
+  unitPrice: z.number().positive('Enter an amount above ₦0').max(maxUnitCost, 'Enter an amount below ₦100 billion').refine(hasMoneyDecimals, moneyDecimalsMessage),
 };
 const command = z.discriminatedUnion('action', [
   z.object({ action: z.literal('create'), ...fields }).strict(),

@@ -29,4 +29,8 @@ assert.deepEqual(openRejections(returned, snapshot([line(1, { unit_cost: '100.00
 assert.deepEqual(openRejections(returned, snapshot([line(1, { unit_cost: '100.0202' })]), rejected), {}, 'a four-decimal change is a correction');
 const pkgAt = amount => snapshot([], { infrastructure: [{ id: -5, quantity: 1, unit_cost: amount, school: { id: 9 }, package: { input: { lumpSum: 1000 }, total_cost: amount } }] });
 assert.deepEqual(openRejections(pkgAt('1000.00'), pkgAt('1000.0000'), infraRejected), { infrastructure: ['-5'] });
-console.log('PASS: UBEC corrections (open rejections, corrected items, infrastructure documents, money read at four decimals)');
+// UBEC244 (migration 095): an empty price-list item on a Sports line equals its absence in an older round; a picked one is a change.
+const ball = extra => snapshot([], { sports: [{ id: 7, section: 'equipment', unit_cost: '25.50', quantity: 2, ...extra }] }), sportsRejected = [{ pillar: 'sports', rowRef: '7' }];
+assert.deepEqual(openRejections(ball({}), ball({ price_item_id: null }), sportsRejected), { sports: ['7'] });
+assert.deepEqual(openRejections(ball({}), ball({ price_item_id: 4 }), sportsRejected), {});
+console.log('PASS: UBEC corrections (open rejections, corrected items, infrastructure documents, money read at four decimals, Sports price-list items)');

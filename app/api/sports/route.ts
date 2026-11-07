@@ -17,6 +17,7 @@ import { resolveLineQuarters } from "@/lib/line-quarters";
 import { readPlanQuarterSetup } from "@/lib/line-quarters-db";
 import { resolveSavedLineDates } from "@/lib/line-dates-db";
 import { clientKeySchema } from "@/lib/save-request";
+import { resolveSportsPriceItem } from "@/lib/procurement-db";
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
 const commandSchema = z.object({ entity: z.enum(["budget", "allocation", "debate"]), action: z.enum(["create", "update", "delete"]), id: z.number().int().positive().optional(), clientKey: clientKeySchema });
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
     // UBEC74: the schools of the PHE officer training (migration 079).
     const trainingSchools = (await db.query(`SELECT s.id, s.name, s.lga, s.level, s.location FROM tlm_distribution d JOIN schools s ON s.id = d.school_id WHERE d.plan_id = $1 AND d.workstream = 'phe' ORDER BY s.name`, [plan.id])).rows;
     const [lines, allocations, schools] = await Promise.all([
-      db.query(`SELECT id, code, section, activity_type AS "activityType", description, target_group AS "targetGroup", quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey"
+      db.query(`SELECT id, code, section, activity_type AS "activityType", description, target_group AS "targetGroup", quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey", price_item_id AS "priceItemId"
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),
       db.query(`SELECT a.id, a.line_id AS "lineId", a.school_id AS "schoolId", a.quantity, a.longitude, a.latitude, a.client_key AS "clientKey",
         s.name, s.lga, s.level, s.location FROM sports_allocations a
@@ -127,6 +128,10 @@ export async function POST(request: NextRequest) {
           if (problem) return error(problem, 409);
         }
         if (line.quantity < allocated) return error(`${allocated} items are already allocated to schools. Reduce those allocations first.`, 409);
+        // UBEC244: an item bought may come from the Procurement price list, at its list price (a saved line keeps its price).
+        const priced = await resolveSportsPriceItem(db, { stateCode: workspace.stateCode, section: line.section, activityType: line.activityType, priceItemId: line.priceItemId, unitCost: line.unitCost, lineId: action === "create" ? null : id ?? null });
+        if ("problem" in priced) return error(priced.problem, priced.status);
+        const priceItem = priced.priceItemId ?? "NULL";
         // Timeline: within the plan's quarters, read under the plan lock; none sent = the plan's quarters (migration 050).
         const timeline = resolveLineQuarters(line.quarters, await readPlanQuarterSetup(db, plan.id));
         if (timeline.problem) return error(timeline.problem);
@@ -139,10 +144,10 @@ export async function POST(request: NextRequest) {
         const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${sqlText(line.targetGroup)}, ${line.quantity}, ${line.unitCost.toFixed(4)}, ${quarters}, ${startDate}, ${dueDate}`;
         // UBEC233 (migration 091): the code (UBEC/SUBEB/SPORT/001/2026) is numbered per plan by the BEFORE INSERT trigger.
         const result = action === "create"
-          ? await db.query(`INSERT INTO sports_budget_lines (plan_id, state_code, section, activity_type, description, target_group, quantity, unit_cost, quarters, start_date, due_date, client_key)
-              VALUES (${plan.id}, ${state}, ${values}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid) RETURNING id, code`)
+          ? await db.query(`INSERT INTO sports_budget_lines (plan_id, state_code, section, activity_type, description, target_group, quantity, unit_cost, quarters, start_date, due_date, client_key, price_item_id)
+              VALUES (${plan.id}, ${state}, ${values}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid, ${priceItem}) RETURNING id, code`)
           : await db.query(`UPDATE sports_budget_lines SET section = ${sqlText(line.section)}, activity_type = ${sqlText(line.activityType)},
-              description = ${sqlText(line.description)}, target_group = ${sqlText(line.targetGroup)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(4)}, quarters = ${quarters}, start_date = ${startDate}, due_date = ${dueDate}, updated_at = NOW()
+              description = ${sqlText(line.description)}, target_group = ${sqlText(line.targetGroup)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(4)}, quarters = ${quarters}, start_date = ${startDate}, due_date = ${dueDate}, price_item_id = ${priceItem}, updated_at = NOW()
               WHERE id = ${id} AND state_code = ${state} RETURNING id, code`);
         return NextResponse.json(result.rows[0], { status: action === "create" ? 201 : 200 });
       }

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { SchoolFilters, allLevels, allLgas, filterSchools, schoolMatches, type SchoolLevelChoice, type SchoolLgaChoice } from "@/components/school-level-filter";
 import { CurrencyInput, unitCostDecimals } from "@/components/currency-input";
+import { PriceListField, usePriceList } from "@/components/price-list-picker";
+import { sportsPicksFromPriceList } from "@/lib/procurement";
 import { SportsSectionSelect } from "@/components/sports-section-select";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -21,11 +23,11 @@ import { Progress } from "@/components/ui/progress";
 import { formatMinor } from "@/lib/money-format";
 import { debateSubActivityRange, equipmentSports, findDebateSubActivity, findSport, isOtherSubActivity, isPheTraining, pheTrainingActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
-export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; targetGroup: string; quantity: string; unitCost: string; quarters: number[]; startDate: string | null; dueDate: string | null };
+export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; targetGroup: string; quantity: string; unitCost: string; quarters: number[]; startDate: string | null; dueDate: string | null; /** UBEC244: the price-list item picked (id), '' when typed. */ priceItemId: string };
 export type AllocationDraft = { id?: number; schoolId: number | null; lineId: number | null; quantity: string; longitude: string; latitude: string };
 export type FormErrors = Record<string, string>;
 /** The page fills a new line's timeline with the plan's quarters (planQuarters in lib/line-quarters.ts). */
-export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", targetGroup: "", quantity: "1", unitCost: "", quarters: [], startDate: null, dueDate: null };
+export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", targetGroup: "", quantity: "1", unitCost: "", quarters: [], startDate: null, dueDate: null, priceItemId: "" };
 export const emptyAllocation: AllocationDraft = { schoolId: null, lineId: null, quantity: "1", longitude: "", latitude: "" };
 
 const otherChoice = "__other__";
@@ -85,6 +87,8 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
   const locked = disabled || Boolean(allocated);
   const usedSports = equipmentSports(plan.lines, draft.id);
   const training = isPheTraining(draft);
+  // UBEC244: the items bought may come from the state's Procurement price list (the price is filled in).
+  const priceList = usePriceList(true);
   const sportLimitReached = usedSports.length >= maxEquipmentSports;
   const sportNames = [...new Set([...usedSports, ...sportsCatalog.map((sport) => sport.name)].map((name) => findSport(name)?.name ?? name))];
   const sport = findSport(draft.activityType);
@@ -96,19 +100,19 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
   return <FieldGroup className="gap-6">
     <Field data-disabled={locked}>
       <FieldLabel htmlFor="sports-section">Budget section</FieldLabel>
-      <SportsSectionSelect id="sports-section" value={draft.section} disabled={locked} onValueChange={(value) => onChange({ ...draft, section: value, activityType: "", description: "" })} />
+      <SportsSectionSelect id="sports-section" value={draft.section} disabled={locked} onValueChange={(value) => onChange({ ...draft, section: value, activityType: "", description: "", priceItemId: "" })} />
     </Field>
     {draft.section === "equipment" && <Field data-disabled={locked}>
       <FieldLabel id="sports-kind-label">Type of item</FieldLabel>
       <ToggleGroup type="single" variant="outline" spacing={2} className="sports-kind" aria-labelledby="sports-kind-label" disabled={locked} value={training ? "training" : "procurement"}
-        onValueChange={(value) => { if (value) onChange({ ...draft, activityType: value === "training" ? pheTrainingActivity : "", description: "" }); }}>
+        onValueChange={(value) => { if (value) onChange({ ...draft, activityType: value === "training" ? pheTrainingActivity : "", description: "", priceItemId: "" }); }}>
         <ToggleGroupItem value="procurement">Procurement of PHE equipment</ToggleGroupItem>
         <ToggleGroupItem value="training">Training of PHE Officers</ToggleGroupItem>
       </ToggleGroup>
     </Field>}
     {draft.section === "equipment" && !training && <Field data-invalid={Boolean(errors.activityType)} data-disabled={locked}>
       <div className="construction-label-row"><FieldLabel htmlFor="sports-type">Sport</FieldLabel><span className="sports-available">{usedSports.length} of {maxEquipmentSports} sports selected</span></div>
-      <PickOrOther key={draft.id ?? "new"} id="sports-type" options={sportNames} value={draft.activityType} onChange={(value) => onChange({ ...draft, activityType: value, description: "" })} allowOther={!sportLimitReached} disabled={locked}
+      <PickOrOther key={draft.id ?? "new"} id="sports-type" options={sportNames} value={draft.activityType} onChange={(value) => onChange({ ...draft, activityType: value, description: "", priceItemId: "" })} allowOther={!sportLimitReached} disabled={locked}
         isDisabled={(name) => sportLimitReached && !usedSports.some((used) => used.toLowerCase() === name.toLowerCase())} placeholder="Choose a sport" otherPlaceholder="Enter the sport" error={errors.activityType} />
       <FieldDescription>{sportLimitReached ? `You have selected ${maxEquipmentSports} sports. Add items to one of them.` : `Select up to ${maxEquipmentSports} sports, then add the equipment needed for each. Not in the list? Choose Others (specify).`}</FieldDescription>
       {errors.activityType && <FieldError id="sports-type-error">{errors.activityType}</FieldError>}
@@ -139,6 +143,8 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
       {training && <FieldDescription>Describe the training, e.g. who is trained and for how long</FieldDescription>}
       {errors.description && <FieldError id="sports-description-error">{errors.description}</FieldError>}
     </Field>
+    {priceList && sportsPicksFromPriceList(draft) && <PriceListField id="sports-price-item" list={priceList} value={draft.priceItemId} required={false} disabled={disabled}
+      onPick={(picked) => onChange(picked ? { ...draft, priceItemId: String(picked.id), unitCost: picked.unitPrice.toFixed(4), description: draft.description.trim() || !draft.activityType.trim() ? draft.description : picked.name } : { ...draft, priceItemId: "" })} />}
     <TargetGroupPicker id="sports-target-group" value={draft.targetGroup} onChange={(targetGroup) => onChange({ ...draft, targetGroup })} error={errors.targetGroup} disabled={disabled} />
     <FieldGroup className="field-columns">
       <Field data-invalid={Boolean(errors.quantity)}>
@@ -148,7 +154,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
       </Field>
       <Field data-invalid={Boolean(errors.unitCost)}>
         <FieldLabel htmlFor="sports-unit-cost">Unit cost (NGN)</FieldLabel>
-        <CurrencyInput id="sports-unit-cost" decimals={unitCostDecimals} maxIntegerDigits={11} placeholder="0.0000" value={draft.unitCost} onValueChange={(unitCost) => onChange({ ...draft, unitCost })} aria-invalid={Boolean(errors.unitCost)} aria-describedby={errors.unitCost ? "sports-unit-cost-error" : undefined} />
+        <CurrencyInput id="sports-unit-cost" decimals={unitCostDecimals} maxIntegerDigits={11} placeholder="0.0000" value={draft.unitCost} readOnly={Boolean(draft.priceItemId)} aria-readonly={Boolean(draft.priceItemId) || undefined} className={draft.priceItemId ? "bg-muted" : undefined} onValueChange={(unitCost) => onChange({ ...draft, unitCost })} aria-invalid={Boolean(errors.unitCost)} aria-describedby={errors.unitCost ? "sports-unit-cost-error" : undefined} />
         {errors.unitCost && <FieldError id="sports-unit-cost-error">{errors.unitCost}</FieldError>}
       </Field>
     </FieldGroup>

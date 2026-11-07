@@ -2,6 +2,9 @@
 // (pending), the Procurement Director approves them (and adds or edits directly); component Data Entry picks approved
 // items on the activities that buy goods and the unit cost must be the list price; a saved line keeps its price when
 // the list changes; the Super Admin switch makes the list required for new items to buy.
+// UBEC244 (bug sheet 18): items carry the client's fields (Item, Maker and Year optional, Description required, Amount);
+// everyone in the state reads the approved list; any activity line (not Teacher Development trainings) and the Sports
+// items bought (migration 095) may be picked from it, while the switch still covers only the activities that buy goods.
 // Usage: node --env-file=.env scripts/test-procurement-price-list.mjs [baseUrl]   (local only; throwaway states, users and plan; cleans up)
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -54,23 +57,42 @@ try {
   assert.equal(ok(await items('foreignProc')).items.length, 0, 'another state has its own list');
   fails(await api('foreignProc', '/api/procurement/items', { action: 'approve', id: pending.id }), 404);
   fails(await add('procDes', { unitPrice: 0 }), 400);
+  await user('chairman', 'Executive Chairman', []); await user('tdDes', 'Data Entry Staff', ['teachers']); await user('sportsDes', 'Data Entry Staff', ['academic']);
+  assert.deepEqual(ok(await items('chairman')).items.map(i => i.name).sort(), ['Desktop computer', 'Projector'], 'everyone in the state reads the approved list');
+  fails(await add('chairman'), 403, /Procurement/);
   step('Procurement keeps the state list: Data Entry items wait for the Director, the Director approves or adds directly, states are separate');
+
+  // UBEC244: the client's columns. Maker and Year are optional, Year is four digits, Description is required.
+  fails(await add('procDes', { description: '  ' }), 400, /Enter the description/);
+  fails(await add('procDes', { modelYear: 20255 }), 400, /four digits/);
+  const vehicle = ok(await add('procDirector', { name: 'Pick up vehicle', maker: 'Toyota', modelYear: 2025, description: 'Toyota Hilux 4WD double cabin', unitPrice: 65707989.25 }), 201).item;
+  assert.deepEqual([vehicle.maker, vehicle.modelYear, vehicle.description, vehicle.unitPrice], ['Toyota', 2025, 'Toyota Hilux 4WD double cabin', 65707989.25]);
+  const swing = ok(await add('procDes', { name: 'Swing', maker: '', modelYear: null, description: 'Two-seater playground swing', unitPrice: 120000.5 }), 201).item;
+  assert.deepEqual([swing.maker, swing.modelYear, swing.status], ['', null, 'pending']);
+  ok(await api('procDirector', '/api/procurement/items', { action: 'archive', id: vehicle.id })); ok(await api('procDes', '/api/procurement/items', { action: 'archive', id: swing.id }));
+  step('items take Item, Maker and Year (optional, four digits), Description (required) and a four-decimal Amount');
 
   planId = (await db.query('INSERT INTO action_plans(state_code,start_year,end_year,state_lodgment,other_funding,tlm_allocation) VALUES($1,2028,2028,3757.50,0,1000) RETURNING id', [state])).rows[0].id;
   const url = `/api/activities?plan=${planId}&workstream=tlm`;
   const line = { workstream: 'tlm', entity: 'line', action: 'create', activity: 6, description: 'Supplementary readers', quantity: 2, unitCost: 92, strategy: 'NCB', targetGroup: 'Schools' };
   fails(await api('tlmDes', url, { ...line, priceItemId: pending.id, unitCost: 91 }), 409, /price list says/);
   const saved = ok(await api('tlmDes', url, { ...line, priceItemId: pending.id })).id;
-  fails(await api('tlmDes', url, { ...line, activity: 3, priceItemId: direct.id, unitCost: 40 }), 400, /Only items to buy/);
+  // UBEC244: any activity line may be picked from the list (TLM 3 is not one of the activities that buy goods) ...
+  const anyActivity = ok(await api('tlmDes', url, { ...line, activity: 3, priceItemId: direct.id, unitCost: 40 })).id;
+  assert.equal(ok(await api('tlmDes', url)).lines.find(l => l.id === anyActivity).priceItemId, direct.id);
+  ok(await api('tlmDes', url, { workstream: 'tlm', entity: 'line', action: 'delete', id: anyActivity }));
+  // ... but not Teacher Development: its lines are trainings.
+  const training = { workstream: 'teachers', entity: 'line', action: 'create', activity: 0, description: 'TD training', quantity: 5, unitCost: 40, trainingProvider: 'Special training provider approved by UBEC', targetParticipants: 'Teachers', schoolLevels: ['Primary'], trainingDays: 5, venueType: 'Hall', schoolIds: [], priceItemId: direct.id };
+  fails(await api('tdDes', `/api/activities?plan=${planId}&workstream=teachers`, training), 400, /Trainings do not come from the price list/);
   const foreign = ok(await add('foreignProc', { unitPrice: 5 }), 201).item;
   fails(await api('tlmDes', url, { ...line, priceItemId: foreign.id, unitCost: 5 }), 400, /not on your state/);
   assert.equal(ok(await api('tlmDes', url)).lines.find(l => l.id === saved).priceItemId, pending.id);
-  step('an item to buy picked from the list must carry the list price; only approved items of the state, only on activities that buy goods');
+  step('an item picked from the list must carry the list price; only approved items of the state; any activity line but Teacher Development trainings');
 
   ok(await api('procDirector', '/api/procurement/items', { action: 'update', id: pending.id, name: 'Desktop computer', maker: 'HP', modelYear: 2025, description: 'All-in-one, Core i5', unitPrice: 95 }));
   ok(await api('tlmDes', url, { ...line, action: 'update', id: saved, quantity: 3, priceItemId: pending.id, unitCost: 92 }));
   assert.equal((await db.query('SELECT unit_cost::float8 AS c FROM activity_plan_lines WHERE id=$1', [saved])).rows[0].c, 92, 'the saved line keeps its price');
-  ok(await api('procDes', '/api/procurement/items', { action: 'update', id: direct.id, name: 'Projector', maker: 'Optoma', modelYear: null, description: '', unitPrice: 45 }));
+  ok(await api('procDes', '/api/procurement/items', { action: 'update', id: direct.id, name: 'Projector', maker: 'Optoma', modelYear: null, description: 'Short throw projector', unitPrice: 45 }));
   assert.ok(!ok(await items('tlmDes')).items.some(i => i.id === direct.id), 'an edit by Data Entry goes back for approval');
   fails(await api('tlmDes', url, { ...line, priceItemId: direct.id, unitCost: 45 }), 409, /approval/);
   step('a price change does not touch saved lines; an edit by Data Entry goes back for approval');
@@ -86,17 +108,34 @@ try {
   ok(await api('tlmDes', url, { workstream: 'tlm', entity: 'line', action: 'delete', id: chalkLine }));
   step('four-decimal prices and unit costs are kept exactly (3 × ₦1.0202 = ₦3.0606); a fifth decimal is refused');
 
+  // UBEC244 (migration 095): Sports items bought may come from the list too, at the list price; PHE training may not.
+  const sportsUrl = `/api/sports?plan=${planId}`;
+  const ball = ok(await add('procDirector', { name: 'Football', maker: 'Mikasa', modelYear: null, description: 'Size 5 match ball', unitPrice: 25.5 }), 201).item;
+  const sportsLine = { entity: 'budget', action: 'create', section: 'equipment', activityType: 'Football', description: 'Match balls', targetGroup: 'Schools', quantity: 2, unitCost: 25.5, priceItemId: ball.id };
+  fails(await api('sportsDes', sportsUrl, { ...sportsLine, unitCost: 30 }), 409, /price list says/);
+  fails(await api('sportsDes', sportsUrl, { ...sportsLine, priceItemId: direct.id, unitCost: 45 }), 409, /approval/);
+  fails(await api('sportsDes', sportsUrl, { ...sportsLine, activityType: 'Training of PHE Officers', description: 'PHE officers trained' }), 400, /Only the items bought/);
+  const ballLine = ok(await api('sportsDes', sportsUrl, sportsLine), 201).id;
+  assert.equal(ok(await api('sportsDes', sportsUrl)).lines.find(l => l.id === ballLine).priceItemId, ball.id);
+  ok(await api('procDirector', '/api/procurement/items', { action: 'update', id: ball.id, name: 'Football', maker: 'Mikasa', modelYear: null, description: 'Size 5 match ball', unitPrice: 27 }));
+  ok(await api('sportsDes', sportsUrl, { ...sportsLine, action: 'update', id: ballLine, quantity: 3 }));
+  assert.deepEqual((await db.query('SELECT unit_cost::text AS cost, price_item_id AS item FROM sports_budget_lines WHERE id=$1', [ballLine])).rows[0], { cost: '25.5000', item: ball.id }, 'the saved Sports line keeps its price');
+  const typedBall = ok(await api('sportsDes', sportsUrl, { ...sportsLine, description: 'Cones', unitCost: 1, priceItemId: null }), 201).id;
+  assert.equal((await db.query('SELECT price_item_id FROM sports_budget_lines WHERE id=$1', [typedBall])).rows[0].price_item_id, null);
+  step('Sports items bought may be picked from the list at its price and keep it; PHE training lines may not');
+
   await db.query("UPDATE state_workflow_settings SET price_list_required=TRUE WHERE state_code='GLOBAL'");
   assert.equal(ok(await items('tlmDes')).required, true);
   fails(await api('tlmDes', url, { ...line, unitCost: 10 }), 400, /Pick the item from the Procurement price list/);
   ok(await api('tlmDes', url, { ...line, activity: 3, description: 'Verification visits', unitCost: 10 }));
   const typed = (await db.query("SELECT id FROM activity_plan_lines WHERE plan_id=$1 AND activity=3", [planId])).rows[0].id;
   ok(await api('tlmDes', url, { ...line, action: 'update', id: typed, activity: 3, description: 'Verification visits', quantity: 1, unitCost: 10 }));
-  step('with the switch on, new items to buy must come from the list; services and earlier lines are unaffected');
+  ok(await api('sportsDes', sportsUrl, { ...sportsLine, description: 'Bibs', unitCost: 1, priceItemId: null }), 201);
+  step('with the switch on, new items to buy must come from the list; services, Sports and earlier lines are unaffected');
   console.log(`\nPASS: ${passed} price list checks`);
 } finally {
   await db.query("UPDATE state_workflow_settings SET price_list_required=$1 WHERE state_code='GLOBAL'", [setting ?? false]);
-  if (planId) { await db.query('DELETE FROM activity_plan_lines WHERE plan_id=$1', [planId]); await db.query('DELETE FROM action_plans WHERE id=$1', [planId]); }
+  if (planId) { await db.query('DELETE FROM sports_budget_lines WHERE plan_id=$1', [planId]); await db.query('DELETE FROM activity_plan_lines WHERE plan_id=$1', [planId]); await db.query('DELETE FROM action_plans WHERE id=$1', [planId]); }
   await db.query('DELETE FROM procurement_items WHERE state_code=ANY($1::text[])', [[state, other]]);
   const ids = Object.values(users);
   if (ids.length) { await db.query('DELETE FROM sessions WHERE user_id=ANY($1::int[])', [ids]); await db.query('DELETE FROM user_departments WHERE user_id=ANY($1::int[])', [ids]); await db.query('DELETE FROM users WHERE id=ANY($1::int[])', [ids]); }

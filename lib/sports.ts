@@ -110,7 +110,9 @@ export type SportsLine = { id: number; code: string; section: SportsSection; act
   /** Expected start and due dates (migration 059, YYYY-MM-DD); null on lines saved before. */
   startDate?: string | null; dueDate?: string | null;
   /** The client key the row was created with (migration 058), null for older rows. */
-  clientKey?: string | null };
+  clientKey?: string | null;
+  /** UBEC244 (migration 095): the price-list item picked, null when typed. */
+  priceItemId?: number | null };
 export type SportsAllocation = { id: number; schoolId: number; lineId: number; quantity: number; longitude: string; latitude: string; clientKey?: string | null; name: string; lga: string; level: string; location: "Rural" | "Urban" };
 export type SportsPlan = { lines: SportsLine[]; allocations: SportsAllocation[]; schools: SportsSchool[]; /** UBEC74: the PHE officer training schools. */ trainingSchools?: SportsSchool[] };
 
@@ -126,6 +128,8 @@ export const sportsLineSchema = z.object({
   /** UBEC238: up to four decimals (₦1,250.0202), kept exactly (NUMERIC(16, 4), migration 093). */
   unitCost: z.number().positive("Enter a unit cost greater than zero").max(maxUnitCost, "Enter a unit cost below ₦100 billion")
     .refine(hasMoneyDecimals, moneyDecimalsMessage),
+  /** UBEC244 (migration 095): the Procurement price-list item picked for an item bought; the unit cost is its price. */
+  priceItemId: z.number().int().positive().nullable().default(null),
   /** Timeline (migration 050); omitted = the plan's quarters. */
   quarters: lineQuartersSchema.optional(),
   /** Expected start and due dates inside the timeline (migration 059); omitted = kept or the whole timeline. */
