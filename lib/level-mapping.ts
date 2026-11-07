@@ -1,5 +1,5 @@
 import type { Snapshot } from './plan-review';
-import { isPheTrainingLine } from './distribution-lists.ts';
+import { isDistributedLine, isPheTrainingLine } from './distribution-lists.ts';
 import { MONEY_SCALE_NUMBER, lineMinor, minorOfNumber } from './money.ts';
 
 // Resource mapping by school level (UBEC127, client 26 October 2026): how much of a plan's proposed budget goes to ECCDE,
@@ -10,7 +10,8 @@ import { MONEY_SCALE_NUMBER, lineMinor, minorOfNumber } from './money.ts';
 //   lines with schools  evenly across the chosen schools' levels (ICT and any other line that names schools);
 //   Textbooks (TLM)     by the classes chosen (Primary 1-6 → Primary, JSS 1-3 → JSS);
 //   Teacher Development evenly across the school levels chosen (SUBEB → not school-specific);
-//   TLM, Curriculum and Greening lines otherwise follow their distribution list, by the number of schools at each level;
+//   TLM, Curriculum and Greening items shared out to schools otherwise follow their distribution list, by the number of
+//                       schools at each level (UBEC245: their other items follow target groups, else Others);
 //   everything else     not school-specific.
 
 export const schoolLevelKeys = ['eccde', 'primary', 'jss', 'none'] as const;
@@ -76,7 +77,9 @@ export function levelMapping(snapshot: Snapshot): LevelMapping {
       else if (line.schools?.length) add(share(minor, count(line.schools.map(s => s.level))));
       else if (line.textbook_classes?.length) add(share(minor, count(line.textbook_classes)));
       else if (pillar === 'teachers' && line.school_levels?.length) add(share(minor, count(line.school_levels)));
-      else if (distribution[pillar]?.length) add(share(minor, count(distribution[pillar]!.map(s => s.level))));
+      // UBEC245: only items shared out to schools follow the distribution list; the rest (training, monitoring, Greening
+      // communities…) follow their target groups, else Others.
+      else if (isDistributedLine(pillar, line.activity) && distribution[pillar]?.length) add(share(minor, count(distribution[pillar]!.map(s => s.level))));
       else add(share(minor, targetGroupWeights(line.target_group)));
     }
   }

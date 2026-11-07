@@ -12,12 +12,14 @@ assert.equal(isDistributedLine('gscci', 8), false);
 // The Greening list is needed only with an item for schools; TLM and Curriculum need theirs with any item.
 assert.equal(distributionListRequired('gscci', [{ activity: 3 }, { activity: 8 }]), false);
 assert.equal(distributionListRequired('gscci', [{ activity: 3 }, { activity: 0 }]), true);
-assert.equal(distributionListRequired('curriculum', [{ activity: 1 }]), true);
+assert.equal(distributionListRequired('curriculum', [{ activity: 1 }]), false); // UBEC245: training only, no list
+assert.equal(distributionListRequired('curriculum', [{ activity: 0 }]), true);
 assert.equal(distributionListRequired('sbmc', [{ activity: 0 }]), false);
 assert.equal(distributionListProblem('gscci', [{ activity: 3 }], []), null);
 assert.equal(distributionListProblem('gscci', [{ activity: 3 }, { activity: 5 }], []), 'Add at least one school to the Greening distribution list before sending it');
 assert.equal(distributionListProblem('gscci', [{ activity: 5 }], [{ id: 1 }]), null);
-assert.equal(distributionListProblem('tlm', [{ activity: 2 }], undefined), 'Add at least one school to the TLM distribution list before sending it');
+assert.equal(distributionListProblem('tlm', [{ activity: 5 }], undefined), 'Add at least one school to the TLM distribution list before sending it');
+assert.equal(distributionListProblem('tlm', [{ activity: 2 }], undefined), null); // UBEC245: nothing for schools, no list
 // Allocations left on a Greening communities line never count: the list's schools need items only from items for schools.
 const list = [{ id: 1, name: 'A' }, { id: 2, name: 'B' }];
 assert.equal(distributionAllocationProblem('gscci', [{ activity: 3, quantity: 5, schools: [{ id: 1, quantity: 2 }] }], list, true), null, 'only Pillar 4 items: nothing to share');

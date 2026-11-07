@@ -30,7 +30,7 @@ const reviews = (infrastructure, sports, sbmc= sports, tlm= sports, rest = sport
   ...['monitoring', 'gscci', 'curriculum', 'quality', 'teachers', 'ict', 'planning'].map(pillar => ({ pillar, status: rest })),
 ];
 const completeSnapshot = {
-  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1,land:{available:true,documented:true,unencumbered:true},documentIds:['l','a','d']}}}], sports:[{section:'equipment',unit_cost:'0',quantity:1}], sbmc:[{id:50,activity:12,description:'SBMC monitoring'}], tlm:[{id:20,activity:5,description:'TLM',documents:[{id:'tb',kind:'boq'},{id:'ts',kind:'sample'},{id:'tp',kind:'proforma'}]}], tlmDistribution:[{}], monitoring:[{}], gscci:[{activity:0}], gscciDistribution:[{}], curriculum:[{}], curriculumDistribution:[{}],
+  infrastructure:[{school:{id:1,name:'QA School'},package:{kind:'new',input:{schoolId:1,land:{available:true,documented:true,unencumbered:true},documentIds:['l','a','d']}}}], sports:[{section:'equipment',unit_cost:'0',quantity:1}], sbmc:[{id:50,activity:12,description:'SBMC monitoring'}], tlm:[{id:20,activity:5,description:'TLM',documents:[{id:'tb',kind:'boq'},{id:'ts',kind:'sample'},{id:'tp',kind:'proforma'}]}], tlmDistribution:[{}], monitoring:[{}], gscci:[{activity:0}], gscciDistribution:[{}], curriculum:[{id:60,activity:0,description:'Curriculum',documents:[{id:'cp',kind:'proforma'}]}], curriculumDistribution:[{}],
   // Quality Assurance and ICT: every compulsory activity, line schools and line documents (migration 038).
   quality:[2,3,6,7,8,9,10].map(activity=>({id:activity,activity,description:'QA'})),
   ict:[{id:17,activity:1,description:'NDPA'},{id:18,activity:5,description:'Internet'},{id:12,activity:2,description:'Smart',schools:[{id:1}]},{id:13,activity:3,description:'Connect',documents:[{id:'d'}]},{id:16,activity:6,description:'Website'}],
@@ -82,8 +82,9 @@ assert.equal(rules.componentSendProblem('gscci',{...completeSnapshot,gscci:[{act
 assert.equal(readyForUbec(reviews('chairman_ready','chairman_ready'),{...completeSnapshot,gscci:[{activity:3}],gscciDistribution:[]}),true);
 assert.equal(chairmanProblem0(reviews('beap_review','beap_review'),{...completeSnapshot,gscci:[{activity:3}],gscciDistribution:undefined}),null);
 assert.match(rules.componentSendProblem('gscci',{...completeSnapshot,gscci:[{activity:3},{activity:4}],gscciDistribution:[]},required) ?? '',/Greening distribution list/);
-// TLM and Curriculum still need their lists whenever they have items.
-assert.match(rules.componentSendProblem('curriculum',{...completeSnapshot,curriculum:[{activity:1}],curriculumDistribution:[]},required) ?? '',/Curriculum distribution list/);
+// UBEC245 (client, 7 November 2026): TLM and Curriculum too need their lists only for items shared out to schools.
+assert.equal(rules.componentSendProblem('curriculum',{...completeSnapshot,curriculum:[{activity:1}],curriculumDistribution:[]},required),null);
+assert.match(rules.componentSendProblem('curriculum',{...completeSnapshot,curriculum:[{id:60,activity:0,description:'Curriculum',documents:[{id:'cp',kind:'proforma'}]}],curriculumDistribution:[]},required) ?? '',/Curriculum distribution list/);
 // The BEAP Chair is told why the complete plan cannot go on (shown on the plan page and returned by the send step).
 const chairmanProblem = (reviewList, snapshot) => rules.executiveChairmanProblem(reviewList, snapshot, required);
 assert.equal(chairmanProblem(reviews('beap_review','beap_review'),completeSnapshot),null);

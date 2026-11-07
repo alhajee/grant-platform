@@ -41,7 +41,9 @@ export const isDistributedLine = (workstream: string, activity: number) => hasDi
  * Greening communities, supervision or Others items has nothing to distribute). TLM and Curriculum need theirs whenever
  * they have items, as before.
  */
-const listOnlyForDistributedItems: readonly DistributionWorkstream[] = ['gscci'];
+// UBEC245 (client, 7 November 2026): "if it is not procuring it should not have an allocation request": TLM, Curriculum and
+// Greening need their list only while they have an item shared out to schools.
+const listOnlyForDistributedItems: readonly DistributionWorkstream[] = ['tlm', 'curriculum', 'gscci'];
 export function distributionListRequired(workstream: string, lines: readonly { activity: number }[]): boolean {
   if (!hasDistribution(workstream)) return false;
   return listOnlyForDistributedItems.includes(workstream) ? lines.some(line => isDistributedLine(workstream, line.activity)) : true;
