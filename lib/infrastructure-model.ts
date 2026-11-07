@@ -76,7 +76,11 @@ export const packageSchema = z.object({
  /** New Construction: the chosen model (0-2, Model I-III). Whole School packages saved before October 2026 may carry one; it is ignored. */
  model:modelIndex.optional(),fenceRequired:quantity.default(0),fenceLength:quantity.default(0),
  prices:z.record(amount).default({}),classroomStrategy:strategySchema.default(defaultStrategy),
- packageCosts:z.record(z.object({cost:amount,strategy:strategySchema,duration:z.string().trim().max(100)})).default({}),
+ /**
+  * Whole School costs by item key. notCosted (client, 7 November 2026): the item is costed inside another item, so it needs no cost,
+  * strategy or duration (absent = the item's default: Handwashing Station and Magnetic Board are not costed, everything else is).
+  */
+ packageCosts:z.record(z.object({cost:amount.default(0),strategy:strategySchema.default(defaultStrategy),duration:z.string().trim().max(100).default(''),notCosted:z.boolean().optional()})).default({}),
  lumpSum:amount.default(0),duration:z.string().trim().max(100).default(''),contingency:amount.default(0),preliminaries:amount.default(0),
  // Retired (no longer asked): kept so packages saved earlier still load.
  observations:z.string().max(5000).default(''),dilapidation:z.enum(['Minor repairs required','Moderate deterioration','Unsafe / reconstruction recommended','Severe dilapidation / major rehabilitation']).default('Minor repairs required'),conditionNotes:z.string().max(5000).default(''),
@@ -179,11 +183,17 @@ export function wholeRequirements(facts: SchoolFacts, stream: SchoolStream): Rec
 const classroomLabel = (facts: SchoolFacts, stream: SchoolStream) => facts.primary > 0 && facts.jss > 0 ? 'Classroom · Primary & JSS' : stream === 'jss' || (facts.jss > 0 && facts.primary === 0) ? 'Classroom · JSS' : 'Classroom · Primary';
 
 export type InfraDocument = {id:string;kind:'drawings'|'boq'|'survey'|'land'|'land_area'|'photo'|'supporting';name:string;size:number;schoolId?:number|null;schoolName?:string|null};
-export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string;/** UBEC171: how the classrooms and toilets are grouped into blocks, or the offices/stores/toilets the blocks already hold. */grouping?:string;/** Provision (7 November 2026): listed with its quantity but costed inside another item; says which. */provision?:string;/** Packages calculated since 17 October 2026; older ones fall back to the workbook text. */description?:string};
+export type PackageItem = {key:string;label:string;quantity:number;unit:string;lump:boolean;cost:number;total:number;strategy:string;duration:string;operation?:string;/** UBEC171: how the classrooms and toilets are grouped into blocks, or the offices/stores/toilets the blocks already hold. */grouping?:string;/** Not costed (7 November 2026): listed with its quantity but costed inside another item, ₦0. */notCosted?:boolean;/** Results saved on 7 November 2026 before Costed / Not costed: the provision note (not costed). */provision?:string;/** A Whole School block item (one per group of blocks): what one block holds. */block?:BlockItemMakeup;/** Packages calculated since 17 October 2026; older ones fall back to the workbook text. */description?:string};
 /** A row's description: the edited one, else (New Construction) the workbook text; Whole School rows have none until one is entered. */
 export const requirementDescription=(input:Pick<InfrastructureInput,'kind'|'descriptions'>,key:string,model:number)=>input.descriptions?.[key]??(input.kind==='new'?deliverableDescription(key,model):'');
-/** The item's operation as shown: a provision says what it is included in; toilets saved before October 2026 stored "Supply / installation". */
-export const itemOperation=(item:Pick<PackageItem,'key'|'operation'>&{provision?:string})=>item.provision?item.provision:item.key==='toilet'&&item.operation==='Supply / installation'?'Supply / New Construction':item.operation;
+/** What one block of a block item holds (deliverables count from it). */
+export type BlockItemMakeup = { kind: BlockKind; classroomType: BlockClassroomType; classrooms: number; offices: number; stores: number; toilets: number };
+/** How a Not costed item reads wherever it is shown (costing step, package details, workbook, UBEC). */
+export const notCostedNote = 'Not costed · included in another item’s cost';
+/** Whether a result item has no cost of its own: Not costed, or a provision of a result saved before the choice existed. */
+export const isNotCostedItem = (item: Pick<PackageItem, 'notCosted' | 'provision'>) => !!item.notCosted || !!item.provision;
+/** The item's operation as shown: a Not costed item says so; toilets saved before October 2026 stored "Supply / installation". */
+export const itemOperation=(item:Pick<PackageItem,'key'|'operation'>&{provision?:string;notCosted?:boolean})=>item.notCosted?notCostedNote:item.provision?item.provision:item.key==='toilet'&&item.operation==='Supply / installation'?'Supply / New Construction':item.operation;
 export type InfrastructureResult = ReturnType<typeof calculateInfrastructure>;
 export type InfrastructurePackage = {id:number;/** The client key the package was created with (migration 058), null for older packages. */client_key?:string|null;/** Reference code (migration 053), e.g. UBEC/SUBEB/INFRA/007/2026 · Q1–Q4. */code?:string;version:number;kind:InfrastructureInput['kind'];input:InfrastructureInput;result:InfrastructureResult;school:InfrastructureSchool;total_cost:string;
  /** Timeline (infrastructure_packages.quarters, migration 050): authoritative over input.quarters, which packages saved earlier lack. */
@@ -344,14 +354,37 @@ export function blockGroupingProblem(input: InfrastructureInput, school: SchoolB
  return null;
 }
 /**
- * Provisions (client, 7 November 2026): Whole School rows kept with their quantities but not costed on their own, because their
- * cost is part of another item. Handwashing stations come with the solar borehole; magnetic boards with building or renovating the classroom.
+ * Costed / Not costed (client, 7 November 2026): every Whole School cost item may be marked Not costed when its cost is part of
+ * another item (no cost, strategy or duration; ₦0). Handwashing stations (with the solar borehole) and magnetic boards (with the
+ * classroom works) start Not costed; every other item starts Costed. The choice is stored as packageCosts[key].notCosted.
  */
-export const provisionNotes: Record<string, string> = {
- handwashing: 'Provision · included in the solar borehole cost',
- magneticBoard: 'Provision · included in the classroom construction or renovation cost',
-};
-export const isProvisionKey = (key: string) => key in provisionNotes;
+export const notCostedByDefault = new Set(['handwashing', 'magneticBoard']);
+const costBaseKey = (key: string) => key.replace(/-(renovate|construct)$/, '');
+/** Whether a Whole School item is Not costed: the stored choice, else its default. */
+export const isNotCosted = (input: Pick<InfrastructureInput, 'packageCosts'>, key: string) => input.packageCosts?.[key]?.notCosted ?? notCostedByDefault.has(costBaseKey(key));
+/**
+ * Block items (client, 7 November 2026: "after grouping, what has been grouped is what the cost item will now be"): the stable key of
+ * one group of blocks, from its kind and make-up, so changing a group's make-up asks for its cost again while changing only how many
+ * blocks keeps the cost per block. A second group with the same make-up gets "-2".
+ */
+const blockKeyBase = (kind: BlockKind, g: BlockGroup) => `block-${kind}-${g.classroomType === 'eccde' ? 'e' : 'p'}${g.classrooms}c${g.offices}o${g.stores}s${g.toilets}t`;
+export const isBlockItemKey = (key: string) => /^block-(construct|renovate)-/.test(key);
+/** The block items of a kind's groups, with their keys and labels ("Block of 6 classrooms, 1 office, 1 store"). */
+export function blockItems(kind: BlockKind, groups: readonly BlockGroup[]): { key: string; label: string; group: BlockGroup }[] {
+ const seen = new Map<string, number>();
+ return groups.map(group => {
+  const base = blockKeyBase(kind, group), n = (seen.get(base) ?? 0) + 1;
+  seen.set(base, n);
+  const label = group.classrooms > 0 ? `Block of ${blockMakeup(group)}` : `Toilet block of ${[plural(group.toilets, 'compartment'), group.offices ? plural(group.offices, 'office') : '', group.stores ? plural(group.stores, 'store') : ''].filter(Boolean).join(', ')}`;
+  return { key: n === 1 ? base : `${base}-${n}`, label, group };
+ });
+}
+/** Drops the costs of groups of blocks that no longer exist (after a grouping changes), so the Costing step asks for them again. */
+export function pruneBlockCosts(input: InfrastructureInput, school: SchoolBasis): InfrastructureInput['packageCosts'] {
+ const groupings = classroomGroupings(input, school);
+ const live = new Set((['construct', 'renovate'] as const).flatMap(kind => blockItems(kind, groupings[kind]?.groups ?? []).map(b => b.key)));
+ return Object.fromEntries(Object.entries(input.packageCosts ?? {}).filter(([key]) => !isBlockItemKey(key) || live.has(key)));
+}
 export function calculateInfrastructure(input:InfrastructureInput,school:SchoolBasis) {
  const enrolment=totalOf(school),facts=toFacts(school,input.components),stream=schoolStream(input.components);
  const model=packageModel(input,enrolment),items:PackageItem[]=[];
@@ -362,24 +395,31 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
  }
  if(input.kind==='furniture') input.furniture.forEach((r,i)=>add('furniture-'+i,r.description,r.quantity,'units',false,r.cost,'',''));
  const groupings=classroomGroupings(input,facts);
+ // Costed / Not costed: a Not costed item keeps its quantity at ₦0 with no strategy or duration.
+ const addCosted=(key:string,label:string,qty:number,unit:string,lump:boolean,operation:string,description?:string,extra?:Partial<PackageItem>)=>{
+  if(isNotCosted(input,key)){items.push({key,label,quantity:qty,unit,lump,cost:0,total:0,strategy:'',duration:'',operation,notCosted:true,description,...extra});return;}
+  const price=input.packageCosts[key];add(key,label,qty,unit,lump,price?.cost??0,price?.strategy??defaultStrategy,price?.duration??'',operation,description);
+  if(extra)items[items.length-1]={...items[items.length-1],...extra};
+ };
+ if(input.kind==='whole'){
+  // UBEC171 + costing (7 November 2026): each group of blocks is one cost item, costed per block (unit cost × blocks).
+  for(const kind of ['construct','renovate'] as const)for(const b of blockItems(kind,groupings[kind]?.groups??[]))
+   addCosted(b.key,b.label,b.group.count,'blocks',false,kind==='construct'?'New construction':'Renovation',undefined,{block:{kind,classroomType:b.group.classroomType,classrooms:b.group.classrooms,offices:b.group.offices,stores:b.group.stores,toilets:b.group.toilets}});
+ }
  if(input.kind==='whole') for(const gap of auditGaps(input,facts)){
-  const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit,grouping?:string)=>{const price=input.packageCosts[key];add(key,gap.label,qty,unit,lump,price?.cost??0,price?.strategy??defaultStrategy,price?.duration??'',operation,requirementDescription(input,gap.key,model));if(grouping)items[items.length-1]={...items[items.length-1],grouping};};
-  // Provisions keep their quantity but no cost of their own (a cost saved on them before is ignored).
-  if(isProvisionKey(gap.key)){if(gap.toBuild>0)items.push({key:gap.key,label:gap.label,quantity:gap.toBuild,unit:gap.unit,lump:false,cost:0,total:0,strategy:'',duration:'',operation:'Provision',provision:provisionNotes[gap.key],description:requirementDescription(input,gap.key,model)});continue;}
-  // UBEC171: grouped classrooms and toilets name their blocks; the offices, stores and toilets inside classroom blocks come off
-  // their own rows (blocks of toilets alone stay on the Toilet row, which names them).
-  const inBlocks=(kind:BlockKind)=>{const g=groupings[kind];return !g?0:gap.key==='office'?g.offices:gap.key==='store'?g.stores:gap.key==='toilet'?g.toiletsWithClassrooms:0;};
+  const addGap=(key:string,operation:string,qty:number,lump:boolean,unit=gap.unit,grouping?:string)=>addCosted(key,gap.label,qty,unit,lump,operation,requirementDescription(input,gap.key,model),grouping?{grouping}:undefined);
+  // Classrooms, toilets, offices and stores in blocks are costed in their block items, so they come off their own rows; offices
+  // and stores left outside the blocks stay on their rows.
+  const inBlocks=(kind:BlockKind)=>{const g=groupings[kind];return !g?0:gap.key==='classroomPri'?g.grouped.classrooms:gap.key==='classroomEccde'?g.grouped.eccde:gap.key==='office'?g.offices:gap.key==='store'?g.stores:gap.key==='toilet'?g.grouped.toilets:0;};
   const blockNote=(kind:BlockKind)=>{
-   const g=groupings[kind];if(!g)return undefined;
-   const type=gap.key==='classroomPri'?'primary':gap.key==='classroomEccde'?'eccde':null;
-   if(type){const left=type==='eccde'?g.left.eccde:g.left.classrooms;return [g.groups.filter(x=>x.classrooms>0&&x.classroomType===type).map(blockGroupText).join('; '),left>0?`${plural(left,'classroom')} not in a block yet`:''].filter(Boolean).join(' · ')||undefined;}
-   const held=inBlocks(kind),own=gap.key==='toilet'?g.groups.filter(x=>x.classrooms===0).map(blockGroupText).join('; '):'';
-   return [own,held?`${plural(held,gap.key)} ${held===1?'is':'are'} in the classroom blocks`:''].filter(Boolean).join(' · ')||undefined;
+   const held=inBlocks(kind);if(!held)return undefined;
+   const one=gap.key==='classroomEccde'?'ECCDE classroom':gap.key==='classroomPri'?'classroom':gap.key;
+   return `${plural(held,one)} ${held===1?'is':'are'} in the blocks`;
   };
   const renovate=Math.max(0,gap.nonFunctional-inBlocks('renovate')),construct=Math.max(0,gap.toBuild-inBlocks('construct'));
   if(gap.civil&&renovate>0)addGap(gap.key+'-renovate','Renovation',renovate,true,gap.unit,blockNote('renovate'));
-  // New ECCDE classrooms are built as ECCDE blocks of 2 classrooms, unless the new classrooms are grouped by block: the groups
-  // then say how the ECCDE blocks are made up and the row counts classrooms. Toilets read "Supply / New Construction" (October 2026).
+  // New ECCDE classrooms are built as ECCDE blocks of 2 classrooms, unless the new classrooms are grouped by block (their block
+  // items then hold them). Toilets read "Supply / New Construction" (October 2026).
   const eccdePairs=gap.key==='classroomEccde'&&!groupings.construct;
   if(construct>0)addGap(gap.civil?gap.key+'-construct':gap.key,gap.civil?'New construction':gap.key==='toilet'?'Supply / New Construction':'Supply / installation',eccdePairs?Math.ceil(construct/2):construct,!!(gap.civil||gap.lump),eccdePairs?'blocks':gap.unit,gap.civil||gap.key==='toilet'?blockNote('construct'):undefined);
  }
@@ -417,7 +457,7 @@ export function packageProblem(input:InfrastructureInput,school:SchoolBasis){
  const result=calculateInfrastructure(input,school);
  if(!result.items.length||result.total<=0)return 'Add and cost the required items before saving';
  if(!Number.isSafeInteger(units(result.total)))return 'The package total is too large';
- if(input.kind==='whole'&&result.items.some(i=>!i.provision&&(i.cost<=0||!i.duration)))return 'Enter a cost and duration for each intervention';
+ if(input.kind==='whole'&&result.items.some(i=>!isNotCostedItem(i)&&(i.cost<=0||!i.duration)))return 'Enter a cost and duration for each Costed item, or mark it Not costed';
  if(input.kind==='new'&&input.targeting==='nonhope'&&!input.duration)return 'Enter the construction duration';
  return null;
 }

@@ -147,10 +147,12 @@ export function deliverableDescription(key: string, model = 0): string {
 
 // Deliverable groups (sections of both workbook sheets). "Package costs" holds new-construction rows such as VAT.
 export const deliverableGroups = ['Infrastructure (Construction/Renovation)', 'Furniture', 'Equipment', 'WASH Facilities', 'Special Projects/Facilities', 'Package costs'] as const;
-export const deliverableGroup = (key: string) => deliverableGroups[deliverableInfo(key)?.group ?? constructionRows[baseKey(key)]?.group ?? 5];
+// Whole School block items (block-construct-…, block-renovate-…, 7 November 2026) sit first under Infrastructure.
+const blockItemOrder = (key: string) => /^block-construct-/.test(key) ? 0.01 : /^block-renovate-/.test(key) ? 0.02 : null;
+export const deliverableGroup = (key: string) => deliverableGroups[blockItemOrder(key) !== null ? 0 : deliverableInfo(key)?.group ?? constructionRows[baseKey(key)]?.group ?? 5];
 export const deliverableCategory = (key: string): DeliverableCategory | undefined => deliverableInfo(key)?.category;
 // Within a group: Minimum Standard rows by S/N, then Other Facilities by S/N.
-const position = (key: string) => { const r = deliverableInfo(key); return r ? (r.category === 'minimum' ? 0 : 100) + r.sn : constructionRows[baseKey(key)]?.order ?? 999; };
+const position = (key: string) => { const block = blockItemOrder(key); if (block !== null) return block; const r = deliverableInfo(key); return r ? (r.category === 'minimum' ? 0 : 100) + r.sn : constructionRows[baseKey(key)]?.order ?? 999; };
 const byDocument = <T extends { key: string }>(a: T, b: T) => position(a.key) - position(b.key);
 export function groupDeliverables<T extends { key: string }>(rows: T[]) { return deliverableGroups.map(group => ({ group, rows: rows.filter(row => deliverableGroup(row.key) === group).sort(byDocument) })).filter(g => g.rows.length); }
 export const inDeliverableOrder = <T extends { key: string }>(rows: T[]) => groupDeliverables(rows).flatMap(g => g.rows);

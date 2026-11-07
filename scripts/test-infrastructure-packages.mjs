@@ -148,21 +148,28 @@ try{
  current=ok(await api('officer',path));const assessment=current.packages.find(p=>p.kind==='whole');
  ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole}),400);
  const updatedBoq=await upload('boq');whole.documentIds.push(updatedBoq.id);
- // Provisions (7 November 2026): magnetic boards and handwashing stations keep their quantities but are not costed, even with a cost sent.
- assert.deepEqual([item('magneticBoard').total,item('magneticBoard').operation,item('magneticBoard').provision],[0,'Provision','Provision · included in the classroom construction or renovation cost']);
- assert.equal(item('handwashing').quantity,1);assert.equal(item('handwashing').total,0);assert.match(item('handwashing').provision,/solar borehole/);
- assert.equal(Number(savedWhole.total_cost),savedWhole.result.items.filter(i=>!i.provision).reduce((sum,i)=>sum+i.total,0),'provisions add nothing to the package total');
+ // Costed / Not costed (7 November 2026): with a cost sent but no choice, magnetic boards and handwashing stations start Not costed.
+ assert.deepEqual([item('magneticBoard').total,item('magneticBoard').notCosted,item('magneticBoard').strategy],[0,true,'']);
+ assert.equal(item('handwashing').quantity,1);assert.equal(item('handwashing').total,0);assert.equal(item('handwashing').notCosted,true);
+ assert.equal(Number(savedWhole.total_cost),savedWhole.result.items.filter(i=>!i.notCosted).reduce((sum,i)=>sum+i.total,0),'not costed items add nothing to the package total');
  // UBEC171: grouping by block covers Primary/JSS classrooms, ECCDE classrooms and toilets; a grouped kind must hold them all.
  const firstGroup={count:3,classrooms:3,offices:1,stores:1,toilets:4};
  const unfinished=await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:{...whole,blocks:{construct:[firstGroup]}}});ok(unfinished,400);assert.equal(unfinished.data.error,'Put all 2 ECCDE classrooms to build into blocks: 2 ECCDE classrooms left');
  const noToilets=await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:{...whole,blocks:{construct:[{...firstGroup,toilets:0},{count:1,classrooms:2,offices:0,stores:0,classroomType:'eccde'}]}}});ok(noToilets,400);assert.equal(noToilets.data.error,'Put all 14 toilets to build into blocks: 14 toilets left','a grouping without toilets must be completed');
  ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:{...whole,blocks:{construct:[{count:1,classrooms:0,offices:0,stores:0,toilets:0}]}}}),400);
  whole.blocks={construct:[firstGroup,{count:1,classrooms:2,offices:0,stores:0,classroomType:'eccde'},{count:1,classrooms:0,offices:0,stores:0,toilets:2}]};
+ // Costing follows the grouping: each group of blocks is a cost item of its own, asked for before the package is saved.
+ const uncostedBlocks=await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole});ok(uncostedBlocks,400);assert.equal(uncostedBlocks.data.error,'Enter a cost and duration for each Costed item, or mark it Not costed');
+ whole.packageCosts={...whole.packageCosts,'block-construct-p3c1o1s4t':{cost:2500000.5,strategy:'NCB',duration:'12 weeks'},'block-construct-e2c0o0s0t':{cost:4000000,strategy:'NCB',duration:'12 weeks'},'block-construct-p0c0o0s2t':{notCosted:true},
+  // Switched: magnetic boards Costed, teachers' furniture Not costed (only the choice is sent).
+  magneticBoard:{cost:15000,strategy:'NCB',duration:'2 weeks',notCosted:false},teachersFurniture:{notCosted:true}};
  ok(await api('officer',path,{action:'save',id:assessment.id,version:assessment.version,input:whole}));
  const regrouped=ok(await api('officer',path)).packages.find(p=>p.kind==='whole'),gItem=key=>regrouped.result.items.find(i=>i.key===key);
- assert.equal(gItem('classroomPri-construct').grouping,'3 blocks of 3 classrooms, 1 office, 1 store, 4 toilets');
- assert.deepEqual([gItem('classroomEccde-construct').quantity,gItem('classroomEccde-construct').unit,gItem('classroomEccde-construct').grouping],[2,'classrooms','1 block of 2 ECCDE classrooms']);
- assert.equal(gItem('toilet').quantity,2,'14 toilets − 12 in the classroom blocks');assert.equal(gItem('toilet').grouping,'1 toilet block of 2 compartments · 12 toilets are in the classroom blocks');
+ assert.equal(gItem('classroomPri-construct'),undefined,'grouped classrooms are costed in their blocks');assert.equal(gItem('classroomEccde-construct'),undefined);assert.equal(gItem('toilet'),undefined,'every new toilet is in a block');
+ assert.deepEqual(['block-construct-p3c1o1s4t','block-construct-e2c0o0s0t','block-construct-p0c0o0s2t'].map(k=>[gItem(k).label,gItem(k).quantity,gItem(k).unit,gItem(k).total,!!gItem(k).notCosted]),[
+  ['Block of 3 classrooms, 1 office, 1 store, 4 toilets',3,'blocks',7500001.5,false],['Block of 2 ECCDE classrooms',1,'blocks',4000000,false],['Toilet block of 2 compartments',1,'blocks',0,true]],'block items are costed per block (unit cost × blocks)');
+ assert.equal(gItem('magneticBoard').total,15000*11,'switched to Costed');assert.deepEqual([gItem('teachersFurniture').total,gItem('teachersFurniture').notCosted,gItem('teachersFurniture').quantity],[0,true,11],'switched to Not costed, quantity kept');
+ assert.deepEqual(regrouped.input.packageCosts.teachersFurniture,{cost:0,strategy:'Request for quotation',duration:'',notCosted:true});
  assert.equal(gItem('office-construct').quantity,1,'4 offices − 3 in the blocks');
  assert.deepEqual(regrouped.input.blocks.construct[0],{...firstGroup,classroomType:'primary'},'stored with its classroom type');
  const overview=ok(await api('officer','/api/beap?plan='+plan));assert.equal(overview.infrastructure.budget,1000+calculateInfrastructure(whole,facts).total);

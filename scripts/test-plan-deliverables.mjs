@@ -19,6 +19,15 @@ assert.equal(countDeliverables([eccdeKinds]).eccde, 3);
 assert.equal(countDeliverables([{ kind: 'whole', result: { items: [{ key: 'classroomEccde-construct', quantity: 2, unit: 'blocks' }] } }]).eccde, 4);
 // Provisions (7 November 2026) still count: magnetic boards and handwashing stations keep their quantities.
 assert.deepEqual([countDeliverables([{ kind: 'whole', result: { items: [{ key: 'magneticBoard', quantity: 7, total: 0 }, { key: 'handwashing', quantity: 1, total: 0 }] } }])].map(c => [c.equipment, c.water])[0], [7, 1]);
+// Not costed items (7 November 2026) still count with their quantities.
+assert.equal(countDeliverables([{ kind: 'whole', result: { items: [{ key: 'dualDesk', quantity: 40, total: 0, notCosted: true }] } }]).furniture, 40);
+// Block items (7 November 2026): blocks × what one block holds (classrooms or ECCDE rooms, and toilet compartments).
+assert.deepEqual((({ classrooms, eccde, toilets, admin }) => [classrooms, eccde, toilets, admin])(countDeliverables([{ kind: 'whole', result: { items: [
+  { key: 'block-construct-p6c1o1s4t', quantity: 2, unit: 'blocks', block: { kind: 'construct', classroomType: 'primary', classrooms: 6, offices: 1, stores: 1, toilets: 4 } },
+  { key: 'block-renovate-p3c0o0s0t', quantity: 1, unit: 'blocks', block: { kind: 'renovate', classroomType: 'primary', classrooms: 3, offices: 0, stores: 0, toilets: 0 } },
+  { key: 'block-construct-e2c0o0s2t', quantity: 1, unit: 'blocks', block: { kind: 'construct', classroomType: 'eccde', classrooms: 2, offices: 0, stores: 0, toilets: 2 } },
+  { key: 'block-construct-p0c0o0s6t', quantity: 3, unit: 'blocks', block: { kind: 'construct', classroomType: 'primary', classrooms: 0, offices: 0, stores: 0, toilets: 6 } },
+] } }])), [15, 2, 8 + 2 + 18, 0]);
 const furniture = { kind: 'furniture', result: { items: [{ key: 'furniture-0', quantity: 220 }, { key: 'furniture-1', quantity: 1 }] } };
 const small = { kind: 'new', result: { items: [{ key: 'eccdeBlock1', quantity: 1, unit: 'block' }] } };
 const older = { kind: 'new', result: { items: [{ key: 'block3os', quantity: 2 }, { key: 'block3', quantity: 2 }] } };

@@ -130,7 +130,7 @@ assert.equal(requirements.filter(r=>r.category==='other').length,30);
 const furniture=make('furniture');furniture.furniture=[{description:'Desk',quantity:3,cost:10.15}];assert.equal(calculateInfrastructure(furniture,200).total,30.45);
 // UBEC171: Whole School classrooms, ECCDE classrooms and toilets grouped by block, in groups of blocks of different sizes (revised 7 November 2026).
 {
- const {groupIntoBlocks,toBlockGroups,blockGroupingText,blockGroupText,blockGroupingProblem,classroomBlockCounts,drawingsDocumentProblem}=await import('../lib/infrastructure-model.ts');
+ const {groupIntoBlocks,toBlockGroups,blockGroupingText,blockGroupText,blockGroupingProblem,classroomBlockCounts,drawingsDocumentProblem,blockItems,pruneBlockCosts}=await import('../lib/infrastructure-model.ts');
  assert.equal(groupIntoBlocks(0,[{count:1,classrooms:3,offices:1,stores:1}]),null,'nothing to group');assert.equal(groupIntoBlocks(5,undefined),null,'not grouped');assert.equal(groupIntoBlocks(5,[]),null,'no groups');
  // The client's example: 24 classrooms as 2 blocks of 6, 2 blocks of 3 and 1 block of 6 (groups saved without toilets or type read as Primary/JSS, no toilets).
  const mixed=[{count:2,classrooms:6,offices:1,stores:1},{count:2,classrooms:3,offices:0,stores:1},{count:1,classrooms:6,offices:2,stores:0}];
@@ -159,12 +159,31 @@ const furniture=make('furniture');furniture.furniture=[{description:'Desk',quant
  assert.equal(packageSchema.safeParse({...grouped,blocks:{construct:[{count:1,classrooms:3,offices:1,stores:1,classroomType:'sss'}]}}).success,false,'listed classroom types only');
  assert.equal(packageSchema.safeParse({...grouped,blocks:{construct:[{count:0,classrooms:3,offices:1,stores:1}]}}).success,false,'a group needs a block');
  const after=calculateInfrastructure(parsed.data,facts),item=key=>after.items.find(i=>i.key===key);
- assert.equal(item('classroomPri-construct').quantity,7);assert.equal(item('classroomPri-construct').grouping,'1 block of 4 classrooms, 1 office, 1 store, 6 toilets; 1 block of 3 classrooms, 1 office');
- assert.equal(item('classroomPri-renovate').grouping,'1 block of 2 classrooms, 1 store');
- assert.deepEqual([item('classroomEccde-construct').quantity,item('classroomEccde-construct').unit,item('classroomEccde-construct').grouping],[3,'classrooms','1 block of 3 ECCDE classrooms'],'grouped ECCDE classrooms name their blocks instead of blocks of 2');
- assert.equal(item('toilet').quantity,6,'12 new toilets − 6 in a classroom block');assert.equal(item('toilet').grouping,'1 toilet block of 6 compartments · 6 toilets are in the classroom blocks');
- assert.equal(item('office-construct').quantity,3,'5 new offices − 2 in the blocks');assert.match(item('office-construct').grouping,/2 offices are in the classroom blocks/);
+ // Costing follows the grouping (client, 7 November 2026): one cost item per group of blocks, costed per block; the grouped
+ // classrooms, ECCDE classrooms and toilets (and the offices and stores the blocks hold) are not costed again on their rows.
+ assert.equal(item('classroomPri-construct'),undefined,'grouped classrooms are costed in their blocks');assert.equal(item('classroomPri-renovate'),undefined);assert.equal(item('classroomEccde-construct'),undefined);assert.equal(item('toilet'),undefined,'every new toilet is in a block');
+ const blocksOf=after.items.filter(i=>i.block);
+ assert.deepEqual(blocksOf.map(i=>[i.key,i.label,i.quantity,i.unit,i.operation]),[
+  ['block-construct-p4c1o1s6t','Block of 4 classrooms, 1 office, 1 store, 6 toilets',1,'blocks','New construction'],
+  ['block-construct-p3c1o0s0t','Block of 3 classrooms, 1 office',1,'blocks','New construction'],
+  ['block-construct-e3c0o0s0t','Block of 3 ECCDE classrooms',1,'blocks','New construction'],
+  ['block-construct-p0c0o0s6t','Toilet block of 6 compartments',1,'blocks','New construction'],
+  ['block-renovate-p2c0o1s0t','Block of 2 classrooms, 1 store',1,'blocks','Renovation'],
+ ]);
+ assert.deepEqual(item('block-construct-e3c0o0s0t').block,{kind:'construct',classroomType:'eccde',classrooms:3,offices:0,stores:0,toilets:0});
+ assert.equal(item('office-construct').quantity,3,'5 new offices − 2 in the blocks');assert.equal(item('office-construct').grouping,'2 offices are in the blocks');
  assert.equal(item('store-construct'),undefined,'the one new store is in the blocks');assert.equal(item('store-renovate').quantity,1,'2 non-functional stores − 1 in the renovated block');
+ // Block items are costed per block: unit cost × blocks.
+ const twoBlocks={...parsed.data,blocks:{...parsed.data.blocks,renovate:[{count:1,classrooms:2,offices:0,stores:1}]},packageCosts:{...parsed.data.packageCosts,'block-renovate-p2c0o1s0t':{cost:1500000.1234,strategy:'NCB',duration:'8 weeks'}}};
+ const priced=calculateInfrastructure(twoBlocks,facts).items.find(i=>i.key==='block-renovate-p2c0o1s0t');assert.deepEqual([priced.cost,priced.total,priced.lump,priced.strategy],[1500000.1234,1500000.1234,false,'NCB']);
+ const sameTwice=groupIntoBlocks({classrooms:6,eccde:0,toilets:0},[{count:1,classrooms:3,offices:0,stores:0},{count:1,classrooms:3,offices:0,stores:0}]);
+ assert.deepEqual(blockItems('construct',sameTwice.groups).map(b=>b.key),['block-construct-p3c0o0s0t','block-construct-p3c0o0s0t-2'],'a second group with the same make-up has its own key');
+ // Regrouping: a group whose make-up changed loses its cost (asked again); a group that only changed its count keeps its cost per block.
+ const costs={'block-construct-p4c1o1s6t':{cost:9,strategy:'NCB',duration:'1 week'},'block-construct-p3c1o0s0t':{cost:8,strategy:'NCB',duration:'1 week'},'block-renovate-p9c0o0s0t':{cost:7,strategy:'NCB',duration:'1 week'},dualDesk:{cost:5,strategy:'NCB',duration:'1 week'}};
+ assert.deepEqual(Object.keys(pruneBlockCosts({...parsed.data,packageCosts:costs},facts)),['block-construct-p4c1o1s6t','block-construct-p3c1o0s0t','dualDesk'],'costs of groups that no longer exist are dropped');
+ const regrouped={...parsed.data,packageCosts:costs,blocks:{...parsed.data.blocks,construct:[{count:1,classrooms:4,offices:0,stores:0,toilets:6},...parsed.data.blocks.construct.slice(1)]}};
+ assert.ok(!('block-construct-p4c1o1s6t' in pruneBlockCosts(regrouped,facts)),'a changed make-up is costed again');
+ assert.equal(calculateInfrastructure(regrouped,facts).items.find(i=>i.key==='block-construct-p4c0o0s6t').cost,0);
  // Every classroom, ECCDE classroom and toilet in a block, no more: Continue and save wait.
  const short={...parsed.data,blocks:{...parsed.data.blocks,construct:parsed.data.blocks.construct.slice(1)}};
  assert.equal(blockGroupingProblem(short,facts),'Put all 7 classrooms to build into blocks: 4 classrooms left');assert.equal(packageProblem(short,facts),blockGroupingProblem(short,facts));
@@ -176,7 +195,7 @@ const furniture=make('furniture');furniture.furniture=[{description:'Desk',quant
  assert.match(blockGroupingProblem({...parsed.data,blocks:{renovate:[{count:1,classrooms:2,offices:0,stores:0,toilets:4}]}},facts),/hold 4 toilets, but only 0 are to be renovated/,'non-functional toilets are not renovated in blocks');
  // A grouping saved before toilets were grouped must be completed before the package is saved again.
  const legacy={...grouped,audit:{...grouped.audit,classroomEccde:{existing:0,functional:0,additional:0,extra:0}},blocks:{construct:{classrooms:3,offices:1,stores:1}}};assert.ok(packageSchema.safeParse(legacy).success);
- assert.match(calculateInfrastructure(legacy,facts).items.find(i=>i.key==='classroomPri-construct').grouping,/^2 blocks of 3 classrooms, 1 office, 1 store; 1 block of 1 classroom/);
+ assert.deepEqual(calculateInfrastructure(legacy,facts).items.filter(i=>i.block).map(i=>[i.label,i.quantity]),[['Block of 3 classrooms, 1 office, 1 store',2],['Block of 1 classroom, 1 office, 1 store',1]],'a single make-up saved before becomes its block items');
  assert.equal(blockGroupingProblem(legacy,facts),'Put all 12 toilets to build into blocks: 12 toilets left');
  const oldGroups={...legacy,blocks:{construct:[{count:1,classrooms:7,offices:1,stores:1}]}};assert.equal(blockGroupingProblem(oldGroups,facts),'Put all 12 toilets to build into blocks: 12 toilets left');
  assert.equal(blockGroupingProblem({...oldGroups,blocks:{construct:[...oldGroups.blocks.construct,{count:2,classrooms:0,offices:0,stores:0,toilets:6}]}},facts),null,'completed with toilet blocks');
@@ -184,17 +203,27 @@ const furniture=make('furniture');furniture.furniture=[{description:'Desk',quant
  // UBEC230: New Construction drawings required; other kinds optional.
  assert.match(drawingsDocumentProblem({kind:'new'},0),/Attach the drawings/);assert.equal(drawingsDocumentProblem({kind:'new'},1),null);assert.equal(drawingsDocumentProblem({kind:'whole'},0),null);assert.equal(drawingsDocumentProblem({kind:'furniture'},0),null);
 }
-// Provisions (client, 7 November 2026): handwashing stations and magnetic boards are listed with their quantities but not costed.
+// Costed / Not costed (client, 7 November 2026): handwashing stations and magnetic boards start Not costed, every other item Costed;
+// any item can be switched. Not costed items keep their quantities at ₦0 and need no cost, strategy or duration.
 {
- const {provisionNotes,isProvisionKey}=await import('../lib/infrastructure-model.ts');
- assert.ok(isProvisionKey('handwashing')&&isProvisionKey('magneticBoard'));assert.ok(!isProvisionKey('teachersFurniture')&&!isProvisionKey('dualDesk')&&!isProvisionKey('storageShelf'),'teachers’ furniture, desks and cupboards stay costed');
+ const {isNotCosted,isNotCostedItem,notCostedNote}=await import('../lib/infrastructure-model.ts');
+ assert.ok(isNotCosted({packageCosts:{}},'handwashing')&&isNotCosted({packageCosts:{}},'magneticBoard'));assert.ok(!isNotCosted({packageCosts:{}},'teachersFurniture')&&!isNotCosted({packageCosts:{}},'dualDesk'),'other items start Costed');
+ // Saved packages with a cost but no choice: handwashing and magnetic boards stay not costed (as since the provisions), the rest costed.
  const p=structuredClone(whole);p.packageCosts={...p.packageCosts,handwashing:{cost:500,strategy:'NCB',duration:'1 week'},magneticBoard:{cost:200,strategy:'NCB',duration:'1 week'}};
- const res=calculateInfrastructure(p,facts),hw=res.items.find(i=>i.key==='handwashing'),mb=res.items.find(i=>i.key==='magneticBoard');
+ const res=calculateInfrastructure(packageSchema.parse(p),facts),hw=res.items.find(i=>i.key==='handwashing'),mb=res.items.find(i=>i.key==='magneticBoard');
  assert.ok(hw&&mb,'still in the package items');assert.equal(hw.quantity,1);assert.equal(mb.quantity,wholeRequirements(facts,'primary').magneticBoard.qty);
- for(const i of [hw,mb]){assert.equal(i.cost,0,'a cost saved before is ignored');assert.equal(i.total,0);assert.equal(i.operation,'Provision');}
- assert.equal(itemOperation(hw),'Provision · included in the solar borehole cost');assert.equal(itemOperation(mb),provisionNotes.magneticBoard);
- const costed=res.items.filter(i=>!i.provision).reduce((s,i)=>s+i.total,0);assert.equal(res.total,costed,'provisions add nothing to the total');
- assert.equal(packageProblem(p,facts),null,'provisions need no cost or duration');
+ for(const i of [hw,mb]){assert.equal(i.cost,0,'a cost saved before is ignored');assert.equal(i.total,0);assert.equal(i.notCosted,true);assert.equal(i.strategy,'');assert.equal(itemOperation(i),notCostedNote);}
+ assert.equal(res.total,res.items.filter(i=>!isNotCostedItem(i)).reduce((s,i)=>s+i.total,0),'not costed items add nothing to the total');
+ assert.equal(packageProblem(packageSchema.parse(p),facts),null,'not costed items need no cost or duration');
  assert.ok(res.items.find(i=>i.key==='teachersFurniture').total>0,'teachers’ furniture still costed');
+ // Switched to Costed, the magnetic board takes its cost; switched to Not costed, teachers' furniture needs none (only {notCosted} stored is enough).
+ const flipped=packageSchema.parse({...p,packageCosts:{...p.packageCosts,magneticBoard:{...p.packageCosts.magneticBoard,notCosted:false},teachersFurniture:{notCosted:true}}});
+ assert.deepEqual(flipped.packageCosts.teachersFurniture,{cost:0,strategy:'Request for quotation',duration:'',notCosted:true},'a Not costed choice alone parses');
+ const r2=calculateInfrastructure(flipped,facts);assert.equal(r2.items.find(i=>i.key==='magneticBoard').total,200*mb.quantity);assert.equal(r2.items.find(i=>i.key==='teachersFurniture').total,0);
+ assert.equal(packageProblem(flipped,facts),null);
+ // A Costed item without a cost or duration still blocks saving.
+ assert.equal(packageProblem(packageSchema.parse({...p,packageCosts:{...p.packageCosts,magneticBoard:{notCosted:false}}}),facts),'Enter a cost and duration for each Costed item, or mark it Not costed');
+ // Results saved with a provision note still read as not costed.
+ assert.ok(isNotCostedItem({provision:'Provision · included in the solar borehole cost'}));assert.equal(itemOperation({key:'handwashing',operation:'Provision',provision:'Provision · x'}),'Provision · x');
 }
-console.log('PASS: strict strategies, model-driven New Construction lists (Primary/JSS, no block of 3), land and fence rules, HOPE VAT, enrolment formulas with rounding, editable Additional, per-row photos, block grouping with ECCDE and toilets, provisions, older packages and furniture.');
+console.log('PASS: strict strategies, model-driven New Construction lists (Primary/JSS, no block of 3), land and fence rules, HOPE VAT, enrolment formulas with rounding, editable Additional, per-row photos, block grouping with ECCDE and toilets, block items costed per block, Costed / Not costed, older packages and furniture.');
