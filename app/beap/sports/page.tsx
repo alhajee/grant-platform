@@ -99,6 +99,9 @@ export default function SportsPage() {
   const draftMinor = Number.isSafeInteger(draftQuantity) && draftQuantity >= 0 && draftQuantity <= 1000000 && draftUnitCost >= 0 && draftUnitCost <= maxUnitCost ? sportsLineMinor({ unitCost: draftUnitCost, quantity: draftQuantity }) : BigInt(0);
   const savedDraft = budget.id ? savedLines.find((line) => line.id === budget.id) : undefined;
   const beforeMinor = savedDraft && savedDraft.section === budget.section && savedDraft.activityType === budget.activityType.trim() ? savedDraft.minor : BigInt(0);
+  // V2 UBEC07: what the chosen Debate programme component would come to with this draft (for its range guide).
+  const draftType = budget.activityType.trim();
+  const debateSubUsed = savedLines.filter((line) => line.section === "debate" && line.activityType === draftType && line.id !== budget.id).reduce((sum, line) => sum + line.minor, BigInt(0)) + (budget.section === "debate" ? draftMinor : BigInt(0));
   const budgetProblem = view === "budget" && draftMinor > beforeMinor ? sportsCapProblem([...savedLines.filter((line) => line.id !== budget.id), { section: budget.section, minor: draftMinor, activityType: budget.activityType.trim() }], envelopeMinor, budget.section, budget.activityType.trim(), debate) : null;
   // Timeline: a new line starts with all of the plan's quarters (migration 050).
   const availableQuarters = actionPlan ? planQuarters(actionPlan) : [];
@@ -313,7 +316,7 @@ export default function SportsPage() {
       {loadError && <Alert variant="destructive"><AlertTitle>Unable to refresh the plan</AlertTitle><AlertDescription>{loadError}<Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); void initialize(); }}>Try again</Button></AlertDescription></Alert>}
       {openRejection && <UbecRejectionAlert rejection={openRejection} fields={flaggedFields(ubec.threads, "sports", openRejection.rowRef, sportsFieldOf)} />}
       <form id="sports-form" onSubmit={save} noValidate><fieldset className="project-fields" disabled={disabled}>
-        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { if (next.section !== budget.section || next.activityType !== budget.activityType) panel.follow(); setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} implementationYear={actionPlan?.implementationYear} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
+        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { if (next.section !== budget.section || next.activityType !== budget.activityType) panel.follow(); setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} implementationYear={actionPlan?.implementationYear} debate={debate} debateSubUsed={debateSubUsed} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
       </fieldset></form>
       {view === "allocation" && !hasEquipment && !loading && !loadError && <div className="sports-empty-action"><Button variant="outline" onClick={() => changeView("budget")}>Go to budget</Button></div>}
     </div></ScrollArea>

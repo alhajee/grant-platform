@@ -65,6 +65,8 @@ export function allocationUseProblem(pillar: ImplementedPillar, snapshot: Snapsh
     const debate = debateMinor(plan);
     for (const { section, proposed, cap } of sportsSectionBudgets(lines, whole, debate)) {
       if (cap != null && shortOf(proposed, cap)) return short(`‘${section.label}’`, cap, proposed);
+      // V2 UBEC07: Debate's programme components have ranges, not shares to use in full; only the Debate amount is.
+      if (section.id === 'debate') continue;
       for (const sub of (sportsSubActivities as Record<string, readonly { name: string; share?: number }[]>)[section.id] ?? []) {
         const budget = sub.share ? subActivityBudget(lines, whole, section.id, sub.name, debate) : null;
         if (budget && shortOf(budget.proposed, budget.cap)) return short(`‘${sub.name}’`, budget.cap, budget.proposed);

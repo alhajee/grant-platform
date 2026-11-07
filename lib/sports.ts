@@ -5,7 +5,7 @@ import { lineQuartersSchema } from "./line-quarters.ts";
 import { lineDatesShape } from "./line-dates.ts";
 import { formatMinor, nairaFormat } from "./money-format.ts";
 import { targetGroupField } from "./target-groups.ts";
-import { hasMoneyDecimals, lineMinor, lineTotalIsSafe, maxUnitCost, minorToNaira, moneyDecimalsMessage, shareToKobo } from "./money.ts";
+import { MONEY_SCALE, hasMoneyDecimals, lineMinor, lineTotalIsSafe, maxUnitCost, minorToNaira, moneyDecimalsMessage, shareToKobo } from "./money.ts";
 
 // The four UBEC sports budget sections (QA UBEC18) with their share of the sports
 // allocation. Each share is a cap: a section's lines may not exceed share × the sports envelope.
@@ -15,11 +15,27 @@ export const sportsSections = [
   { id: "publicity", label: "Publicity & Administration", shortLabel: "Publicity & admin", share: 5, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose an activity…" },
   { id: "supervision", label: "Supervision, Assessment and Verification", shortLabel: "Supervision", share: 5, typeLabel: "Sub-activity", itemLabel: "Activity / item description", placeholder: "Choose a sub-activity…" },
   // UBEC167 (migration 084): no share; its cap is the amount the SUBEB set aside for Debate (`debateAllocation`).
-  { id: "debate", label: "Debate", shortLabel: "Debate", share: 0, typeLabel: "Activity", itemLabel: "Activity / item description", placeholder: "" },
+  { id: "debate", label: "Debate", shortLabel: "Debate", share: 0, typeLabel: "Programme component", itemLabel: "Activity / item description", placeholder: "Choose a programme component…" },
 ] as const;
 
-/** UBEC167: Debate lines all carry this activity type; the section's cap is the plan's Debate amount. */
+/**
+ * UBEC167: Debate lines saved before V2 UBEC07 carry this activity type (it stays valid on them); the section's cap is the
+ * plan's Debate amount.
+ */
 export const debateActivity = "Debate";
+/**
+ * V2 UBEC07 (bug sheet 18, Debate Items Breakdown): every new Debate line chooses one of these programme components. Shares
+ * are of the Debate amount: `max` caps it (save and send), `min` must be reached at send while the Debate amount is above ₦0,
+ * `recommended` is a guide. Full use needs the Debate amount used in full, not each recommended share.
+ */
+export const debateSubActivities = [
+  { name: "BESLP Resources and Materials", min: 25, recommended: 30, max: 35 },
+  { name: "Literary Competitions", min: 35, recommended: 40, max: 45 },
+  { name: "Capacity Building", min: 15, recommended: 20, max: 25 },
+  { name: "Verification, Assessment, Reporting and Administration", min: 5, recommended: 10, max: 10 },
+] as const;
+export type DebateSubActivity = typeof debateSubActivities[number];
+export const findDebateSubActivity = (name: string | undefined) => debateSubActivities.find((item) => item.name === name?.trim());
 export const debateNotSet = "Set how much of the Sports allocation goes to Debate first (₦0 if none)";
 /** The plan's Debate amount in minor units, or null until set. */
 export const debateMinor = (plan: { debateAllocation?: string | null } | null | undefined) => plan?.debateAllocation == null ? null : toMinor(plan.debateAllocation);
@@ -39,12 +55,17 @@ export const sportsCatalog: readonly SportCatalogEntry[] = [
   { name: "Gymnastics", items: ["Gymnastic mats", "Balance beam", "Vaulting box", "Ribbons/hoops"] },
   { name: "Board Games", items: ["Chess sets", "Ludo sets", "Draughts/Checkers sets", "Scrabble sets"] },
 ];
-/** Sub-activities per section. `share` is a cap: the sub-activity's % of its section's cap (competitions only). */
-export const sportsSubActivities: Record<"competitions" | "publicity" | "supervision", readonly { name: string; share?: number }[]> = {
+/**
+ * Sub-activities per section. `share` is a cap: the sub-activity's % of its section's cap (competitions; Debate: its maximum
+ * share of the Debate amount, with `min` and `recommended` from debateSubActivities).
+ */
+export type SportsSubActivity = { name: string; share?: number; min?: number; recommended?: number };
+export const sportsSubActivities: Record<"competitions" | "publicity" | "supervision" | "debate", readonly SportsSubActivity[]> = {
   competitions: [{ name: "Inter School Competition", share: 5 }, { name: "Inter Local Government Competition", share: 10 }, { name: "State Finals Competition", share: 40 }, { name: "Geo-Political (Zonal) Finals", share: 25 }, { name: "National Finals", share: 10 }, { name: "Other Competitions", share: 10 }],
   publicity: [{ name: "Sensitization of Key Stakeholders" }, { name: "Electronic Media" }, { name: "Print Media" }, { name: "Social Media" }, { name: "Others" }],
   // UBEC166: chosen before the activity / item description. No shares.
   supervision: [{ name: "Supervision" }, { name: "Assessment" }, { name: "Verification" }],
+  debate: debateSubActivities.map(({ name, min, recommended, max }) => ({ name, share: max, min, recommended })),
 };
 /** The "Other Competitions" and "Others" sub-activities: the description names the activity. */
 export const isOtherSubActivity = (name: string) => /^others?\b/i.test(name.trim());
@@ -72,7 +93,7 @@ export function sportsCatalogError(line: { section: SportsSection; activityType:
     if (!used.some((sport) => key(sport) === key(line.activityType)) && used.length >= maxEquipmentSports) return { field: "activityType", message: `You can select up to ${maxEquipmentSports} sports (${used.join(", ")}). Add items to one of these sports instead.` };
     return null;
   }
-  if (line.section === "competitions" || line.section === "publicity" || line.section === "supervision") {
+  if (line.section === "competitions" || line.section === "publicity" || line.section === "supervision" || line.section === "debate") {
     if (line.section === "supervision" && line.activityType.trim() === supervisionActivity) return null;
     if (!sportsSubActivities[line.section].some((item) => item.name === line.activityType.trim())) return { field: "activityType", message: "Choose a sub-activity from the list" };
   }
@@ -111,7 +132,7 @@ export const sportsLineSchema = z.object({
   ...lineDatesShape,
 }).refine((line) => lineTotalIsSafe(line.unitCost, line.quantity), { path: ["unitCost"], message: "This line total is too large" })
   // Supervision lines keep the sub-activity chosen (UBEC166); one not on the list takes the section name, as before.
-  .transform((line) => line.section === "supervision" && !sportsSubActivities.supervision.some((item) => item.name === line.activityType) ? { ...line, activityType: supervisionActivity } : line.section === "debate" ? { ...line, activityType: debateActivity } : line);
+  .transform((line) => line.section === "supervision" && !sportsSubActivities.supervision.some((item) => item.name === line.activityType) ? { ...line, activityType: supervisionActivity } : line);
 
 const coordinate = (limit: number) => z.string().trim().max(30).default("").refine((value) => value === "" || (/^-?\d+(\.\d+)?$/.test(value) && Math.abs(Number(value)) <= limit), `Enter a coordinate between -${limit} and ${limit}.`);
 export const sportsAllocationSchema = z.object({
@@ -148,7 +169,7 @@ export const sportsSectionCapMinor = (envelope: bigint, share: number) => shareT
 export type SportsBudgetLine = { section: string; minor: bigint; activityType?: string };
 /** A sub-activity's share of its section's cap, or null when it has none (publicity, equipment, supervision). */
 export function subActivityShare(section: string, activityType: string | undefined): number | null {
-  const list = (sportsSubActivities as Record<string, readonly { name: string; share?: number }[]>)[section];
+  const list = (sportsSubActivities as Record<string, readonly SportsSubActivity[]>)[section];
   return list?.find((item) => item.name === activityType)?.share ?? null;
 }
 /** A sub-activity's cap: its share of the section's cap, rounded to the kobo. */
@@ -157,7 +178,10 @@ export const subActivityCapMinor = (sectionCap: bigint, share: number) => sports
 export function subActivityBudget(lines: readonly SportsBudgetLine[], envelope: bigint | null, section: string, activityType: string | undefined, debate: bigint | null = null) {
   const share = subActivityShare(section, activityType), sectionShare = sportsSections.find((item) => item.id === section)?.share;
   if (share == null || sectionShare == null || envelope == null) return null;
-  const cap = subActivityCapMinor(sportsSectionCapMinor(sharedSportsMinor(envelope, debate), sectionShare), share);
+  // V2 UBEC07: a Debate sub-activity's share is of the Debate amount (none until it is set).
+  const sectionCap = section === "debate" ? debate : sportsSectionCapMinor(sharedSportsMinor(envelope, debate), sectionShare);
+  if (sectionCap == null) return null;
+  const cap = subActivityCapMinor(sectionCap, share);
   const proposed = lines.filter((line) => line.section === section && line.activityType === activityType).reduce((sum, line) => sum + line.minor, BigInt(0));
   return { share, cap, proposed };
 }
@@ -192,6 +216,12 @@ export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: b
     if (section.id === "debate") {
       if (debate == null && proposed > BigInt(0)) return debateNotSet;
       if (cap != null && proposed > cap) return `Debate can use up to ${formatMinor(cap)} (the amount set aside for Debate). ${pending ? "With this item it would come to" : "Its items come to"} ${formatMinor(proposed)}, which is ${formatMinor(proposed - cap)} over.${pending ? "" : " Reduce them to continue."}`;
+      // V2 UBEC07: each programme component may use at most its maximum share of the Debate amount.
+      const debateActivities = only ? [onlyActivity] : [...new Set(lines.filter((line) => line.section === "debate").map((line) => line.activityType))];
+      for (const activity of debateActivities) {
+        const budget = subActivityBudget(lines, envelope, "debate", activity, debate);
+        if (budget && budget.proposed > budget.cap) return `‘${activity}’ can use up to ${formatMinor(budget.cap)} (${budget.share}% of the Debate amount). ${pending ? "With this item it would come to" : "Its items come to"} ${formatMinor(budget.proposed)}, which is ${formatMinor(budget.proposed - budget.cap)} over.${pending ? "" : " Reduce them to continue."}`;
+      }
       continue;
     }
     if (cap != null && proposed > cap) return `‘${section.label}’ can use up to ${formatMinor(cap)} (${section.share}% of the Sports allocation). ${pending ? "With this item it would come to" : "Its items come to"} ${formatMinor(proposed)}, which is ${formatMinor(proposed - cap)} over.${pending ? "" : " Reduce them to continue."}`;
@@ -204,13 +234,36 @@ export function sportsCapProblem(lines: readonly SportsBudgetLine[], envelope: b
   }
   return null;
 }
+/** V2 UBEC07: a Debate programme component's minimum, recommended and maximum share of the Debate amount, to the kobo. */
+export function debateSubActivityRange(debate: bigint, item: DebateSubActivity): { min: bigint; recommended: bigint; max: bigint } {
+  return { min: sportsSectionCapMinor(debate, item.min), recommended: sportsSectionCapMinor(debate, item.recommended), max: sportsSectionCapMinor(debate, item.max) };
+}
+/**
+ * V2 UBEC07: at send, each Debate programme component reaches its minimum share of the Debate amount (a shortfall under ₦1
+ * is allowed, as for full use, UBEC172). Not checked while the Debate amount is unset or ₦0, nor for plans whose Debate lines
+ * all predate the programme components (activity type "Debate"); once any line uses one, earlier "Debate" lines count towards
+ * the Debate amount but towards no component.
+ */
+export function debateMinimumProblem(lines: readonly SportsBudgetLine[], debate: bigint | null): string | null {
+  if (debate == null || debate <= BigInt(0)) return null;
+  const debateLines = lines.filter((line) => line.section === "debate");
+  if (!debateLines.some((line) => findDebateSubActivity(line.activityType))) return null;
+  for (const item of debateSubActivities) {
+    const { min } = debateSubActivityRange(debate, item);
+    const used = debateLines.filter((line) => line.activityType?.trim() === item.name).reduce((sum, line) => sum + line.minor, BigInt(0));
+    if (min - used >= MONEY_SCALE) return `‘${item.name}’ needs at least ${formatMinor(min)} (${item.min}% of the Debate amount) before sending. Its items come to ${formatMinor(used)}, so ${formatMinor(min - used)} more is needed`;
+  }
+  return null;
+}
 /**
  * sportsBudgetProblem for snapshot lines (unit_cost strings), used by every send step. UBEC167: the Debate amount must be
  * answered first (₦0 if none); snapshots taken before migration 084 have no `debateAllocation` field and are not asked.
  */
 type SnapshotSportsLine = { section: string; unit_cost: string | number; quantity: number; activity_type?: string; description?: string; allocations?: readonly { quantity: number }[] };
+const snapshotBudgetLines = (lines: readonly SnapshotSportsLine[] | undefined): SportsBudgetLine[] => (lines ?? []).map((line) => ({ section: line.section, minor: sportsLineMinor(line), activityType: line.activity_type }));
 export const sportsSnapshotProblem = (lines: readonly SnapshotSportsLine[] | undefined, plan: EnvelopePlan | null | undefined) =>
-  !plan ? null : "debateAllocation" in plan && plan.debateAllocation == null ? `${debateNotSet}, then send Sports, Quiz & Debate` : sportsBudgetProblem((lines ?? []).map((line) => ({ section: line.section, minor: sportsLineMinor(line), activityType: line.activity_type })), plan)
+  !plan ? null : "debateAllocation" in plan && plan.debateAllocation == null ? `${debateNotSet}, then send Sports, Quiz & Debate` : sportsBudgetProblem(snapshotBudgetLines(lines), plan)
+    ?? debateMinimumProblem(snapshotBudgetLines(lines), debateMinor(plan))
     ?? sportsAllocationProblem((lines ?? []).flatMap((line) => line.allocations ? [{ section: line.section, activityType: line.activity_type ?? "", description: line.description ?? "", quantity: Number(line.quantity), allocated: line.allocations.reduce((sum, a) => sum + Number(a.quantity), 0) }] : []));
 
 /** An equipment item (procurement, not PHE training) with the quantity given to beneficiary schools so far. */

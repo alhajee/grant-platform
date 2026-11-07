@@ -16,7 +16,10 @@ import { LineDatesField } from "@/components/line-dates";
 import { keepDatesInWindow } from "@/lib/line-dates";
 import { QuarterTimeline } from "@/components/quarter-timeline";
 import { TargetGroupPicker } from "@/components/target-group-picker";
-import { debateActivity, equipmentSports, findSport, isOtherSubActivity, isPheTraining, pheTrainingActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
+import "./activity-plan-editor.css";
+import { Progress } from "@/components/ui/progress";
+import { formatMinor } from "@/lib/money-format";
+import { debateSubActivityRange, equipmentSports, findDebateSubActivity, findSport, isOtherSubActivity, isPheTraining, pheTrainingActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
 export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; targetGroup: string; quantity: string; unitCost: string; quarters: number[]; startDate: string | null; dueDate: string | null };
 export type AllocationDraft = { id?: number; schoolId: number | null; lineId: number | null; quantity: string; longitude: string; latitude: string };
@@ -50,12 +53,32 @@ function PickOrOther({ id, options, value, onChange, allowOther, isDisabled, pla
   </>;
 }
 
-export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, planQuarters, implementationYear }: {
+/**
+ * V2 UBEC07: the chosen Debate programme component's range of the Debate amount, in the activity editors' cap card style:
+ * the recommended share, the allowed range and what its items come to with this draft (red over the maximum).
+ */
+function DebateRangeGuide({ name, debate, used }: { name: string; debate: bigint | null | undefined; used: bigint }) {
+  const item = findDebateSubActivity(name);
+  if (!item) return null;
+  if (debate == null) return <FieldDescription>Recommended {item.recommended}%, allowed {item.min}–{item.max}% of the Debate amount once it is set</FieldDescription>;
+  const range = debateSubActivityRange(debate, item), over = used > range.max, under = used < range.min;
+  const percent = range.max > BigInt(0) ? Math.min(100, Number(used * BigInt(10000) / range.max) / 100) : 0;
+  return <div className="activity-cap-card" data-over={over || undefined} aria-live="polite">
+    <div><span>Recommended {item.recommended}% · <strong>{formatMinor(range.recommended)}</strong></span><span>Allowed {item.min}–{item.max}% · {formatMinor(range.min)}–{formatMinor(range.max)}</span></div>
+    <Progress value={percent} aria-label="Share of the allowed maximum used" />
+    <div><span>{formatMinor(used)} used</span><strong>{over ? `${formatMinor(used - range.max)} over` : under ? `${formatMinor(range.min - used)} below the minimum` : `${formatMinor(range.max - used)} left`}</strong></div>
+  </div>;
+}
+
+export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, planQuarters, implementationYear, debate, debateSubUsed = BigInt(0) }: {
   draft: BudgetDraft; onChange: (value: BudgetDraft) => void; plan: SportsPlan; errors: FormErrors; disabled: boolean;
   /** The action plan's quarters: the only ones the timeline may use. */
   planQuarters: readonly number[];
   /** The plan's implementation year: the start and due dates fall in it, within the timeline. */
   implementationYear?: number | null;
+  /** V2 UBEC07: the plan's Debate amount (minor units, null until set) and what the chosen programme component comes to with this draft. */
+  debate?: bigint | null;
+  debateSubUsed?: bigint;
 }) {
   const section = sportsSections.find((item) => item.id === draft.section)!;
   const allocated = draft.id ? plan.allocations.filter((allocation) => allocation.lineId === draft.id).reduce((sum, allocation) => sum + allocation.quantity, 0) : 0;
@@ -66,14 +89,14 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
   const sportNames = [...new Set([...usedSports, ...sportsCatalog.map((sport) => sport.name)].map((name) => findSport(name)?.name ?? name))];
   const sport = findSport(draft.activityType);
   const sportItems = [...new Set([...(sport?.items ?? []), ...plan.lines.filter((line) => line.section === "equipment" && line.activityType.trim().toLowerCase() === draft.activityType.trim().toLowerCase()).map((line) => line.description)])];
-  const subActivities = draft.section === "competitions" || draft.section === "publicity" || draft.section === "supervision" ? sportsSubActivities[draft.section] : [];
+  const subActivities = draft.section === "competitions" || draft.section === "publicity" || draft.section === "supervision" || draft.section === "debate" ? sportsSubActivities[draft.section] : [];
   const legacyType = subActivities.length && draft.activityType && !subActivities.some((item) => item.name === draft.activityType) ? draft.activityType : "";
   const total = sportsLineTotal({ quantity: Number(draft.quantity) || 0, unitCost: Number(draft.unitCost) || 0 });
   const setText = (field: "activityType" | "description") => (value: string) => onChange({ ...draft, [field]: value });
   return <FieldGroup className="gap-6">
     <Field data-disabled={locked}>
       <FieldLabel htmlFor="sports-section">Budget section</FieldLabel>
-      <SportsSectionSelect id="sports-section" value={draft.section} disabled={locked} onValueChange={(value) => onChange({ ...draft, section: value, activityType: value === "debate" ? debateActivity : "", description: "" })} />
+      <SportsSectionSelect id="sports-section" value={draft.section} disabled={locked} onValueChange={(value) => onChange({ ...draft, section: value, activityType: "", description: "" })} />
     </Field>
     {draft.section === "equipment" && <Field data-disabled={locked}>
       <FieldLabel id="sports-kind-label">Type of item</FieldLabel>
@@ -96,10 +119,12 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
         <SelectTrigger id="sports-type" className="w-full" aria-invalid={Boolean(errors.activityType)} aria-describedby={errors.activityType ? "sports-type-error" : undefined}><SelectValue placeholder={section.placeholder}>{draft.activityType}</SelectValue></SelectTrigger>
         <SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width)"><SelectGroup>
           {legacyType && <SelectItem value={legacyType}>{legacyType}</SelectItem>}
-          {subActivities.map((item) => <SelectItem key={item.name} value={item.name} textValue={item.name}>{item.name}{item.share !== undefined && <span className="ml-auto text-muted-foreground tabular-nums">{item.share}%</span>}</SelectItem>)}
+          {subActivities.map((item) => <SelectItem key={item.name} value={item.name} textValue={item.name}>{item.name}{item.share !== undefined && <span className="ml-auto text-muted-foreground tabular-nums">{item.min !== undefined ? `${item.min}–${item.share}%` : `${item.share}%`}</span>}</SelectItem>)}
         </SelectGroup></SelectContent>
       </Select>
       {draft.section === "competitions" && <FieldDescription>{section.label} may use up to {section.share}% of the sports budget. Each sub-activity may use up to the share beside it of that amount.</FieldDescription>}
+      {draft.section === "debate" && <FieldDescription>Each programme component uses a share of the Debate amount within its allowed range. The recommended share is a guide</FieldDescription>}
+      {draft.section === "debate" && <DebateRangeGuide name={draft.activityType} debate={debate} used={debateSubUsed} />}
       {isOtherSubActivity(draft.activityType) && <FieldDescription>For an activity that is not in the list. Name it in the description below.</FieldDescription>}
       {errors.activityType && <FieldError id="sports-type-error">{errors.activityType}</FieldError>}
     </Field>}

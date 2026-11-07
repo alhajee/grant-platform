@@ -41,6 +41,19 @@ try {
   const fundedPlan = { stateLodgment: "100000000", otherFunding: "0", fundingSources: [], debateAllocation: "0" };
   assert.match(sportsSnapshotProblem([snapshotLine([{ quantity: 3 }])], fundedPlan), /Allocate every equipment item/);
   assert.equal(sportsSnapshotProblem([snapshotLine([{ quantity: 3 }, { quantity: 7 }])], fundedPlan), null);
+  // V2 UBEC07: Debate programme components, of the Debate amount (₦1,000 here): at most 35/45/25/10%, at least 25/35/15/5% at send.
+  const debateRow = (activity_type, naira) => ({ section: "debate", activity_type, description: "Debate", quantity: 1, unit_cost: String(naira) });
+  const debatePlan = { ...fundedPlan, debateAllocation: "1000.00" };
+  const fullDebate = [debateRow("BESLP Resources and Materials", 300), debateRow("Literary Competitions", 400), debateRow("Capacity Building", 200), debateRow("Verification, Assessment, Reporting and Administration", 100)];
+  assert.equal(sportsSnapshotProblem(fullDebate, debatePlan), null, "The recommended shares pass");
+  assert.equal(sportsSnapshotProblem([debateRow("BESLP Resources and Materials", 250), debateRow("Literary Competitions", 450), debateRow("Capacity Building", 250), debateRow("Verification, Assessment, Reporting and Administration", 50)], debatePlan), null, "Any mix within the ranges passes");
+  assert.equal(sportsSnapshotProblem([debateRow("BESLP Resources and Materials", 200), ...fullDebate.slice(1)], debatePlan), "‘BESLP Resources and Materials’ needs at least ₦250.0000 (25% of the Debate amount) before sending. Its items come to ₦200.0000, so ₦50.0000 more is needed");
+  assert.equal(sportsSnapshotProblem([debateRow("BESLP Resources and Materials", 249.01), ...fullDebate.slice(1)], debatePlan), null, "A shortfall under ₦1 passes (UBEC172)");
+  assert.equal(sportsSnapshotProblem([debateRow("BESLP Resources and Materials", 299), ...fullDebate.slice(1, 3), debateRow("Verification, Assessment, Reporting and Administration", 100.01)], debatePlan), "‘Verification, Assessment, Reporting and Administration’ can use up to ₦100.0000 (10% of the Debate amount). Its items come to ₦100.0100, which is ₦0.0100 over. Reduce them to continue.");
+  assert.equal(sportsSnapshotProblem([debateRow("Debate", 1000)], debatePlan), null, "Plans whose Debate lines all predate the components are not checked");
+  assert.match(sportsSnapshotProblem([debateRow("Debate", 700), debateRow("BESLP Resources and Materials", 300)], debatePlan), /‘Literary Competitions’ needs at least ₦350\.0000/, "Once one line uses a component, earlier lines count towards none");
+  assert.equal(sportsSnapshotProblem([], { ...fundedPlan, debateAllocation: "0.00" }), null, "No minimums when Debate is ₦0");
+  assert.equal(sportsLineSchema.parse({ ...budget, section: "debate", activityType: "Capacity Building" }).activityType, "Capacity Building", "Debate lines keep the component chosen");
   assert.equal(sportsAllocationSchema.safeParse({ ...allocate, lineId: 1, schoolId: 1, longitude: "181" }).success, false);
   assert.equal(sportsAllocationSchema.safeParse({ ...allocate, lineId: 1, schoolId: 1, latitude: "-91" }).success, false);
   const original = (await db.query("SELECT id, row_to_json(line)::text AS snapshot FROM infrastructure_lines line ORDER BY id")).rows;
@@ -150,7 +163,7 @@ try {
   assert.ok(envelopeKobo > 0, "The plan funding gives Sports an envelope.");
   const naira = (kobo) => kobo / 100;
   // UBEC167: the Debate amount comes out of the Sports allocation (₦0 allowed); Debate lines wait for it and use at most it.
-  const debateLine = { ...budget, section: "debate", activityType: "Debate", description: "Inter-school debate", quantity: 1 };
+  const debateLine = { ...budget, section: "debate", activityType: "BESLP Resources and Materials", description: "Debate kits", quantity: 1 };
   const early = await api({ ...debateLine, unitCost: 10 });
   assert.equal(early.status, 409); assert.match(early.body.error, /goes to Debate first/);
   assert.equal((await api({ entity: "debate", action: "update", amount: String(naira(envelopeKobo + 1)) })).status, 400, "Debate cannot exceed the Sports allocation.");
@@ -158,11 +171,27 @@ try {
   const debateKobo = Math.round(envelopeKobo / 10);
   assert.equal((await api({ entity: "debate", action: "update", amount: naira(debateKobo).toFixed(2) })).status, 200, "10% of Sports to Debate.");
   assert.equal((await api()).body.plan.debateAllocation, naira(debateKobo).toFixed(2));
-  const overDebate = await api({ ...debateLine, unitCost: naira(debateKobo + 1) });
+  // V2 UBEC07: every new Debate line chooses a programme component, each capped at its maximum share of the Debate amount.
+  const unlisted = await api({ ...debateLine, activityType: "anything", unitCost: 1 });
+  assert.equal(unlisted.status, 400); assert.equal(unlisted.body.error, "Choose a sub-activity from the list");
+  assert.equal((await api({ ...debateLine, activityType: "Debate", unitCost: 1 })).status, 400, "New lines may not use the earlier Debate type.");
+  const share = (percent) => Math.round(debateKobo * percent / 100);
+  const overLiterary = await api({ ...debateLine, activityType: "Literary Competitions", unitCost: naira(share(45) + 1) });
+  assert.equal(overLiterary.status, 409); assert.match(overLiterary.body.error, /‘Literary Competitions’ can use up to ₦[\d,.]+ \(45% of the Debate amount\)\. With this item it would come to/);
+  // An earlier line (activity type "Debate", saved before V2 UBEC07) still reads and can be edited without choosing a component.
+  const legacy = (await db.query("INSERT INTO sports_budget_lines (state_code, section, activity_type, description, quantity, unit_cost, plan_id) SELECT $1, 'debate', 'Debate', 'Earlier debate', 1, 1, id FROM action_plans WHERE state_code = $1 RETURNING id", [marker])).rows[0].id;
+  assert.equal((await api()).body.lines.find((line) => line.id === legacy).activityType, "Debate");
+  assert.equal((await api({ ...debateLine, action: "update", id: legacy, activityType: "Debate", description: "Earlier debate", unitCost: 0.5 })).status, 200, "An earlier Debate line keeps its type when edited.");
+  const debateIds = [legacy];
+  for (const [activityType, percent] of [["BESLP Resources and Materials", 30], ["Literary Competitions", 40], ["Capacity Building", 20]]) {
+    const saved = await api({ ...debateLine, activityType, unitCost: naira(share(percent)) });
+    assert.equal(saved.status, 201, JSON.stringify(saved.body)); debateIds.push(saved.body.id);
+  }
+  const verification = await api({ ...debateLine, activityType: "Verification, Assessment, Reporting and Administration", unitCost: naira(debateKobo - share(30) - share(40) - share(20)) - 0.5 });
+  assert.equal(verification.status, 201, JSON.stringify(verification.body)); debateIds.push(verification.body.id);
+  assert.equal((await api()).body.lines.find((line) => line.id === verification.body.id).activityType, "Verification, Assessment, Reporting and Administration");
+  const overDebate = await api({ ...debateLine, activityType: "Capacity Building", unitCost: 1 });
   assert.equal(overDebate.status, 409); assert.match(overDebate.body.error, /Debate can use up to/);
-  const debateSaved = await api({ ...debateLine, activityType: "anything", unitCost: naira(debateKobo) });
-  assert.equal(debateSaved.status, 201, JSON.stringify(debateSaved.body));
-  assert.equal((await api()).body.lines.find((line) => line.id === debateSaved.body.id).activityType, "Debate", "Debate lines carry the Debate activity.");
   const below = await api({ entity: "debate", action: "update", amount: "1.00" });
   assert.equal(below.status, 409, "The Debate amount cannot go below its items."); assert.match(below.body.error, /Debate items already come to/);
   // The other sections' shares apply to the rest of the Sports allocation.
@@ -199,9 +228,15 @@ try {
   const send = await api({ action: "submit", pillar: "sports", version: reviewView.body.plan.version }, true, "/api/plans/review");
   assert.equal(send.status, 409, `Sending an over-budget Sports component must be refused: ${JSON.stringify(send.body)}`);
   assert.match(send.body.error, /exceeded the Sports allocation/);
-  for (const id of [atCap.body.id, finalsLine.body.id, debateSaved.body.id]) assert.equal((await api({ entity: "budget", action: "delete", id })).status, 200);
-  // UBEC224: within budget, an equipment item not given out in full to beneficiary schools still cannot be sent.
+  for (const id of [atCap.body.id, finalsLine.body.id]) assert.equal((await api({ entity: "budget", action: "delete", id })).status, 200);
   await db.query("UPDATE action_plans SET state_lodgment = 500000 WHERE state_code = $1", [marker]);
+  // V2 UBEC07: at send, each Debate programme component reaches its minimum share (Capacity Building 15%); lowering is allowed on save.
+  assert.equal((await api({ ...debateLine, action: "update", id: debateIds[3], activityType: "Capacity Building", unitCost: naira(share(15) - 200) })).status, 200, "Lowering a component below its minimum saves.");
+  const shortDebate = await api({ action: "submit", pillar: "sports", version: (await api(undefined, true, "/api/plans/review")).body.plan.version }, true, "/api/plans/review");
+  assert.equal(shortDebate.status, 409, JSON.stringify(shortDebate.body));
+  assert.match(shortDebate.body.error, /‘Capacity Building’ needs at least ₦[\d,.]+ \(15% of the Debate amount\) before sending\. Its items come to ₦[\d,.]+, so ₦2\.0000 more is needed/);
+  for (const id of debateIds) assert.equal((await api({ entity: "budget", action: "delete", id })).status, 200);
+  // UBEC224: within budget, an equipment item not given out in full to beneficiary schools still cannot be sent.
   const open = await api({ ...budget, description: "Goal nets", quantity: 5, unitCost: 1 });
   assert.equal(open.status, 201, JSON.stringify(open.body));
   const sendOpen = async () => api({ action: "submit", pillar: "sports", version: (await api(undefined, true, "/api/plans/review")).body.plan.version }, true, "/api/plans/review");
@@ -210,7 +245,7 @@ try {
   assert.equal((await api({ ...allocate, lineId: open.body.id, schoolId: schools[1].id, quantity: 2 })).status, 201);
   refused = await sendOpen();
   assert.equal(refused.status, 409); assert.match(refused.body.error, /“Goal nets” \(2 of 5 allocated\)/);
-  console.log("PASS: target groups (UBEC219), codes from 001 per plan without quarters (UBEC233), unallocated equipment refused at send (UBEC224), four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, sports envelope, section and competition sub-activity caps (save and send; lowering allowed), concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
+  console.log("PASS: target groups (UBEC219), codes from 001 per plan without quarters (UBEC233), unallocated equipment refused at send (UBEC224), four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, sports envelope, section and competition sub-activity caps (save and send; lowering allowed), Debate programme components (V2 UBEC07: listed, capped at their maximum, minimums at send, earlier Debate lines kept), concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
 } finally {
   await db.query("DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code = ANY($1::text[]))", [[marker, foreignMarker]]);
   await db.query("DELETE FROM sports_budget_lines WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);

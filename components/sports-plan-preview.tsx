@@ -58,7 +58,7 @@ export function SportsBudgetPreview({ plan, disabled, selectedSection, selectedT
     const lines = matching.filter((line) => line.section === item.id), selected = item.id === selectedSection;
     // The sport or sub-activity chosen in the form leads its section.
     const types = [...new Set(lines.map((line) => line.activityType))].sort((a, b) => Number(selected && sameType(b, selectedType)) - Number(selected && sameType(a, selectedType)));
-    return <LineSection key={item.id} title={item.label} note={`Up to ${item.share}% of the sports budget`} count={lines.length} total={sportsBudget(lines)} selected={selected}
+    return <LineSection key={item.id} title={item.label} note={item.id === "debate" ? "The amount set aside for Debate" : `Up to ${item.share}% of the sports budget`} count={lines.length} total={sportsBudget(lines)} selected={selected}
       open={isOpen(item.id) || lines.some((line) => line.id === flashId)} onOpenChange={(open) => toggle(item.id, open)}>
       {item.id === "supervision" ? table(lines, item.itemLabel) : types.map((type) => {
         const typeLines = lines.filter((line) => line.activityType === type);
