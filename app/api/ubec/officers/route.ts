@@ -5,24 +5,24 @@ import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
-import { departments as ubecDepartments, isComponentDepartment, isOversightDepartment, ubecRoles } from '@/lib/ubec';
+import { departments as ubecDepartments, holdsUbecChair, isComponentDepartment, isOversightDepartment, ubecRoles } from '@/lib/ubec';
 import { officerLimitProblem, readOfficerLimits } from '@/lib/ubec-officer-limits';
 import { readActor } from '@/lib/ubec-flow-db';
 import { replaceUserDepartments } from '@/lib/user-departments';
-import { isUbecEmail, ubecEmailError } from '@/lib/officer-title';
-import { nextOfficerRoleTitle } from '@/lib/officer-title-db';
+import { isUbecEmail, maxRoleTitleLength, roleTitleRequiredError, roleTitleSchema, roleTitleTooLongError, ubecEmailError } from '@/lib/officer-title';
 import { deleteUserAccount, deletedMessage } from '@/lib/user-delete';
 import { pruneDefaultOfficers } from '@/lib/ubec-officer-limits';
 
 // Assessment Officers: a UBEC Director or Oversight Director lists and adds officers of their own department; the UBEC
 // BEAP Chair for any department. Oversight departments (migration 071) have no officer limit. New accounts get a one-time password shown once (like Admin > Users). Each department may have
 // at most its officer limit of active officers (migration 056, set by the Super Admin); a full department gets 409.
-// UBEC150: each officer has a role name and a @ubec.gov.ng email. UBEC237: the role name is set automatically, "UBEC Assessment
-// Officer N" (lib/officer-title-db.ts); a roleTitle sent by older clients is ignored. UBEC236: the same people delete officers.
+// UBEC150: each officer has a role name and a @ubec.gov.ng email. UBEC240: the role name is typed by whoever adds the officer
+// (UBEC237's automatic numbers are gone). UBEC236: the same people delete officers. UBEC241: a Director holding the UBEC
+// BEAP Chair duty manages every department's officers like the chair, besides their own.
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
-const create = z.object({ name: z.string().trim().min(2).max(120), roleTitle: z.string().max(200).optional(), email: z.string().trim().toLowerCase().email().max(254), department: z.enum(ubecDepartments.map(d => d.id) as [string, ...string[]]).optional() }).strict();
-const managedDepartments = (user: { role: string; department: string | null }) =>
-  user.role === ubecRoles.chair ? ubecDepartments.map(d => d.id) as string[]
+const create = z.object({ name: z.string().trim().min(2).max(120), roleTitle: roleTitleSchema, email: z.string().trim().toLowerCase().email().max(254), department: z.enum(ubecDepartments.map(d => d.id) as [string, ...string[]]).optional() }).strict();
+const managedDepartments = (user: { role: string; department: string | null; isUbecBeapChair?: boolean; chair?: boolean }) =>
+  holdsUbecChair(user) ? ubecDepartments.map(d => d.id) as string[]
     : (user.role === ubecRoles.director && isComponentDepartment(user.department)) || (user.role === ubecRoles.oversight && isOversightDepartment(user.department)) ? [user.department!] : [];
 
 export async function GET(request: NextRequest) {
@@ -39,13 +39,11 @@ export async function GET(request: NextRequest) {
       (SELECT COUNT(*)::int FROM ubec_officer_assignments oa WHERE oa.officer_id=u.id AND oa.completed_at IS NOT NULL) AS completed
       FROM users u WHERE u.role=$1 AND u.department=ANY($2::text[]) AND u.deleted_at IS NULL ORDER BY u.department, u.display_name`, [ubecRoles.officer, departments])).rows;
     // The UBEC BEAP Chair also sees the Directors and Oversight Directors (UBEC133), with the components waiting on them.
-    const directors = user.role === ubecRoles.chair ? (await db.query(`SELECT u.id, u.full_name AS name, u.email, u.role, u.department, u.active,
+    const directors = holdsUbecChair(user) ? (await db.query(`SELECT u.id, u.full_name AS name, u.email, u.role, u.department, u.active, u.is_ubec_beap_chair AS chair,
       (SELECT COUNT(*)::int FROM ubec_round_components rc JOIN ubec_rounds r ON r.id=rc.round_id WHERE r.status='reviewing'
         AND ((u.role=$1 AND rc.department=u.department AND rc.stage='director') OR (u.role=$2 AND rc.stage='oversight' AND NOT EXISTS(SELECT 1 FROM ubec_oversight_reviews o WHERE o.round_component_id=rc.id AND o.department=u.department)))) AS waiting
       FROM users u WHERE u.role IN ($1,$2) AND u.deleted_at IS NULL ORDER BY u.role, u.department, u.full_name`, [ubecRoles.director, ubecRoles.oversight])).rows : [];
-    // UBEC237: the role name each department's next officer gets (shown read-only in the Add dialog).
-    const nextRoleTitles = Object.fromEntries(await Promise.all(departments.map(async department => [department, await nextOfficerRoleTitle(db, department)] as const)));
-    return json({ officers, departments, limits, directors, nextRoleTitles, user: { name: user.name, role: user.role, department: user.department } });
+    return json({ officers, departments, limits, directors, user: { name: user.name, role: user.role, department: user.department, chair: holdsUbecChair(user) } });
   } catch (cause) { console.error(cause); return json({ error: 'Unable to load Assessment Officers' }, 503); }
 }
 
@@ -54,8 +52,13 @@ export async function POST(request: NextRequest) {
     const session = await getWorkspaceState(request);
     if (!session) return json({ error: 'Sign in to continue' }, 401);
     if (!isSameRequestOrigin(request)) return json({ error: 'This action must come from the portal' }, 403);
-    const parsed = create.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return json({ error: 'Enter a full name, a role name and a valid email address' }, 400);
+    const body: unknown = await request.json().catch(() => null);
+    const parsed = create.safeParse(body);
+    if (!parsed.success) {
+      const typed = typeof (body as { roleTitle?: unknown } | null)?.roleTitle === 'string' ? (body as { roleTitle: string }).roleTitle.trim() : '';
+      if (parsed.error.issues.some(issue => issue.path[0] === 'roleTitle')) return json({ error: typed.length > maxRoleTitleLength ? roleTitleTooLongError : roleTitleRequiredError, field: 'roleTitle' }, 400);
+      return json({ error: 'Enter a full name, a role name and a valid email address' }, 400);
+    }
     if (!isUbecEmail(parsed.data.email)) return json({ error: ubecEmailError, field: 'email' }, 400);
     return await getPostgres().transaction(async db => {
       const actor = await readActor(db, session);
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
       if ((await db.query('SELECT 1 FROM users WHERE email=$1', [parsed.data.email])).rowCount) return json({ error: 'An account already uses this email address' }, 409);
       const full = isComponentDepartment(department) ? await officerLimitProblem(db, department) : null;
       if (full) return json({ error: full }, 409);
-      const password = generatePassword(), roleTitle = await nextOfficerRoleTitle(db, department);
+      const password = generatePassword(), roleTitle = parsed.data.roleTitle;
       const id = (await db.query<{ id: number }>("INSERT INTO users(full_name,role_title,email,password_hash,role,department,state_code,active) VALUES($1,$6,$2,$3,$4,$5,'UBEC',TRUE) RETURNING id", [parsed.data.name, parsed.data.email, hashSync(password, 10), ubecRoles.officer, department, roleTitle])).rows[0].id;
       await replaceUserDepartments(db, id, [department]);
       await db.query('INSERT INTO user_management_events(actor_id,target_id,state_code,action,details) VALUES($1,$2,$3,$4,$5::jsonb)', [actor.id, id, 'UBEC', 'create', JSON.stringify({ role: ubecRoles.officer, roleTitle, departments: [department], active: true })]);

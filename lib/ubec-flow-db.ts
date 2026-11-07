@@ -3,18 +3,19 @@ import { readRatReview } from './rat-review-db';
 import { readCorrections } from './ubec-corrections-db';
 import { implementedPillars, type ImplementedPillar } from './beap-pillars';
 import type { Snapshot } from './plan-review';
-import { activePillars, componentDepartments, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound, oversightList } from './ubec';
+import { activePillars, componentDepartments, holdsUbecChair, ubecChairSql, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound, oversightList } from './ubec';
 import { componentAmount, componentItems, decisionCounts, superAdminRole, type FlowAbilities, type FlowComponent, type ItemDecision, type ObserverAssignment, type OfficerAssignment, type OversightReview, type UbecFlow } from './ubec-flow';
 import { readDefaultOfficers } from './ubec-officer-limits';
 
 // Server-side reads and helpers for the UBEC review flow (docs/ubec-flow.md, migration 055).
 
 export type Db = { query<R extends QueryResultRow = QueryResultRow>(sql: string, values?: unknown[]): Promise<QueryResult<R>> };
-export type UbecViewer = { id: number; role: string; department: string | null };
+/** `chair`: holds the UBEC BEAP Chair duty (the role, or a Director flagged by the Super Admin, UBEC241). */
+export type UbecViewer = { id: number; role: string; department: string | null; chair?: boolean };
 export const openRoundStatuses = ['received', 'reviewing'];
 
 /** The viewer sees every component of every round (read-only for the ES). */
-export const seesEverything = (role: string) => role === ubecRoles.es || role === ubecRoles.chair || role === superAdminRole;
+export const seesEverything = (viewer: { role: string; chair?: boolean }) => viewer.role === ubecRoles.es || holdsUbecChair(viewer) || viewer.role === superAdminRole;
 
 /**
  * SQL condition: the UBEC viewer may see component `pillar` (SQL expression; NULL = any component) of round `r`.
@@ -28,7 +29,9 @@ export function ubecSeesPillarSql(round: string, pillar: string, role: string, u
   const units = componentDepartments.map(d => `'${d.id}'`).join(',');
   const anyUnit = wide ? `
     OR (${role} IN ('${ubecRoles.director}','${ubecRoles.officer}') AND ${department} IN (${units}) AND EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match}))` : '';
-  return `(${role} IN ('${ubecRoles.es}','${ubecRoles.chair}')${anyUnit}
+  // UBEC241: a Director flagged as UBEC BEAP Chair sees everything, like the chair.
+  return `(${role} IN ('${ubecRoles.es}','${ubecRoles.chair}')
+    OR EXISTS(SELECT 1 FROM users cu WHERE cu.id=${userId} AND cu.active AND ${ubecChairSql('cu')})${anyUnit}
     OR (${role}='${ubecRoles.director}' AND (EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match} AND rc.department=${department})
       OR EXISTS(SELECT 1 FROM ubec_assignments la WHERE la.round_id=${round}.id AND (${pillar} IS NULL OR la.pillar=${pillar}) AND la.department=${department})))
     OR (${role}='${ubecRoles.oversight}' AND EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match} AND rc.sent_to_oversight_at IS NOT NULL))
@@ -43,7 +46,7 @@ export async function readViewerRounds(db: Db, planId: number | string, viewer: 
 
 /** Components of `round` the viewer sees (stage-gated). */
 export async function viewerPillars(db: Db, round: UbecRound, viewer: UbecViewer, { wide = true } = {}): Promise<ImplementedPillar[]> {
-  if (seesEverything(viewer.role)) return activePillars(round.snapshot);
+  if (seesEverything(viewer)) return activePillars(round.snapshot);
   const rows = (await db.query<{ pillar: ImplementedPillar }>(`SELECT p.pillar FROM unnest($5::text[]) AS p(pillar), (SELECT $1::int AS id) AS r WHERE ${ubecSeesPillarSql('r', 'p.pillar', '$2::text', '$3::int', '$4::text', { wide })}`, [round.id, viewer.role, viewer.id, viewer.department, implementedPillars])).rows;
   return implementedPillars.filter(pillar => rows.some(row => row.pillar === pillar));
 }
@@ -111,7 +114,7 @@ export const approvableComponents = (components: readonly FlowComponent[]) => co
 
 /** What the viewer may do on this round now (the round must be the plan's latest). */
 export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status'>, latest: boolean, components: readonly FlowComponent[]): FlowAbilities {
-  const reviewing = latest && round.status === 'reviewing', chair = viewer.role === ubecRoles.chair;
+  const reviewing = latest && round.status === 'reviewing', chair = holdsUbecChair(viewer);
   // The Super Admin assigns and removes officers on any component (sendOversight stays with the Director).
   const assigns = (c: FlowComponent) => viewer.role === superAdminRole || (viewer.role === ubecRoles.director && c.department === viewer.department);
   const ownDepartment = (c: FlowComponent) => viewer.role === ubecRoles.director && c.department === viewer.department;
@@ -172,10 +175,10 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
 
 // --- writes ---------------------------------------------------------------------------------------------
 
-export type Actor = { id: number; role: string; department: string | null; full_name: string; email: string };
+export type Actor = { id: number; role: string; department: string | null; full_name: string; email: string; /** UBEC241 */ chair: boolean };
 /** The acting user, re-read under a share lock (a changed role or signed-out session is refused). */
 export async function readActor(db: Db, session: { userId: number; sessionVersion: number }) {
-  return (await db.query<Actor>('SELECT id, role, department, display_name AS full_name, email FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE', [session.userId, session.sessionVersion])).rows[0];
+  return (await db.query<Actor>(`SELECT id, role, department, display_name AS full_name, email, ${ubecChairSql()} AS chair FROM users WHERE id=$1 AND active AND session_version=$2 FOR SHARE`, [session.userId, session.sessionVersion])).rows[0];
 }
 
 export async function addUbecEvent(db: Db, event: { roundId: number; planId: number | string; action: string; actor: Actor; comment?: string; pillar?: ImplementedPillar | null }) {
@@ -183,11 +186,11 @@ export async function addUbecEvent(db: Db, event: { roundId: number; planId: num
     [event.roundId, event.planId, event.action, event.actor.full_name, event.actor.id, event.comment ?? '', event.pillar ?? null])).rows[0].id;
 }
 type Recipients = { role: string; departments?: readonly string[] } | { userIds: readonly number[] };
-/** Bell notifications for UBEC users (never the actor themselves). */
+/** Bell notifications for UBEC users (never the actor themselves). The chair role also reaches flagged Directors (UBEC241). */
 export async function notifyUbec(db: Db, planId: number | string, eventId: number, actorId: number, ...targets: Recipients[]) {
   for (const target of targets) {
     if ('userIds' in target) { if (target.userIds.length) await db.query('INSERT INTO plan_notifications(plan_id,user_id,ubec_event_id) SELECT $1,id,$2 FROM users WHERE id=ANY($3::int[]) AND active AND id<>$4 ON CONFLICT DO NOTHING', [planId, eventId, target.userIds, actorId]); continue; }
-    await db.query(`INSERT INTO plan_notifications(plan_id,user_id,ubec_event_id) SELECT $1,id,$2 FROM users WHERE role=$3 AND active AND id<>$4 ${target.departments ? 'AND department=ANY($5::text[])' : ''} ON CONFLICT DO NOTHING`,
+    await db.query(`INSERT INTO plan_notifications(plan_id,user_id,ubec_event_id) SELECT $1,id,$2 FROM users WHERE ${target.role === ubecRoles.chair ? `($3::text IS NOT NULL AND ${ubecChairSql()})` : 'role=$3'} AND active AND id<>$4 ${target.departments ? 'AND department=ANY($5::text[])' : ''} ON CONFLICT DO NOTHING`,
       target.departments ? [planId, eventId, target.role, actorId, target.departments] : [planId, eventId, target.role, actorId]);
   }
 }

@@ -48,7 +48,7 @@ export async function deleteUserAccount(db: Db, target: DeleteTarget, actorId: n
   }
   // Removed: kept for the records, out of every list, signed out, off open work, email freed.
   await db.query(`UPDATE users SET active=FALSE, deleted_at=NOW(), session_version=session_version+1, current_session_id=NULL,
-    is_beap_chair=FALSE, can_create_plan=FALSE, can_manage_schools=FALSE, email=$2 WHERE id=$1`, [target.id, deletedEmail(target.id, target.email)]);
+    is_beap_chair=FALSE, is_ubec_beap_chair=FALSE, can_create_plan=FALSE, can_manage_schools=FALSE, email=$2 WHERE id=$1`, [target.id, deletedEmail(target.id, target.email)]);
   await db.query('DELETE FROM sessions WHERE user_id=$1', [target.id]);
   await db.query('DELETE FROM password_reset_tokens WHERE user_id=$1', [target.id]);
   await db.query('DELETE FROM ubec_default_officers WHERE officer_id=$1', [target.id]);

@@ -95,9 +95,7 @@ try {
   assert.equal(officer.mode, 'removed');
   assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM ubec_default_officers WHERE officer_id=$1', [users.offP])).rows[0].n, 0);
   assert.ok(!ok(await api('dpp', '/api/ubec/officers')).officers.some(o => o.id === users.offP), 'hidden from the Officers page');
-  // The removed officer's number is not given again.
-  assert.notEqual(ok(await api('dpp', '/api/ubec/officers')).nextRoleTitles.physical, 'UBEC Assessment Officer 1');
-  step('UBEC Director: deletes their own department\'s officers only; default officers drop out; the role number is not reused');
+  step('UBEC Director: deletes their own department\'s officers only; default officers drop out');
 
   // Super Admin.
   ok(await api('admin', '/api/admin/users', { id: users.offQ }, 'DELETE'));

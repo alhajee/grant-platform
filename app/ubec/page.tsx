@@ -21,13 +21,14 @@ export default function Dashboard() {
   useEffect(() => { const section = window.location.hash.slice(1); if (['plans', 'submissions', 'activity'].includes(section)) window.location.replace(`/ubec/${section}`); }, []);
   const role = data?.user.role ?? '';
   const eyebrow = data ? (data.user.department ? departmentLabel(data.user.department) : role === ubecRoles.es ? 'NATIONAL OVERVIEW' : 'UBEC') : '';
+  const chair = !!data?.user.chair;
   const title = !data || role === ubecRoles.es ? 'Overview' : ubecRoleTitle(role, data.user.department).replace(/ · .*/, '');
-  return <UbecPageFrame eyebrow={eyebrow} title={title} hideTitle={isNational(role)} data={data} error={error} loading={loading} year={year} onYear={setYear} onRefresh={load}>
+  return <UbecPageFrame eyebrow={eyebrow} title={title} hideTitle={isNational(role, chair)} data={data} error={error} loading={loading} year={year} onYear={setYear} onRefresh={load}>
     {d => <>
-      {isNational(d.user.role) ? <>
+      {isNational(d.user.role, d.user.chair) ? <>
         <NationalHero data={d} controls={<YearControls years={d.years} year={year} onYear={setYear} onRefresh={load} loading={loading} />} />
         {/* The rest slides up over the map as the page scrolls */}
-        <div className="nh-sheet">{/* UBEC178/211: the plans come first, four to a row, then the glance cards. */}<OverviewPlans data={d} /><NationalGlance data={d} />{/* Observations asked before sending to UBEC (row 156): the UBEC BEAP Chair follows them. */}{observationViewer({ role: d.user.role, department: d.user.department }) && <ObservationPlansCard hideEmpty />}
+        <div className="nh-sheet">{/* UBEC178/211: the plans come first, four to a row, then the glance cards. */}<OverviewPlans data={d} /><NationalGlance data={d} />{/* Observations asked before sending to UBEC (row 156): the UBEC BEAP Chair follows them. */}{observationViewer({ role: d.user.role, department: d.user.department, chair: d.user.chair }) && <ObservationPlansCard hideEmpty />}
           {/* UBEC127/177: spending by school level, compact, on one row with the folded workload and activity. */}
           <div className="national-lower-grid ubec-overview-row"><LevelMappingCard className="ubec-level-mapping" mapping={sumMappings(d.items.flatMap(i => i.levels ? [i.levels] : []))} description={`Across the ${d.items.length} submitted ${d.items.length === 1 ? 'plan' : 'plans'}`} /><WorkloadCard data={d} defaultOpen={false} /><ActivityCard data={d} limit={12} moreHref="/ubec/activity" defaultOpen={false} /></div></div>
       </> : <>

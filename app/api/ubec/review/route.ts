@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
-import { activePillars, isUbec, pillarDepartments, ubecRoles, type UbecRound, type UbecAssignment } from '@/lib/ubec';
+import { activePillars, holdsUbecChair, isUbec, pillarDepartments, ubecChairSql, ubecRoles, type UbecRound, type UbecAssignment } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
 import { unfundedInSnapshot } from '@/lib/unfunded-components';
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     return await getPostgres().transaction(async db => {
       const plan = (await db.query('SELECT id,state_code,start_year,end_year,funding_quarters,status,version FROM action_plans WHERE id=$1 FOR SHARE', [id])).rows[0];
       if (!plan || (!national && plan.state_code !== user.stateCode)) return error('Plan not found', 404);
-      const viewer = { id: user.userId, role: user.role, department: user.department };
+      const viewer = { id: user.userId, role: user.role, department: user.department, chair: holdsUbecChair(user) };
       const allRounds = (await db.query<UbecRound>('SELECT * FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC', [id])).rows;
       const rounds = national && !admin ? await readViewerRounds(db, id, viewer) : allRounds;
       if (national && !rounds.length) return error('No assigned submission found', 404);
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       const setup = round?.snapshot.setup;
       const fundingTotal = setup?.fundingTotal != null ? Number(setup.fundingTotal) : null;
       return NextResponse.json({
-        canSubmit, ubecMode, plan: { ...plan, stateName: stateDisplayName(plan.state_code) }, user: { name: user.name, role: user.role, department: user.department }, role: user.role, department: user.department,
+        canSubmit, ubecMode, plan: { ...plan, stateName: stateDisplayName(plan.state_code) }, user: { name: user.name, role: user.role, department: user.department, chair: viewer.chair }, role: user.role, department: user.department, chair: viewer.chair,
         rounds: rounds.map(r => ({ id: r.id, plan_id: r.plan_id, number: r.number, state_submission: r.state_submission, status: r.status, submitted_at: r.submitted_at, decision: r.decision, decided_at: r.decided_at, released_at: r.released_at })),
         round: round ? { ...round, snapshot } : null, assignments, flow, events, fundingTotal,
         // UBEC132: the Executive Chairman's signature and cover letter sent with this round.
@@ -95,8 +95,8 @@ export async function POST(request: NextRequest) {
     return await getPostgres().transaction(async db => {
       const user = await readActor(db, session);
       if (!user) return error('Session expired', 401);
-      const expectedRole = input.action === 'submit' ? 'Executive Chairman' : ubecRoles.chair;
-      if (user.role !== expectedRole) return error(user.role === ubecRoles.es ? 'The UBEC Executive Secretary oversees the review and does not take workflow actions' : 'You do not have permission for this action', 403);
+      // UBEC241: the chair steps are taken by the UBEC BEAP Chair or a Director holding the chair duty.
+      if (input.action === 'submit' ? user.role !== 'Executive Chairman' : !user.chair) return error(user.role === ubecRoles.es ? 'The UBEC Executive Secretary oversees the review and does not take workflow actions' : 'You do not have permission for this action', 403);
       const userState = (await db.query<{ state_code: string }>('SELECT state_code FROM users WHERE id=$1', [user.id])).rows[0].state_code;
       const plan = (await db.query('SELECT * FROM action_plans WHERE id=$1 FOR UPDATE', [id])).rows[0];
       if (!plan || (input.action === 'submit' && plan.state_code !== userState)) return error('Plan not found', 404);
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
         const ubecMode = await readUbecSubmissionMode(db);
         const partial = ubecMode === 'reviewed_components';
         if (partial ? !statePlanOpen(plan.status) : plan.status !== 'awaiting_chairman') return error(partial ? 'This plan is already with UBEC.' : 'The nominated BEAP Chair must send every implemented component to the SUBEB Executive Chairman first', 409);
-        if (!(await db.query('SELECT id FROM users WHERE role=$1 AND active LIMIT 1', [ubecRoles.chair])).rowCount) return error('A UBEC BEAP Chair account must be configured first', 409);
+        if (!(await db.query(`SELECT id FROM users WHERE active AND ${ubecChairSql()} LIMIT 1`)).rowCount) return error('A UBEC BEAP Chair account must be configured first', 409);
         if (round && round.status !== 'returned') return error('This plan has already been submitted', 409);
         if (round && !input.comment) return error('Describe how the UBEC feedback was addressed');
         const snapshot: Snapshot = await readPlanSnapshot(db, plan.id);
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
             await db.query("UPDATE plan_pillar_reviews SET status='changes_requested',updated_at=NOW() WHERE plan_id=$1 AND pillar=ANY($2::text[])", [id, rejectedPillars]);
             status = aggregateReviewStatus(await readPillarReviews(db, Number(id)), unfundedInSnapshot(await readPlanSnapshot(db, Number(id))));
           }
-          const event = (await db.query(`INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,'general') RETURNING id`, [id, plan.submission_number, input.action === 'return' ? 'request_changes' : 'approve', user.full_name, user.email, user.role, input.comment])).rows[0];
+          const event = (await db.query(`INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,'general') RETURNING id`, [id, plan.submission_number, input.action === 'return' ? 'request_changes' : 'approve', user.full_name, user.email, user.chair ? ubecRoles.chair : user.role, input.comment])).rows[0];
           // The SUBEB hears about it: the BEAP Chair and the Executive Chairman, who sent it; a return also reaches the
           // Directors and Data Entry staff of the components with rejected items, an approval those of every component.
           // Whole departments and single-component grants ("academic/sports", lib/component-access.ts).
@@ -184,11 +184,12 @@ export async function POST(request: NextRequest) {
       await db.query('UPDATE action_plans SET status=$1,version=version+1,workflow_updated_at=NOW() WHERE id=$2', [status, id]);
       const ubecEvent = await addUbecEvent(db, { roundId: round.id, planId: id, action: input.action, actor: user, comment: input.comment });
       if (input.action === 'submit') await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.chair }, { role: ubecRoles.es });
-      if (input.action === 'release') await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.director, departments: [...new Set(releaseRows(round.snapshot).map(r => pillarDepartments[r.pillar]))] }, { role: ubecRoles.es });
+      if (input.action === 'release') await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.director, departments: [...new Set(releaseRows(round.snapshot).map(r => pillarDepartments[r.pillar]))] }, { role: ubecRoles.es }, { role: ubecRoles.chair });
       if (input.action === 'return' || input.action === 'approve') {
         const people = (await db.query<{ id: number }>(`SELECT DISTINCT oa.officer_id AS id FROM ubec_officer_assignments oa JOIN ubec_round_components rc ON rc.id=oa.round_component_id WHERE rc.round_id=$1 AND oa.removed_at IS NULL`, [round.id])).rows.map(r => r.id);
         const departments = (await db.query<{ department: string }>('SELECT DISTINCT department FROM ubec_round_components WHERE round_id=$1', [round.id])).rows.map(r => r.department);
-        await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.es }, { role: ubecRoles.director, departments }, { userIds: people });
+        // UBEC242: the other BEAP Chair (when there are two) hears of the decision too; the actor never does.
+        await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.es }, { role: ubecRoles.director, departments }, { userIds: people }, { role: ubecRoles.chair });
       }
       return NextResponse.json({ status });
     });

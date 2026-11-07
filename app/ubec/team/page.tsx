@@ -17,14 +17,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { departmentLabel, departmentShort } from '@/lib/ubec';
-import { isUbecEmail, ubecEmailDomain, ubecEmailError } from '@/lib/officer-title';
+import { isUbecEmail, maxRoleTitleLength, ubecEmailDomain, ubecEmailError } from '@/lib/officer-title';
 import { DeleteUserDialog, type DeletableUser } from '@/components/delete-user-dialog';
 import { DepartmentArt } from '@/components/ubec/department-art';
 
 type Officer = { id: number; name: string; roleTitle: string; label: string; email: string; department: string; active: boolean; open: number; completed: number };
 type Limit = { department: string; name: string; limit: number; defaultLimit: number; active: number };
-type Director = { id: number; name: string; email: string; role: string; department: string; active: boolean; waiting: number };
-type Data = { officers: Officer[]; departments: string[]; limits: Limit[]; directors?: Director[]; nextRoleTitles?: Record<string, string>; user: { name: string; role: string; department: string | null } };
+type Director = { id: number; name: string; email: string; role: string; department: string; active: boolean; waiting: number; /** UBEC241 */ chair?: boolean };
+type Data = { officers: Officer[]; departments: string[]; limits: Limit[]; directors?: Director[]; user: { name: string; role: string; department: string | null; chair?: boolean } };
 const isFull = (limit: Limit | undefined) => !!limit && limit.active >= limit.limit;
 /** "2 of 2 officers". */
 const ofLimit = (limit: Limit) => `${limit.active} of ${limit.limit} ${limit.limit === 1 ? 'officer' : 'officers'}`;
@@ -32,7 +32,7 @@ const ofLimit = (limit: Limit) => `${limit.active} of ${limit.limit} ${limit.lim
 /** Assessment Officers of the Director's department (any component department for the UBEC BEAP Chair). */
 export default function TeamPage() {
   const [data, setData] = useState<Data | null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false), [form, setForm] = useState({ name: '', email: '', department: '' }), [deleting, setDeleting] = useState<DeletableUser | null>(null), [saving, setSaving] = useState(false), [formError, setFormError] = useState('');
+  const [adding, setAdding] = useState(false), [form, setForm] = useState({ name: '', roleTitle: '', email: '', department: '' }), [deleting, setDeleting] = useState<DeletableUser | null>(null), [saving, setSaving] = useState(false), [formError, setFormError] = useState('');
   const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
   const busy = useRef(false);
   // Departments with room for another active officer (migration 056 limits).
@@ -49,16 +49,15 @@ export default function TeamPage() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
-  // UBEC237: the role name is set automatically, the next "UBEC Assessment Officer N" in the department (from the server).
-  const roleTitle = data?.nextRoleTitles?.[form.department || open[0] || data.departments[0]] ?? '';
-  const startAdding = () => { setForm({ name: '', email: '', department: open[0] }); setFormError(''); setAdding(true); };
+  // UBEC240: the role name is typed (nothing pre-filled or numbered).
+  const startAdding = () => { setForm({ name: '', roleTitle: '', email: '', department: open[0] }); setFormError(''); setAdding(true); };
   const emailInvalid = form.email.includes('@') && !isUbecEmail(form.email);
   async function save() {
     if (busy.current || !data) return;
     if (!isUbecEmail(form.email)) { setFormError(ubecEmailError); return; }
     busy.current = true; setSaving(true); setFormError('');
     try {
-      const response = await fetch('/api/ubec/officers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, email: form.email, department: form.department || open[0] || data.departments[0] }) });
+      const response = await fetch('/api/ubec/officers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, roleTitle: form.roleTitle, email: form.email, department: form.department || open[0] || data.departments[0] }) });
       const result = await response.json() as { error?: string; password?: string };
       if (!response.ok) throw new Error(result.error || 'The officer could not be added');
       setAdding(false); setCredentials({ email: form.email, password: result.password ?? '' }); toast.success('Assessment Officer added'); await load();
@@ -72,7 +71,7 @@ export default function TeamPage() {
     {/* The UBEC BEAP Chair sees the Directors and Oversight Directors too (UBEC133). */}
     {data?.directors && data.directors.length > 0 && <Card className="mb-6"><CardHeader><CardTitle>Directors <Badge variant="secondary">{data.directors.length}</Badge></CardTitle><CardDescription>Component Directors assign Assessment Officers; Oversight Directors record observations</CardDescription></CardHeader><CardContent>
       <Table><TableHeader><TableRow><TableHead>Director</TableHead><TableHead>Role</TableHead><TableHead>Department</TableHead><TableHead>Waiting on them</TableHead><TableHead>Status</TableHead></TableRow></TableHeader><TableBody>
-        {data.directors.map(d => <TableRow key={d.id}><TableCell><strong>{d.name}</strong><small className="block text-muted-foreground">{d.email}</small></TableCell><TableCell>{d.role.replace(/^UBEC /, '')}</TableCell><TableCell><span className="department-with-art"><DepartmentArt department={d.department} className="department-art-sm" />{departmentLabel(d.department)}</span></TableCell><TableCell>{d.waiting ? `${d.waiting} ${d.waiting === 1 ? 'component' : 'components'}` : '—'}</TableCell><TableCell><Badge variant={d.active ? 'secondary' : 'outline'}>{d.active ? 'Active' : 'Inactive'}</Badge></TableCell></TableRow>)}
+        {data.directors.map(d => <TableRow key={d.id}><TableCell><strong>{d.name}</strong><small className="block text-muted-foreground">{d.email}</small></TableCell><TableCell><span className="flex flex-wrap items-center gap-2">{d.role.replace(/^UBEC /, '')}{d.chair && <Badge variant="secondary">BEAP Chair</Badge>}</span></TableCell><TableCell><span className="department-with-art"><DepartmentArt department={d.department} className="department-art-sm" />{departmentLabel(d.department)}</span></TableCell><TableCell>{d.waiting ? `${d.waiting} ${d.waiting === 1 ? 'component' : 'components'}` : '—'}</TableCell><TableCell><Badge variant={d.active ? 'secondary' : 'outline'}>{d.active ? 'Active' : 'Inactive'}</Badge></TableCell></TableRow>)}
       </TableBody></Table>
     </CardContent></Card>}
     {loading && !data ? <Skeleton className="h-64 w-full rounded-2xl" /> : data && <Card><CardHeader><CardTitle>Your officers <Badge variant="secondary">{data.officers.length}</Badge></CardTitle><CardDescription>{data.user.role === 'UBEC Oversight Director' ? 'Your officers comment on the items of the components you assign them to; they do not accept or reject. Add as many as the work needs.' : <>One officer per component by default; the Super Admin sets each department&apos;s limit. An officer can hold several components of the same department.</>}</CardDescription>
@@ -84,7 +83,7 @@ export default function TeamPage() {
     <Dialog open={adding} onOpenChange={open => { if (!open && !saving) setAdding(false); }}><DialogContent className="national-dialog" showCloseButton={!saving}><DialogHeader><DialogTitle>Add Assessment Officer</DialogTitle><DialogDescription>They sign in with a one-time password you share securely</DialogDescription></DialogHeader>
       <form onSubmit={event => { event.preventDefault(); void save(); }}><FieldGroup>
         <Field><FieldLabel htmlFor="officer-name">Full name</FieldLabel><Input id="officer-name" required minLength={2} maxLength={120} disabled={saving} value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></Field>
-        <Field><FieldLabel>Role name</FieldLabel><p className="text-sm" data-testid="officer-role-title"><strong>{roleTitle}</strong> · set automatically</p><FieldDescription>Directors see them as {roleTitle || 'the role name'} ({form.name.trim() || 'Full name'})</FieldDescription></Field>
+        <Field><FieldLabel htmlFor="officer-role-title">Role name</FieldLabel><Input id="officer-role-title" required minLength={2} maxLength={maxRoleTitleLength} placeholder="e.g. UBEC Assessment Officer - Infrastructure" disabled={saving} value={form.roleTitle} onChange={event => setForm({ ...form, roleTitle: event.target.value })} /><FieldDescription>Directors see them as {form.roleTitle.trim() || 'the role name'} ({form.name.trim() || 'Full name'})</FieldDescription></Field>
         <Field data-invalid={emailInvalid || undefined}><FieldLabel htmlFor="officer-email">Email address</FieldLabel><Input id="officer-email" type="email" required placeholder={`name@${ubecEmailDomain}`} aria-invalid={emailInvalid || undefined} disabled={saving} value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} />{emailInvalid ? <FieldError>{ubecEmailError}</FieldError> : <FieldDescription>UBEC email addresses only (@{ubecEmailDomain})</FieldDescription>}</Field>
         {data && data.departments.length > 1 && <Field><FieldLabel htmlFor="officer-department">Department</FieldLabel><NativeSelect id="officer-department" disabled={saving} value={form.department} onChange={event => setForm({ ...form, department: event.target.value })}>{data.departments.map(d => { const limit = data.limits?.find(l => l.department === d); return <NativeSelectOption key={d} value={d} disabled={isFull(limit)}>{departmentLabel(d)}{limit ? ` (${ofLimit(limit)}${isFull(limit) ? ', full' : ''})` : ''}</NativeSelectOption>; })}</NativeSelect></Field>}
         {formError && <FieldError role="alert">{formError}</FieldError>}

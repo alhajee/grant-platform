@@ -12,6 +12,17 @@ export const ubecRoles = {
 } as const;
 export type UbecRole = typeof ubecRoles[keyof typeof ubecRoles];
 export const ubecRoleList: readonly UbecRole[] = Object.values(ubecRoles);
+/**
+ * UBEC241/242: the UBEC BEAP Chair duty is held by the dedicated role or by a UBEC Director the Super Admin flagged
+ * (`users.is_ubec_beap_chair`, migration 094), who keeps every Director ability on their department. At most
+ * `maxUbecChairs` holders in all.
+ */
+export const maxUbecChairs = 2;
+export const holdsUbecChair = (user: { role: string; isUbecBeapChair?: boolean | null; chair?: boolean | null }): boolean =>
+  user.role === ubecRoles.chair || (user.role === ubecRoles.director && !!(user.isUbecBeapChair ?? user.chair));
+/** SQL condition: the users row `alias` holds the UBEC BEAP Chair duty (active is checked by the caller). */
+export const ubecChairSql = (alias = 'users') => `(${alias}.role='${ubecRoles.chair}' OR (${alias}.role='${ubecRoles.director}' AND ${alias}.is_ubec_beap_chair))`;
+export const tooManyChairsMessage = `UBEC already has ${maxUbecChairs} BEAP Chairs. Remove the duty from one of them first`;
 /** Replaced by UBEC Assessment Officer (migration 055); kept only so old rows still read. It has no UBEC access. */
 export const legacyReviewerRole = 'UBEC Department Reviewer';
 
@@ -66,8 +77,8 @@ export const departmentLabel = (id: string) => { const d = allDepartments.find(i
 export const ubecRoleDepartments = (role: string): readonly { id: string; name: string; short: string }[] =>
   role === ubecRoles.officer ? departments : role === ubecRoles.director ? componentDepartments : role === ubecRoles.oversight ? oversightDepartments : [];
 /** The account title shown under the name, e.g. "UBEC Director · Physical Planning (DPP)". */
-export function ubecRoleTitle(role: string, department: string | null | undefined) {
-  if (role === ubecRoles.director && department) return `UBEC Director · ${departmentLabel(department)}`;
+export function ubecRoleTitle(role: string, department: string | null | undefined, chair = false) {
+  if (role === ubecRoles.director && department) return `UBEC Director · ${departmentLabel(department)}${chair ? ' · BEAP Chair' : ''}`;
   if (role === ubecRoles.oversight && department) return `UBEC Director ${departmentName(department)} · Oversight`;
   if (role === ubecRoles.officer && department) return `Assessment Officer · ${departmentLabel(department)}`;
   return role;
@@ -86,7 +97,8 @@ export type UbecAssignment = { id: number; pillar: PillarId; department: string;
 export type UbecRound = { id: number; plan_id: number; number: number; state_submission: number; status: string; snapshot: Snapshot; submitted_at: string; decision: string; decided_at: string | null; released_at?: string | null; released_by_name?: string | null; release_comment?: string };
 export type UbecPlan = { id: number; state_code: string; stateName: string; start_year: number; end_year: number; funding_quarters?: number[] | null; version: number; status: string };
 export type UbecDetail = {
-  canSubmit: boolean; ubecMode: import('./workflow-settings').UbecSubmissionMode; user: { name: string; role: string; department?: string | null }; plan: UbecPlan; role: string; department: string | null;
+  canSubmit: boolean; ubecMode: import('./workflow-settings').UbecSubmissionMode; user: { name: string; role: string; department?: string | null; /** UBEC241 */ chair?: boolean }; plan: UbecPlan; role: string; department: string | null;
+  /** UBEC241: the viewer holds the UBEC BEAP Chair duty (the role or a flagged Director). */ chair?: boolean;
   rounds: Omit<UbecRound, 'snapshot'>[]; round: UbecRound | null;
   /** Earlier-flow department assignments (read-only history). */
   assignments: UbecAssignment[];
@@ -111,7 +123,7 @@ export type NationalItem = {
 };
 export type UbecQueueItem = { planId: number; state: string; label: string; detail: string; href: string; kind: 'release' | 'assign' | 'assess' | 'oversight' | 'observe' | 'decide' | 'consolidate' };
 export type UbecDashboard = {
-  user: { name: string; role: string; department: string | null };
+  user: { name: string; role: string; department: string | null; /** UBEC241 */ chair?: boolean };
   items: NationalItem[]; queue: UbecQueueItem[];
   /** UBEC149: other units' plans the viewer may observe and comment on. */ observing?: { planId: number; state: string; period: string; status: string; round: number }[];
   activity: { id: number; plan_id: number; action: string; actor: string; created_at: string; stateName: string; pillar?: string | null }[];
