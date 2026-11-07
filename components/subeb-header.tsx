@@ -6,7 +6,6 @@ import { AccountMenu } from './workspace-account-menu';
 import { NotificationBell } from './notifications/notification-bell';
 import type { LocalUser } from '@/lib/local-session';
 import { canManageSchoolRegister, canManageStateUsers } from '@/lib/subeb-access';
-import { isProcurement } from '@/lib/procurement';
 import { observationViewer } from '@/lib/observation-requests';
 
 function subscribe(callback: () => void) {
@@ -40,7 +39,8 @@ export function SubebHeader({ user, plan = false, users = false, schools = false
       <nav aria-label="SUBEB navigation">
         <a href="/dashboard#action-plans" aria-current={plansActive ? (plan ? 'page' : 'location') : undefined}>Plans</a>
         {canManageSchoolRegister(current?.role, current?.isBeapChair, current?.canManageSchools) && <a href="/schools" aria-current={schools ? 'page' : undefined}>Schools</a>}
-        {current && isProcurement(current) && <a href="/procurement" aria-current={procurement ? 'page' : undefined}>Price list</a>}
+        {/* UBEC244: everyone in the state reads the price list; Procurement keeps it. */}
+        {current && <a href="/procurement" aria-current={procurement ? 'page' : undefined}>Price list</a>}
         {/* UBEC168: the state's Audit, Procurement, Finance and Special Programmes answer requests for observations. */}
         {current && observationViewer(current)?.audience === 'subeb' && <a href="/beap/observations" aria-current={observations ? 'page' : undefined}>Observations</a>}
         {canManageStateUsers(current?.role, current?.isBeapChair) && <a href="/users" aria-current={users ? 'page' : undefined}>Users</a>}

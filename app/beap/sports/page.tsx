@@ -38,7 +38,7 @@ const sportsFieldOf: Record<string, string> = { item: "sports-description", sect
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
 /** A saved line as the form edits it. */
-const budgetDraft = (line: SportsLine): BudgetDraft => ({ id: line.id, section: line.section, activityType: line.activityType, description: line.description, targetGroup: line.targetGroup ?? "", quantity: String(line.quantity), unitCost: String(line.unitCost), quarters: line.quarters, startDate: line.startDate ?? null, dueDate: line.dueDate ?? null });
+const budgetDraft = (line: SportsLine): BudgetDraft => ({ id: line.id, section: line.section, activityType: line.activityType, description: line.description, targetGroup: line.targetGroup ?? "", quantity: String(line.quantity), unitCost: String(line.unitCost), quarters: line.quarters, startDate: line.startDate ?? null, dueDate: line.dueDate ?? null, priceItemId: line.priceItemId ? String(line.priceItemId) : "" });
 
 export default function SportsPage() {
   const [plan, setPlan] = useState<SportsPlan>(blankPlan);
@@ -210,7 +210,7 @@ export default function SportsPage() {
     if (!line) return "This line is no longer in the plan";
     const before = budgetDraft(line);
     const next = { ...before, [field]: value };
-    const parsed = sportsLineSchema.safeParse({ ...next, quantity: Number(next.quantity), unitCost: Number(next.unitCost) });
+    const parsed = sportsLineSchema.safeParse({ ...next, quantity: Number(next.quantity), unitCost: Number(next.unitCost), priceItemId: next.priceItemId ? Number(next.priceItemId) : null });
     if (!parsed.success) return parsed.error.issues[0].message;
     // Updates are idempotent (by id): after a dropped connection the plan is reloaded, and the cell counts as saved if it holds the value.
     try { await write({ ...parsed.data, entity: "budget", action: "update", id }); }
@@ -255,7 +255,7 @@ export default function SportsPage() {
     event.preventDefault();
     if (savingRef.current || disabled) return;
     const parsed = view === "budget"
-      ? sportsLineSchema.safeParse({ ...budget, quantity: Number(budget.quantity), unitCost: Number(budget.unitCost) })
+      ? sportsLineSchema.safeParse({ ...budget, quantity: Number(budget.quantity), unitCost: Number(budget.unitCost), priceItemId: budget.priceItemId ? Number(budget.priceItemId) : null })
       : sportsAllocationSchema.safeParse({ ...allocation, quantity: Number(allocation.quantity) });
     // Same catalogue rules as the API; a saved line keeps its legacy sport/sub-activity if unchanged.
     const saved = view === "budget" && editingId ? plan.lines.find((line) => line.id === editingId) : undefined;

@@ -3,6 +3,7 @@
 // edits them directly). Component Data Entry picks an approved item on the activities that buy goods: the unit cost
 // is the list price. A saved line keeps the price it was saved with.
 import type { ActivityWorkstream } from './activity-plans';
+import { isPheTraining } from './sports.ts';
 
 /** Activities that buy goods, by component: their items come from the price list (Sports and Greening keep their own item lists). */
 export const priceListActivities: Partial<Record<ActivityWorkstream, readonly number[]>> = {
@@ -16,12 +17,27 @@ export const priceListActivities: Partial<Record<ActivityWorkstream, readonly nu
 };
 export const isPriceListActivity = (workstream: string, activity: number) => !!priceListActivities[workstream as ActivityWorkstream]?.includes(activity);
 
+/**
+ * UBEC244 (bug sheet 18, 7 November 2026: "so others can pick also anything to be procured"): every activity line may be
+ * picked from the price list, not only the activities above, except Teacher Development (its lines are trainings).
+ * The Super Admin switch and the proforma rule still cover only `priceListActivities`.
+ */
+export const pricePickWorkstreams = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'planning'] as const satisfies readonly ActivityWorkstream[];
+export const picksFromPriceList = (workstream: string): boolean => (pricePickWorkstreams as readonly string[]).includes(workstream);
+/** Sports: the procurement items (the Procurement & Training of PHE Officers section), not the PHE training lines. */
+export const sportsPicksFromPriceList = (line: { section: string; activityType: string }): boolean =>
+  line.section === 'equipment' && !isPheTraining(line);
+
 export type ProcurementItemStatus = 'pending' | 'approved' | 'archived';
 export type ProcurementItem = {
   id: number; name: string; maker: string; modelYear: number | null; description: string; unitPrice: number; status: ProcurementItemStatus;
   createdByName: string; updatedByName: string; approvedByName: string | null; approvedAt: string | null; updatedAt: string;
 };
-export const procurementItemLabel = (item: Pick<ProcurementItem, 'name' | 'maker' | 'modelYear'>) => [item.name, item.maker, item.modelYear ? String(item.modelYear) : ''].filter(Boolean).join(' · ');
+export const procurementItemLabel = (item: Pick<ProcurementItem, 'name' | 'maker' | 'modelYear'>): string => [item.name, item.maker, item.modelYear ? String(item.modelYear) : ''].filter(Boolean).join(' · ');
+/** The description a picked item puts on an empty line: "Desktop computer – HP all in one PC, …". */
+export const procurementItemDescription = (item: Pick<ProcurementItem, 'name' | 'description'>): string => [item.name, item.description].filter(Boolean).join(' – ');
+/** Search text of an item: name, maker, year and description. */
+export const procurementItemSearch = (item: Pick<ProcurementItem, 'name' | 'maker' | 'modelYear' | 'description'>): string => [item.name, item.maker, item.modelYear ?? '', item.description].join(' ');
 
 type Viewer = { role: string; department?: string | null; departments?: readonly string[] | null };
 const holds = (viewer: Viewer, department: string) => viewer.department === department || !!viewer.departments?.includes(department);
