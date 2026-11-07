@@ -166,9 +166,11 @@ try {
   step('SBMC Director comments on their own component and requests changes without a note');
 
   // GSCCI distribution list (migration 039): its own commentable sheet, owned by the GSCCI component.
-  ok(await api('des', `/api/activities${q}`, { workstream: 'gscci', entity: 'line', action: 'create', activity: 8, description: 'Monitor school gardens', item: 'Monitoring visits', quantity: 1, unitCost: 10000, strategy: 'Request for quotation', targetGroup: 'Schools' }));
+  // UBEC245: only items shared out to schools need the list, so this uses Pillar 1 (activity 0) and allocates it.
+  const gardenLine = ok(await api('des', `/api/activities${q}`, { workstream: 'gscci', entity: 'line', action: 'create', activity: 0, description: 'Seedlings for school gardens', item: 'Tree seedlings', quantity: 1, unitCost: 10000, strategy: 'Request for quotation', targetGroup: 'Schools' })).id;
   expect(await review('des', 'submit', 'gscci'), 400, /Greening distribution list/);
   ok(await api('des', `/api/activities${q}`, { workstream: 'gscci', entity: 'school', action: 'create', schoolIds: [schoolId] }));
+  ok(await api('des', `/api/activities${q}`, { workstream: 'gscci', entity: 'allocation', action: 'update', id: gardenLine, allocations: { [schoolId]: 1 } }));
   ok(await review('des', 'submit', 'gscci'));
   const greenRoot = ok(await cell('dir', schoolId, 'learners', 'Confirm the learner count for this school.', 'gscciDistribution'), 201).id;
   expect(await cell('dir', 987654321, 'learners', 'x', 'gscciDistribution'), 400, /no longer in the plan/);
