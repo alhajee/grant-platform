@@ -4,7 +4,6 @@ import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
 import { isProcurement, isProcurementDirector, type ProcurementItem } from '@/lib/procurement';
-import { readPriceListRequired } from '@/lib/procurement-db';
 import { isUbec } from '@/lib/ubec';
 import { hasMoneyDecimals, maxUnitCost, moneyDecimalsMessage } from '@/lib/money';
 
@@ -38,7 +37,7 @@ export async function GET(request: NextRequest) {
     if (isUbec(user.role) || user.role === 'Super Admin') return json({ error: 'The price list belongs to each SUBEB' }, 403);
     const db = getPostgres(), procurement = isProcurement(user);
     const rows = (await db.query<Row>(`SELECT * FROM procurement_items WHERE state_code=$1 AND status ${procurement ? "<>'archived'" : "='approved'"} ORDER BY lower(name), id`, [user.stateCode])).rows;
-    return json({ items: rows.map(toItem), canEdit: procurement, canApprove: isProcurementDirector(user), required: await readPriceListRequired(db) });
+    return json({ items: rows.map(toItem), canEdit: procurement, canApprove: isProcurementDirector(user), required: false });
   } catch (cause) { console.error('Price list read failed', cause); return json({ error: 'Unable to load the price list' }, 503); }
 }
 

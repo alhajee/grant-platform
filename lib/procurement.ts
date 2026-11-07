@@ -45,4 +45,3 @@ const holds = (viewer: Viewer, department: string) => viewer.department === depa
 export const isProcurement = (viewer: Viewer) => ['Data Entry Staff', 'Director'].includes(viewer.role) && holds(viewer, 'procurement');
 /** The Procurement Director approves items; their own additions and edits are approved at once. */
 export const isProcurementDirector = (viewer: Viewer) => viewer.role === 'Director' && holds(viewer, 'procurement');
-export const notOnListMessage = 'Pick the item from the Procurement price list. If it is not there, ask Procurement to add it';

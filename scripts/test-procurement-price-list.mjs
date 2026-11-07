@@ -1,7 +1,7 @@
 // UBEC130 part 2 (migration 074): each state's Procurement price list. Procurement Data Entry adds or edits items
 // (pending), the Procurement Director approves them (and adds or edits directly); component Data Entry picks approved
 // items on the activities that buy goods and the unit cost must be the list price; a saved line keeps its price when
-// the list changes; the Super Admin switch makes the list required for new items to buy.
+// the list changes; picking from it is always optional (the required switch was removed on 7 November 2026).
 // UBEC244 (bug sheet 18): items carry the client's fields (Item, Maker and Year optional, Description required, Amount);
 // everyone in the state reads the approved list; any activity line (not Teacher Development trainings) and the Sports
 // items bought (migration 095) may be picked from it, while the switch still covers only the activities that buy goods.
@@ -124,14 +124,12 @@ try {
   assert.equal((await db.query('SELECT price_item_id FROM sports_budget_lines WHERE id=$1', [typedBall])).rows[0].price_item_id, null);
   step('Sports items bought may be picked from the list at its price and keep it; PHE training lines may not');
 
+  // 7 November 2026: picking from the list is never required, even where the old setting is still on in the database.
   await db.query("UPDATE state_workflow_settings SET price_list_required=TRUE WHERE state_code='GLOBAL'");
-  assert.equal(ok(await items('tlmDes')).required, true);
-  fails(await api('tlmDes', url, { ...line, unitCost: 10 }), 400, /Pick the item from the Procurement price list/);
-  ok(await api('tlmDes', url, { ...line, activity: 3, description: 'Verification visits', unitCost: 10 }));
-  const typed = (await db.query("SELECT id FROM activity_plan_lines WHERE plan_id=$1 AND activity=3", [planId])).rows[0].id;
-  ok(await api('tlmDes', url, { ...line, action: 'update', id: typed, activity: 3, description: 'Verification visits', quantity: 1, unitCost: 10 }));
+  assert.equal(ok(await items('tlmDes')).required, false);
+  ok(await api('tlmDes', url, { ...line, unitCost: 10 }));
   ok(await api('sportsDes', sportsUrl, { ...sportsLine, description: 'Bibs', unitCost: 1, priceItemId: null }), 201);
-  step('with the switch on, new items to buy must come from the list; services, Sports and earlier lines are unaffected');
+  step('the price list is never required: items to buy may have a typed unit cost, whatever the old setting says');
   console.log(`\nPASS: ${passed} price list checks`);
 } finally {
   await db.query("UPDATE state_workflow_settings SET price_list_required=$1 WHERE state_code='GLOBAL'", [setting ?? false]);

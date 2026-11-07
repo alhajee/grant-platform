@@ -1,19 +1,9 @@
 import type { Db } from './ubec-flow-db';
-import { isPriceListActivity, notOnListMessage, picksFromPriceList, sportsPicksFromPriceList } from './procurement';
+import { picksFromPriceList, sportsPicksFromPriceList } from './procurement';
 import { nairaFormat } from './money-format';
 import { toMinor } from './money';
 
 // Server checks for the Procurement price list (migration 074).
-/** Whether the activities that buy goods must use the price list (Super Admin; off when the row or column is missing). */
-export async function readPriceListRequired(db: Db): Promise<boolean> {
-  try {
-    return (await db.query<{ required: boolean | null }>("SELECT price_list_required AS required FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0]?.required === true;
-  } catch (cause) {
-    if ((cause as { code?: string }).code === '42703') return false;
-    throw cause;
-  }
-}
-
 // Prices compare exactly in minor units (four decimals, UBEC238).
 type Priced = { priceItemId: number | null } | { problem: string; status: number };
 type SavedLine = { price_item_id: number | null; unit_cost: string };
@@ -33,14 +23,12 @@ async function pickedItem(db: Db, stateCode: string, priceItemId: number, unitCo
 
 /**
  * Checks an activity line's price-list item on save (under the plan lock). Any activity line may be picked from the
- * list except Teacher Development trainings (UBEC244). With the setting on, a new line, or a line moved to another
- * activity, on an activity that buys goods (`priceListActivities`) needs an item. Returns the item id to store, or a problem.
+ * list except Teacher Development trainings (UBEC244). Picking is always optional (the Super Admin
+ * "Require the price list" setting was removed on 7 November 2026: it blocked SUBEBs). Returns the item id to store, or a problem.
  */
 export async function resolvePriceItem(db: Db, input: { stateCode: string; workstream: string; activity: number; priceItemId: number | null; unitCost: number; lineId: number | null }): Promise<Priced> {
-  const listed = isPriceListActivity(input.workstream, input.activity);
   const before = input.lineId ? (await db.query<SavedLine & { activity: number }>('SELECT price_item_id,unit_cost::text,activity FROM activity_plan_lines WHERE id=$1', [input.lineId])).rows[0] : undefined;
   if (input.priceItemId === null) {
-    if (listed && (!before || before.activity !== input.activity) && await readPriceListRequired(db)) return { problem: notOnListMessage, status: 400 };
     return { priceItemId: null };
   }
   if (!picksFromPriceList(input.workstream)) return { problem: 'Trainings do not come from the price list', status: 400 };
