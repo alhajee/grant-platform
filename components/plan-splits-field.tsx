@@ -2,6 +2,7 @@
 import './budget-split-dialog.css';
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
 import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { CurrencyInput } from '@/components/currency-input';
 import { componentPalette } from '@/components/dashboard/component-budgets';
@@ -54,6 +55,11 @@ export function PlanSplitsField({ plan, value, onChange, error, disabled }: { pl
               <span className="text-xs text-muted-foreground">{sideNames[side]}</span>
               <SplitPercentInput id={`split-${side}-pct`} name={sideNames[side]} value={pct(amount, sharedK)} disabled={disabled} onCommit={typed => setPercent('stored', typed)} /></div>
           </div>
+          {/* UBEC239: either side may take the whole shared budget; the other is then left out of the plan. */}
+          <div className="flex flex-wrap items-center gap-2" aria-label={`Quick ${pair.label} splits`}>
+            {([[pair.keeper, BigInt(0)], [side, sharedK]] as const).map(([to, stored]) => <Button key={to} type="button" size="sm" variant="outline" className="rounded-full" disabled={disabled || amount === stored} onClick={() => onChange({ ...value, [side]: fromMinor(stored) })}>All to {sideNames[to]}</Button>)}
+          </div>
+          {(amount === BigInt(0) || keeperK === BigInt(0)) && <FieldDescription>{sideNames[amount === BigInt(0) ? side : pair.keeper]} gets nothing, so it is left out of the plan: no items, no review and nothing to send</FieldDescription>}
         </>}
       </Field>;
     })}

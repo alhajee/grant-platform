@@ -21,6 +21,8 @@ export interface ComponentSummaryProps {
   distribution: number | null;
   /** Required activities that still have no item. */
   missing: readonly string[];
+  /** UBEC239: why the component has nothing to send (the budget split gives it ₦0), or null. */
+  unfunded?: string | null;
   onContinue: () => void;
 }
 
@@ -31,7 +33,7 @@ const lineMinor = (line: ActivityLine) => Number(lineMinorOf(line.unitCost, line
  * distribution list) so the officer can check it. Continue opens the send step on the plan page, which asks for
  * confirmation before anything moves.
  */
-export function ComponentSummaryDialog({ open, onOpenChange, workstream, title, lines, envelope, distribution, missing, onContinue }: ComponentSummaryProps) {
+export function ComponentSummaryDialog({ open, onOpenChange, workstream, title, lines, envelope, distribution, missing, unfunded, onContinue }: ComponentSummaryProps) {
   const groups = [...lines.reduce((map, line) => {
     const label = activityLabel(workstream, line.activity, line.customActivity), entry = map.get(label) ?? { items: 0, minor: 0 };
     return map.set(label, { items: entry.items + 1, minor: entry.minor + lineMinor(line) });
@@ -56,7 +58,8 @@ export function ComponentSummaryDialog({ open, onOpenChange, workstream, title, 
         <TableBody>{groups.map(([label, group]) => <TableRow key={label}><TableCell className="whitespace-normal">{label}</TableCell><TableCell className="text-right tabular-nums">{group.items}</TableCell><TableCell className="text-right tabular-nums">{nairaFormat.format(group.minor / MONEY_SCALE_NUMBER)}</TableCell></TableRow>)}</TableBody>
         <TableFooter><TableRow><TableCell>Total</TableCell><TableCell className="text-right tabular-nums">{lines.length}</TableCell><TableCell className="text-right tabular-nums">{nairaFormat.format(total)}</TableCell></TableRow></TableFooter>
       </Table></div> : <p className="text-sm text-muted-foreground">No items saved yet</p>}
-      {missing.length > 0 && <Alert className="component-summary-missing"><CircleAlertIcon /><AlertTitle>Required activities without items</AlertTitle><AlertDescription>{missing.join(' · ')}</AlertDescription></Alert>}
+      {unfunded && <Alert className="component-summary-missing"><CircleAlertIcon /><AlertTitle>Nothing to send</AlertTitle><AlertDescription>{unfunded}</AlertDescription></Alert>}
+      {!unfunded && missing.length > 0 && <Alert className="component-summary-missing"><CircleAlertIcon /><AlertTitle>Required activities without items</AlertTitle><AlertDescription>{missing.join(' · ')}</AlertDescription></Alert>}
       <DialogFooter>
         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}><PencilIcon data-icon="inline-start" />Keep editing</Button>
         <Button type="button" disabled={!lines.length} onClick={onContinue}><SendHorizontalIcon data-icon="inline-start" />Continue to send</Button>

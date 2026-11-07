@@ -34,6 +34,7 @@ import { ActivityLinePanel, lineSearchText } from '@/components/activity-line-pa
 import type { InlineField } from '@/components/line-panel/line-table';
 import { scrollLineIntoView, useLineFlash, usePanelMode } from '@/components/line-panel/use-line-panel';
 import { SharedBudgetPanel } from '@/components/shared-budget-panel';
+import { hasNoAllocation, noAllocationDetail } from '@/lib/unfunded-components';
 import { LockedOverlay, type LockReason } from '@/components/locked-overlay/locked-overlay';
 import { ActivitySelectionPanel } from '@/components/activity-selection';
 import { choosesUpFront, chosenActivities, planSelection } from '@/lib/activity-selection';
@@ -136,12 +137,15 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  const needsSplit=!!splitSide&&!!data&&storedAllocation(data.plan,splitSide)==null&&(splitSide!=='tlm'||data.plan.stateLodgment!=null);
  // Quality Assurance: the activities are chosen first (ActivitySelectionPanel opens by itself until then).
  const needsChoice=choosesUpFront(workstream)&&!!data&&data.plan.qualityActivities==null;
- const disabled=busy||!data?.canEdit||!!error||needsSplit||needsChoice;
+ // UBEC239: the split gives this side ₦0 and it has no items: nothing to plan until the BEAP Chair changes the split.
+ const noAllocation=!!splitSide&&!!data&&!data.lines.length&&hasNoAllocation(data.plan,splitSide);
+ const disabled=busy||!data?.canEdit||!!error||needsSplit||needsChoice||noAllocation;
  // Why the form is locked (not while it is only saving), shown above it.
  const lockReason:LockReason|null=!data||busy?null:error?{title:'Could not load this component',detail:'Reload the page and try again'}
   :!data.canEdit?{title:'Locked at this review stage',detail:'This component is with a reviewer or outside your departments, so its items cannot be changed now'}
   :needsSplit&&budgetPairs[pairOf(splitSide!)].envelope(data.plan)==null?{title:'Plan funding not set',detail:`Set the plan's funding on the plan page (Edit plan), then share the budget and add ${name} items`}
   :needsSplit?{title:'Waiting for the budget split',detail:data.canSplit?`Use “Set the budget split” above to decide how much of the shared budget ${name} will use`:`The BEAP Chair sets how much of the shared budget ${name} will use. You can add items once it is set`}
+  :noAllocation?{title:`No allocation for ${name}`,detail:noAllocationDetail(splitSide!)}
   :needsChoice?{title:'Choose the activities first',detail:`Use “Choose activities” above to pick the ${name} activities, then add items to them`}:null;
  const total=minorToNaira(data?.lines.reduce((s,l)=>s+lineMinor(l.unitCost,l.quantity),BigInt(0))??BigInt(0));
  const envelopeMinor=data?componentEnvelopeMinor(data.plan,workstream):null;
@@ -359,6 +363,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
  </div><AlertDialog open={!!removal} onOpenChange={o=>{if(!o&&!busy)setRemoval(null);}}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{removal?.schoolIds?`Remove ${count.format(removal.schoolIds.length)} school${removal.schoolIds.length===1?'':'s'} from the list?`:`Remove this ${removal?.entity==='school'?'school':'item'}?`}</AlertDialogTitle><AlertDialogDescription>{removal?.schoolIds?'This removes them from this plan only, with any items allocated to them':removal?.entity==='school'?'This removes it from this plan only, with any items allocated to it':'This removes it from this plan only'}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel><Button variant="destructive" disabled={busy} onClick={()=>removal&&void mutate({...removal,action:'delete'})}>Remove</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
  {data&&<ComponentSummaryDialog open={summaryOpen} onOpenChange={setSummaryOpen} workstream={workstream} title={title} lines={data.lines} envelope={envelope} distribution={withDistribution&&(data.distribution.length>0||distributionListRequired(workstream,data.lines))?data.distribution.length:null}
   missing={compulsoryFor(workstream,data.plan).filter(a=>!data.lines.some(l=>l.activity===a)).map(a=>activityNames[workstream][a])}
+  unfunded={noAllocation?noAllocationDetail(splitSide!):null}
   onContinue={()=>window.location.assign(currentPlanHref('/beap/review')+'#send-'+workstream)}/>}
  <DiscardChangesDialog open={!!pending} saved="Your saved items stay as they are" onKeep={()=>setPending(null)} onDiscard={()=>{const run=pending;reset();setPending(null);run?.();}}/>
  </div>;

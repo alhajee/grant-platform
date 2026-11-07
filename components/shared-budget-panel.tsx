@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { BudgetSplitBar, BudgetSplitDialog } from '@/components/budget-split-dialog';
 import { type EnvelopePlan } from '@/lib/funding-policy';
 import { budgetPairs, pairOf, partnerOf, sideNames, storedAllocation, type SplitSide } from '@/lib/budget-pairs';
+import { hasNoAllocation, noAllocationDetail } from '@/lib/unfunded-components';
 
 // The split of a shared envelope (lib/budget-pairs.ts): Teacher Development & ICT (action_plans.ict_allocation) and,
 // in split mode, Infrastructure & TLM (action_plans.tlm_allocation). Both editors of a pair show this panel first.
@@ -31,8 +32,11 @@ export function SharedBudgetPanel({ side, plan, proposed, partnerProposed, canEd
     {canEdit ? <div><Button type="button" onClick={() => setOpen(true)}>Set the budget split</Button></div> : <p>The BEAP Chair sets the split. Ask them to set it on the plan page.</p>}
     {dialog}
   </section>;
+  // UBEC239: the split gives this side nothing. With no items it is not part of the plan until the split changes.
+  const unfunded = proposed === 0 && hasNoAllocation(plan, side);
   return <div className="ict-allocation-summary">
     <BudgetSplitBar side={side} plan={plan} />
+    {unfunded && <Alert className="split-unfunded basis-full"><AlertTitle>No allocation for {name}</AlertTitle><AlertDescription>{noAllocationDetail(side)}</AlertDescription></Alert>}
     {!canEdit && <p className="text-xs text-muted-foreground">Set by the BEAP Chair</p>}
     {canEdit && <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>Adjust split</Button>}
     {dialog}

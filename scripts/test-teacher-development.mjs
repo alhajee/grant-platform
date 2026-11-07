@@ -14,7 +14,7 @@ assert.ok(['localhost', '127.0.0.1'].includes(new URL(process.env.DATABASE_URL).
 const tag = randomUUID().slice(0, 8).toUpperCase(), state = `TD${tag}`, password = randomUUID();
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 const jars = {}, userIds = [];
-let planId, settings, passed = 0;
+let planId, plan2Id, settings, passed = 0;
 const step = message => { passed++; console.log('✓', message); };
 
 async function api(who, path, body, { method = body ? 'POST' : 'GET' } = {}) {
@@ -79,7 +79,13 @@ try {
 
   // The split comes first; either side sets it and the other keeps the rest.
   fails(await api('tpd', url('teachers'), training(0, 100)), 400, /Teacher Development will use before adding Teacher Development items/);
-  fails(await split('chair', 'teachers', '0'), 409, /greater than zero/);
+  // UBEC239: either side may take the whole shared budget while the other has nothing planned.
+  assert.equal(ok(await split('chair', 'teachers', '0')).ictAllocation, '40000000.00');
+  const tdView = ok(await api('tpd', url('teachers')));
+  assert.equal(tdView.plan.ictAllocation, '40000000.00');
+  fails(await api('tpd', url('teachers'), training(0, 100)), 409, /Teacher Development & ICT split gives the whole shared budget to ICT, so Teacher Development has nothing to plan or send/);
+  let shown = ok(await api('tpd', `/api/plans/review?plan=${planId}`));
+  assert.deepEqual(shown.unfundedPillars, ['teachers']);
   fails(await split('chair', 'teachers', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.0000/);
   assert.equal(ok(await split('chair', 'teachers', '30000000')).ictAllocation, '10000000.00');
   assert.equal(ok(await api('ict', url('ict'))).plan.ictAllocation, '10000000.00');
@@ -87,9 +93,35 @@ try {
   assert.equal(await allocation(), '12000000.00');
   // Teacher Development may take everything while ICT has no lines; ICT is then left ₦0.
   assert.equal(ok(await split('chair', 'teachers', '40000000')).ictAllocation, '0.00');
-  fails(await api('ict', url('ict'), ictLine(1, 100)), 400, /exceeded the ICT allocation \(₦0\.0000\)/);
+  fails(await api('ict', url('ict'), ictLine(1, 100)), 409, /gives the whole shared budget to Teacher Development, so ICT has nothing to plan or send/);
+  shown = ok(await api('chair', `/api/plans/review?plan=${planId}`));
+  assert.deepEqual(shown.unfundedPillars, ['ict']);
   ok(await split('chair', 'ict', '10000000'));
-  step('Split from the Teacher Development side updates ICT and vice versa; ICT may be left ₦0 only without lines');
+  assert.deepEqual(ok(await api('chair', `/api/plans/review?plan=${planId}`)).unfundedPillars, []);
+  step('Split from the Teacher Development side updates ICT and vice versa; either side may be left ₦0 without lines (UBEC239), and is then unfunded');
+
+  // UBEC239: on a second plan every other component is already with the Executive Chairman. Giving Teacher Development ₦0
+  // makes it unfunded, so the plan becomes ready for the Executive Chairman and nobody has Teacher Development work left.
+  plan2Id = (await db.query("INSERT INTO action_plans(state_code,start_year,end_year,implementation_year,funding_quarters,state_lodgment,other_funding,funding_policy_id) VALUES($1,2031,2031,2031,'{1}',400000000,0,(SELECT id FROM funding_policies ORDER BY id DESC LIMIT 1)) RETURNING id", [state])).rows[0].id;
+  await db.query("INSERT INTO plan_quarters(plan_id,state_code,planning_year,quarter) VALUES($1,$2,2031,1)", [plan2Id, state]);
+  await db.query("INSERT INTO plan_pillar_reviews(plan_id,pillar,status) SELECT $1,p,'chairman_ready' FROM unnest($2::text[]) p", [plan2Id, ['infrastructure', 'sports', 'sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'planning']]);
+  const split2 = (side, amount) => api('chair', `/api/activities/budget-split?plan=${plan2Id}`, { amount, side }, { method: 'PATCH' });
+  const status2 = async () => (await db.query('SELECT status FROM action_plans WHERE id=$1', [plan2Id])).rows[0].status;
+  const todos2 = async who => ok(await api(who, '/api/plans')).plans.find(p => p.id === plan2Id).pendingActions.map(a => a.label);
+  ok(await split2('teachers', '1000'));
+  assert.equal(await status2(), 'draft');
+  assert.ok((await todos2('tpd')).includes('Complete Teacher Development'));
+  ok(await split2('teachers', '0'));
+  assert.equal(await status2(), 'awaiting_chairman');
+  assert.deepEqual(await todos2('tpd'), []);
+  assert.deepEqual(await todos2('ec'), ['Executive review and send to UBEC']);
+  const feed = ok(await api('tpd', '/api/notifications'));
+  assert.ok(!feed.todos.some(t => t.planId === plan2Id), 'no Teacher Development to-do in the bell');
+  const bar = ok(await api('chair', `/api/plans/review?plan=${plan2Id}`));
+  assert.deepEqual(bar.unfundedPillars, ['teachers']);
+  ok(await split2('teachers', '1000'));
+  assert.equal(await status2(), 'draft', 'back to needing Teacher Development once it has an amount');
+  step('A ₦0 Teacher Development with no items needs no review: the plan status and to-dos follow the split (UBEC239)');
 
   // Line validation: training details replace description, strategy and target group.
   fails(await api('tpd', url('teachers'), training(19, 100)), 400, /valid allowable activity/);
@@ -198,6 +230,7 @@ try {
   if (planId) { await db.query('DELETE FROM ubec_events WHERE plan_id=$1', [planId]); await db.query('DELETE FROM ubec_assignments WHERE round_id IN (SELECT id FROM ubec_rounds WHERE plan_id=$1)', [planId]); await db.query('DELETE FROM ubec_rounds WHERE plan_id=$1', [planId]); }
   if (planId) for (const t of ['plan_comments', 'plan_notifications', 'plan_review_events', 'plan_submissions', 'plan_pillar_reviews', 'activity_line_documents', 'activity_plan_lines', 'plan_quarters']) await db.query(`DELETE FROM ${t} WHERE plan_id=$1`, [planId]);
   if (planId) await db.query('DELETE FROM action_plans WHERE id=$1', [planId]);
+  if (plan2Id) for (const sql of ['DELETE FROM plan_pillar_reviews WHERE plan_id=$1', 'DELETE FROM plan_quarters WHERE plan_id=$1', 'DELETE FROM action_plans WHERE id=$1']) await db.query(sql, [plan2Id]);
   if (userIds.length) await db.query('DELETE FROM users WHERE id=ANY($1::int[])', [userIds]);
   await db.end();
 }

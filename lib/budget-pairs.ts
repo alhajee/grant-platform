@@ -25,10 +25,6 @@ export const budgetPairs: Record<BudgetPair, PairConfig> = {
 export const sideNames: Record<SplitSide, string> = { ict: 'ICT', teachers: 'Teacher Development', tlm: 'TLM', infrastructure: 'Infrastructure' };
 /** What each side's proposals are called in messages. */
 export const sideItems: Record<SplitSide, string> = { ict: 'lines', teachers: 'lines', tlm: 'lines', infrastructure: 'packages' };
-const positiveAmount: Record<SplitSide, string> = {
-  ict: 'Enter an ICT allocation greater than zero', tlm: 'Enter a TLM allocation greater than zero',
-  teachers: 'Enter a Teacher Development amount greater than zero', infrastructure: 'Enter an Infrastructure amount greater than zero',
-};
 export const isSplitSide = (value: string): value is SplitSide => (splitSides as readonly string[]).includes(value);
 export const pairOf = (side: SplitSide): BudgetPair => side === 'ict' || side === 'teachers' ? 'teachers-ict' : 'infrastructure-tlm';
 export const partnerOf = (side: SplitSide): SplitSide => { const pair = budgetPairs[pairOf(side)]; return side === pair.stored ? pair.keeper : pair.stored; };
@@ -41,15 +37,15 @@ export type SplitProposed = { own: string; partner: string };
 export type SplitResult = { problem: string; allocation?: undefined } | { problem?: undefined; allocation: string };
 
 /**
- * Checks one side's amount and returns the stored figure to save, or why it cannot be saved. The amount must be above
- * zero and within the shared envelope, neither side may drop below what it already proposes, and the stored side may be
- * left with nothing only while it has no lines.
+ * Checks one side's amount and returns the stored figure to save, or why it cannot be saved. The amount must be within
+ * the shared envelope and neither side may drop below what it already proposes. UBEC239: either side may get ₦0 (the other
+ * takes the whole shared budget) while it has no lines or packages (lib/unfunded-components.ts).
  */
 export function sharedSplit(plan: EnvelopePlan, side: SplitSide, amount: string, proposed: SplitProposed): SplitResult {
   const pair = budgetPairs[pairOf(side)], shared = pair.envelope(plan), name = sideNames[side], partner = partnerOf(side), otherName = sideNames[partner];
   if (shared == null) return { problem: `Set the plan funding before allocating the ${name} budget` };
   const value = toMinor(amount), ceiling = toMinor(shared), own = toMinor(proposed.own), others = toMinor(proposed.partner);
-  if (value <= BigInt(0)) return { problem: positiveAmount[side] };
+  if (value < BigInt(0)) return { problem: `Enter a ${name} amount of ₦0 or more` };
   if (value > ceiling) return { problem: `${name} can use up to the shared ${pair.label} budget of ${formatMinor(ceiling)}.` };
   if (value < own) return { problem: `${name} ${sideItems[side]} already propose ${formatMinor(own)}. Reduce them first or allocate at least that amount.` };
   if (ceiling - value < others) return { problem: `${otherName} ${sideItems[partner]} already propose ${formatMinor(others)}, so ${name} can use up to ${formatMinor(ceiling - others)}.` };
@@ -100,11 +96,8 @@ const splitAmount = /^\d{1,13}(\.\d{1,2})?$/;
  */
 export function creationSplitProblem(plan: EnvelopePlan, splits: Partial<CreationSplits> | null | undefined): { problem: string } | { ictAllocation: string; tlmAllocation: string | null } {
   const none = { own: '0', partner: '0' };
-  // ₦0 for ICT or TLM is allowed (nothing is planned yet): the keeper then takes the whole shared budget.
-  const check = (side: 'ict' | 'tlm', amount: string) => {
-    const shared = budgetPairs[pairOf(side)].envelope(plan);
-    return toMinor(amount) === BigInt(0) && shared != null && toMinor(shared) > BigInt(0) ? sharedSplit(plan, partnerOf(side), shared, none) : sharedSplit(plan, side, amount, none);
-  };
+  // UBEC239: either side may take the whole shared budget (₦0 for ICT or TLM, or all of it), since nothing is planned yet.
+  const check = (side: 'ict' | 'tlm', amount: string) => sharedSplit(plan, side, amount, none);
   if (!splits?.ict || !splitAmount.test(splits.ict)) return { problem: 'Enter how much of the Teacher Development & ICT budget ICT will use' };
   const ict = check('ict', splits.ict);
   if (ict.problem !== undefined) return { problem: ict.problem };

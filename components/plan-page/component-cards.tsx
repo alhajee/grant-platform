@@ -22,13 +22,15 @@ import { pillarReviewLabels, type PillarReview, type PillarReviewStatus } from '
 import type { PlanReview } from '@/lib/plan-review';
 import type { PlanTotals } from '@/lib/plan-summary';
 import { subebDepartmentName } from '@/lib/subeb-departments';
+import { partnerOf, sideNames, type SplitSide } from '@/lib/budget-pairs';
+import { noAllocationLabel } from '@/lib/unfunded-components';
 import { commentCount, ubecCount } from './review-action-dialog';
 
 
 /** What the viewer can do with one component card: open its editor, and the workflow step they hold (if any). */
 export type CardActions = { editHref?: string; step?: { label: string; run: () => void; /** Why the step cannot run yet (missing documents or compulsory activities); the button is then disabled. */ blocked?: string | null } };
 
-type CardProps = { plan: PlanReview['plan']; envelopePlan: EnvelopePlan; review: PillarReview; totals: PlanTotals; comments: CommentsController | null; actions: CardActions; /** False until the component has been sent to the viewer: the card then shows only its status. */ detail: boolean ; /** The latest UBEC decision (returned plans show their rejected items, UBEC188/190). */ ubec?: UbecResults['components'][number] | null; /** Rejected row refs not yet changed or removed (UBEC189). */ stillOpen?: readonly string[]};
+type CardProps = { plan: PlanReview['plan']; envelopePlan: EnvelopePlan; review: PillarReview; totals: PlanTotals; comments: CommentsController | null; actions: CardActions; /** False until the component has been sent to the viewer: the card then shows only its status. */ detail: boolean ; /** The latest UBEC decision (returned plans show their rejected items, UBEC188/190). */ ubec?: UbecResults['components'][number] | null; /** Rejected row refs not yet changed or removed (UBEC189). */ stillOpen?: readonly string[]; /** UBEC239: the budget split gives it ₦0 and it has no items, so it needs nothing. */ unfunded?: boolean};
 
 /**
  * Proposed amount against the component's ceiling (policy share plus its own funding sources): a slim bar, then "₦X of ₦Y".
@@ -74,7 +76,26 @@ const reviewLabel = (planStatus: string, status: PillarReviewStatus) =>
   : status === 'chairman_ready' && ['submitted_ubec', 'ubec_review'].includes(planStatus) ? 'With UBEC'
   : pillarReviewLabels[status];
 
-function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, detail, ubec, stillOpen }: CardProps) {
+/** UBEC239: a split side given ₦0 with no items. Nothing to plan, review or send, so no bar, figures or step. */
+function UnfundedCard({ envelopePlan, review, actions, detail }: Pick<CardProps, 'envelopePlan' | 'review' | 'actions' | 'detail'>) {
+  const { pillar } = review, section = componentSections[pillar][0], palette = componentPalette[pillar];
+  const side = pillar as SplitSide, href = detail ? actions.editHref ?? `#review-${pillar}` : undefined;
+  return <li className="component-card" data-component={pillar} data-unfunded style={{ '--component-fill': palette.fill, '--component-ink': palette.ink } as CSSProperties}>
+    <span className="component-card-art" aria-hidden="true">{pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={pillar} standalone />}</span>
+    <div className="component-card-body">
+      <div className="component-card-title">
+        <h4>{href ? <a className="component-card-link" href={href}>{section.name}<span className="sr-only">{actions.editHref ? ', open editor' : ', view sheet'}</span></a> : section.name}</h4>
+        <Badge variant="outline">Not needed</Badge>
+      </div>
+      <div className="component-card-department"><span>{subebDepartmentName(subebComponentDepartments[pillar])}</span><PolicyShare plan={envelopePlan} pillar={pillar} /></div>
+      <p className="component-card-amount component-card-allocation"><b>{noAllocationLabel(side)}</b></p>
+      <p className="component-card-amount component-card-pending">{sideNames[partnerOf(side)]} has the whole shared budget, so nothing is sent</p>
+    </div>
+  </li>;
+}
+
+function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, detail, ubec, stillOpen, unfunded }: CardProps) {
+  if (unfunded) return <UnfundedCard envelopePlan={envelopePlan} review={review} actions={actions} detail={detail} />;
   const { pillar } = review, section = componentSections[pillar][0], summary = totals[pillar];
   const ceilingValue = componentEnvelope(envelopePlan, pillar), ceiling = ceilingValue == null ? null : Number(ceilingValue);
   // Infrastructure and TLM in shared-pool mode: the ceiling is the pool they share, so the partner's proposals count against it too.
@@ -149,7 +170,7 @@ export function ComponentCards({ data, totals, comments, actionsFor, ubec }: { d
         <Separator className="component-group-rule" />
       </div>
       <ul className="component-cards">
-        {group.items.map(review => <ComponentCard key={review.pillar} plan={data.plan} envelopePlan={envelopePlan} review={review} totals={totals} comments={comments} actions={actionsFor(review)} detail={data.visiblePillars.includes(review.pillar)} ubec={returned.find(c => c.pillar === review.pillar)} stillOpen={data.ubecOpenRejections ? data.ubecOpenRejections[review.pillar] ?? [] : undefined} />)}
+        {group.items.map(review => <ComponentCard key={review.pillar} plan={data.plan} envelopePlan={envelopePlan} review={review} totals={totals} comments={comments} actions={actionsFor(review)} detail={data.visiblePillars.includes(review.pillar)} ubec={returned.find(c => c.pillar === review.pillar)} stillOpen={data.ubecOpenRejections ? data.ubecOpenRejections[review.pillar] ?? [] : undefined} unfunded={data.unfundedPillars?.includes(review.pillar)} />)}
       </ul>
     </section>)}
   </div>;

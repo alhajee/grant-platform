@@ -42,9 +42,8 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
   const sharedK = Number(toMinor(pair.envelope(plan) ?? '0') / MINOR_PER_KOBO), storedNow = storedAllocation(plan, side);
   const floors = { [side]: koboFloor(proposed), [viewerKeeps ? stored : keeper]: koboFloor(partnerProposed) } as Record<SplitSide, number>;
   const keeperFloor = floors[keeper] ?? 0, storedFloor = floors[stored] ?? 0;
-  // The viewer's own amount must be above zero (the API refuses ₦0 for the side that names it); the other side may be ₦0 only with nothing planned.
-  const lo = viewerKeeps ? Math.max(keeperFloor, 100) : keeperFloor;
-  const hi = sharedK - (viewerKeeps ? storedFloor : Math.max(storedFloor, 100));
+  // UBEC239: either side may take the whole shared budget; a side may be ₦0 only with nothing planned (its floor).
+  const lo = keeperFloor, hi = sharedK - storedFloor;
   const clamp = (k: number) => Math.min(Math.max(k, lo), hi);
   const initial = storedNow != null ? sharedK - koboIn(storedNow) : clamp(Math.round(sharedK / 200) * 100);
   const [keeperK, setKeeperK] = useState(initial);
@@ -61,7 +60,6 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
     if (!Number.isFinite(keeperK) || keeperK < 0 || keeperK > sharedK) return `Each amount must be between ₦0 and ${money.format(naira(sharedK))}.`;
     const own = viewerKeeps ? keeperK : storedK, ownFloor = viewerKeeps ? keeperFloor : storedFloor, otherK = viewerKeeps ? storedK : keeperK, otherFloor = viewerKeeps ? storedFloor : keeperFloor;
     const ownName = sideNames[side], otherSide = viewerKeeps ? stored : keeper;
-    if (own <= 0) return `Give ${ownName} an amount greater than zero`;
     if (own < ownFloor) return `${ownName} ${sideItems[side]} already propose ${money.format(naira(ownFloor))}.`;
     if (otherK < otherFloor) return `${sideNames[otherSide]} ${sideItems[otherSide]} already propose ${money.format(naira(otherFloor))}, so ${ownName} can use up to ${money.format(naira(sharedK - otherFloor))}.`;
     return '';
@@ -74,9 +72,9 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
   /** Moves the split to `wanted` (the first side's kobo), stopping at either side's floor and saying why. */
   function applyKeeper(wanted: number) {
     const next = clamp(wanted);
-    // Explain why the thumb stopped: the side it would squeeze already has lines (or packages), or must keep more than ₦0.
+    // Explain why the thumb stopped: the side it would squeeze already has lines (or packages).
     const squeezed = wanted < lo ? { name: names.keeper, floor: keeperFloor } : wanted > hi ? { name: names.stored, floor: storedFloor } : null;
-    setClamped(!squeezed ? '' : squeezed.floor > 0 ? `${squeezed.name} already has ${money.format(naira(squeezed.floor))} planned.` : `${squeezed.name} needs more than ₦0.`);
+    setClamped(squeezed ? `${squeezed.name} already has ${money.format(naira(squeezed.floor))} planned.` : '');
     setKeeper(next);
   }
   const slide = ([value]: number[]) => applyKeeper(Math.round(value) * 100);
@@ -90,8 +88,9 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
   const presets = [
     { label: 'Even split', k: Math.round(sharedK / 200) * 100 },
     { label: `All to ${names.keeper}`, k: sharedK },
+    { label: `All to ${names.stored}`, k: 0 },
     ...(storedNow != null ? [{ label: 'As saved', k: sharedK - koboIn(storedNow) }] : []),
-  ].filter(p => p.k >= lo && p.k <= hi && p.k !== keeperK).slice(0, 3);
+  ].filter(p => p.k >= lo && p.k <= hi && p.k !== keeperK).slice(0, 4);
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -142,6 +141,7 @@ export function BudgetSplitDialog({ side, plan, proposed, partnerProposed, open,
           <Field><FieldLabel htmlFor="split-stored">{names.stored} (₦)</FieldLabel><CurrencyInput id="split-stored" value={inputs.stored} maxIntegerDigits={12} onValueChange={value => type('stored', value)} aria-invalid={!!problem} /></Field>
         </div>
         {problem ? <FieldDescription className="text-destructive" role="alert">{problem}</FieldDescription> : <FieldDescription>{names.keeper} {money.format(naira(keeperK))} + {names.stored} {money.format(naira(storedK))} = {money.format(naira(sharedK))}</FieldDescription>}
+        {!problem && sharedK > 0 && (keeperK === 0 || storedK === 0) && <FieldDescription>{keeperK === 0 ? names.keeper : names.stored} gets nothing, so it is left out of the plan: no items, no review and nothing to send</FieldDescription>}
         {serverError && <Alert variant="destructive"><AlertDescription>{serverError}</AlertDescription></Alert>}
 
         {/* Quick splits share the footer row with Save split; their light hover keeps Save split the primary action. */}

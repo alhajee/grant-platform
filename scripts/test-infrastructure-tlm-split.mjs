@@ -52,7 +52,10 @@ assert.equal(componentEnvelope(set, 'tlm'), '5000.00'); assert.equal(componentEn
 assert.equal(sideAmount(set, 'infrastructure'), '10750.00'); assert.equal(sideAmount(set, 'tlm'), '5000.00');
 assert.equal(componentEnvelope({ ...set, infrastructureTlmMode: 'shared_pool' }, 'tlm'), '15750.00', 'shared_pool ignores the split');
 const none = { own: '0', partner: '0' };
-assert.match(sharedSplit(plan, 'tlm', '0', none).problem, /Enter a TLM allocation greater than zero/);
+// UBEC239: either side may be ₦0 while it has nothing planned.
+assert.equal(sharedSplit(plan, 'tlm', '0', none).allocation, '0.00');
+assert.equal(sharedSplit(plan, 'infrastructure', '0', none).allocation, '15750.00');
+assert.match(sharedSplit(plan, 'infrastructure', '0', { own: '1', partner: '0' }).problem, /Infrastructure packages already propose ₦1\.0000/);
 assert.match(sharedSplit(plan, 'tlm', '15750.01', none).problem, /up to the shared Infrastructure & TLM budget of ₦15,750\.0000/);
 assert.match(sharedSplit(plan, 'tlm', '100', { own: '200', partner: '0' }).problem, /TLM lines already propose ₦200\.0000/);
 assert.match(sharedSplit(plan, 'tlm', '15000', { own: '0', partner: '1000' }).problem, /Infrastructure packages already propose ₦1,000\.0000, so TLM can use up to ₦14,750\.0000/);
@@ -113,12 +116,14 @@ try {
   fails(await split('academic', 'infrastructure', '15000'), 403);
   fails(await split('physical', 'tlm', '100'), 403);
   fails(await split('chair', 'tlm', '100'), 403, /Only the BEAP Chair/);
-  fails(await split('beapChair', 'tlm', '0'), 409, /greater than zero/);
+  // UBEC239: Infrastructure may get ₦0 (TLM takes the whole pool) while it has no packages; it then takes none.
+  assert.equal(ok(await split('beapChair', 'infrastructure', '0')).tlmAllocation, '15000.00');
+  fails(await api('physical', infraUrl, furniture(1)), 409, /Infrastructure & TLM split gives the whole shared budget to TLM, so Infrastructure has nothing to plan or send/);
   fails(await split('beapChair', 'tlm', '15000.01'), 409, /up to the shared Infrastructure & TLM budget of ₦15,000\.0000/);
   assert.equal(ok(await split('beapChair', 'infrastructure', '15000')).tlmAllocation, '0.00');
   ok(await api('physical', infraUrl, furniture(1000)));
-  fails(await api('academic', tlmUrl, tlmLine(0.01)), 409, /exceeded the Teaching & Learning Materials allocation \(₦0\.0000\)/);
-  step('only the BEAP Chair sets the split (not Data Entry or the Executive Chairman); Infrastructure may take it all, leaving TLM ₦0');
+  fails(await api('academic', tlmUrl, tlmLine(0.01)), 409, /gives the whole shared budget to Infrastructure, so TLM has nothing to plan or send/);
+  step('only the BEAP Chair sets the split (not Data Entry or the Executive Chairman); either side may take it all, leaving the other ₦0 and closed to items');
 
   assert.equal(ok(await split('beapChair', 'tlm', '5000')).tlmAllocation, '5000.00');
   fails(await split('beapChair', 'tlm', '14000.01'), 409, /Infrastructure packages already propose ₦1,000\.0000, so TLM can use up to ₦14,000\.0000/);
