@@ -1,6 +1,6 @@
-import { BabyIcon, CircleGaugeIcon, FileCheckIcon, PlugZapIcon, SchoolIcon, UsersRoundIcon, WalletIcon, WorkflowIcon, type LucideIcon } from 'lucide-react';
+import { BabyIcon, CircleGaugeIcon, FileCheckIcon, PlugZapIcon, ReceiptTextIcon, SchoolIcon, UsersRoundIcon, WalletIcon, WorkflowIcon, type LucideIcon } from 'lucide-react';
 
-export const settingsSections = ['workflow', 'documents', 'allocations', 'eccde', 'budget', 'officers', 'schools', 'dnemis'] as const;
+export const settingsSections = ['workflow', 'documents', 'allocations', 'eccde', 'budget', 'pricelist', 'officers', 'schools', 'dnemis'] as const;
 export type SettingsSection = typeof settingsSections[number];
 
 export const sectionGroups: { label: string; items: { id: SettingsSection; label: string; icon: LucideIcon }[] }[] = [
@@ -10,6 +10,7 @@ export const sectionGroups: { label: string; items: { id: SettingsSection; label
     { id: 'allocations', label: 'Full use of allocations', icon: CircleGaugeIcon },
     { id: 'eccde', label: 'ECCDE share', icon: BabyIcon },
     { id: 'budget', label: 'Infrastructure & TLM budget', icon: WalletIcon },
+    { id: 'pricelist', label: 'Procurement price list', icon: ReceiptTextIcon },
   ] },
   { label: 'UBEC', items: [{ id: 'officers', label: 'Assessment Officers', icon: UsersRoundIcon }] },
   { label: 'Data', items: [
