@@ -11,7 +11,7 @@ import { AssessmentProvider, withDecisions, type WorkbookAssessment } from './as
 import { useExpandedWorkbook } from './use-expanded';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { Snapshot } from '@/lib/plan-review';
-import { buildSheets, detailExportSheets, type SheetLinks } from './sheets';
+import { buildSheets, detailExportSheets, distributionItemSheets, type SheetLinks } from './sheets';
 import { SheetView, type DownloadRequest } from './sheet-view';
 import type { SheetKey, WorkbookSheet } from './types';
 import { sheetPillar } from '@/lib/plan-comments';
@@ -72,7 +72,9 @@ export function PlanWorkbook({ snapshot, visiblePillars, links, comments = null,
   const download: DownloadRequest = async (scope, view) => {
     const { downloadWorkbook } = await import('./export-xlsx');
     const sheet = sheets.find(s => s.key === current)!;
-    if (scope === 'sheet') return downloadWorkbook(`${baseName} - ${sheet.label}.xlsx`, [{ name: sheet.label, columns: sheet.columns, rows: view?.rows ?? sheet.rows }]);
+    // UBEC246: a distribution sheet comes with its items by school (the schools shown).
+    const shown = view?.rows ?? sheet.rows;
+    if (scope === 'sheet') return downloadWorkbook(`${baseName} - ${sheet.label}.xlsx`, [{ name: sheet.label, columns: sheet.columns, rows: shown }, ...distributionItemSheets(snapshot, sheets, { key: sheet.key, schoolIds: new Set(shown.map(r => r.id)) })]);
     const { workbookCover } = await import('./cover');
     return downloadWorkbook(`${baseName} - workbook.xlsx`, [...sheets.map(s => ({ name: s.label, columns: s.columns, rows: s.rows })), ...detailExportSheets(snapshot, sheets)], workbookCover(snapshot, sheets, setup?.beapName || title));
   };

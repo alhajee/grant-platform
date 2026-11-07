@@ -8,7 +8,7 @@ import { infrastructureDocumentProblem } from './infrastructure-documents';
 import { componentReadinessProblem, readinessWorkstreams, hasReadinessRules, splitReadinessPillars, splitReadinessProblem, type ReadinessOptions } from './component-readiness';
 import type { DepartmentAccess } from './user-departments';
 import type { UbecSubmissionMode } from './workflow-settings';
-import { distributionAllocationProblem, distributionSnapshotKeys, distributionWorkstreams, emptyDistributionMessage, hasDistribution, pheDistributionProblem } from './distribution-lists';
+import { distributionAllocationProblem, distributionListProblem, distributionSnapshotKeys, distributionWorkstreams, hasDistribution, pheDistributionProblem } from './distribution-lists';
 import { sportsSnapshotProblem } from './sports';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'beap_review' | 'chairman_ready';
@@ -75,7 +75,7 @@ export function executiveChairmanProblem(reviews: PillarReview[], snapshot: Snap
   if (planIsComplete(snapshot, options)) return null;
   const empty = implementedPillars.filter(p => !(snapshot[p]?.length ?? 0));
   if (empty.length) return `Nothing has been budgeted yet for ${empty.map(p => componentNames[p]).join(', ')}`;
-  const noList = distributionWorkstreams.find(w => !(snapshot[distributionSnapshotKeys[w]]?.length ?? 0));
+  const noList = distributionWorkstreams.find(w => distributionListProblem(w, snapshot[w] ?? [], snapshot[distributionSnapshotKeys[w]]));
   if (noList) return `${componentNames[noList]}: add at least one school to its distribution list`;
   const infrastructure = infrastructureDocumentProblem(snapshot, options);
   if (infrastructure) return `Infrastructure: ${infrastructure}`;
@@ -84,7 +84,7 @@ export function executiveChairmanProblem(reviews: PillarReview[], snapshot: Snap
 }
 const componentNames: Record<ImplementedPillar, string> = { infrastructure: 'Infrastructure', tlm: 'TLM', sports: 'Sports, Quiz & Debate', sbmc: 'SBMC', monitoring: 'Supervision & Monitoring', gscci: 'Greening', curriculum: 'Curriculum', quality: 'Quality Assurance', teachers: 'Teacher Development', ict: 'ICT', planning: 'Planning' };
 function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
-  return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot, options)
+  return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => !distributionListProblem(w, snapshot[w] ?? [], snapshot[distributionSnapshotKeys[w]])) && !infrastructureDocumentProblem(snapshot, options)
     && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup, options)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup) && !pheDistributionProblem(snapshot)
     && distributionWorkstreams.every(w => !distributionAllocationProblem(w, snapshot[w] ?? [], snapshot[distributionSnapshotKeys[w]], snapshot.distributionAllocations))
     && splitReadinessPillars.every(p => !splitReadinessProblem(p, snapshot));
@@ -100,8 +100,9 @@ export function componentSendProblem(pillar: ImplementedPillar, snapshot: Snapsh
     ?? (hasDistribution(pillar) ? distributionAllocationProblem(pillar, snapshot[pillar] ?? [], snapshot[distributionSnapshotKeys[pillar]], snapshot.distributionAllocations) : null);
 }
 function componentRulesProblem(pillar: ImplementedPillar, snapshot: Snapshot, options: ReadinessOptions): string | null {
-  // TLM, Greening and Curriculum need at least one school on their distribution list, as at every state send step.
-  if (hasDistribution(pillar) && !(snapshot[distributionSnapshotKeys[pillar]]?.length ?? 0)) return emptyDistributionMessage(pillar);
+  // TLM, Greening and Curriculum need at least one school on their distribution list, as at every state send step
+  // (Greening only while it has items shared out to schools, UBEC245).
+  if (hasDistribution(pillar)) { const problem = distributionListProblem(pillar, snapshot[pillar] ?? [], snapshot[distributionSnapshotKeys[pillar]]); if (problem) return problem; }
   if (hasReadinessRules(pillar)) return componentReadinessProblem(pillar, snapshot[pillar] ?? [], snapshot.setup, options) ?? splitReadinessProblem(pillar, snapshot);
   if (pillar === 'sports') return pheDistributionProblem(snapshot) ?? sportsSnapshotProblem(snapshot.sports, snapshot.setup);
   return splitReadinessProblem(pillar, snapshot);

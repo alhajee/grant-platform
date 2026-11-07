@@ -10,6 +10,7 @@ import { formatQuarters } from '@/lib/line-quarters';
 import { formatLineDates } from '@/lib/line-dates';
 import { frequencyLabel } from '@/lib/activity-extras';
 import { isDistributedLine, isPheTrainingLine } from '@/lib/distribution-lists';
+import { distributionItemRows } from '@/lib/distribution-export';
 import { InfrastructurePackageDetails } from '@/components/infrastructure-package-details';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { SchoolMapDialog } from '@/components/school-map-dialog';
@@ -191,7 +192,31 @@ export function detailExportSheets(snapshot: Snapshot, sheets: WorkbookSheet[]):
   const out = [];
   if (sheets.some(s => s.key === 'infrastructure')) out.push({ name: 'Infrastructure items', columns: [text('school', 'School', 260), text('type', 'Project type', 200), text('item', 'Requirement', 320), text('operation', 'Operation', 140), text('description', 'Description', 280), qty('quantity', 'Quantity'), text('unit', 'Unit', 100), amount('cost', 'Unit cost'), text('strategy', 'Strategy', 140), text('duration', 'Duration', 120), amount('amount', 'Amount', true)],
     rows: snapshot.infrastructure.flatMap(line => (line.package?.result.items ?? []).map(item => row(`${line.id}-${item.key}`, { school: line.school.name, type: kindNames[line.package!.kind], item: item.grouping ? `${item.label} (${item.grouping})` : item.label, operation: itemOperation(item) ?? '', description: item.description ?? (line.package!.kind === 'new' ? deliverableDescription(item.key, line.package!.result.model) : ''), quantity: item.quantity, unit: item.unit, cost: item.lump ? '' : item.cost, strategy: item.strategy, duration: item.duration, amount: item.total }))) });
+  out.push(...distributionItemSheets(snapshot, sheets));
   if (sheets.some(s => s.key === 'sports')) out.push({ name: 'Sports allocations', columns: [text('item', 'Budget item', 260), text('code', 'Code', 120), text('school', 'School', 280), text('lga', 'LGA', 120), text('level', 'Level', 96), text('location', 'Location', 104), qty('quantity', 'Qty.', true)],
     rows: snapshot.sports.flatMap(line => line.allocations.map(a => row(`${line.id}-${a.id}`, { item: line.description, code: lineCodeLabel(line.code), school: a.school.name, lga: a.school.lga, level: a.school.level, location: a.school.location, quantity: a.quantity }))) });
   return out;
+}
+
+type ExportOnlySheet = { name: string; columns: WorkbookColumn[]; rows: WorkbookRow[]; totals?: boolean };
+const distributionSheetKeys = { tlm: 'distribution', curriculum: 'curriculumDistribution', gscci: 'gscciDistribution' } as const satisfies Record<DistributionWorkstream, string>;
+/**
+ * UBEC246: "<Name> items by school" for each distribution sheet in the download: one row per school per item (school,
+ * DNEMIS code, LGA, level, activity, item, item code, quantity, unit cost, value), filter-friendly, with SUBTOTAL totals.
+ * `only` limits it to one distribution sheet and, when given, to the schools shown (a single-sheet download of a filtered
+ * view). None for a list without allocated items, or for snapshots from before the allocations.
+ */
+export function distributionItemSheets(snapshot: Snapshot, sheets: readonly WorkbookSheet[], only?: { key: string; schoolIds?: ReadonlySet<string> }): ExportOnlySheet[] {
+  if (!snapshot.distributionAllocations) return [];
+  const lists = { tlm: [snapshot.tlmDistribution, snapshot.tlm], curriculum: [snapshot.curriculumDistribution, snapshot.curriculum], gscci: [snapshot.gscciDistribution, snapshot.gscci] } as const;
+  return (Object.keys(distributionSheetKeys) as DistributionWorkstream[]).flatMap(component => {
+    const key = distributionSheetKeys[component];
+    if (!sheets.some(s => s.key === key) || (only && only.key !== key)) return [];
+    const [schools, lines] = lists[component];
+    const rows = distributionItemRows(component, schools ?? [], lines ?? [], true).filter(r => !only?.schoolIds || only.schoolIds.has(String(r.schoolId)));
+    if (!rows.length) return [];
+    return [{ name: `${distributionNames[component]} items by school`,
+      columns: [text('school', 'School', 260), text('code', 'DNEMIS code', 130), text('lga', 'LGA', 120), text('level', 'Level', 96), text('activity', 'Activity', 220), text('item', 'Item', 240), text('itemCode', 'Item code', 200), qty('quantity', 'Qty.', true), amount('unitCost', 'Unit cost'), amount('value', 'Value', true)],
+      rows: rows.map(r => row(r.id, { school: r.school, code: r.code, lga: r.lga, level: r.level, activity: r.activity, item: r.item, itemCode: r.itemCode, quantity: r.quantity, unitCost: r.unitCost, value: r.value })) }];
+  });
 }
