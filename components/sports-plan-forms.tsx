@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SchoolLevelFilter, allLevels, filterByLevel, type SchoolLevelChoice } from "@/components/school-level-filter";
+import { SchoolFilters, allLevels, allLgas, filterSchools, schoolMatches, type SchoolLevelChoice, type SchoolLgaChoice } from "@/components/school-level-filter";
 import { CurrencyInput, unitCostDecimals } from "@/components/currency-input";
 import { SportsSectionSelect } from "@/components/sports-section-select";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
@@ -142,17 +142,17 @@ export function SportsAllocationFields({ draft, onChange, plan, errors, disabled
 }) {
   // Training of PHE Officers is not an equipment item for schools (UBEC121).
   const equipment = plan.lines.filter((line) => line.section === "equipment" && !isPheTraining(line));
-  const [schoolLevel, setSchoolLevel] = useState<SchoolLevelChoice>(allLevels);
+  const [schoolLevel, setSchoolLevel] = useState<SchoolLevelChoice>(allLevels), [schoolLga, setSchoolLga] = useState<SchoolLgaChoice>(allLgas);
   const school = plan.schools.find((item) => item.id === draft.schoolId) ?? null;
   const selectedItem = equipment.find((item) => item.id === draft.lineId) ?? null;
   const remaining = (line: SportsLine) => line.quantity - plan.allocations.filter((item) => item.lineId === line.id && item.id !== draft.id).reduce((sum, item) => sum + item.quantity, 0);
   return equipment.length ? <FieldGroup className="gap-6">
     <Field data-invalid={Boolean(errors.schoolId)}>
       <FieldLabel htmlFor="sports-school">School name</FieldLabel>
-      <SchoolLevelFilter schools={plan.schools} value={schoolLevel} disabled={disabled} onChange={setSchoolLevel} />
-      <Combobox items={filterByLevel(plan.schools, schoolLevel)} value={school} disabled={disabled} onValueChange={(value) => onChange({ ...draft, schoolId: value?.id ?? null })} itemToStringLabel={(value: SportsSchool) => value.name} itemToStringValue={(value: SportsSchool) => String(value.id)} isItemEqualToValue={(a, b) => a.id === b.id}>
-        <ComboboxInput id="sports-school" className="w-full" placeholder="Search by school name…" disabled={disabled} showClear aria-invalid={Boolean(errors.schoolId)} aria-describedby={errors.schoolId ? "sports-school-error" : undefined} />
-        <ComboboxContent><ComboboxEmpty>No schools match your search</ComboboxEmpty><ComboboxList>{(item: SportsSchool) => <ComboboxItem key={item.id} value={item}><span className="school-option"><span>{item.name}</span><small>{item.lga} · {item.level}</small></span></ComboboxItem>}</ComboboxList></ComboboxContent>
+      <SchoolFilters schools={plan.schools} level={schoolLevel} onLevelChange={setSchoolLevel} lga={schoolLga} onLgaChange={setSchoolLga} disabled={disabled} />
+      <Combobox items={filterSchools(plan.schools, schoolLevel, schoolLga)} filter={(item: SportsSchool, query: string) => schoolMatches(item, query)} value={school} disabled={disabled} onValueChange={(value) => onChange({ ...draft, schoolId: value?.id ?? null })} itemToStringLabel={(value: SportsSchool) => value.name} itemToStringValue={(value: SportsSchool) => String(value.id)} isItemEqualToValue={(a, b) => a.id === b.id}>
+        <ComboboxInput id="sports-school" className="w-full" placeholder="Search by school, LGA or DNEMIS code…" disabled={disabled} showClear aria-invalid={Boolean(errors.schoolId)} aria-describedby={errors.schoolId ? "sports-school-error" : undefined} />
+        <ComboboxContent><ComboboxEmpty>No schools match your search</ComboboxEmpty><ComboboxList>{(item: SportsSchool) => <ComboboxItem key={item.id} value={item}><span className="school-option"><span>{item.name}</span><small>{[item.lga, item.level, item.code].filter(Boolean).join(" · ")}</small></span></ComboboxItem>}</ComboboxList></ComboboxContent>
       </Combobox>
       {errors.schoolId && <FieldError id="sports-school-error">{errors.schoolId}</FieldError>}
     </Field>

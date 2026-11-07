@@ -19,7 +19,7 @@ import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
 import { teacherDocumentHint } from '@/lib/teacher-development';
-import { SchoolLevelFilter, allLevels, filterByLevel, type SchoolLevelChoice } from '@/components/school-level-filter';
+import { SchoolFilters, allLevels, allLgas, filterSchools, schoolMatches, type SchoolLevelChoice, type SchoolLgaChoice } from '@/components/school-level-filter';
 import { CollapsibleSchoolPicker } from '@/components/school-picker-collapse';
 
 // Quality Assurance and ICT pieces of the activity editor (migration 038), kept out of activity-plan-editor.tsx.
@@ -137,19 +137,19 @@ export function BeneficiaryField({ workstream, draft, disabled, onChange }: { wo
 }
 
 export function LineSchoolPicker({ workstream, draft, schools, onChange, disabled, onQuantities }: { workstream: ActivityWorkstream; draft: ExtraDraft; schools: DistributionSchool[]; onChange: (schoolIds: number[]) => void; disabled: boolean; onQuantities?: (quantities: Record<string, number>) => void }) {
-  const [query, setQuery] = useState(''), [level, setLevel] = useState<SchoolLevelChoice>(allLevels);
+  const [query, setQuery] = useState(''), [level, setLevel] = useState<SchoolLevelChoice>(allLevels), [lga, setLga] = useState<SchoolLgaChoice>(allLgas);
   if (!hasLineSchools(workstream, Number(draft.activity), draft.beneficiary)) return null;
   const allocating = allocatesToSchools(workstream, Number(draft.activity), draft.beneficiary) && !!onQuantities;
-  const chosen = new Set(draft.schoolIds), needle = query.trim().toLowerCase();
+  const chosen = new Set(draft.schoolIds);
   // Chosen schools first so they stay visible; then the rest of the list.
-  const matches = filterByLevel(schools, level).filter(s => !needle || `${s.name} ${s.lga} ${s.level}`.toLowerCase().includes(needle)).sort((a, b) => Number(chosen.has(b.id)) - Number(chosen.has(a.id)));
+  const matches = filterSchools(schools, level, lga).filter(s => schoolMatches(s, query)).sort((a, b) => Number(chosen.has(b.id)) - Number(chosen.has(a.id)));
   const toggle = (id: number, on: boolean) => onChange(on ? [...new Set([...draft.schoolIds, id])] : draft.schoolIds.filter(s => s !== id));
   return <Field><FieldLabel htmlFor="line-school-search">Schools {required}</FieldLabel>
-    <Input id="line-school-search" type="search" placeholder="Search by school, LGA or level…" value={query} onChange={e => setQuery(e.target.value)} />
-    <SchoolLevelFilter schools={schools} value={level} disabled={disabled} onChange={setLevel} />
+    <Input id="line-school-search" type="search" placeholder="Search by school, LGA or DNEMIS code…" value={query} onChange={e => setQuery(e.target.value)} />
+    <SchoolFilters schools={schools} level={level} onLevelChange={setLevel} lga={lga} onLgaChange={setLga} disabled={disabled} />
     <FieldDescription>Tick every school this item covers; the quantity follows the schools chosen. Schools come from your School list</FieldDescription>
     <CollapsibleSchoolPicker label="Schools for this item" header={<><span>{count.format(chosen.size)} selected</span>{chosen.size > 0 && <Button type="button" variant="ghost" size="sm" className="ml-auto" disabled={disabled} onClick={() => onChange([])}>Clear</Button>}</>}>
-      {matches.slice(0, pickerLimit).map(s => <label key={s.id} className="school-pick"><Checkbox checked={chosen.has(s.id)} disabled={disabled} onCheckedChange={v => toggle(s.id, v === true)} aria-label={`Select ${s.name}`} /><span className="school-option"><span>{s.name}</span><small>{s.lga} · {s.level}</small></span></label>)}
+      {matches.slice(0, pickerLimit).map(s => <label key={s.id} className="school-pick"><Checkbox checked={chosen.has(s.id)} disabled={disabled} onCheckedChange={v => toggle(s.id, v === true)} aria-label={`Select ${s.name}`} /><span className="school-option"><span>{s.name}</span><small>{[s.lga, s.level, s.code].filter(Boolean).join(' · ')}</small></span></label>)}
       {!matches.length && <p className="school-pick-empty">{schools.length ? 'No schools match your search' : 'No schools are available in your state register'}</p>}
       {matches.length > pickerLimit && <p className="school-pick-empty">Showing {pickerLimit} of {count.format(matches.length)} schools. Search to narrow the list.</p>}
     </CollapsibleSchoolPicker>

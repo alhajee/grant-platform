@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         s.name, s.lga, s.level, s.location FROM sports_allocations a
         JOIN sports_budget_lines b ON b.id = a.line_id JOIN schools s ON s.id = a.school_id
         WHERE b.state_code = ${state} AND b.plan_id = ${plan.id} AND s.state_code = ${state} ORDER BY s.name, a.id`),
-      cachedSchoolList(workspace.stateCode, 'sports', async () => (await db.query(`SELECT id, name, lga, level, location FROM schools WHERE state_code = ${state} ORDER BY name`)).rows),
+      cachedSchoolList(workspace.stateCode, 'sports-v2', async () => (await db.query(`SELECT id, name, lga, level, location, school_code AS code FROM schools WHERE state_code = ${state} ORDER BY name`)).rows),
     ]);
     return NextResponse.json({ plan, envelope: componentEnvelope(plan, "sports"), canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, trainingSchools, schools }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {

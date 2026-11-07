@@ -44,9 +44,9 @@ export async function GET(req:NextRequest){
   // id), saved on their own (entity 'allocation'), not with the line.
   const withExtras=lines.map(line=>{const schools=extras.schools.get(line.id)??[];const quantities=Object.fromEntries(schools.filter(s=>s.quantity).map(s=>[String(s.id),s.quantity]));
    return isDistributedLine(workstream,line.activity)?{...line,schools,schoolIds:[],schoolQuantities:{},allocations:quantities,documents:extras.documents.get(line.id)??[]}:{...line,schools,schoolIds:schools.map(s=>s.id),schoolQuantities:quantities,documents:extras.documents.get(line.id)??[]};});
-  const schoolFields='s.id,s.name,s.lga,s.level,s.location,(s.enrolment_male+s.enrolment_female)::int AS enrolment';
+  const schoolFields='s.id,s.name,s.lga,s.level,s.location,s.school_code AS code,(s.enrolment_male+s.enrolment_female)::int AS enrolment';
   const listed=hasDistribution(workstream);
-  const schools=listed||lineSchoolActivities[workstream]?await cachedSchoolList(user.stateCode,'activities',async()=>(await db.query(`SELECT ${schoolFields} FROM schools s WHERE s.state_code=$1 ORDER BY s.name`,[user.stateCode])).rows):[];
+  const schools=listed||lineSchoolActivities[workstream]?await cachedSchoolList(user.stateCode,'activities-v2',async()=>(await db.query(`SELECT ${schoolFields} FROM schools s WHERE s.state_code=$1 ORDER BY s.name`,[user.stateCode])).rows):[];
   const distribution=listed?(await db.query(`SELECT ${schoolFields},s.enrolment_by_class AS "enrolmentByClass" FROM tlm_distribution d JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.workstream=$3 AND s.state_code=$2 ORDER BY s.name`,[plan.id,user.stateCode,workstream])).rows:[];
   const documents=workstream==='monitoring'||workstream==='ict'?(await db.query("SELECT id,name,size FROM component_documents WHERE plan_id=$1 AND component=$2 AND removed_at IS NULL ORDER BY created_at,id",[plan.id,workstream])).rows:[];
   // Schools with any Infrastructure package in this plan (New Construction, Whole School, Furniture): listed first and suggested for distribution.

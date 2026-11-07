@@ -248,7 +248,7 @@ export type ActivitySnapshotLine = Omit<ActivityLine,'unitCost'|'targetGroup'|'i
   training_provider?:string;target_participants?:string;school_levels?:string[];training_days?:number|null;venue_type?:string};
 export type ComponentDocument = {id:string;component:typeof documentWorkstreams[number];name:string;size:number};
 /** Coordinates since 17 October 2026 ('' when the School list has none); older snapshots are filled in when read (lib/distribution-coordinates.ts). */
-export type DistributionSchool = {id:number;name:string;lga:string;level:string;location:string;enrolment?:number;latitude?:string;longitude?:string;
+export type DistributionSchool = {id:number;name:string;lga:string;level:string;location:string;/** DNEMIS school code */code?:string|null;enrolment?:number;latitude?:string;longitude?:string;
   /** DNEMIS learners per class (P1…JSS3), read by the TLM editor for the textbook quantity warning; not in snapshots. */
   enrolmentByClass?:Record<string,{male?:number;female?:number}>|null};
 /** Splits a whole-number budget (kobo, or items) across schools in proportion to enrolment; remainders go to the largest fractions so shares sum exactly. Empty when no school has learners. */

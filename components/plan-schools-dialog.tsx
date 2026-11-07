@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { allLevels, filterByLevel, SchoolLevelFilter, type SchoolLevelChoice } from '@/components/school-level-filter';
+import { allLevels, allLgas, filterSchools, SchoolFilters, type SchoolLevelChoice, type SchoolLgaChoice } from '@/components/school-level-filter';
 import { EmptyRegisterArt, NoMatchingSchoolsArt } from '@/components/empty-art/school-register';
 import { planSchoolsCsv, type PlanSchool } from '@/lib/plan-schools';
 import './plan-schools-dialog.css';
@@ -41,12 +41,12 @@ function SchoolRows({ schools }: { schools: readonly PlanSchool[] }) {
  * up front, a search, the school-type filter and a CSV download.
  */
 export function PlanSchoolsDialog({ open, onOpenChange, schools, title, description, error, fileName }: PlanSchoolsDialogProps) {
-  const [query, setQuery] = useState(''), [level, setLevel] = useState<SchoolLevelChoice>(allLevels);
+  const [query, setQuery] = useState(''), [level, setLevel] = useState<SchoolLevelChoice>(allLevels), [lga, setLga] = useState<SchoolLgaChoice>(allLgas);
   const all = useMemo(() => schools ?? [], [schools]);
   const shown = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return filterByLevel(all, level).filter(s => !term || `${s.name} ${s.lga} ${s.uses.map(u => u.label).join(' ')}`.toLowerCase().includes(term));
-  }, [all, level, query]);
+    return filterSchools(all, level, lga).filter(s => !term || `${s.name} ${s.lga} ${s.uses.map(u => u.label).join(' ')}`.toLowerCase().includes(term));
+  }, [all, level, lga, query]);
   const intervened = shown.filter(s => s.intervened), beneficiaries = shown.filter(s => !s.intervened);
   const totalIntervened = all.filter(s => s.intervened).length;
 
@@ -74,7 +74,7 @@ export function PlanSchoolsDialog({ open, onOpenChange, schools, title, descript
             <InputGroup className="plan-schools-search"><InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon><InputGroupInput aria-label="Search schools" placeholder="Search by school, LGA or intervention" value={query} onChange={event => setQuery(event.target.value)} /></InputGroup>
             <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={download} disabled={!shown.length}><DownloadIcon data-icon="inline-start" />Download CSV</Button>
           </div>
-          <SchoolLevelFilter schools={all} value={level} onChange={setLevel} />
+          <SchoolFilters schools={all} level={level} onLevelChange={setLevel} lga={lga} onLgaChange={setLga} />
           <ScrollArea className="plan-schools-scroll">
             {!shown.length ? <div className="plan-schools-empty"><NoMatchingSchoolsArt /><p>No schools match your search</p></div> : <>
               {intervened.length > 0 && <section aria-label="Schools intervened"><h3>Schools intervened <span>{plural(intervened.length, 'school', 'schools')}</span></h3><SchoolRows schools={intervened} /></section>}

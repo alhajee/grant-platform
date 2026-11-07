@@ -79,7 +79,7 @@ export const allLandDeclared = (input: Pick<InfrastructureInput, 'land'>) => !!i
 export type InfrastructureInput = z.infer<typeof packageSchema>;
 export type SchoolProfile = z.infer<typeof profileSchema>;
 export type SchoolTeachers = { male: number; female: number };
-export type InfrastructureSchool = {id:number;name:string;lga:string;level:string;location:string;male:number;female:number;latitude:string;longitude:string;enrolmentByClass?:Record<string,{male:number;female:number}>|null;/** DNEMIS D.2 teachers (migration 044). */teachers?:SchoolTeachers|null};
+export type InfrastructureSchool = {id:number;name:string;lga:string;level:string;location:string;/** DNEMIS school code */code?:string|null;male:number;female:number;latitude:string;longitude:string;enrolmentByClass?:Record<string,{male:number;female:number}>|null;/** DNEMIS D.2 teachers (migration 044). */teachers?:SchoolTeachers|null};
 export type SchoolComponent = 'ECCDE'|'Primary'|'JSS';
 /** School components come from DNEMIS (level plus classes with learners); editors show them read-only. */
 export function schoolComponents(school:Pick<InfrastructureSchool,'level'|'enrolmentByClass'>):SchoolComponent[] {

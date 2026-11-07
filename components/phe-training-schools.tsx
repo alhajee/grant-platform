@@ -10,8 +10,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import type { SportsSchool } from '@/lib/sports';
+import { SchoolFilters, allLevels, allLgas, filterSchools, schoolMatches, type SchoolLevelChoice, type SchoolLgaChoice } from '@/components/school-level-filter';
 
-type School = Pick<SportsSchool, 'id' | 'name' | 'lga' | 'level'>;
+type School = Pick<SportsSchool, 'id' | 'name' | 'lga' | 'level' | 'code'>;
 
 /**
  * UBEC74: the PHE officer training distribution list (a list of schools, like TLM's). Shown in the Sports editor while
@@ -21,12 +22,12 @@ type School = Pick<SportsSchool, 'id' | 'name' | 'lga' | 'level'>;
 export function PheTrainingSchools({ planHref, schools, listed, disabled, required, onChanged }: {
   planHref: (path: string) => string; schools: readonly School[]; listed: readonly School[]; disabled: boolean; required: boolean; onChanged: () => Promise<unknown>;
 }) {
-  const [query, setQuery] = useState(''), [picked, setPicked] = useState<number[]>([]), [busy, setBusy] = useState(false), [open, setOpen] = useState(true);
+  const [query, setQuery] = useState(''), [level, setLevel] = useState<SchoolLevelChoice>(allLevels), [lga, setLga] = useState<SchoolLgaChoice>(allLgas), [picked, setPicked] = useState<number[]>([]), [busy, setBusy] = useState(false), [open, setOpen] = useState(true);
   const listedIds = useMemo(() => new Set(listed.map(s => s.id)), [listed]);
   const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return q ? schools.filter(s => !listedIds.has(s.id) && `${s.name} ${s.lga} ${s.level}`.toLowerCase().includes(q)).slice(0, 30) : [];
-  }, [query, schools, listedIds]);
+    const filtering = query.trim() || level !== allLevels || lga !== allLgas;
+    return filtering ? filterSchools(schools, level, lga).filter(s => !listedIds.has(s.id) && schoolMatches(s, query)).slice(0, 30) : [];
+  }, [query, level, lga, schools, listedIds]);
   async function send(body: object, done: string) {
     if (busy) return;
     setBusy(true);
@@ -45,9 +46,10 @@ export function PheTrainingSchools({ planHref, schools, listed, disabled, requir
       <p>{required && !listed.length ? 'Add the schools the Training of PHE Officers is for. Sports, Quiz & Debate cannot be sent until there is at least one' : 'The schools the Training of PHE Officers is for'}</p></header>
     <CollapsibleContent className="phe-schools-body">
     {!disabled && <div className="phe-schools-add">
-      <Input type="search" aria-label="Search schools for the PHE training" placeholder="Search by school, LGA or level…" value={query} onChange={e => setQuery(e.target.value)} />
-      {matches.length > 0 && <ul className="phe-schools-matches">{matches.map(s => <li key={s.id}><label><Checkbox checked={picked.includes(s.id)} onCheckedChange={on => setPicked(list => on === true ? [...list, s.id] : list.filter(id => id !== s.id))} /><span><b>{s.name}</b><small>{s.lga} · {s.level}</small></span></label></li>)}</ul>}
-      {query.trim() && !matches.length && <p className="phe-schools-none">No schools match</p>}
+      <Input type="search" aria-label="Search schools for the PHE training" placeholder="Search by school, LGA or DNEMIS code…" value={query} onChange={e => setQuery(e.target.value)} />
+      <SchoolFilters schools={schools} level={level} onLevelChange={setLevel} lga={lga} onLgaChange={setLga} />
+      {matches.length > 0 && <ul className="phe-schools-matches">{matches.map(s => <li key={s.id}><label><Checkbox checked={picked.includes(s.id)} onCheckedChange={on => setPicked(list => on === true ? [...list, s.id] : list.filter(id => id !== s.id))} /><span><b>{s.name}</b><small>{[s.lga, s.level, s.code].filter(Boolean).join(' · ')}</small></span></label></li>)}</ul>}
+      {(query.trim() || level !== allLevels || lga !== allLgas) && !matches.length && <p className="phe-schools-none">No schools match</p>}
       <Button size="sm" className="rounded-full self-start" disabled={!picked.length || busy} onClick={() => void send({ action: 'add', schoolIds: picked }, `${picked.length} ${picked.length === 1 ? 'school' : 'schools'} added`).then(() => { setPicked([]); setQuery(''); })}>{busy ? <Spinner data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}Add {picked.length || ''} {picked.length === 1 ? 'school' : 'schools'}</Button>
     </div>}
     {listed.length > 0 && <ul className="phe-schools-list">{listed.map(s => <li key={s.id}><span><b>{s.name}</b><small>{s.lga} · {s.level}</small></span>{!disabled && <Button size="icon-sm" variant="ghost" aria-label={`Remove ${s.name}`} disabled={busy} onClick={() => void send({ action: 'remove', schoolId: s.id }, 'School removed')}><XIcon /></Button>}</li>)}</ul>}

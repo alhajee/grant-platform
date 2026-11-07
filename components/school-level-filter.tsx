@@ -1,5 +1,7 @@
 "use client";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { allLgas, filterByLga, lgasIn, type SchoolLgaChoice } from "@/lib/school-search";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 /** "All" or one school level (ECCDE, Primary, JSS…) */
@@ -10,6 +12,9 @@ const levelOrder = ["ECCDE", "Primary", "JSS", "SSS"];
 const count = new Intl.NumberFormat("en-NG");
 
 type Levelled = { level: string };
+type Located = Levelled & { lga?: string | null };
+
+export { allLgas, filterByLga, filterSchools, lgasIn, schoolMatches, type SchoolLgaChoice } from "@/lib/school-search";
 
 /** The schools of the chosen level ("all" keeps every school) */
 export function filterByLevel<T extends Levelled>(schools: readonly T[], level: SchoolLevelChoice): T[] {
@@ -40,4 +45,30 @@ export function SchoolLevelFilter({ schools, value, onChange, disabled, label = 
     <ToggleGroupItem value={allLevels} aria-label={`All school types, ${count.format(schools.length)} schools`}>All <span className="text-muted-foreground tabular-nums">{count.format(schools.length)}</span></ToggleGroupItem>
     {levels.map(level => <ToggleGroupItem key={level} value={level} aria-label={`${level}, ${count.format(tally(level))} schools`}>{level} <span className="text-muted-foreground tabular-nums">{count.format(tally(level))}</span></ToggleGroupItem>)}
   </ToggleGroup>;
+}
+
+interface SchoolFiltersProps {
+  schools: readonly Located[];
+  level: SchoolLevelChoice;
+  onLevelChange: (level: SchoolLevelChoice) => void;
+  lga: SchoolLgaChoice;
+  onLgaChange: (lga: SchoolLgaChoice) => void;
+  disabled?: boolean;
+}
+
+/** School-type toggles and an LGA select, shown above a school search; counts follow the other filter */
+export function SchoolFilters({ schools, level, onLevelChange, lga, onLgaChange, disabled }: SchoolFiltersProps) {
+  const lgas = lgasIn(schools);
+  const inLevel = filterByLevel(schools, level);
+  const tally = (name: string) => inLevel.filter(school => (school.lga ?? "") === name).length;
+  return <div className="school-filters flex flex-wrap items-center gap-2">
+    <SchoolLevelFilter schools={filterByLga(schools, lga)} value={level} onChange={onLevelChange} disabled={disabled} />
+    {lgas.length > 1 && <Select value={lga} onValueChange={onLgaChange} disabled={disabled}>
+      <SelectTrigger size="sm" className="min-w-40" aria-label="Filter schools by LGA"><SelectValue placeholder="All LGAs" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value={allLgas}>All LGAs <span className="text-muted-foreground tabular-nums">{count.format(inLevel.length)}</span></SelectItem>
+        {lgas.map(name => <SelectItem key={name} value={name}>{name} <span className="text-muted-foreground tabular-nums">{count.format(tally(name))}</span></SelectItem>)}
+      </SelectContent>
+    </Select>}
+  </div>;
 }

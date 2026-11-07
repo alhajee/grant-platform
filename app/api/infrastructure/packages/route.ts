@@ -22,7 +22,7 @@ import { packageSchema, packageProblem, calculateInfrastructure, landDocumentPro
 import { fromMinor } from '@/lib/money';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 // teachers (DNEMIS D.2) sizes the Whole School staff rooms; enrolment_by_class splits enrolment by level.
-const schoolFields='id,name,lga,level,location,enrolment_male AS male,enrolment_female AS female,latitude,longitude,enrolment_by_class AS "enrolmentByClass",teachers';
+const schoolFields='id,name,lga,level,location,school_code AS code,enrolment_male AS male,enrolment_female AS female,latitude,longitude,enrolment_by_class AS "enrolmentByClass",teachers';
 export async function GET(req:NextRequest){
  try{
   const user=await getWorkspaceState(req);if(!user)return error('Sign in to continue',401);
@@ -31,7 +31,7 @@ export async function GET(req:NextRequest){
   const db=getPostgres();
   if(!(await readStageVisibility(db,user,plan.id)).includes('infrastructure'))return error(notSentYetMessage,403);
   const [schools,packages,documents,reviews]=await Promise.all([
-   cachedSchoolList(user.stateCode,'infrastructure-v2',async()=>(await db.query(`SELECT ${schoolFields} FROM schools WHERE state_code=$1 ORDER BY name`,[user.stateCode])).rows),
+   cachedSchoolList(user.stateCode,'infrastructure-v3',async()=>(await db.query(`SELECT ${schoolFields} FROM schools WHERE state_code=$1 ORDER BY name`,[user.stateCode])).rows),
    db.query(`SELECT p.*,p.result->'school' AS school FROM infrastructure_packages p WHERE p.plan_id=$1 ORDER BY p.id DESC`,[plan.id]),
    db.query('SELECT d.id,d.kind,d.name,d.size,d.school_id AS "schoolId",s.name AS "schoolName" FROM infrastructure_documents d LEFT JOIN schools s ON s.id=d.school_id WHERE d.plan_id=$1 AND d.removed_at IS NULL ORDER BY d.created_at',[plan.id]),readPillarReviews(db,plan.id)]);
   // Infrastructure shares its pool with TLM (split or shared, by the platform mode): the editor shows what TLM's lines already propose

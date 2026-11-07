@@ -80,7 +80,7 @@ export function sportsCatalogError(line: { section: SportsSection; activityType:
 }
 
 export type SportsSection = typeof sportsSections[number]["id"];
-export type SportsSchool = { id: number; name: string; lga: string; level: string; location: "Rural" | "Urban" };
+export type SportsSchool = { id: number; name: string; lga: string; level: string; location: "Rural" | "Urban"; /** DNEMIS school code */ code?: string | null };
 export type SportsLine = { id: number; code: string; section: SportsSection; activityType: string; description: string; quantity: number; unitCost: number;
   /** UBEC219 (migration 091): target groups joined ("Schools, Teachers"); '' on lines saved before. */
   targetGroup: string;
