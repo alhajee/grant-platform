@@ -29,12 +29,28 @@ export function pheDistributionProblem(snapshot: { sports?: readonly { section: 
  * items for schools: TLM Purchase (0) and the TLM item activities (5-22), Curriculum Procurement (0), and Greening
  * pillars 1-6, small animals and safeguards (0-7). Training, distribution, monitoring and Others lines are not shared out.
  */
+// UBEC245 (client, 7 November 2026): "GSCCI Pillar 4: Greening communities" (Greening 3) is not shared out to schools.
 export const distributedActivities: Record<DistributionWorkstream, readonly number[]> = {
   tlm: [0, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
   curriculum: [0],
-  gscci: [0, 1, 2, 3, 4, 5, 6, 7],
+  gscci: [0, 1, 2, 4, 5, 6, 7],
 };
 export const isDistributedLine = (workstream: string, activity: number) => hasDistribution(workstream) && distributedActivities[workstream].includes(activity);
+/**
+ * UBEC245: Greening needs its distribution list only while it has an item shared out to schools (a plan with only
+ * Greening communities, supervision or Others items has nothing to distribute). TLM and Curriculum need theirs whenever
+ * they have items, as before.
+ */
+const listOnlyForDistributedItems: readonly DistributionWorkstream[] = ['gscci'];
+export function distributionListRequired(workstream: string, lines: readonly { activity: number }[]): boolean {
+  if (!hasDistribution(workstream)) return false;
+  return listOnlyForDistributedItems.includes(workstream) ? lines.some(line => isDistributedLine(workstream, line.activity)) : true;
+}
+/** The send-step error for an empty distribution list the component needs (null when the list is not needed or has schools). */
+export function distributionListProblem(workstream: string, lines: readonly { activity: number }[], list: readonly unknown[] | undefined): string | null {
+  if (!hasDistribution(workstream) || (list?.length ?? 0) > 0 || !distributionListRequired(workstream, lines)) return null;
+  return emptyDistributionMessage(workstream);
+}
 type AllocatedLine = { activity: number; quantity: number | string; description?: string; schools?: readonly { id: number; quantity?: number | null }[] };
 export const allocatedItems = (line: AllocatedLine) => (line.schools ?? []).reduce((sum, s) => sum + (s.quantity ?? 0), 0);
 const itemName = (line: AllocatedLine) => line.description?.trim() ? `“${line.description.trim()}”` : 'an item';

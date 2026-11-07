@@ -94,6 +94,24 @@ try {
   assert.deepEqual(snapshot.curriculum.find(l => l.id === item.id).schools.map(s => [s.id, s.quantity]), [[a, 10]]);
   ok(await review('academic', { action: 'submit', pillar: 'curriculum' }));
   step('the snapshot carries each item\'s schools and quantities; once shared out, Curriculum is sent');
+
+  // UBEC245: "GSCCI Pillar 4: Greening communities" (Greening 3) is not shared out to schools: no allocation, and Greening
+  // with only such items goes on without a distribution list. Allocations saved on it before never block the send.
+  const community = ok(await api('academic', url('gscci'), line('gscci', 3, 100, { quantity: 5, description: 'Community tree planting' }))).id;
+  fails(await api('academic', url('gscci'), { workstream: 'gscci', entity: 'allocation', action: 'update', id: community, allocations: { [a]: 5 } }), 400, /not shared out/);
+  await db.query('INSERT INTO activity_line_schools(line_id,school_id,quantity) VALUES($1,$2,2)', [community, a]);
+  const greening = ok(await api('academic', url('gscci')));
+  assert.equal(greening.lines.find(l => l.id === community).allocations, undefined);
+  assert.deepEqual(greening.distribution, []);
+  ok(await review('academic', { action: 'submit', pillar: 'gscci' }));
+  // Migration 098 removes such allocations (checked in a transaction, rolled back).
+  await db.query('BEGIN');
+  try {
+    const { readFileSync } = await import('node:fs');
+    await db.query(readFileSync(new URL('../db/postgres/098-greening-communities-not-distributed.sql', import.meta.url), 'utf8'));
+    assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM activity_line_schools WHERE line_id=$1', [community])).rows[0].n, 0);
+  } finally { await db.query('ROLLBACK'); }
+  step('Greening communities takes no allocation; Greening with only such items is sent without a distribution list; migration 098 clears its earlier allocations (UBEC245)');
   console.log(`\n${passed} distribution allocation checks passed`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);

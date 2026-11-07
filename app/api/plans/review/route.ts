@@ -23,8 +23,8 @@ import { activityBudgetProblem, isCappedFor, lineMinor } from '@/lib/activity-bu
 import { isSplitMode } from '@/lib/funding-policy';
 import { infrastructurePoolProblem, isPoolComponent } from '@/lib/infrastructure-pool';
 import { implementedPillars } from '@/lib/beap-pillars';
-import { distributionSnapshotKeys, emptyDistributionMessage, hasDistribution } from '@/lib/activity-plans';
-import { distributionAllocationProblem } from '@/lib/distribution-lists';
+import { distributionSnapshotKeys, hasDistribution } from '@/lib/activity-plans';
+import { distributionAllocationProblem, distributionListProblem } from '@/lib/distribution-lists';
 import { componentReadinessProblem, hasReadinessRules, splitReadinessProblem } from '@/lib/component-readiness';
 import { sportsSnapshotProblem } from '@/lib/sports';
 import { pheDistributionProblem } from '@/lib/distribution-lists';
@@ -169,8 +169,8 @@ export async function POST(request: NextRequest) {
       }
       if (input.action !== 'request_changes' && !snapshot[input.pillar]?.length) return error('Add saved entries to this pillar before sending it');
       if (input.action !== 'request_changes' && input.pillar==='infrastructure') { const problem=infrastructureDocumentProblem(snapshot,readiness); if(problem)return error(problem); }
-      // TLM, GSCCI and Curriculum: the distribution list needs at least one school at every send step.
-      if (input.action !== 'request_changes' && hasDistribution(input.pillar) && !snapshot[distributionSnapshotKeys[input.pillar]]?.length) return error(emptyDistributionMessage(input.pillar));
+      // TLM, GSCCI and Curriculum: the distribution list needs at least one school at every send step (GSCCI only while it has items shared out to schools, UBEC245).
+      if (input.action !== 'request_changes' && hasDistribution(input.pillar)) { const problem=distributionListProblem(input.pillar,snapshot[input.pillar]??[],snapshot[distributionSnapshotKeys[input.pillar]]); if(problem)return error(problem); }
       // Quality Assurance, ICT and Teacher Development: compulsory activities, line schools, line documents and the Teacher Development split block every send step.
       if (input.action !== 'request_changes' && hasReadinessRules(input.pillar)) { const problem=componentReadinessProblem(input.pillar,snapshot[input.pillar]??[],snapshot.setup,readiness); if(problem)return error(problem,409); }
       // Split mode (migration 051): Infrastructure and TLM need their split set and each side within its own part.

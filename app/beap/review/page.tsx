@@ -31,7 +31,7 @@ import { currentPlanHref, planHref, planPeriod, ubecStageLabels } from '@/lib/ac
 import type { PlanReview } from '@/lib/plan-review';
 import { componentSections, implementedPillars, type ImplementedPillar } from '@/lib/beap-pillars';
 import { distributionSnapshotKeys, hasDistribution } from '@/lib/activity-plans';
-import { emptyDistributionMessage } from '@/lib/distribution-lists';
+import { distributionListProblem } from '@/lib/distribution-lists';
 import { componentSendProblem, mayEditPillar, statePlanOpen, type PillarReview } from '@/lib/pillar-review';
 import { summarizeSnapshot } from '@/lib/plan-summary';
 import { infrastructureDocumentProblem } from '@/lib/infrastructure-documents';
@@ -47,7 +47,7 @@ const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value
 // The same checks the server runs on every send step, so a holder sees the problem on the card before sending.
 // UBEC189: after a UBEC return, a component goes on only once its rejected items are changed or removed.
 const readiness = (data: PlanReview, pillar: ImplementedPillar) => rejectionProblem(componentName(pillar), data.ubecOpenRejections?.[pillar])
-  ?? (hasDistribution(pillar) && !data.snapshot[distributionSnapshotKeys[pillar]]?.length ? emptyDistributionMessage(pillar) : null)
+  ?? (hasDistribution(pillar) ? distributionListProblem(pillar, data.snapshot[pillar] ?? [], data.snapshot[distributionSnapshotKeys[pillar]]) : null)
   ?? (pillar === 'infrastructure' && data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot, { documentsRequired: data.documentsRequired }) : null)
   ?? componentSendProblem(pillar, data.snapshot, { documentsRequired: data.documentsRequired, fullAllocation: data.fullAllocation });
 // Budget lines saved but no distribution list: the send step shows, disabled, with the reason (from `readiness`).
