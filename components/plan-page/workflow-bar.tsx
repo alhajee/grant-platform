@@ -14,8 +14,10 @@ export function WorkflowBar({ data, available, onForward, onSendToUbec, onSendSe
   /** Individual-components mode: send several reviewed components at once (V2-04). */
   onSendSeveral?: () => void }) {
   if (!statePlanOpen(data.plan.status)) return null;
-  const count = (statuses: string[]) => data.pillarReviews.filter(review => statuses.includes(review.status)).length;
-  const of = `of ${implementedPillars.length} components`;
+  // UBEC239: components the budget split gives ₦0 (with no items) are not part of the plan, so they are not counted.
+  const unfunded = data.unfundedPillars ?? [];
+  const count = (statuses: string[]) => data.pillarReviews.filter(review => !unfunded.includes(review.pillar) && statuses.includes(review.status)).length;
+  const of = `of ${implementedPillars.length - unfunded.length} components`;
   if (data.role === 'Director' && data.isBeapChair) {
     // Why the button is disabled (any send rule the plan fails), so the BEAP Chair knows what to fix or return.
     const blocked = !data.readyForExecutiveChairman ? data.executiveChairmanProblem : null;

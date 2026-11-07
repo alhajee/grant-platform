@@ -5,7 +5,9 @@ import { planSetupFields, resolveActionPlan } from '@/lib/plan-workspace';
 import { isSameRequestOrigin } from '@/lib/request-origin';
 import { budgetPairs, pairOf, partnerOf, setsBudgetSplits, sharedSplit, sideSplits, splitSides, splitsByBeapChair, type SplitSide } from '@/lib/budget-pairs';
 import { getPostgres } from '@/lib/postgres';
-import { statePlanOpen } from '@/lib/pillar-review';
+import { aggregateReviewStatus, readPillarReviews, statePlanOpen } from '@/lib/pillar-review';
+import { readPlanSnapshot } from '@/lib/plan-snapshot';
+import { unfundedInSnapshot } from '@/lib/unfunded-components';
 import type { EnvelopePlan } from '@/lib/funding-policy';
 
 // The split of a shared envelope (lib/budget-pairs.ts): Teacher Development & ICT (action_plans.ict_allocation,
@@ -49,6 +51,10 @@ export async function PATCH(req: NextRequest) {
       if (result.problem !== undefined) return error(result.problem, 409);
       const pair = budgetPairs[pairOf(side)];
       await db.query(`UPDATE action_plans SET ${pair.column}=$1, version=version+1 WHERE id=$2`, [result.allocation, plan.id]);
+      // UBEC239: a side given ₦0 with no items is no longer needed, so the plan's status follows (e.g. every other component
+      // already with the Executive Chairman makes the plan ready for them), and back again when it gets an amount.
+      const status = aggregateReviewStatus(await readPillarReviews(db, plan.id), unfundedInSnapshot(await readPlanSnapshot(db, plan.id)));
+      if (status !== locked.status) await db.query('UPDATE action_plans SET status=$1, workflow_updated_at=NOW() WHERE id=$2', [status, plan.id]);
       return NextResponse.json({ ok: true, [pair.field]: result.allocation });
     });
   } catch (cause) { console.error('Unable to save the budget split', cause); return error('The budget split could not be saved. Please try again.', 503); }

@@ -6,6 +6,9 @@ import { isSameRequestOrigin } from '@/lib/request-origin';
 import { subebRoles } from '@/lib/subeb-access';
 import { planPeriod } from '@/lib/action-plans';
 import { pendingActionsFor, type PillarReviewRow } from '@/lib/pending-actions';
+import { unfundedComponents } from '@/lib/unfunded-components';
+import { planSetupFields } from '@/lib/plan-workspace';
+import type { EnvelopePlan } from '@/lib/funding-policy';
 import { NOTIFICATION_PAGE_SIZE, type NotificationFeed, type NotificationItem, type NotificationTodo } from '@/lib/notifications';
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
@@ -20,10 +23,13 @@ async function readTodos(workspace: { stateCode: string; role: string; departmen
   if (!(subebRoles as readonly string[]).includes(workspace.role)) return [];
   const db = getPostgres();
   const [plans, reviews] = await Promise.all([
-    db.query<{ id: number; status: string; startYear: number; endYear: number; fundingQuarters: number[] | null }>(`SELECT id, status, start_year AS "startYear", end_year AS "endYear", funding_quarters AS "fundingQuarters" FROM action_plans WHERE state_code = $1 ORDER BY workflow_updated_at DESC NULLS LAST, id DESC`, [workspace.stateCode]),
+    // UBEC239: the setup and item counts say which components the budget split leaves unfunded (no todos for them).
+    db.query<EnvelopePlan & { id: number; status: string; startYear: number; endYear: number; fundingQuarters: number[] | null; counts: Record<string, number> }>(`SELECT p.id, p.status, p.start_year AS "startYear", p.end_year AS "endYear", ${planSetupFields('p')},
+      jsonb_build_object('infrastructure', (SELECT COUNT(*)::int FROM infrastructure_packages WHERE plan_id=p.id)) || COALESCE((SELECT jsonb_object_agg(workstream, n) FROM (SELECT workstream, COUNT(*)::int AS n FROM activity_plan_lines WHERE plan_id=p.id AND workstream IN ('tlm','teachers','ict') GROUP BY workstream) counted), '{}'::jsonb) AS counts
+      FROM action_plans p WHERE p.state_code = $1 ORDER BY p.workflow_updated_at DESC NULLS LAST, p.id DESC`, [workspace.stateCode]),
     db.query<PillarReviewRow>('SELECT r.plan_id, r.pillar, r.status FROM plan_pillar_reviews r JOIN action_plans p ON p.id = r.plan_id WHERE p.state_code = $1', [workspace.stateCode]),
   ]);
-  return plans.rows.flatMap(plan => pendingActionsFor(workspace, plan, reviews.rows).map(action => ({ ...action, planId: plan.id, period: `${planPeriod(plan)} BEAP` })));
+  return plans.rows.flatMap(plan => pendingActionsFor(workspace, plan, reviews.rows, unfundedComponents(plan, side => plan.counts[side] ?? 0)).map(action => ({ ...action, planId: plan.id, period: `${planPeriod(plan)} BEAP` })));
 }
 
 export async function GET(request: NextRequest) {

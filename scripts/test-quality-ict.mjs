@@ -162,7 +162,7 @@ try {
   fails(await api('ict', url('ict'), line('ict', 1, 100)), 400, /shared Teacher Development & ICT budget ICT will use/);
   fails(await allocate('qa', '1000'), 403);
   fails(await allocate('ict', '1000'), 403, /BEAP Chair/);
-  fails(await allocate('chair', '0'), 409, /greater than zero/);
+  assert.equal(ok(await allocate('chair', '0')).ictAllocation, '0.00', 'UBEC239: ICT may be left ₦0 while it has no lines');
   fails(await allocate('chair', '40000000.01'), 409, /up to the shared Teacher Development & ICT budget of ₦40,000,000\.0000/);
   ok(await allocate('chair', '35000000'));
   assert.equal(ok(await api('ict', url('ict'))).plan.ictAllocation, '35000000.00');

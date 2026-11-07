@@ -5,6 +5,8 @@ import { getWorkspaceState } from "@/lib/workspace-state";
 import { planFields, planSetupFields } from "@/lib/plan-workspace";
 import { stateDisplayName } from "@/lib/state-names";
 import { pendingActionsFor, type PillarReviewRow } from '@/lib/pending-actions';
+import { unfundedComponents } from '@/lib/unfunded-components';
+import type { EnvelopePlan } from '@/lib/funding-policy';
 import { canCreateStatePlan } from '@/lib/subeb-access';
 import { readStateStageVisibility } from '@/lib/stage-visibility';
 import { visibleComponents, visibleSnapshot } from '@/lib/plan-visibility';
@@ -69,7 +71,8 @@ export async function GET(request: NextRequest) {
     const levels = new Map<number, LevelMapping>();
     for (const row of result.rows) levels.set(row.id, levelMapping(visibleSnapshot(await readPlanSnapshot(db, row.id), visibility.get(row.id) ?? [])));
     const plans = result.rows.map(({ componentLines, componentSchools, ...plan }) => {
-      const pendingActions = pendingActionsFor(workspace, plan as { id: number; status: string }, reviews);
+      const lineCounts = { infrastructure: 0, ...(componentLines as Record<string, number> | null) } as Record<string, number>;
+      const pendingActions = pendingActionsFor(workspace, plan as { id: number; status: string }, reviews, unfundedComponents(plan as EnvelopePlan, side => lineCounts[side] ?? 0));
       return { ...plan, ...visibleFigures(plan, visibility.get(plan.id) ?? [], componentLines, componentSchools), pendingActions, pendingReview: pendingActions.length > 0 && workspace.role !== 'Data Entry Staff', pillarReviews: statusesOf(plan.id), levels: levels.get(plan.id) };
     });
     const targetedSchools = new Set(plans.flatMap(plan => plan.schoolIds)).size;

@@ -47,6 +47,9 @@
 .ict-allocation-summary { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding:10px 14px;border:1px solid var(--border);border-radius:10px; }
 .ict-allocation-summary > div { display:flex;flex-direction:column; }
 .ict-allocation-summary span, .ict-allocation-summary small { color:var(--muted-foreground);font-size:12px; }
+.ict-allocation-summary { flex-wrap:wrap; }
+.ict-allocation-summary > .split-unfunded { display:grid;order:3; }
+.ict-allocation-summary > .split-unfunded span { color:inherit;font-size:inherit; }
 .activity-picked-meta > span:last-child { color:var(--muted-foreground);font-size:13px; }
 
 /* Save button explanation and the envelope's remaining amount. */

@@ -13,6 +13,7 @@ import { infrastructurePoolProblem } from '@/lib/infrastructure-pool';
 import { readPoolState } from '@/lib/infrastructure-pool-db';
 import { isSplitMode, toMinor } from '@/lib/funding-policy';
 import { infrastructureSplitProblem, setsBudgetSplits } from '@/lib/budget-pairs';
+import { hasNoAllocation, noAllocationDetail } from '@/lib/unfunded-components';
 import { resolveLineQuarters } from '@/lib/line-quarters';
 import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
 import { resolveSavedLineDates } from '@/lib/line-dates-db';
@@ -103,6 +104,8 @@ export async function POST(req:NextRequest){
    const cost=toMinor(result.total);
    if(!prior||cost>toMinor(String(prior.total_cost))){
     const pool=await readPoolState(db,plan.id,prior?{component:'infrastructure',id:prior.id}:undefined);
+    // UBEC239: the split gives Infrastructure ₦0: a plain message, not a cap overrun.
+    if(!prior&&!pool.proposed.infrastructure&&hasNoAllocation(pool.plan,'infrastructure'))return error(noAllocationDetail('infrastructure'),409);
     const poolProblem=isSplitMode(pool.plan)?infrastructureSplitProblem(pool.plan,pool.proposed.infrastructure+cost):infrastructurePoolProblem(pool.plan,{...pool.proposed,infrastructure:pool.proposed.infrastructure+cost});
     if(poolProblem)return error(poolProblem,409);
    }

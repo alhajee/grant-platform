@@ -12,6 +12,8 @@ import { mayEditPillar, readPillarReviews, statePlanOpen } from '@/lib/pillar-re
 import { setsBudgetSplits } from '@/lib/budget-pairs';
 import { activityLineSchema, activityWorkstreams, capActivities, hasDistribution, activityShareCaps, activityShareGroups, isRetiredStrategy } from '@/lib/activity-plans';
 import { activityBudgetProblem, isCapped } from '@/lib/activity-budget';
+import { hasNoAllocation, noAllocationDetail } from '@/lib/unfunded-components';
+import type { SplitSide } from '@/lib/budget-pairs';
 import { isSplitMode } from '@/lib/funding-policy';
 import { budgetMinor, sbmcBudgetProblem } from '@/lib/sbmc-budget';
 import { compulsoryActivities, lineSchoolActivities, maxLineSchools, needsFrequency } from '@/lib/activity-extras';
@@ -140,6 +142,8 @@ export async function POST(req:NextRequest){
       const problem=sbmcBudgetProblem(budgetMinor(existing)+budgetMinor(v.unitCost.toFixed(4))*BigInt(v.quantity),plan);
       if(problem)return error(problem);
      }
+     // UBEC239: a split side given ₦0 takes no items until the BEAP Chair changes the split (plain message, not a cap overrun).
+     if(action==='create'&&hasNoAllocation(workstream==='tlm'?(await readPoolState(db,plan.id)).plan:plan,workstream))return error(noAllocationDetail(workstream as SplitSide),409);
      // TLM and Infrastructure share one pool (the plan row is locked by mutatePlan, so funding and the split are re-read here).
      // Split mode: TLM lines stay within TLM's part (action_plans.tlm_allocation) and wait until the split is set.
      // Shared-pool mode: Infrastructure's packages count too. Either way, a change that does not raise the line's cost is always allowed.

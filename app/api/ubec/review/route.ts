@@ -11,6 +11,7 @@ import { isSameRequestOrigin } from '@/lib/request-origin';
 import { activePillars, isUbec, pillarDepartments, ubecRoles, type UbecRound, type UbecAssignment } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
+import { unfundedInSnapshot } from '@/lib/unfunded-components';
 import { aggregateReviewStatus, componentSendProblem, componentsWithExecutiveChairman, readPillarReviews, readyForUbecSubmission, statePlanOpen, ubecSubmissionSnapshot, unreadySentComponents } from '@/lib/pillar-review';
 import { readUbecSubmissionMode } from '@/lib/workflow-settings';
 import { readPlanSnapshot } from '@/lib/plan-snapshot';
@@ -168,7 +169,7 @@ export async function POST(request: NextRequest) {
             const rest = components.map(c => c.pillar).filter(p => !rejectedPillars.includes(p));
             await db.query("UPDATE plan_pillar_reviews SET status='beap_review',updated_at=NOW() WHERE plan_id=$1 AND pillar=ANY($2::text[])", [id, rest]);
             await db.query("UPDATE plan_pillar_reviews SET status='changes_requested',updated_at=NOW() WHERE plan_id=$1 AND pillar=ANY($2::text[])", [id, rejectedPillars]);
-            status = aggregateReviewStatus(await readPillarReviews(db, Number(id)));
+            status = aggregateReviewStatus(await readPillarReviews(db, Number(id)), unfundedInSnapshot(await readPlanSnapshot(db, Number(id))));
           }
           const event = (await db.query(`INSERT INTO plan_review_events(plan_id,submission_number,action,actor_name,actor_email,actor_role,comment,scope) VALUES($1,$2,$3,$4,$5,$6,$7,'general') RETURNING id`, [id, plan.submission_number, input.action === 'return' ? 'request_changes' : 'approve', user.full_name, user.email, user.role, input.comment])).rows[0];
           // The SUBEB hears about it: the BEAP Chair and the Executive Chairman, who sent it; a return also reaches the

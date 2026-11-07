@@ -10,6 +10,7 @@ import type { DepartmentAccess } from './user-departments';
 import type { UbecSubmissionMode } from './workflow-settings';
 import { distributionAllocationProblem, distributionSnapshotKeys, distributionWorkstreams, emptyDistributionMessage, hasDistribution, pheDistributionProblem } from './distribution-lists';
 import { sportsSnapshotProblem } from './sports';
+import { unfundedInSnapshot } from './unfunded-components';
 
 export type PillarReviewStatus = 'draft' | 'director_review' | 'changes_requested' | 'beap_review' | 'chairman_ready';
 export type PillarReview = { pillar: ImplementedPillar; status: PillarReviewStatus };
@@ -26,8 +27,13 @@ export function mayEditPillar(role: string, departments: DepartmentAccess, pilla
   return statePlanOpen(status) && canEditPillar(role, departments, pillar) &&
     (role === 'Director' ? review === 'director_review' : ['draft','changes_requested'].includes(review));
 }
+/** UBEC239: the components the plan needs: every implemented one except those the budget split gives ₦0 and that have no items. */
+export function fundedPillars(snapshot: Snapshot): ImplementedPillar[] {
+  const unfunded = unfundedInSnapshot(snapshot);
+  return implementedPillars.filter(p => !unfunded.includes(p));
+}
 export function readyForUbec(reviews: PillarReview[], snapshot: Snapshot, options: ReadinessOptions) {
-  return implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready')) && planIsComplete(snapshot, options);
+  return fundedPillars(snapshot).every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready')) && planIsComplete(snapshot, options);
 }
 // Components the Executive Chairman holds and may send to UBEC.
 export function componentsWithExecutiveChairman(reviews: PillarReview[]) {
@@ -69,25 +75,29 @@ export function readyForExecutiveChairman(reviews: PillarReview[], snapshot: Sna
  * reached them, and the plan must pass every send rule (the same checks as planIsComplete), named per component.
  */
 export function executiveChairmanProblem(reviews: PillarReview[], snapshot: Snapshot, options: ReadinessOptions): string | null {
-  const waiting = implementedPillars.filter(p => !reviews.some(r => r.pillar === p && ['beap_review','chairman_ready'].includes(r.status)));
+  const needed = fundedPillars(snapshot);
+  const waiting = needed.filter(p => !reviews.some(r => r.pillar === p && ['beap_review','chairman_ready'].includes(r.status)));
   if (waiting.length) return `${waiting.length} component${waiting.length === 1 ? ' has' : 's have'} not reached the BEAP Chair yet: ${waiting.map(p => componentNames[p]).join(', ')}`;
   if (!reviews.some(r => r.status === 'beap_review')) return 'Every component has already been sent to the Executive Chairman';
   if (planIsComplete(snapshot, options)) return null;
-  const empty = implementedPillars.filter(p => !(snapshot[p]?.length ?? 0));
+  const empty = needed.filter(p => !(snapshot[p]?.length ?? 0));
   if (empty.length) return `Nothing has been budgeted yet for ${empty.map(p => componentNames[p]).join(', ')}`;
-  const noList = distributionWorkstreams.find(w => !(snapshot[distributionSnapshotKeys[w]]?.length ?? 0));
+  const noList = distributionWorkstreams.find(w => needed.includes(w) && !(snapshot[distributionSnapshotKeys[w]]?.length ?? 0));
   if (noList) return `${componentNames[noList]}: add at least one school to its distribution list`;
   const infrastructure = infrastructureDocumentProblem(snapshot, options);
   if (infrastructure) return `Infrastructure: ${infrastructure}`;
-  for (const p of implementedPillars) { const problem = componentSendProblem(p, snapshot, options); if (problem) return `${componentNames[p]}: ${problem}`; }
+  for (const p of needed) { const problem = componentSendProblem(p, snapshot, options); if (problem) return `${componentNames[p]}: ${problem}`; }
   return 'The plan is not complete yet';
 }
 const componentNames: Record<ImplementedPillar, string> = { infrastructure: 'Infrastructure', tlm: 'TLM', sports: 'Sports, Quiz & Debate', sbmc: 'SBMC', monitoring: 'Supervision & Monitoring', gscci: 'Greening', curriculum: 'Curriculum', quality: 'Quality Assurance', teachers: 'Teacher Development', ict: 'ICT', planning: 'Planning' };
 function planIsComplete(snapshot: Snapshot, options: ReadinessOptions) {
-  return implementedPillars.every(p => (snapshot[p]?.length ?? 0) > 0) && distributionWorkstreams.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot, options)
-    && readinessWorkstreams.every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup, options)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup) && !pheDistributionProblem(snapshot)
-    && distributionWorkstreams.every(w => !distributionAllocationProblem(w, snapshot[w] ?? [], snapshot[distributionSnapshotKeys[w]], snapshot.distributionAllocations))
-    && splitReadinessPillars.every(p => !splitReadinessProblem(p, snapshot));
+  // UBEC239: a component the split gives ₦0 (and with no items) has nothing to complete.
+  const needed = fundedPillars(snapshot), funded = (p: string) => (needed as readonly string[]).includes(p);
+  const distributions = distributionWorkstreams.filter(funded);
+  return needed.every(p => (snapshot[p]?.length ?? 0) > 0) && distributions.every(w => (snapshot[distributionSnapshotKeys[w]]?.length ?? 0) > 0) && !infrastructureDocumentProblem(snapshot, options)
+    && readinessWorkstreams.filter(funded).every(p => !componentReadinessProblem(p, snapshot[p] ?? [], snapshot.setup, options)) && !sportsSnapshotProblem(snapshot.sports, snapshot.setup) && !pheDistributionProblem(snapshot)
+    && distributions.every(w => !distributionAllocationProblem(w, snapshot[w] ?? [], snapshot[distributionSnapshotKeys[w]], snapshot.distributionAllocations))
+    && splitReadinessPillars.filter(funded).every(p => !splitReadinessProblem(p, snapshot));
 }
 /**
  * Why a component may not be sent on yet: readiness rules (compulsory activities, schools, documents, the split), Sports over its caps,
@@ -110,10 +120,12 @@ function componentRulesProblem(pillar: ImplementedPillar, snapshot: Snapshot, op
 export function unreadySentComponents(snapshot: Snapshot, reviews: PillarReview[], options: ReadinessOptions) {
   return componentsWithExecutiveChairman(reviews).flatMap(p => componentSendProblem(p, snapshot, options) ? [p] : []);
 }
-export function aggregateReviewStatus(reviews: PillarReview[]): PlanStatus {
-  if (implementedPillars.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready'))) return 'awaiting_chairman';
+/** The plan's status from its component reviews. `unfunded` (UBEC239): components the split gives ₦0 with no items, which never move. */
+export function aggregateReviewStatus(allReviews: PillarReview[], unfunded: readonly ImplementedPillar[] = []): PlanStatus {
+  const needed = implementedPillars.filter(p => !unfunded.includes(p)), reviews = allReviews.filter(r => needed.includes(r.pillar));
+  if (needed.every(p => reviews.some(r => r.pillar === p && r.status === 'chairman_ready'))) return 'awaiting_chairman';
   if (reviews.some(r => r.status === 'changes_requested')) return 'changes_requested';
   if (reviews.some(r => r.status === 'director_review')) return 'awaiting_review';
-  if (implementedPillars.every(p => reviews.some(r => r.pillar === p && ['beap_review','chairman_ready'].includes(r.status)))) return 'awaiting_beap_chair';
+  if (needed.every(p => reviews.some(r => r.pillar === p && ['beap_review','chairman_ready'].includes(r.status)))) return 'awaiting_beap_chair';
   return 'draft';
 }
