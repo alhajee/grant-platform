@@ -63,6 +63,7 @@ import { EnvelopeMeter } from './envelope-meter';
 import { IctConnectPanel } from './ict-connect-panel';
 import { ComponentSummaryDialog } from './component-summary-dialog';
 import { DistributionAllocations, schoolItems } from './distribution-allocations';
+import { DistributionListUpload } from './distribution-list-upload';
 import { distributionAllocationProblem, distributionListRequired } from '@/lib/distribution-lists';
 import { cellMatches, connectionDroppedMessage, isConnectionDropped, newClientKey, postJson } from '@/lib/save-request';
 import { nairaFormat } from '@/lib/money-format';
@@ -341,7 +342,7 @@ export function ActivityPlanEditor({workstream}:{workstream:ActivityWorkstream})
    <section className="workspace-pane preview-pane" aria-label="Saved component"><ScrollArea className="pane-scroll">{view==='distribution'?<article className="preview-document sports-preview">
     <div className="plan-overview"><div><span>Proposed {name} budget</span><strong>{error?'Unavailable':data?money.format(total):'Loading…'}</strong></div>{!data?null:envelope===null?<p>{sharesBudget&&data.plan.stateLodgment!=null?(workstream==='ict'?'ICT allocation not set':`${name} budget not set`):'Funding envelope not set'}</p>:<EnvelopeMeter label={pooled?'Shared with Infrastructure':workstream==='ict'?'ICT allocation':training?'Teacher Development budget':sharesBudget?`${name} allocation`:'Funding envelope'} envelope={envelope} used={total} partner={pooled?{label:'Infrastructure',amount:poolUsed}:undefined} />}</div>
     {envelope!==null&&poolUsed+total>envelope&&<Alert variant="destructive"><AlertTitle>Above funding envelope</AlertTitle><AlertDescription>{pooled?'Infrastructure and TLM together exceed':'The planned total exceeds'} the envelope by {money.format(poolUsed+total-envelope)}.</AlertDescription></Alert>}
-    <h2>Distribution list</h2>
+    <div className="distribution-list-heading"><h2>Distribution list</h2>{hasDistribution(workstream)&&<DistributionListUpload workstream={workstream} planHref={currentPlanHref} disabled={disabled} onAdd={ids=>mutate({entity:'school',action:'create',schoolIds:ids})}/>}</div>
      {missingRenovated.length>0&&<Alert variant="warning" className="mb-4"><AlertTitle>{count.format(missingRenovated.length)} Infrastructure school{missingRenovated.length===1?' is':'s are'} not on the list</AlertTitle><AlertDescription>Schools with an Infrastructure package in this plan are suggested for the distribution list<Button variant="outline" size="sm" disabled={disabled} onClick={()=>void mutate({entity:'school',action:'create',schoolIds:missingRenovated})}>Add Infrastructure schools</Button></AlertDescription></Alert>}
      {data&&<DistributionAllocations workstream={workstream} lines={data.lines} schools={distribution} disabled={disabled} onSaved={load}/>}
      {distribution.length>0&&<div className="distribution-bulk"><span>{listChecked.length?`${count.format(listChecked.length)} selected`:'Tick schools to remove several at once'}</span><Button variant="outline" size="sm" className="rounded-full text-destructive" disabled={disabled||!listChecked.length} onClick={()=>setRemoval({entity:'school',schoolIds:listChecked})}><Trash2Icon data-icon="inline-start"/>Remove selected</Button></div>}

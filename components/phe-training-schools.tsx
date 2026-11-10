@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import type { SportsSchool } from '@/lib/sports';
+import { DistributionListUpload } from '@/components/distribution-list-upload';
 import { SchoolFilters, allLevels, allLgas, filterSchools, schoolMatches, type SchoolLevelChoice, type SchoolLgaChoice } from '@/components/school-level-filter';
 
 type School = Pick<SportsSchool, 'id' | 'name' | 'lga' | 'level' | 'code'>;
@@ -46,6 +47,7 @@ export function PheTrainingSchools({ planHref, schools, listed, disabled, requir
       <p>{required && !listed.length ? 'Add the schools the Training of PHE Officers is for. Sports, Quiz & Debate cannot be sent until there is at least one' : 'The schools the Training of PHE Officers is for'}</p></header>
     <CollapsibleContent className="phe-schools-body">
     {!disabled && <div className="phe-schools-add">
+      <DistributionListUpload workstream="phe" planHref={planHref} disabled={disabled || busy} onAdd={ids => send({ action: 'add', schoolIds: ids }, `${ids.length} ${ids.length === 1 ? 'school' : 'schools'} added`)} />
       <Input type="search" aria-label="Search schools for the PHE training" placeholder="Search by school, LGA or DNEMIS code…" value={query} onChange={e => setQuery(e.target.value)} />
       <SchoolFilters schools={schools} level={level} onLevelChange={setLevel} lga={lga} onLgaChange={setLga} />
       {matches.length > 0 && <ul className="phe-schools-matches">{matches.map(s => <li key={s.id}><label><Checkbox checked={picked.includes(s.id)} onCheckedChange={on => setPicked(list => on === true ? [...list, s.id] : list.filter(id => id !== s.id))} /><span><b>{s.name}</b><small>{[s.lga, s.level, s.code].filter(Boolean).join(' · ')}</small></span></label></li>)}</ul>}

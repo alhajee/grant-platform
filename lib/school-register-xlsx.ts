@@ -135,9 +135,9 @@ export async function buildSchoolTemplate(stateName: string, lgas: string[], sch
 }
 
 // ExcelJS expects unprefixed spreadsheet elements; some tools write valid x: prefixes (same fix as spreadsheet-preview).
-async function normalisedWorkbook(bytes: ArrayBuffer) {
+export async function normalisedWorkbook(bytes: ArrayBuffer, notWorkbook = 'Upload the school template as an Excel (.xlsx) workbook') {
   const archive = await JSZip.loadAsync(bytes);
-  if (!archive.file('xl/workbook.xml')) throw new SchoolImportError('Upload the school template as an Excel (.xlsx) workbook');
+  if (!archive.file('xl/workbook.xml')) throw new SchoolImportError(notWorkbook);
   archive.remove('docProps/app.xml'); archive.remove('docProps/core.xml');
   for (const [name, entry] of Object.entries(archive.files)) {
     if (!name.startsWith('xl/') || !name.endsWith('.xml')) continue;
@@ -155,7 +155,7 @@ async function normalisedWorkbook(bytes: ArrayBuffer) {
 }
 
 /** A cell as entered: text for text cells, numbers for numeric cells, the cached result for formulas (undefined when not calculated). */
-function cellValue(cell: ExcelJS.Cell): string | number | undefined {
+export function cellValue(cell: ExcelJS.Cell): string | number | undefined {
   const value = cell.value;
   if (value === null || value === undefined) return undefined;
   if (typeof value === 'number') return value;

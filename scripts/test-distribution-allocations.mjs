@@ -112,6 +112,40 @@ try {
     assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM activity_line_schools WHERE line_id=$1', [community])).rows[0].n, 0);
   } finally { await db.query('ROLLBACK'); }
   step('Greening communities takes no allocation; Greening with only such items is sent without a distribution list; migration 098 clears its earlier allocations (UBEC245)');
+  // UBEC248: the school list template (DNEMIS code + School name) and its upload preview; the upload never saves.
+  const { default: ExcelJS } = await import('exceljs');
+  for (const [index, id] of schoolIds.entries()) await db.query('UPDATE schools SET school_code=$1 WHERE id=$2', [`QA${tag}${index}`, id]);
+  ok(await api('academic', url('tlm'), { workstream: 'tlm', entity: 'school', action: 'create', schoolIds: [c] }));
+  const template = await api('academic', `/api/distribution-lists?plan=${planId}&workstream=tlm`);
+  assert.equal(template.status, 200, JSON.stringify(template.data));
+  assert.match(template.headers.get('content-type') ?? '', /spreadsheetml/);
+  const book = new ExcelJS.Workbook(); await book.xlsx.load(template.bytes);
+  const sheet = book.getWorksheet('Schools');
+  assert.deepEqual([sheet.getCell('A1').text, sheet.getCell('B1').text], ['DNEMIS code', 'School name']);
+  assert.deepEqual([sheet.getCell('A2').text, sheet.getCell('B2').text], [`QA${tag}2`, 'QA Alloc School C'], 'prefilled with the listed schools');
+  const filled = new ExcelJS.Workbook(), rowsSheet = filled.addWorksheet('Schools');
+  for (const row of [['DNEMIS code', 'School name'], [`QA${tag}0`, 'qa alloc school-a'], [`QA${tag}1`, 'Wrong Name School'], [`QA${tag}2`, 'QA Alloc School C'], ['NOPE123', 'Unknown'], [`QA${tag}0`, 'QA Alloc School A'], ['', 'QA Alloc School B']]) rowsSheet.addRow(row);
+  const upload = async (who, workstream = 'tlm') => { const form = new FormData(); form.append('workstream', workstream); form.append('file', new Blob([await filled.xlsx.writeBuffer()]), 'list.xlsx'); return api(who, `/api/distribution-lists?plan=${planId}`, form); };
+  const preview = ok(await upload('academic'));
+  assert.equal(preview.rows, 6);
+  assert.deepEqual(preview.matched.map(m => m.school.id), [a]);
+  assert.deepEqual(preview.listed.map(m => m.school.id), [c]);
+  assert.deepEqual(preview.mismatched.map(m => [m.row, m.school.name]), [[3, 'QA Alloc School B']]);
+  assert.deepEqual(preview.unknown.map(m => m.code), ['NOPE123']);
+  assert.deepEqual(preview.duplicates.map(m => [m.row, m.firstRow]), [[6, 2]]);
+  assert.deepEqual(preview.noCode.map(m => m.row), [7]);
+  assert.deepEqual(ok(await api('academic', url('tlm'))).distribution.map(s => s.id), [c], 'the preview saves nothing');
+  fails(await upload('physical'), 403);
+  // The PHE training schools (Sports) take the same template and preview.
+  assert.equal((await api('academic', `/api/distribution-lists?plan=${planId}&workstream=phe`)).status, 200);
+  assert.deepEqual(ok(await upload('academic', 'phe')).matched.map(m => m.school.id).sort(), [a, c].sort());
+  fails(await api('academic', `/api/distribution-lists?plan=${planId}&workstream=sbmc`), 400, /Choose a school list/);
+  fails(await api('physical', `/api/distribution-lists?plan=${planId}&workstream=tlm`), 403);
+  const bad = new FormData(); bad.append('workstream', 'tlm'); bad.append('file', new Blob(['not a workbook']), 'list.xlsx');
+  fails(await api('academic', `/api/distribution-lists?plan=${planId}`, bad), 400, /Excel/);
+  ok(await api('academic', url('tlm'), { workstream: 'tlm', entity: 'school', action: 'create', schoolIds: preview.matched.map(m => m.school.id) }));
+  assert.deepEqual(ok(await api('academic', url('tlm'))).distribution.map(s => s.id).sort(), [a, c].sort());
+  step('the school list template is prefilled; an upload is matched by DNEMIS code and name (mismatches, unknown codes, repeats, rows without a code, schools already listed) and saves nothing until added (UBEC248)');
   console.log(`\n${passed} distribution allocation checks passed`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);
