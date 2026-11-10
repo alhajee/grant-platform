@@ -19,7 +19,7 @@ import { readPlanQuarterSetup } from '@/lib/line-quarters-db';
 import { resolveSavedLineDates } from '@/lib/line-dates-db';
 import { clientKeySchema } from '@/lib/save-request';
 import { readComponentDocumentsRequired } from '@/lib/component-documents-setting';
-import { packageSchema, packageProblem, calculateInfrastructure, landDocumentProblem, drawingsDocumentProblem, schoolComponents, schoolFacts, auditGaps, photoEvidenceProblem } from '@/lib/infrastructure-model';
+import { packageSchema, packageProblem, targetGroupProblem, calculateInfrastructure, landDocumentProblem, drawingsDocumentProblem, schoolComponents, schoolFacts, auditGaps, photoEvidenceProblem } from '@/lib/infrastructure-model';
 import { fromMinor } from '@/lib/money';
 const error=(message:string,status=400)=>NextResponse.json({error:message},{status});
 // teachers (DNEMIS D.2) sizes the Whole School staff rooms; enrolment_by_class splits enrolment by level.
@@ -80,6 +80,8 @@ export async function POST(req:NextRequest){
    const draft={...base,components:schoolComponents(school)};
    const facts=schoolFacts(school);
    const problem=packageProblem(draft,facts);if(problem)return error(problem);
+   // UBEC254: every new save and edit names the package's target group(s); packages saved before keep '' until then.
+   const targetProblem=targetGroupProblem(draft);if(targetProblem)return error(targetProblem);
    const docs=(await db.query('SELECT id,kind,created_at,school_id FROM infrastructure_documents WHERE plan_id=$1 AND removed_at IS NULL AND id=ANY($2::uuid[])',[plan.id,draft.documentIds])).rows;
    if(new Set(draft.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan');
    if(docs.some(d=>d.school_id!==null&&d.school_id!==draft.schoolId))return error('One or more attachments belong to a different school');
@@ -109,9 +111,9 @@ export async function POST(req:NextRequest){
     const poolProblem=isSplitMode(pool.plan)?infrastructureSplitProblem(pool.plan,pool.proposed.infrastructure+cost):infrastructurePoolProblem(pool.plan,{...pool.proposed,infrastructure:pool.proposed.infrastructure+cost});
     if(poolProblem)return error(poolProblem,409);
    }
-   const args=[JSON.stringify(input),JSON.stringify(result),fromMinor(toMinor(result.total)),input.schoolId,input.kind,timeline.quarters,dated.dates.startDate,dated.dates.dueDate];
-   if(prior)await db.query('UPDATE infrastructure_packages SET input=$1::jsonb,result=$2::jsonb,total_cost=$3,school_id=$4,kind=$5,quarters=$6,start_date=$7,due_date=$8,version=version+1,updated_at=NOW() WHERE id=$9 AND plan_id=$10',[...args,v.id,plan.id]);
-   else return NextResponse.json({ok:true,id:(await db.query<{id:number}>('INSERT INTO infrastructure_packages(input,result,total_cost,school_id,kind,quarters,start_date,due_date,plan_id,client_key) VALUES($1::jsonb,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',[...args,plan.id,v.clientKey??null])).rows[0].id});
+   const args=[JSON.stringify(input),JSON.stringify(result),fromMinor(toMinor(result.total)),input.schoolId,input.kind,timeline.quarters,dated.dates.startDate,dated.dates.dueDate,input.targetGroup];
+   if(prior)await db.query('UPDATE infrastructure_packages SET input=$1::jsonb,result=$2::jsonb,total_cost=$3,school_id=$4,kind=$5,quarters=$6,start_date=$7,due_date=$8,target_group=$9,version=version+1,updated_at=NOW() WHERE id=$10 AND plan_id=$11',[...args,v.id,plan.id]);
+   else return NextResponse.json({ok:true,id:(await db.query<{id:number}>('INSERT INTO infrastructure_packages(input,result,total_cost,school_id,kind,quarters,start_date,due_date,target_group,plan_id,client_key) VALUES($1::jsonb,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id',[...args,plan.id,v.clientKey??null])).rows[0].id});
    return NextResponse.json({ok:true,id:prior.id});
   });
  }catch(cause){console.error(cause);return error('Unable to save the infrastructure package',503);}

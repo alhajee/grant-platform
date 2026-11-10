@@ -27,9 +27,12 @@ export function InfrastructurePackageDetails({record,audit=true}:{record:Infrast
  // New Construction (one lump-sum package): requirements with their description, no per-row costs (client feedback, October 2026).
  const lumpSum=input.kind==='new'&&input.targeting==='nonhope';
  const packageRow=result.items.find(item=>item.key==='package');
+ // UBEC254: the draft's target groups (editor preview), else the saved column.
+ const targetGroup=input.targetGroup||record.target_group||'';
  return <div className="flex flex-col gap-5">
   <div className="flex flex-wrap items-center gap-3"><Badge variant="secondary">{kindNames[input.kind]}</Badge><span>{packageBasis(record)}</span>{input.kind==='new'&&input.targeting==='hope'&&<Badge variant="outline">HOPE</Badge>}</div>
   <p>{input.components.join(' · ')}{input.observations&&` · ${input.observations}`}</p>
+  {targetGroup&&<p className="text-sm"><span className="text-muted-foreground">Target group:</span> {targetGroup}</p>}
   {input.kind==='whole'&&audit&&<Collapsible className="package-audit"><CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="package-audit-trigger"><ChevronDownIcon data-icon="inline-start" />School audit</Button></CollapsibleTrigger><CollapsibleContent><AuditSummaryTable input={input} school={resultBasis(result)}/>{input.conditionNotes&&<p>{input.dilapidation}: {input.conditionNotes}</p>}</CollapsibleContent></Collapsible>}
   {lumpSum?<>
    <Table><TableHeader><TableRow>{['Requirement','Quantity','Description'].map(v=><TableHead key={v}>{v}</TableHead>)}</TableRow></TableHeader><TableBody><GroupedRows rows={result.items} colSpan={3} render={item=><TableRow key={item.key}><TableCell className="whitespace-normal"><strong>{item.label}</strong></TableCell><TableCell>{quantityLabel(item.quantity,item.unit)}</TableCell><TableCell className="whitespace-normal text-muted-foreground">{item.description??deliverableDescription(item.key,result.model)}</TableCell></TableRow>}/></TableBody></Table>

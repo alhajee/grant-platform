@@ -36,10 +36,10 @@ function infrastructureSheet(snapshot: Snapshot, editHref?: string): WorkbookShe
   const byId = new Map(snapshot.infrastructure.map(line => [String(line.id), line]));
   return {
     key: 'infrastructure', label: 'Infrastructure', hash: 'review-infrastructure', icon: Building2, itemLabel: 'project lines', empty: 'No infrastructure projects', editHref, editLabel: 'Infrastructure',
-    columns: [text('school', 'School', 250), text('lga', 'LGA', 112, true), text('level', 'Level', 90, true), text('location', 'Location', 100, true), text('type', 'Project type', 200, true), text('code', 'Code', 96), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), text('scope', 'Components', 140), qty('learners', 'Learners'), text('strategy', 'Strategy', 120, true), text('duration', 'Duration', 120)],
+    columns: [text('school', 'School', 250), text('lga', 'LGA', 112, true), text('level', 'Level', 90, true), text('location', 'Location', 100, true), text('type', 'Project type', 200, true), text('code', 'Code', 96), text('target', 'Target group', 170, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), text('scope', 'Components', 140), qty('learners', 'Learners'), text('strategy', 'Strategy', 120, true), text('duration', 'Duration', 120)],
     rows: snapshot.infrastructure.map(line => row(String(line.id), {
       school: line.school.name, lga: line.school.lga, level: line.school.level, location: line.school.location,
-      type: line.package ? kindNames[line.package.kind] : line.construction.name, code: lineCodeLabel(line.code), timeline: quarters(line),
+      type: line.package ? kindNames[line.package.kind] : line.construction.name, code: lineCodeLabel(line.code), target: line.target_group ?? '', timeline: quarters(line),
       scope: line.package ? line.package.input.components.join(', ') : '', learners: line.package?.result.enrolment ?? '',
       strategy: line.strategy || '', duration: line.package ? line.package.input.duration || (line.package.kind === 'whole' ? 'Per intervention' : '') : `${line.duration} weeks`,
       quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),

@@ -107,6 +107,13 @@ export type SchoolStream = 'primary' | 'jss';
 /** Minimum Standard rows only the Primary/ECCDE list has. */
 export const eccdeOnlyKeys: ReadonlySet<string> = new Set(['classroomEccde', 'eccdeFurniture', 'playEquipment', 'kgBed']);
 const baseKey = (key: string) => key.replace(/-(renovate|construct)$/, '');
+/**
+ * UBEC254: whether a package item is plainly for ECCDE learners, so Spending by school level counts it as ECCDE whatever the
+ * school's level: ECCDE classrooms (renovated or built), the New Construction ECCDE block, ECCDE furniture, play equipment,
+ * kindergarten beds and Whole School blocks of ECCDE classrooms.
+ */
+export const isEccdeItem = (item: { key: string; block?: { classroomType?: string } }): boolean =>
+  eccdeOnlyKeys.has(baseKey(item.key)) || item.key === 'eccdeBlock' || item.key === 'eccdeBlock1' || item.block?.classroomType === 'eccde' || /^block-(construct|renovate)-e\d/.test(item.key);
 /** Whether a school's list includes a deliverable: Other Facilities and the fence always; ECCDE rows only on the Primary/ECCDE list. */
 export const appliesToStream = (key: string, stream: SchoolStream): boolean => !!deliverableInfo(key) && (stream === 'primary' || !eccdeOnlyKeys.has(baseKey(key)));
 

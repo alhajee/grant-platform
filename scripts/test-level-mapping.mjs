@@ -36,6 +36,26 @@ assert.equal(levelMapping({ infrastructure: [], sports: [], tlm: [line(100, 1, {
 // UBEC245: an item not shared out to schools (TLM training) ignores the list: target groups, else Others.
 assert.equal(levelMapping({ infrastructure: [], sports: [], tlm: [line(100, 1, { activity: 1, target_group: 'ECCDE Learners' })], tlmDistribution: [school('Primary')] }).eccde, 100);
 assert.equal(levelMapping({ infrastructure: [], sports: [], gscci: [line(100, 1, { activity: 3, target_group: 'Communities' })], gscciDistribution: [school('Primary')] }).none, 100);
+// UBEC254: Infrastructure. Items plainly for ECCDE count as ECCDE by their own amounts; the rest of the package follows the
+// levels its target groups name, else the school's level.
+const pkg = (kind, items, extra = {}) => ({ kind, result: { items }, ...extra });
+const item = (key, total, extra = {}) => ({ key, total, ...extra });
+const whole = line(1000, 1, { school: school('Primary'), target_group: 'Schools', package: pkg('whole', [
+  item('classroomEccde-construct', 200), item('classroomEccde-renovate', 50), item('eccdeFurniture', 30), item('playEquipment', 20), item('kgBed', 10),
+  item('block-construct-e2c0o0s0t', 100, { block: { classroomType: 'eccde' } }), item('block-construct-p3c1o1s4t', 300, { block: { classroomType: 'primary' } }),
+  item('classroomPri-construct', 250), item('magneticBoard', 0, { notCosted: true }), item('dualDesk', 40)]) });
+assert.deepEqual(levelMapping({ infrastructure: [whole], sports: [] }), { eccde: 410, primary: 590, jss: 0, none: 0, total: 1000 }, 'ECCDE items as ECCDE, the rest by the school (Schools names no level)');
+assert.deepEqual(levelMapping({ infrastructure: [{ ...whole, target_group: 'Primary School Learners, JSS Learners' }], sports: [] }), { eccde: 410, primary: 295, jss: 295, none: 0, total: 1000 }, 'the rest follows the levels the target groups name');
+// A lump-sum New Construction package has no per-item amounts (its ECCDE block is ₦0 inside the package): all of it by target groups.
+const lump = line(900, 1, { school: school('Primary'), target_group: 'ECCDE Learners, Primary School Learners, Teachers', package: pkg('new', [item('eccdeBlock', 0), item('classBlock6', 0), item('package', 900)]) });
+assert.deepEqual(levelMapping({ infrastructure: [lump], sports: [] }), { eccde: 450, primary: 450, jss: 0, none: 0, total: 900 });
+assert.equal(levelMapping({ infrastructure: [{ ...lump, target_group: 'Teachers' }], sports: [] }).primary, 900, 'no level named: the school level');
+// HOPE-costed New Construction: the ECCDE block has its own amount; Small School's 1-classroom block too.
+assert.equal(levelMapping({ infrastructure: [line(500, 1, { school: school('JSS'), package: pkg('new', [item('eccdeBlock1', 120), item('classBlock6', 380)]) })], sports: [] }).eccde, 120);
+// Older snapshots: no target group and no package behave as before (the school's level).
+assert.deepEqual(levelMapping({ infrastructure: [line(300, 1, { school: school('JSS') })], sports: [] }), { eccde: 0, primary: 0, jss: 300, none: 0, total: 300 });
+// The ECCDE items never count for more than the package.
+assert.equal(levelMapping({ infrastructure: [line(100, 1, { school: school('Primary'), package: pkg('whole', [item('classroomEccde-construct', 250)]) })], sports: [] }).eccde, 100);
 // UBEC231: the 15% ECCDE rule.
 assert.equal(eccdeShareProblem({ infrastructure: [], sports: [] }), null, 'nothing proposed: nothing to check');
 assert.equal(eccdeShareProblem({ infrastructure: [], sports: [], monitoring: [line(15, 1, { target_group: 'ECCDE Learners' }), line(85, 1)] }), null, 'exactly 15% passes');

@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { lineQuartersSchema } from './line-quarters.ts';
 import { lineDatesShape } from './line-dates.ts';
+import { targetGroupField } from './target-groups.ts';
 import { MONEY_SCALE_NUMBER, hasMoneyDecimals, maxUnitCost, minorOfNumber, moneyDecimalsMessage } from './money.ts';
 import { requirements, fenceDeliverable, appliesToStream, auditKeys, describableKeys, deliverableDescription, solarKva, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
-export { quantityLabel, requirements, fenceDeliverable, minimumKeys, appliesToStream, eccdeOnlyKeys, standardText, deliverableGroups, deliverableGroup, deliverableCategory, deliverableInfo, deliverableDescription, groupDeliverables, inDeliverableOrder, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
+export { quantityLabel, requirements, fenceDeliverable, minimumKeys, appliesToStream, eccdeOnlyKeys, isEccdeItem, standardText, deliverableGroups, deliverableGroup, deliverableCategory, deliverableInfo, deliverableDescription, groupDeliverables, inDeliverableOrder, type DeliverableCategory, type SchoolStream } from './infrastructure-deliverables.ts';
 
 /**
  * Infrastructure implementation strategies: the procurement list every component uses (UBEC159, 28 October 2026);
@@ -91,7 +92,12 @@ export const packageSchema = z.object({
  quarters:lineQuartersSchema.optional(),
  /** Expected start and due dates inside the timeline (migration 059, also the package's date columns); omitted = kept or the whole timeline. */
  ...lineDatesShape,
+ /** UBEC254 (migration 099, also the package's target_group column): one or more target groups, joined ("ECCDE Learners, Teachers"); '' on packages saved before, asked on their next save. */
+ targetGroup:targetGroupField,
 });
+/** UBEC254: a package names its target group(s) before it is saved (new saves and edits). */
+export const targetGroupMessage = 'Choose the target group';
+export const targetGroupProblem = (input: Pick<InfrastructureInput, 'targetGroup'>) => input.targetGroup ? null : targetGroupMessage;
 export const landDeclarationCount = (input: Pick<InfrastructureInput, 'land'>) => Object.values(input.land ?? {}).filter(Boolean).length;
 /** All three land declarations ticked (client feedback, October 2026). */
 export const allLandDeclared = (input: Pick<InfrastructureInput, 'land'>) => !!input.land?.available && !!input.land?.documented && !!input.land?.unencumbered;
@@ -199,7 +205,9 @@ export type InfrastructurePackage = {id:number;/** The client key the package wa
  /** Timeline (infrastructure_packages.quarters, migration 050): authoritative over input.quarters, which packages saved earlier lack. */
  quarters?:number[];
  /** Expected start and due dates (migration 059, YYYY-MM-DD): authoritative over input.startDate/dueDate; null on packages saved before. */
- start_date?:string|null;due_date?:string|null};
+ start_date?:string|null;due_date?:string|null;
+ /** UBEC254 (migration 099): authoritative over input.targetGroup; '' on packages saved before. */
+ target_group?:string};
 // Exact money: naira ⇄ minor units (1/10,000 naira, lib/money.ts).
 const units = (n:number) => minorOfNumber(n);
 const money = (n:number) => Math.round(n)/MONEY_SCALE_NUMBER;

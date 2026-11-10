@@ -108,7 +108,7 @@ try {
   // UBEC170: a package needs its school's BOQ to save.
   const boqForm = new FormData(); boqForm.set('kind', 'boq'); boqForm.set('schoolId', String(schoolIds[0])); boqForm.set('file', new File(['%PDF-1.4\nBOQ\n%%EOF'], 'boq.pdf', { type: 'application/pdf' }));
   const boqId = ok(await api('physical', `/api/infrastructure/documents?plan=${planId}`, boqForm)).id;
-  const furniture = extra => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 2, cost: 100 }], documentIds: [boqId], quarters: [3], ...extra } });
+  const furniture = extra => ({ action: 'save', input: { kind: 'furniture', targetGroup: 'Schools', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 2, cost: 100 }], documentIds: [boqId], quarters: [3], ...extra } });
   fails(await api('physical', infraUrl, furniture({ startDate: '2039-06-30', dueDate: '2039-08-01' })), 400, /start date must fall within/);
   ok(await api('physical', infraUrl, furniture({ startDate: '2039-07-15', dueDate: '2039-09-15' })));
   let [pkg] = ok(await api('physical', infraUrl)).packages;
