@@ -54,14 +54,15 @@ assert.equal(activityBudgetProblem('sbmc', [{ activity: 12, minor: BigInt(900_00
 assert.equal(allocationUseProblem('sbmc', { setup: plan, sbmc: [{ activity: 2, quantity: 1, unit_cost: '50000.00' }, { activity: 12, quantity: 1, unit_cost: '50000.00' }] }), null, 'full use no longer asks for 5% on monitoring');
 
 // UBEC229: a required proforma invoice on every item that buys goods, whatever the Supporting documents setting.
-for (const [workstream, activities] of Object.entries(priceListActivities)) for (const activity of activities) {
+for (const [workstream, activities] of Object.entries(priceListActivities).filter(([workstream]) => workstream !== 'tlm')) for (const activity of activities) {
   const slots = extras.lineDocumentSlots(workstream, activity);
   assert.equal(slots[0].kind, 'proforma', `${workstream} ${activity} takes a proforma invoice`);
   assert.equal(extras.slotRequired(slots[0], false), true, 'required even while supporting documents are optional');
   assert.equal(extras.missingLineDocument(workstream, activity, [], false)?.kind, 'proforma');
   assert.equal(extras.missingLineDocument(workstream, activity, [{ kind: 'proforma' }], false), null);
 }
-assert.deepEqual(extras.lineDocumentSlots('tlm', 5).map(s => s.kind), ['proforma', 'boq', 'sample'], 'TLM: proforma beside BOQ and sample');
+assert.deepEqual(extras.lineDocumentSlots('tlm', 5).map(s => s.kind), ['boq', 'sample'], 'UBEC250: TLM takes its BOQ and sample, no proforma');
+assert.equal(extras.missingLineDocument('tlm', 5, [], false), null, 'UBEC250: nothing required of TLM while supporting documents are optional');
 assert.deepEqual(extras.lineDocumentSlots('ict', 0).map(s => s.kind), ['proforma', 'document'], 'ICT procurement keeps its specification document');
 assert.deepEqual(extras.lineDocumentSlots('monitoring', 2).map(s => s.kind), ['document'], 'allowances buy no goods');
 assert.deepEqual(extras.lineDocumentSlots('gscci', 0), [], 'Greening keeps its own item lists');

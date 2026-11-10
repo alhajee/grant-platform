@@ -98,7 +98,10 @@ try {
   fails(await upload('academic', 'tlm', tlm, 'boq.png', png, 'boq'), 400, /PDF or Excel/);
   const tlmDoc = ok(await upload('academic', 'tlm', tlm, 'tlm-quote.xlsx', xlsx, 'boq'));
   // UBEC229: items that buy goods take a proforma invoice (Word, PDF, Excel or images); other items have no proforma slot.
-  const proforma = ok(await upload('academic', 'tlm', tlm, 'proforma.docx', docx, 'proforma'));
+  // UBEC250: TLM items take their BOQ and sample, not a proforma. UBEC251: SBMC working tools and materials take one.
+  fails(await upload('academic', 'tlm', tlm, 'proforma.docx', docx, 'proforma'), 400, /Choose which document this is/);
+  const tools = await create('social', 'sbmc', 15, 1000, { rationale: 'Tools for SBMCs', implementationApproach: 'Direct labour' });
+  const proforma = ok(await upload('social', 'sbmc', tools, 'proforma.docx', docx, 'proforma'));
   assert.equal(proforma.kind, 'proforma');
   fails(await upload('me', 'quality', qaLines[4], 'proforma.pdf', pdf, 'proforma'), 400, /Choose which document this is/);
   // With the Supporting documents setting on, TLM cannot be sent until the sample is there too.
@@ -112,7 +115,7 @@ try {
   const planningLine = ok(await api('planning', url('planning'))).lines.find(l => l.activity === 0).id;
   const planningDoc = ok(await upload('planning', 'planning', planningLine, 'census.jpg', jpg));
   assert.deepEqual(ok(await api('social', url('sbmc'))).lines.find(l => l.id === sbmc).documents.map(d => d.name), ['sbmc-quote.pdf']);
-  assert.deepEqual(ok(await api('academic', url('tlm'))).lines.find(l => l.id === tlm).documents.filter(d => d.kind !== 'proforma').map(d => [d.name, d.kind]), [['tlm-quote.xlsx', 'boq'], ['sample.png', 'sample']]);
+  assert.deepEqual(ok(await api('academic', url('tlm'))).lines.find(l => l.id === tlm).documents.map(d => [d.name, d.kind]), [['tlm-quote.xlsx', 'boq'], ['sample.png', 'sample']]);
   assert.deepEqual(ok(await api('me', url('quality'))).lines.find(l => l.id === qaLines[4]).documents.map(d => d.name), ['workshop-plan.docx', 'site.png']);
   assert.deepEqual(ok(await api('planning', url('planning'))).lines.find(l => l.id === planningLine).documents.map(d => d.name), ['census.jpg']);
   const photo = await download('me', qaPhoto.id);

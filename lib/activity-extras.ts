@@ -182,7 +182,8 @@ const teacherDocumentSlots: readonly LineDocumentSlot[] = [
  * documents setting (migration 090).
  */
 export const proformaSlot: LineDocumentSlot = { kind: 'proforma', label: 'Proforma invoice', governed: true, always: true, accept: supportingDocumentAccept, hint: 'The supplier’s proforma invoice for this item. PDF, Excel, Word or images' };
-export const needsProforma = (workstream: string, activity: number) => isPriceListActivity(workstream, activity);
+/** UBEC250 (bug sheet 16, 10 November 2026): TLM items take their BOQ and Sample of the item, not a proforma invoice. */
+export const needsProforma = (workstream: string, activity: number) => workstream !== 'tlm' && isPriceListActivity(workstream, activity);
 function baseDocumentSlots(workstream: string, activity: number): readonly LineDocumentSlot[] {
   if (workstream === 'tlm') return tlmDocumentSlots;
   if (workstream === 'teachers') return teacherDocumentSlots;

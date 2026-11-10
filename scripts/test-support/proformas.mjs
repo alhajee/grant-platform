@@ -3,10 +3,9 @@
 // their api() helper: before a send step (submit, endorse, forward, the UBEC submission) it attaches a tiny PDF proforma
 // to each item of the plan that still has none. scripts/test-activity-rules-nov.mjs and test-line-proformas.mjs test the rule.
 
-/** The Procurement price-list activities (lib/procurement.ts `priceListActivities`). */
+/** The Procurement price-list activities (lib/procurement.ts `priceListActivities`) except TLM (UBEC250). */
 export const proformaActivities = {
   quality: [0], ict: [0], monitoring: [0, 1], curriculum: [0], planning: [4], sbmc: [15],
-  tlm: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
 };
 const pairs = Object.entries(proformaActivities).flatMap(([workstream, activities]) => activities.map(activity => `('${workstream}',${activity})`)).join(',');
 const sendActions = new Set(['submit', 'endorse', 'forward']);
