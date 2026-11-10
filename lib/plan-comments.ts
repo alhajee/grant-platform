@@ -27,7 +27,7 @@ export const ubecAuthorRoles = ['UBEC Executive Secretary', 'UBEC BEAP Chair', '
 const activityColumns = { activity: 'Allowable activity', code: 'Code', description: 'Description' };
 const activityTail = { strategy: 'Strategy', target: 'Target group', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' };
 export const commentColumns: Record<CommentSheet, Record<string, string>> = {
-  infrastructure: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', type: 'Project type', code: 'Code', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', scope: 'Components', learners: 'Learners', strategy: 'Strategy', duration: 'Duration' },
+  infrastructure: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', type: 'Project type', code: 'Code', target: 'Target group', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', scope: 'Components', learners: 'Learners', strategy: 'Strategy', duration: 'Duration' },
   sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Sport / sub-activity', target: 'Target group', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty' },
   sbmc: { ...activityColumns, rationale: 'Rationale', approach: 'Implementation approach', ...activityTail },
   tlm: { ...activityColumns, material: 'Material type', subject: 'Subject', classes: 'Classes', ...activityTail },

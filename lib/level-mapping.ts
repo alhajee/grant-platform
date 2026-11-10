@@ -1,11 +1,14 @@
 import type { Snapshot } from './plan-review';
 import { isDistributedLine, isPheTrainingLine } from './distribution-lists.ts';
 import { MONEY_SCALE_NUMBER, lineMinor, minorOfNumber } from './money.ts';
+import { isEccdeItem } from './infrastructure-deliverables.ts';
 
 // Resource mapping by school level (UBEC127, client 26 October 2026): how much of a plan's proposed budget goes to ECCDE,
 // Primary and JSS, and how much is not school-specific (training, census, equipment, SUBEB activities…). Shown on the plan
 // page and on the SUBEB and UBEC dashboards. Each line's amount is shared out, in whole minor units (1/10,000 naira, lib/money.ts), by what the line says:
-//   Infrastructure      the package's school level;
+//   Infrastructure      items plainly for ECCDE (ECCDE classrooms and blocks, ECCDE furniture, play equipment, kindergarten
+//                       beds) as ECCDE; the rest of the package (or a lump-sum New Construction package) by the levels its
+//                       target groups name (UBEC254), else the school's level;
 //   Sports              each allocation's school level by quantity allocated (the unallocated rest: not school-specific);
 //   lines with schools  evenly across the chosen schools' levels (ICT and any other line that names schools);
 //   Textbooks (TLM)     by the classes chosen (Primary 1-6 → Primary, JSS 1-3 → JSS);
@@ -54,11 +57,24 @@ export function targetGroupWeights(targetGroup: string | null | undefined): Weig
 const activityComponents = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
 const minorOf = (line: { quantity: number; unit_cost: string }) => Number(lineMinor(line.unit_cost, line.quantity));
 
+/**
+ * UBEC254: one Infrastructure package by level. Items plainly for ECCDE count as ECCDE (by their own amounts, never more than
+ * the package); the rest follows the levels the package's target groups name, else the school's level (packages saved
+ * before UBEC254 have no target group). A lump-sum New Construction package has no per-item amounts, so all of it follows
+ * the target groups.
+ */
+function infrastructureLevels(line: Snapshot['infrastructure'][number]): Record<SchoolLevelKey, number> {
+  const minor = minorOf(line);
+  const eccde = Math.min(minor, (line.package?.result?.items ?? []).filter(isEccdeItem).reduce((sum, item) => sum + minorOfNumber(Number(item.total) || 0), 0));
+  const named = targetGroupWeights(line.target_group);
+  const rest = share(minor - eccde, Object.keys(named).length ? named : { [levelOf(line.school?.level)]: 1 });
+  return { ...rest, eccde: rest.eccde + eccde };
+}
 /** The plan's proposed budget by school level, from a snapshot (or the part of one the viewer may see). */
 export function levelMapping(snapshot: Snapshot): LevelMapping {
   const totals = { eccde: 0, primary: 0, jss: 0, none: 0 };
   const add = (parts: Record<SchoolLevelKey, number>) => { for (const key of schoolLevelKeys) totals[key] += parts[key]; };
-  for (const line of snapshot.infrastructure ?? []) add(share(minorOf(line), { [levelOf(line.school?.level)]: 1 }));
+  for (const line of snapshot.infrastructure ?? []) add(infrastructureLevels(line));
   for (const line of snapshot.sports ?? []) {
     const minor = minorOf(line), allocated = (line.allocations ?? []).reduce((sum, a) => sum + Number(a.quantity), 0);
     const weights = (line.allocations ?? []).reduce<Weights>((w, a) => { const key = levelOf(a.school?.level); return { ...w, [key]: (w[key] ?? 0) + Number(a.quantity) }; }, {});

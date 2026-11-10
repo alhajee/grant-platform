@@ -180,9 +180,9 @@ try {
   const savedPackage = async kind => ok(await api('physical', infra)).packages.find(p => p.kind === kind);
   // Split mode (migration 051): Infrastructure takes the whole Infrastructure & TLM pool here (TLM has no lines).
   await db.query('UPDATE action_plans SET tlm_allocation=0 WHERE id=$1', [planId]);
-  const furniture = { action: 'save', input: { kind: 'furniture', schoolId: school, components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost: 1000 }], documentIds: [] } };
-  const newSchool = packageSchema.parse({ kind: 'new', schoolId: school, components: ['Primary'], lumpSum: 1000, duration: '6 months', model: 0, fenceLength: 100, land: { available: true, documented: true, unencumbered: true }, documentIds: [] });
-  const whole = packageSchema.parse({ kind: 'whole', schoolId: school, components: ['Primary'], documentIds: [] });
+  const furniture = { action: 'save', input: { kind: 'furniture', targetGroup: 'Schools', schoolId: school, components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost: 1000 }], documentIds: [] } };
+  const newSchool = packageSchema.parse({ kind: 'new', targetGroup: 'Schools', schoolId: school, components: ['Primary'], lumpSum: 1000, duration: '6 months', model: 0, fenceLength: 100, land: { available: true, documented: true, unencumbered: true }, documentIds: [] });
+  const whole = packageSchema.parse({ kind: 'whole', targetGroup: 'Schools', schoolId: school, components: ['Primary'], documentIds: [] });
   whole.fenceRequired = 100;
   whole.audit = Object.fromEntries(minimumKeys.map(key => [key, { existing: 0, functional: 0, extra: 0 }]));
   whole.audit.classroomPri = { existing: 3, functional: 1, extra: 0 }; // non-functional classrooms: per-row photographic evidence rule

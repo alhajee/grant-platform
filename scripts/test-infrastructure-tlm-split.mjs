@@ -104,7 +104,7 @@ try {
   // UBEC170: a package needs its school's BOQ to save.
   const boqForm = new FormData(); boqForm.set('kind', 'boq'); boqForm.set('schoolId', String(schoolIds[0])); boqForm.set('file', new File(['%PDF-1.4\nBOQ\n%%EOF'], 'boq.pdf', { type: 'application/pdf' }));
   const boqId = ok(await api('physical', `/api/infrastructure/documents?plan=${planId}`, boqForm)).id;
-  const furniture = cost => ({ action: 'save', input: { kind: 'furniture', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost }], documentIds: [boqId] } });
+  const furniture = cost => ({ action: 'save', input: { kind: 'furniture', targetGroup: 'Schools', schoolId: schoolIds[0], components: ['Primary'], furniture: [{ description: 'Desks', quantity: 1, cost }], documentIds: [boqId] } });
   const split = (who, side, amount) => api(who, splitUrl, { amount, side }, 'PATCH');
 
   const opened = ok(await api('academic', tlmUrl));

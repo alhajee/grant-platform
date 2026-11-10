@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {Client} from 'pg';
 import {hashSync} from 'bcryptjs';
-import {packageSchema,calculateInfrastructure,auditGaps,minimumKeys,requirements,wholeAuditProblem,schoolFacts} from '../lib/infrastructure-model.ts';
+import {packageSchema,calculateInfrastructure,auditGaps,minimumKeys,requirements,wholeAuditProblem,schoolFacts,isEccdeItem} from '../lib/infrastructure-model.ts';
+import {levelMapping} from '../lib/level-mapping.ts';
 const base=process.argv[2] ?? process.env.TEST_BASE_URL ?? process.env.UBEC_TEST_URL ?? 'http://localhost:5173';
 assert.ok(['localhost','127.0.0.1'].includes(new URL(base).hostname));
 assert.ok(['localhost','127.0.0.1'].includes(new URL(process.env.DATABASE_URL).hostname));
@@ -28,7 +29,10 @@ try{
  const landIds=[];for(const kind of ['land','land_area','drawings']){const f=new FormData();f.set('kind',kind);f.set('schoolId',String(school));f.set('file',new File(['%PDF-1.4\nQA\n%%EOF'],`${kind}.pdf`,{type:'application/pdf'}));landIds.push(ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,f)).id);}
  // New Construction (client feedback, October 2026): all three land declarations, the C of O / R of O / Community Agreement document,
  // a chosen model and the perimeter fence length entered in the requirements table.
- const input=packageSchema.parse({kind:'new',schoolId:school,components:['Primary','ECCDE'],targeting:'hope',lumpSum:1000,duration:'6 months',model:0,fenceLength:180,land:{available:true,documented:true,unencumbered:true},documentIds:[...landIds,schoolBoq]});
+ const input=packageSchema.parse({kind:'new',schoolId:school,components:['Primary','ECCDE'],targeting:'hope',lumpSum:1000,duration:'6 months',model:0,fenceLength:180,land:{available:true,documented:true,unencumbered:true},documentIds:[...landIds,schoolBoq],targetGroup:'Schools'});
+ // UBEC254: every package names its target group(s): required on save, listed groups only, stored joined in list order.
+ {const noTarget=await api('officer',path,{action:'save',input:{...input,targetGroup:''}});ok(noTarget,400);assert.equal(noTarget.data.error,'Choose the target group');
+  const unknown=await api('officer',path,{action:'save',input:{...input,targetGroup:['Martians']}});ok(unknown,400);assert.equal(unknown.data.error,'Choose target groups from the list');}
  ok(await api('social',path,{action:'save',input}),403);
  ok(await api('officer',path,{action:'save',input:{...input,land:{available:false,documented:false,unencumbered:false}}}),400);
  const twoTicks=await api('officer',path,{action:'save',input:{...input,land:{available:true,documented:true,unencumbered:false}}});ok(twoTicks,400);assert.match(twoTicks.data.error,/Tick all three land declarations/);
@@ -39,8 +43,9 @@ try{
  const noNewModel=await api("officer",path,{action:"save",input:{...input,model:undefined}});ok(noNewModel,400);assert.match(noNewModel.data.error,/Choose the school model/);
  const noNewFence=await api("officer",path,{action:"save",input:{...input,fenceLength:0}});ok(noNewFence,400);assert.match(noNewFence.data.error,/perimeter fence length/);
  const retiredStrategy=await api('officer',path,{action:'save',input:{...input,classroomStrategy:'Credit SBMC school account'}});ok(retiredStrategy,400);assert.match(retiredStrategy.data.error,/from the list/);
- ok(await api('officer',path,{action:'save',input:{...input,classroomStrategy:'Market survey'}}));
+ ok(await api('officer',path,{action:'save',input:{...input,classroomStrategy:'Market survey',targetGroup:['Teachers','ECCDE Learners']}}));
  {const saved=ok(await api('officer',path)).packages[0];const keys=saved.result.items.map(i=>i.key);
+  assert.equal(saved.target_group,'ECCDE Learners, Teachers','several groups are stored joined, in list order');assert.equal(saved.input.targetGroup,'ECCDE Learners, Teachers');
   assert.equal(saved.result.modelLabel,'Model 1 · Small School');assert.ok(keys.includes('classBlock6')&&!keys.some(k=>/^block3/.test(k)),'Model 1: one block of 6, no block of 3');
   assert.equal(saved.result.items.find(i=>i.key==='fence').quantity,180,'Fence length from the requirements table');assert.equal(saved.result.items.find(i=>i.key==='package').strategy,'Market survey');
   ok(await api('officer',path,{action:'delete',id:saved.id,version:saved.version}));}
@@ -64,7 +69,7 @@ try{
  for(const kind of ['boq','boq','survey'])await upload(kind);
  secondSchool=(await db.query("INSERT INTO schools(state_code,name,lga,level,location) VALUES($1,'Second school','QA','Primary','Rural') RETURNING id",[marker])).rows[0].id;
  await db.query('UPDATE schools SET enrolment_male=150,enrolment_female=100 WHERE id=$1',[secondSchool]);
- const furniture=packageSchema.parse({kind:'furniture',schoolId:secondSchool,components:['Primary'],furniture:[{description:'Desks',quantity:3,cost:100.0202}]}); // UBEC238: four-decimal unit cost
+ const furniture=packageSchema.parse({kind:'furniture',schoolId:secondSchool,components:['Primary'],furniture:[{description:'Desks',quantity:3,cost:100.0202}],targetGroup:'JSS Learners'}); // UBEC238: four-decimal unit cost
  ok(await api('officer',path,{action:'save',input:{...furniture,documentIds:[docs[1]]}}),400);
  // UBEC170: no BOQ, no save.
  const noBoq=await api('officer',path,{action:'save',input:furniture});ok(noBoq,400);assert.match(noBoq.data.error,/Bill of Quantities/);
@@ -73,6 +78,12 @@ try{
  schoolDocument.set('schoolId','2147483647');ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,schoolDocument),404);
  schoolDocument.set('schoolId',String(secondSchool));const secondBoq=ok(await api('officer',`/api/infrastructure/documents?plan=${plan}`,schoolDocument)).id;docs.push(secondBoq);
  ok(await api('officer',path,{action:'save',input:{...furniture,documentIds:[secondBoq]}}));
+ // UBEC254: a package saved before the field (target_group '') is asked for it on its next save.
+ {const saved=ok(await api('officer',path)).packages.find(p=>p.school_id===secondSchool);assert.equal(saved.target_group,'JSS Learners');
+  await db.query("UPDATE infrastructure_packages SET target_group='',input=input-'targetGroup' WHERE id=$1",[saved.id]);
+  const older=ok(await api('officer',path)).packages.find(p=>p.id===saved.id);assert.equal(older.target_group,'');
+  const asked=await api('officer',path,{action:'save',id:older.id,version:older.version,input:{...older.input,documentIds:[secondBoq]}});ok(asked,400);assert.equal(asked.data.error,'Choose the target group');
+  ok(await api('officer',path,{action:'save',id:older.id,version:older.version,input:{...older.input,documentIds:[secondBoq],targetGroup:'JSS Learners'}}));}
  assert.equal((await db.query('SELECT total_cost::text AS total FROM infrastructure_packages WHERE plan_id=$1 AND school_id=$2',[plan,secondSchool])).rows[0].total,'300.0606','3 × ₦100.0202 is kept exactly');
  assert.equal((await api('officer',path,{action:'save',input:{...furniture,furniture:[{description:'Desks',quantity:1,cost:1.02025}],documentIds:[secondBoq]}})).data.error,'Use at most four decimal places');
  // A package left without its BOQ (saved before the rule, or the file removed) is still caught at the send step.
@@ -103,6 +114,7 @@ try{
  assert.equal(calculateInfrastructure(reopened,400).modelLabel,'','The old model is ignored: Whole School is sized by enrolment');
  assert.match(wholeAuditProblem(reopened,400),/Classroom · ECCDE: enter existing and functional/,'Reopening an old package asks for the rest of the Minimum Standard');
  review=ok(await api('officer',reviewPath));assert.ok(review.snapshot.infrastructure.some(l=>l.id===-oldId),'Old package appears in the workbook snapshot');
+ assert.equal(review.snapshot.infrastructure.find(l=>l.id===-oldId).target_group,'','UBEC254: a package saved before keeps no target group');
  const oldSave=await api('officer',path,{action:'save',id:oldId,version:oldLoaded.version,input:oldInput});ok(oldSave,400);assert.match(oldSave.data.error,/from the list/);
  ok(await api('officer',path,{action:'delete',id:oldId,version:oldLoaded.version}));
  // Older New Construction package (block of 3 rows, one land tick) still loads and is in the snapshot; sending asks for all three ticks.
@@ -116,7 +128,7 @@ try{
  await db.query('UPDATE schools SET enrolment_by_class=$2::jsonb,teachers=$3::jsonb WHERE id=$1',[school,JSON.stringify({ECCDE:{male:20,female:25},P1:{male:90,female:90},P2:{male:90,female:85}}),JSON.stringify({male:10,female:9})]);
  const facts=schoolFacts({level:'Primary',male:200,female:200,enrolmentByClass:{ECCDE:{male:20,female:25},P1:{male:90,female:90},P2:{male:90,female:85}},teachers:{male:10,female:9}});
  assert.deepEqual(facts,{total:400,eccde:45,primary:355,jss:0,teachers:19});
- const whole=packageSchema.parse({kind:'whole',schoolId:school,components:['Primary'],documentIds:[docs[1]]});
+ const whole=packageSchema.parse({kind:'whole',schoolId:school,components:['Primary'],documentIds:[docs[1]],targetGroup:'Primary School Learners'});
  const empty=await api('officer',path,{action:'save',input:whole});ok(empty,400);assert.match(empty.data.error,/Classroom · Primary: enter existing and functional/);
  whole.audit=Object.fromEntries(minimumKeys.map(key=>[key,{existing:0,functional:0,extra:0}]));
  const noFence=await api('officer',path,{action:'save',input:whole});ok(noFence,400);assert.match(noFence.data.error,/fence length required/);
@@ -172,6 +184,12 @@ try{
  assert.deepEqual(regrouped.input.packageCosts.teachersFurniture,{cost:0,strategy:'Request for quotation',duration:'',notCosted:true});
  assert.equal(gItem('office-construct').quantity,1,'4 offices − 3 in the blocks');
  assert.deepEqual(regrouped.input.blocks.construct[0],{...firstGroup,classroomType:'primary'},'stored with its classroom type');
+ assert.equal(regrouped.target_group,'Primary School Learners','the target group is kept on re-save');
+ // UBEC254: Spending by school level: the Whole School package's ECCDE items count as ECCDE, the rest follows its target group
+ // (Primary).
+ {const snap=ok(await api('officer',reviewPath)).snapshot;const wholeLine=snap.infrastructure.find(l=>l.id===-regrouped.id);assert.equal(wholeLine.target_group,'Primary School Learners','the snapshot carries the target group');
+  const eccdeItems=regrouped.result.items.filter(isEccdeItem).reduce((sum,i)=>sum+i.total,0);assert.ok(eccdeItems>=4000000,'the ECCDE block counts');
+  const mapping=levelMapping({...snap,infrastructure:[wholeLine]});assert.equal(mapping.eccde,eccdeItems);assert.equal(mapping.primary,Number(regrouped.total_cost)-eccdeItems);}
  const overview=ok(await api('officer','/api/beap?plan='+plan));assert.equal(overview.infrastructure.budget,1000+calculateInfrastructure(whole,facts).total);
  const dashboard=ok(await api('officer','/api/plans'));assert.equal(dashboard.plans[0].budget,overview.infrastructure.budget);assert.equal(dashboard.targetedSchools,1);
  review=ok(await api('officer',reviewPath));ok(await api('officer',reviewPath,{action:'submit',pillar:'infrastructure',version:review.plan.version}));
