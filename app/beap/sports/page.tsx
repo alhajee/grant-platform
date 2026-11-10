@@ -5,7 +5,8 @@ import { currentPlanHref, planPeriod, type ActionPlan } from "@/lib/action-plans
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
-import { SportsAllocationFields, SportsBudgetFields, emptyAllocation, emptyBudget, type AllocationDraft, type BudgetDraft, type FormErrors } from "@/components/sports-plan-forms";
+import { SportsBudgetFields, emptyBudget, type BudgetDraft, type FormErrors } from "@/components/sports-plan-forms";
+import { SportsItemsForSchools, SportsSchoolItemsFields, emptySchoolItems, saveSportsAllocations, schoolItemsChanges, schoolItemsDraft, type SchoolItemsDraft } from "@/components/sports-allocations";
 import { SportsBeneficiaryPreview, SportsBudgetPreview, type SportsTarget } from "@/components/sports-plan-preview";
 import { PheTrainingSchools } from "@/components/phe-training-schools";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,7 +20,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { debateMinor, isPheTraining, sportsAllocationSchema, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineMinor, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, unallocatedSportsItems, type SportsLine, type SportsPlan } from "@/lib/sports";
+import { debateMinor, isPheTraining, sportsBudget, sportsCapProblem, sportsCatalogError, sportsLineMinor, sportsLineSchema, sportsLineTotal, sportsMoney as money, sportsSectionBudgets, sportsSections, unallocatedSportsItems, type SportsLine, type SportsPlan } from "@/lib/sports";
 import { toMinor } from "@/lib/funding-policy";
 import { EnvelopeMeter } from "@/components/envelope-meter";
 import { SportsDebatePanel } from "@/components/sports-debate-panel";
@@ -48,8 +49,9 @@ export default function SportsPage() {
   const [view, setView] = useState<PlanView>("budget");
   const [budget, setBudget] = useState<BudgetDraft>(emptyBudget);
   const [budgetBaseline, setBudgetBaseline] = useState<BudgetDraft>(emptyBudget);
-  const [allocation, setAllocation] = useState<AllocationDraft>(emptyAllocation);
-  const [allocationBaseline, setAllocationBaseline] = useState<AllocationDraft>(emptyAllocation);
+  // UBEC249: the school picked on Beneficiary schools and the number of each equipment item it gets.
+  const [allocation, setAllocation] = useState<SchoolItemsDraft>(emptySchoolItems);
+  const [allocationBaseline, setAllocationBaseline] = useState<SchoolItemsDraft>(emptySchoolItems);
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -65,14 +67,15 @@ export default function SportsPage() {
   const savingRef = useRef(false);
   // Client keys of the new budget line and allocation being drafted (migration 058): made on the first save attempt and kept for
   // every retry of that draft, so a save whose reply was lost is never stored twice. Resetting a form starts a new key.
-  const createKeys = useRef<{ budget?: string; allocation?: string }>({});
+  const createKeys = useRef<{ budget?: string }>({});
   const panel = usePanelMode(), { flashId, flash } = useLineFlash();
   const [query, setQuery] = useState("");
   const budgetDirty = JSON.stringify(budget) !== JSON.stringify(budgetBaseline);
-  const allocationDirty = JSON.stringify(allocation) !== JSON.stringify(allocationBaseline);
+  // Blank and 0 are the same (no items), so only real changes count.
+  const allocationDirty = schoolItemsChanges(plan, allocation).rows.length > 0 || allocation.schoolId !== allocationBaseline.schoolId;
   const dirty = budgetDirty || allocationDirty;
   const disabled = loading || saving || Boolean(loadError);
-  const editingId = view === "budget" ? budget.id : allocation.id;
+  const editingId = view === "budget" ? budget.id : undefined;
   // Equipment items go to schools; Training of PHE Officers lines do not (UBEC121).
   const hasEquipment = plan.lines.some((line) => line.section === "equipment" && !isPheTraining(line));
   const budgetTotal = sportsBudget(plan.lines);
@@ -83,9 +86,8 @@ export default function SportsPage() {
   // UBEC222: the PHE training schools panel belongs to Training of PHE Officers items only.
   const trainingDraft = view === "budget" && isPheTraining(budget);
   const lineTotal = sportsLineTotal({ quantity: Number(budget.quantity) || 0, unitCost: Number(budget.unitCost) || 0 });
-  const orderedTargets: SportsTarget[] = view === "budget"
-    ? sportsSections.flatMap((section) => plan.lines.filter((line) => line.section === section.id).map((item) => ({ entity: "budget" as const, item })))
-    : [...new Set(plan.allocations.map((item) => item.schoolId))].flatMap((schoolId) => plan.allocations.filter((item) => item.schoolId === schoolId).map((item) => ({ entity: "allocation" as const, item })));
+  const orderedTargets: SportsTarget[] = sportsSections.flatMap((section) => plan.lines.filter((line) => line.section === section.id).map((item) => ({ entity: "budget" as const, item })));
+  const schoolItemsTotal = Object.values(allocation.quantities).reduce((sum, value) => sum + (/^\d+$/.test(value.trim()) ? Number(value) : 0), 0);
   const editingIndex = editingId ? orderedTargets.findIndex((target) => target.item.id === editingId) : -1;
   // The sports envelope and each section's share of it are caps (same rule as the API): a draft that raises
   // its section's cost may not take the section or the whole budget past them. Lowering is always allowed.
@@ -144,21 +146,18 @@ export default function SportsPage() {
   useEffect(() => {
     if (!editingId) return;
     const frame = requestAnimationFrame(() => {
-      if (view === "budget") scrollLineIntoView(editingId);
-      else document.querySelector<HTMLElement>(`[data-sports-row-id="${view}-${editingId}"]`)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest", inline: "nearest" });
+      scrollLineIntoView(editingId);
     });
     return () => cancelAnimationFrame(frame);
   }, [editingId, view]);
 
   function resetBudget(next: BudgetDraft = { ...emptyBudget, quarters: availableQuarters }) { createKeys.current = { ...createKeys.current, budget: undefined }; setBudget(next); setBudgetBaseline(next); setErrors({}); }
-  function resetAllocation(next: AllocationDraft = emptyAllocation) { createKeys.current = { ...createKeys.current, allocation: undefined }; setAllocation(next); setAllocationBaseline(next); setErrors({}); }
-  function changeAllocation(next: AllocationDraft) {
-    if (next.schoolId && next.schoolId !== allocation.schoolId) {
-      const existingActivities = [...new Set(plan.allocations.filter((item) => item.schoolId === next.schoolId && item.id !== next.id).map((item) => plan.lines.find((line) => line.id === item.lineId)?.description).filter((description): description is string => Boolean(description)))];
-      const selectedSchool = plan.schools.find((item) => item.id === next.schoolId);
-      if (existingActivities.length) toast.warning(`${selectedSchool?.name ?? "This school"} is already used in this plan.`, { id: `school-reuse-sports-${next.schoolId}`, description: `This school already has ${existingActivities.join(", ")}. Continue only if this is intentional.`, duration: 10000, closeButton: true, className: "school-reuse-toast" });
-    }
-    setAllocation(next); setErrors({});
+  function resetAllocation(next: SchoolItemsDraft = emptySchoolItems) { setAllocation(next); setAllocationBaseline(next); setErrors({}); }
+  /** UBEC249: picking a school shows every equipment item with what the school already has. */
+  function pickSchool(schoolId: number | null) {
+    if (schoolId === allocation.schoolId) return;
+    const run = () => resetAllocation(schoolItemsDraft(plan, schoolId));
+    if (allocationDirty && allocation.schoolId) setPendingAction({ run, leaving: false }); else run();
   }
   function changeView(next: PlanView) { setView(next); setErrors({}); setMobileView("editor"); }
   function focusEditor(id: string) {
@@ -183,7 +182,7 @@ export default function SportsPage() {
     const run = () => {
       changeView(target.entity);
       if (target.entity === "budget") { resetBudget(budgetDraft(target.item)); panel.follow(); focusEditor("sports-description"); }
-      else { resetAllocation({ ...target.item, quantity: String(target.item.quantity) }); focusEditor("allocation-quantity"); }
+      else { resetAllocation(schoolItemsDraft(plan, target.item.schoolId)); focusEditor(`sports-item-${target.item.lineId}`); }
     };
     if (target.entity === "budget" ? budgetDirty : allocationDirty) setPendingAction({ run, leaving: false });
     else run();
@@ -245,10 +244,37 @@ export default function SportsPage() {
    * A create whose reply was lost may still have been saved: reload and look for its client key.
    * Returns the saved row's id, or null (the draft and its key stay, so trying again is safe).
    */
-  async function findLanded(entity: PlanView, clientKey: string | undefined) {
+  async function findLanded(clientKey: string | undefined) {
     const fresh = await loadPlan().catch(() => undefined);
     if (!clientKey || !fresh) return null;
-    return (entity === "budget" ? fresh.lines : fresh.allocations).find((item) => item.clientKey === clientKey)?.id ?? null;
+    return fresh.lines.find((item) => item.clientKey === clientKey)?.id ?? null;
+  }
+  /** After school items change elsewhere (the Items for schools dialog, a removed row), the form follows unless it holds unsaved changes. */
+  async function refreshAllocations() {
+    const fresh = await loadPlan().catch(() => undefined);
+    if (!fresh) { setLoadError("Your change was saved, but the preview could not refresh. Try again to load the latest plan."); return; }
+    if (!allocationDirty) resetAllocation(schoolItemsDraft(fresh, allocation.schoolId));
+  }
+  /** UBEC249: every item changed for the school, in one save (quantities are set, so a retry after a dropped connection is safe). */
+  async function saveSchoolItems() {
+    const { rows, errors: problems } = schoolItemsChanges(plan, allocation);
+    if (Object.keys(problems).length) { setErrors(problems); requestAnimationFrame(() => editorRef.current?.querySelector<HTMLElement>("[aria-invalid='true']")?.focus()); return; }
+    if (!rows.length) return;
+    setErrors({}); savingRef.current = true; setSaving(true);
+    try {
+      try { await saveSportsAllocations(rows); }
+      catch (cause) {
+        if (!isConnectionDropped(cause)) throw cause;
+        // The save may have landed: it did if the school now holds the quantities typed.
+        const fresh = await loadPlan().catch(() => undefined);
+        if (!fresh || schoolItemsChanges(fresh, allocation).rows.length) { toast.error(connectionDroppedMessage); return; }
+      }
+      toast.success("Items saved for the school");
+      const fresh = await loadPlan().catch(() => undefined);
+      if (fresh) resetAllocation(schoolItemsDraft(fresh, allocation.schoolId));
+      else setLoadError("Your change was saved, but the preview could not refresh. Try again to load the latest plan.");
+    } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to save. Please try again."); }
+    finally { savingRef.current = false; setSaving(false); }
   }
   async function refreshAfterSave() {
     try { await loadPlan(); }
@@ -257,42 +283,38 @@ export default function SportsPage() {
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (savingRef.current || disabled) return;
-    const parsed = view === "budget"
-      ? sportsLineSchema.safeParse({ ...budget, quantity: Number(budget.quantity), unitCost: Number(budget.unitCost), priceItemId: budget.priceItemId ? Number(budget.priceItemId) : null })
-      : sportsAllocationSchema.safeParse({ ...allocation, quantity: Number(allocation.quantity) });
+    if (view === "allocation") { await saveSchoolItems(); return; }
+    const parsed = sportsLineSchema.safeParse({ ...budget, quantity: Number(budget.quantity), unitCost: Number(budget.unitCost), priceItemId: budget.priceItemId ? Number(budget.priceItemId) : null });
     // Same catalogue rules as the API; a saved line keeps its legacy sport/sub-activity if unchanged.
-    const saved = view === "budget" && editingId ? plan.lines.find((line) => line.id === editingId) : undefined;
-    const rule = parsed.success && view === "budget" ? sportsCatalogError({ ...budget, activityType: budget.activityType.trim(), description: budget.description.trim() }, plan.lines, editingId) : null;
-    const quartersProblem = parsed.success && view === "budget" && actionPlan ? lineQuartersProblem(budget.quarters, actionPlan) : null;
-    const datesProblem = parsed.success && view === "budget" && actionPlan ? lineDatesProblem(budget, budget.quarters, actionPlan.implementationYear) : null;
+    const saved = editingId ? plan.lines.find((line) => line.id === editingId) : undefined;
+    const rule = parsed.success ? sportsCatalogError({ ...budget, activityType: budget.activityType.trim(), description: budget.description.trim() }, plan.lines, editingId) : null;
+    const quartersProblem = parsed.success && actionPlan ? lineQuartersProblem(budget.quarters, actionPlan) : null;
+    const datesProblem = parsed.success && actionPlan ? lineDatesProblem(budget, budget.quarters, actionPlan.implementationYear) : null;
     const ruleError = rule && !(rule.field === "activityType" && saved?.section === budget.section && saved.activityType === budget.activityType.trim()) ? { [rule.field]: rule.message } as FormErrors : quartersProblem ? { quarters: quartersProblem } as FormErrors : datesProblem ? { startDate: datesProblem } as FormErrors : null;
     const capError: Record<string, string> | null = parsed.success && !ruleError && budgetProblem ? { unitCost: budgetProblem } : null;
     if (!parsed.success || ruleError || capError) {
       const nextErrors = ruleError ?? capError ?? (parsed.success ? {} : Object.fromEntries(parsed.error.issues.map((issue) => [issue.path[0], issue.message])));
-      if (nextErrors.schoolId) nextErrors.schoolId = "Choose a school from the directory";
-      if (nextErrors.lineId) nextErrors.lineId = "Choose an equipment item from your budget";
       setErrors(nextErrors);
       requestAnimationFrame(() => editorRef.current?.querySelector<HTMLElement>("[aria-invalid='true']")?.focus());
       return;
     }
     setErrors({}); savingRef.current = true; setSaving(true);
     try {
-      const clientKey = editingId ? undefined : (createKeys.current[view] ??= newClientKey());
+      const clientKey = editingId ? undefined : (createKeys.current.budget ??= newClientKey());
       let result: { id?: number };
-      try { result = await write({ ...parsed.data, entity: view, action: editingId ? "update" : "create", ...(editingId ? { id: editingId } : { clientKey }) }); }
+      try { result = await write({ ...parsed.data, entity: "budget", action: editingId ? "update" : "create", ...(editingId ? { id: editingId } : { clientKey }) }); }
       catch (cause) {
         if (!isConnectionDropped(cause)) throw cause;
-        const landed = await findLanded(view, clientKey);
+        const landed = await findLanded(clientKey);
         if (landed === null) { toast.error(connectionDroppedMessage); return; }
         result = { id: landed };
       }
-      const savedId = view === "budget" ? editingId ?? result.id : undefined;
-      if (view === "budget") resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), targetGroup: budget.targetGroup, quarters: availableQuarters });
-      else resetAllocation({ ...emptyAllocation, schoolId: allocation.schoolId });
-      toast.success(editingId ? "Line updated" : view === "budget" ? "Budget line added" : "Equipment allocated to school");
+      const savedId = editingId ?? result.id;
+      resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), targetGroup: budget.targetGroup, quarters: availableQuarters });
+      toast.success(editingId ? "Line updated" : "Budget line added");
       await refreshAfterSave();
       if (savedId) flash(savedId);
-      focusEditor(view === "budget" ? "sports-description" : "sports-equipment");
+      focusEditor("sports-description");
     } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to save. Please try again."); }
     finally { savingRef.current = false; setSaving(false); }
   }
@@ -302,31 +324,30 @@ export default function SportsPage() {
     try {
       await write({ entity: removeTarget.entity, action: "delete", id: removeTarget.item.id });
       if (removeTarget.entity === "budget" && budget.id === removeTarget.item.id) resetBudget();
-      if (removeTarget.entity === "allocation" && allocation.id === removeTarget.item.id) resetAllocation();
       setRemoveTarget(null);
       toast.success("Line removed");
-      await refreshAfterSave();
+      if (removeTarget.entity === "allocation") await refreshAllocations(); else await refreshAfterSave();
     } catch (cause) { toast.error(cause instanceof Error ? cause.message : "Unable to remove the line"); if (isConnectionDropped(cause)) await refreshAfterSave(); }
     finally { savingRef.current = false; setSaving(false); }
   }
 
   const editor = <section className="workspace-pane editor-pane" aria-label="Sports editor" ref={editorRef}>
     <ScrollArea className="pane-scroll"><div className="editor-canvas">
-      <header className="editor-heading"><h1>{view === "budget" ? editingId ? "Edit budget item" : "Add a budget item" : editingId ? "Edit school allocation" : "Add a beneficiary school"}</h1></header>
+      <header className="editor-heading"><h1>{view === "budget" ? editingId ? "Edit budget item" : "Add a budget item" : "Give items to a school"}</h1></header>
       {loadError && <Alert variant="destructive"><AlertTitle>Unable to refresh the plan</AlertTitle><AlertDescription>{loadError}<Button variant="outline" size="sm" disabled={loading} onClick={() => { setLoading(true); void initialize(); }}>Try again</Button></AlertDescription></Alert>}
       {openRejection && <UbecRejectionAlert rejection={openRejection} fields={flaggedFields(ubec.threads, "sports", openRejection.rowRef, sportsFieldOf)} />}
       <form id="sports-form" onSubmit={save} noValidate><fieldset className="project-fields" disabled={disabled}>
-        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { if (next.section !== budget.section || next.activityType !== budget.activityType) panel.follow(); setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} implementationYear={actionPlan?.implementationYear} debate={debate} debateSubUsed={debateSubUsed} /> : <SportsAllocationFields draft={allocation} onChange={changeAllocation} plan={plan} errors={errors} disabled={disabled} />}
+        {view === "budget" ? <SportsBudgetFields draft={budget} onChange={(next) => { if (next.section !== budget.section || next.activityType !== budget.activityType) panel.follow(); setBudget(next); setErrors({}); }} plan={plan} errors={budgetProblem && !errors.unitCost ? { ...errors, unitCost: budgetProblem } : errors} disabled={disabled} planQuarters={availableQuarters} implementationYear={actionPlan?.implementationYear} debate={debate} debateSubUsed={debateSubUsed} /> : <SportsSchoolItemsFields plan={plan} draft={allocation} onSchool={pickSchool} onChange={(next) => { setAllocation(next); setErrors({}); }} errors={errors} disabled={disabled} />}
       </fieldset></form>
       {view === "allocation" && !hasEquipment && !loading && !loadError && <div className="sports-empty-action"><Button variant="outline" onClick={() => changeView("budget")}>Go to budget</Button></div>}
     </div></ScrollArea>
     <div className="editor-footer">
-      <div className="line-total"><span>{view === "budget" ? "Total cost" : "Items for this school"}</span><strong>{view === "budget" ? money.format(Number.isFinite(lineTotal) ? lineTotal : 0) : Number(allocation.quantity || 0).toLocaleString()}</strong></div>
+      <div className="line-total"><span>{view === "budget" ? "Total cost" : "Items for this school"}</span><strong>{view === "budget" ? money.format(Number.isFinite(lineTotal) ? lineTotal : 0) : schoolItemsTotal.toLocaleString()}</strong></div>
       <div className="footer-actions">{editingId && <><Button variant="ghost" disabled={saving} onClick={() => {
         const run = () => view === "budget" ? resetBudget() : resetAllocation();
         if (view === "budget" ? budgetDirty : allocationDirty) setPendingAction({ run, leaving: false }); else run();
       }}>Cancel</Button><ButtonGroup className="sports-line-navigation" aria-label={`${view === "budget" ? "Budget item" : "School allocation"} navigation`}><Button size="icon" variant="secondary" aria-label={`Previous ${view === "budget" ? "budget item" : "school allocation"}`} title="Previous item" disabled={disabled || editingIndex <= 0} onClick={() => navigateLine(-1)}><ChevronLeftIcon /></Button><ButtonGroupSeparator /><Button size="icon" variant="secondary" aria-label={`Next ${view === "budget" ? "budget item" : "school allocation"}`} title="Next item" disabled={disabled || editingIndex < 0 || editingIndex === orderedTargets.length - 1} onClick={() => navigateLine(1)}><ChevronRightIcon /></Button></ButtonGroup></>}
-        <Button type="submit" form="sports-form" disabled={disabled || (view === "allocation" && !hasEquipment) || Boolean(budgetProblem)} title={budgetProblem ?? undefined} aria-busy={saving}>{saving ? <Spinner data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}{saving ? "Saving…" : editingId ? "Save changes" : view === "budget" ? "Add item" : "Add to school"}</Button>
+        <Button type="submit" form="sports-form" disabled={disabled || (view === "allocation" && (!hasEquipment || !allocation.schoolId || !allocationDirty)) || Boolean(budgetProblem)} title={budgetProblem ?? undefined} aria-busy={saving}>{saving ? <Spinner data-icon="inline-start" /> : view === "allocation" ? <CheckIcon data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}{saving ? "Saving…" : editingId ? "Save changes" : view === "budget" ? "Add item" : "Save items for this school"}</Button>
       </div>
     </div>
   </section>;
@@ -350,7 +371,7 @@ export default function SportsPage() {
   </article>;
   const preview = <section className="workspace-pane preview-pane" aria-label="Sports plan preview"><ScrollArea className="pane-scroll">{view === "budget" ? budgetPanel : <article className="preview-document sports-preview">
     <div className="plan-overview"><div><span>Beneficiary schools</span>{loading ? <Skeleton className="h-8 w-48" /> : <strong>{`${schoolCount} ${schoolCount === 1 ? "school" : "schools"}`}</strong>}</div><p>{`${allocatedQuantity.toLocaleString()} of ${equipmentQuantity.toLocaleString()} equipment items allocated`}</p></div>
-    {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : <SportsBeneficiaryPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} editingId={allocation.id} />}
+    {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : <><SportsItemsForSchools plan={plan} disabled={disabled} onSaved={refreshAllocations} /><SportsBeneficiaryPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} /></>}
   </article>}</ScrollArea></section>;
 
   return <div className="portal-shell"><div className="portal-workspace" ref={workspaceRef}>

@@ -9,7 +9,7 @@ import { readPillarReviews, mayEditPillar } from '@/lib/pillar-review';
 import { getPostgres } from "@/lib/postgres";
 import { cachedSchoolList } from '@/lib/school-cache';
 import { getWorkspaceState, sqlText } from "@/lib/workspace-state";
-import { debateNotSet, pheTrainingActivity, sportsAllocationSchema, sportsBudgetProblem, sportsCapProblem, sportsCatalogError, sportsEnvelopeMinor, sportsLineMinor, sportsLineSchema } from "@/lib/sports";
+import { debateNotSet, pheTrainingActivity, sportsAllocationSchema, sportsAllocationSetSchema, sportsBudgetProblem, sportsCapProblem, sportsCatalogError, sportsEnvelopeMinor, sportsLineMinor, sportsLineSchema } from "@/lib/sports";
 import { toMinor } from "@/lib/funding-policy";
 import { formatMinor } from "@/lib/money-format";
 import { componentEnvelope } from "@/lib/funding-policy";
@@ -18,9 +18,11 @@ import { readPlanQuarterSetup } from "@/lib/line-quarters-db";
 import { resolveSavedLineDates } from "@/lib/line-dates-db";
 import { clientKeySchema } from "@/lib/save-request";
 import { resolveSportsPriceItem } from "@/lib/procurement-db";
+import type { SportsAllocationSet } from "@/lib/sports";
+import type { Client } from "pg";
 
 const error = (message: string, status = 400) => NextResponse.json({ error: message }, { status });
-const commandSchema = z.object({ entity: z.enum(["budget", "allocation", "debate"]), action: z.enum(["create", "update", "delete"]), id: z.number().int().positive().optional(), clientKey: clientKeySchema });
+const commandSchema = z.object({ entity: z.enum(["budget", "allocation", "debate"]), action: z.enum(["create", "update", "delete", "set"]), id: z.number().int().positive().optional(), clientKey: clientKeySchema });
 
 export async function GET(request: NextRequest) {
   try {
@@ -79,6 +81,13 @@ export async function POST(request: NextRequest) {
         await db.query("UPDATE action_plans SET debate_allocation = $1 WHERE id = $2", [amount.data.amount, plan.id]);
         return NextResponse.json({ debateAllocation: Number(amount.data.amount).toFixed(2) });
       });
+    }
+    // UBEC249: several items for several schools in one save (the Items for schools dialog and the per-school form).
+    if (action === "set") {
+      if (entity !== "allocation") return error("Choose a valid sports plan action");
+      const parsed = sportsAllocationSetSchema.safeParse(body);
+      if (!parsed.success) return error(parsed.error.issues[0].message);
+      return await mutatePlan(workspace, plan, "sports", (db) => setAllocations(db, workspace.stateCode, plan.id, parsed.data.allocations));
     }
     if (action === "create" && id !== undefined) return error("A new line cannot specify an existing ID.");
     if (action !== "create" && !id) return error("Choose the line to update");
@@ -182,4 +191,37 @@ export async function POST(request: NextRequest) {
     console.error("Unable to update sports plan", cause);
     return error("Could not save that change. Please try again.", 503);
   }
+}
+
+/**
+ * UBEC249: sets each (item, school) quantity in one transaction, under the same state lock as the single allocation saves.
+ * Only the plan's equipment items (not PHE training) and the state's schools; 0 removes the school's item. Each item's
+ * allocations, the ones not named here included, may come to at most its quantity. Setting the same figures again changes
+ * nothing, so a retried save after a dropped connection is safe without a client key.
+ */
+async function setAllocations(db: Client, stateCode: string, planId: number, rows: SportsAllocationSet) {
+  await db.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`sports:${stateCode}`]);
+  const lineIds = [...new Set(rows.map((row) => row.lineId))], schoolIds = [...new Set(rows.map((row) => row.schoolId))];
+  const lines = (await db.query<{ id: number; quantity: number; description: string }>(`SELECT id, quantity, description FROM sports_budget_lines
+    WHERE plan_id = $1 AND state_code = $2 AND section = 'equipment' AND lower(activity_type) <> lower($3) AND id = ANY($4::int[]) FOR UPDATE`, [planId, stateCode, pheTrainingActivity, lineIds])).rows;
+  if (lines.length !== lineIds.length) return error("Choose equipment items from your state plan");
+  const schools = (await db.query(`SELECT id FROM schools WHERE state_code = $1 AND id = ANY($2::int[])`, [stateCode, schoolIds])).rows;
+  if (schools.length !== schoolIds.length) return error("Choose schools from your state's school list");
+  const wanted = new Map(rows.map((row) => [`${row.lineId}:${row.schoolId}`, row.quantity]));
+  const existing = (await db.query<{ line_id: number; school_id: number; quantity: number }>("SELECT line_id, school_id, quantity FROM sports_allocations WHERE line_id = ANY($1::int[])", [lineIds])).rows;
+  for (const line of lines) {
+    const kept = existing.filter((row) => row.line_id === line.id && !wanted.has(`${row.line_id}:${row.school_id}`)).reduce((sum, row) => sum + row.quantity, 0);
+    const total = kept + rows.filter((row) => row.lineId === line.id).reduce((sum, row) => sum + row.quantity, 0);
+    if (total > line.quantity) return error(`“${line.description}” has ${line.quantity.toLocaleString("en-NG")} items, but this would give schools ${total.toLocaleString("en-NG")}. Reduce the quantities`, 409);
+  }
+  let saved = 0, removed = 0;
+  for (const row of rows) {
+    if (row.quantity === 0) removed += (await db.query("DELETE FROM sports_allocations WHERE line_id = $1 AND school_id = $2", [row.lineId, row.schoolId])).rowCount ?? 0;
+    else {
+      await db.query(`INSERT INTO sports_allocations (line_id, school_id, quantity) VALUES ($1, $2, $3)
+        ON CONFLICT (school_id, line_id) DO UPDATE SET quantity = EXCLUDED.quantity, updated_at = NOW() WHERE sports_allocations.quantity <> EXCLUDED.quantity`, [row.lineId, row.schoolId, row.quantity]);
+      saved += 1;
+    }
+  }
+  return NextResponse.json({ ok: true, saved, removed });
 }

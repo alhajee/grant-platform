@@ -131,3 +131,7 @@
 .school-pick-all > .ml-auto ~ .school-picker-toggle { margin-left:0; }
 /* UBEC248: Download template / Upload list beside the Distribution list heading. */
 .distribution-list-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+/* UBEC249: Sports school items (components/sports-allocations.tsx). */
+.sports-school-items { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.sports-school-items tr[data-invalid] { background: color-mix(in srgb, var(--destructive) 5%, var(--card)); }
+.sports-items-for-schools { margin: 0 0 16px; }
