@@ -28,6 +28,11 @@ assert.deepEqual((({ classrooms, eccde, toilets, admin }) => [classrooms, eccde,
   { key: 'block-construct-e2c0o0s2t', quantity: 1, unit: 'blocks', block: { kind: 'construct', classroomType: 'eccde', classrooms: 2, offices: 0, stores: 0, toilets: 2 } },
   { key: 'block-construct-p0c0o0s6t', quantity: 3, unit: 'blocks', block: { kind: 'construct', classroomType: 'primary', classrooms: 0, offices: 0, stores: 0, toilets: 6 } },
 ] } }])), [15, 2, 8 + 2 + 18, 0]);
+// UBEC252: other facilities in a block (staff room, laboratory) add no classrooms, toilets or admin blocks.
+assert.deepEqual((({ classrooms, eccde, toilets, admin }) => [classrooms, eccde, toilets, admin])(countDeliverables([{ kind: 'whole', result: { items: [
+  { key: 'block-construct-p6c1o1s4t_staffroom1_scienceLab1', quantity: 2, unit: 'blocks', block: { kind: 'construct', classroomType: 'primary', classrooms: 6, offices: 1, stores: 1, toilets: 4, facilities: { staffroom: 1, scienceLab: 1 } } },
+  { key: 'block-construct-p0c0o0s0t_library1', quantity: 1, unit: 'blocks', block: { kind: 'construct', classroomType: 'primary', classrooms: 0, offices: 0, stores: 0, toilets: 0, facilities: { library: 1 } } },
+] } }])), [12, 0, 8, 0]);
 const furniture = { kind: 'furniture', result: { items: [{ key: 'furniture-0', quantity: 220 }, { key: 'furniture-1', quantity: 1 }] } };
 const small = { kind: 'new', result: { items: [{ key: 'eccdeBlock1', quantity: 1, unit: 'block' }] } };
 const older = { kind: 'new', result: { items: [{ key: 'block3os', quantity: 2 }, { key: 'block3', quantity: 2 }] } };
