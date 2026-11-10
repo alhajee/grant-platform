@@ -147,6 +147,17 @@ export const sportsAllocationSchema = z.object({
   latitude: coordinate(90),
 });
 
+/**
+ * UBEC249: several (item, school) quantities set together in one save (POST /api/sports { entity: 'allocation', action: 'set' }).
+ * Each quantity is the school's new number of that item; 0 takes the item off the school. A pair may appear once.
+ */
+export const sportsAllocationSetSchema = z.object({
+  allocations: z.array(z.object({ lineId: id, schoolId: id, quantity: z.number().int("Use whole numbers of items").min(0, "Use 0 or more items").max(1000000, "Use 1,000,000 items or fewer") }))
+    .min(1, "Give at least one school its items").max(5000, "Save at most 5,000 school items at once")
+    .refine((rows) => new Set(rows.map((row) => `${row.lineId}:${row.schoolId}`)).size === rows.length, "Give each school each item once"),
+});
+export type SportsAllocationSet = z.infer<typeof sportsAllocationSetSchema>["allocations"];
+
 export function sportsLineTotal(line: Pick<SportsLine, "quantity" | "unitCost">) {
   return minorToNaira(lineMinor(line.unitCost, line.quantity));
 }
