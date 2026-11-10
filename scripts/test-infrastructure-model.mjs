@@ -200,6 +200,44 @@ const furniture=make('furniture');furniture.furniture=[{description:'Desk',quant
  const oldGroups={...legacy,blocks:{construct:[{count:1,classrooms:7,offices:1,stores:1}]}};assert.equal(blockGroupingProblem(oldGroups,facts),'Put all 12 toilets to build into blocks: 12 toilets left');
  assert.equal(blockGroupingProblem({...oldGroups,blocks:{construct:[...oldGroups.blocks.construct,{count:2,classrooms:0,offices:0,stores:0,toilets:6}]}},facts),null,'completed with toilet blocks');
  assert.equal(packageSchema.parse({kind:'whole',schoolId:1,components:['Primary']}).blocks.construct,undefined,'older packages parse ungrouped');
+ // UBEC252: other facilities in a block, and a group edited in place.
+ {
+  const {blockFacilityCounts,blockFacilityKeys}=await import('../lib/infrastructure-model.ts');
+  assert.deepEqual(blockFacilityKeys,['staffroom','workshop','scienceLab','roboticsLab','vocationalLab','library','ictRoom','clinic'],'rooms built inside a block only');
+  const withRooms={...parsed.data,audit:{...parsed.data.audit,library:{existing:2,functional:1,extra:0},gatehouse:{existing:0,functional:0,extra:0}}};
+  assert.deepEqual(blockFacilityCounts(withRooms,facts),{construct:{staffroom:3,scienceLab:1},renovate:{library:1}},'new staff rooms and laboratory; the non-functional library is renovated; the staff room is not civil works');
+  const roomy={...withRooms,blocks:{...withRooms.blocks,construct:[{...withRooms.blocks.construct[0],facilities:{staffroom:1,scienceLab:1}},...withRooms.blocks.construct.slice(1)],renovate:[{count:1,classrooms:2,offices:0,stores:1,facilities:{library:1}}]}};
+  const pr=packageSchema.safeParse(roomy);assert.ok(pr.success,'facilities parse');
+  assert.equal(blockGroupText(pr.data.blocks.construct[0]),'1 block of 4 classrooms, 1 office, 1 store, 1 staff room, 1 science laboratory, 6 toilets');
+  assert.equal(blockGroupText({count:2,classrooms:0,offices:0,stores:0,toilets:6,classroomType:'primary',facilities:{staffroom:1}}),'2 toilet blocks of 6 compartments, 1 staff room');
+  assert.equal(blockGroupText({count:1,classrooms:0,offices:0,stores:0,toilets:0,classroomType:'primary',facilities:{scienceLab:1,library:1}}),'1 block of 1 science laboratory, 1 library','a block of facilities alone');
+  assert.equal(blockGroupingProblem(pr.data,facts),null);
+  const res=calculateInfrastructure(pr.data,facts),it=key=>res.items.find(i=>i.key===key);
+  const b=it('block-construct-p4c1o1s6t_staffroom1_scienceLab1');assert.ok(b,'facilities join the cost key');assert.equal(b.label,'Block of 4 classrooms, 1 office, 1 store, 1 staff room, 1 science laboratory, 6 toilets');
+  assert.deepEqual(b.block.facilities,{staffroom:1,scienceLab:1});assert.equal(it('block-construct-p3c1o0s0t').block.facilities,undefined,'no facilities, no field');
+  assert.equal(it('staffroom').quantity,2,'3 new staff rooms − 1 in the blocks');assert.equal(it('staffroom').grouping,'1 staff room is in the blocks');
+  assert.equal(it('scienceLab-construct'),undefined,'the new laboratory is in a block');
+  assert.equal(it('library-renovate'),undefined,'the renovated library is in a block');assert.ok(it('block-renovate-p2c0o1s0t_library1'));
+  // Never more than the audit has.
+  const tooMany={...pr.data,blocks:{...pr.data.blocks,construct:[{...pr.data.blocks.construct[0],facilities:{staffroom:4}},...pr.data.blocks.construct.slice(1)]}};
+  assert.equal(blockGroupingProblem(tooMany,facts),'The blocks to build hold 4 staff rooms, but only 3 are to be built. Remove or change a group of blocks');assert.equal(packageProblem(tooMany,facts),blockGroupingProblem(tooMany,facts));
+  const noneToRenovate={...pr.data,blocks:{...pr.data.blocks,renovate:[{count:1,classrooms:2,offices:0,stores:1,facilities:{staffroom:1}}]}};
+  assert.equal(blockGroupingProblem(noneToRenovate,facts),'The blocks to renovate hold 1 staff room, but none are to be renovated. Remove or change a group of blocks');
+  assert.equal(packageSchema.safeParse({...roomy,blocks:{construct:[{count:1,classrooms:3,offices:0,stores:0,facilities:{gatehouse:1}}]}}).success,false,'a gate house is not a room in a block');
+  assert.equal(packageSchema.safeParse({...roomy,blocks:{construct:[{count:1,classrooms:3,offices:0,stores:0,facilities:{library:11}}]}}).success,false,'at most 10 of a facility per block');
+  assert.equal(packageSchema.safeParse({...roomy,blocks:{construct:[{count:1,classrooms:0,offices:1,stores:0,facilities:{library:0}}]}}).success,false,'a block needs a classroom, toilet or facility');
+  // Older groups read with no facilities: same keys and labels as before.
+  assert.equal(parsed.data.blocks.construct[0].facilities,undefined);assert.ok(calculateInfrastructure(parsed.data,facts).items.some(i=>i.key==='block-construct-p4c1o1s6t'));
+  // Edit in place: the edited group keeps its place; a changed count keeps its cost per block, a changed make-up is costed again.
+  const priced={...pr.data,packageCosts:{'block-construct-p4c1o1s6t_staffroom1_scienceLab1':{cost:9,strategy:'NCB',duration:'1 week'},'block-construct-p3c1o0s0t':{cost:8,strategy:'NCB',duration:'1 week'}}};
+  const edit=(i,group)=>({...priced,blocks:{...priced.blocks,construct:priced.blocks.construct.map((g,j)=>j===i?group:g)}});
+  const recount=edit(1,{...priced.blocks.construct[1],count:2,classrooms:3});
+  assert.deepEqual(blockItems('construct',recount.blocks.construct).map(x=>x.key),['block-construct-p4c1o1s6t_staffroom1_scienceLab1','block-construct-p3c1o0s0t','block-construct-e3c0o0s0t','block-construct-p0c0o0s6t'],'order kept');
+  assert.deepEqual(Object.keys(pruneBlockCosts(recount,facts)),['block-construct-p4c1o1s6t_staffroom1_scienceLab1','block-construct-p3c1o0s0t'],'a changed count keeps its cost');
+  const remade=edit(0,{...priced.blocks.construct[0],facilities:{staffroom:1}});
+  assert.deepEqual(Object.keys(pruneBlockCosts(remade,facts)),['block-construct-p3c1o0s0t'],'a changed facility make-up is costed again');
+  assert.equal(calculateInfrastructure({...remade,packageCosts:pruneBlockCosts(remade,facts)},facts).items.find(i=>i.key==='block-construct-p4c1o1s6t_staffroom1').cost,0);
+ }
  // UBEC230: New Construction drawings required; other kinds optional.
  assert.match(drawingsDocumentProblem({kind:'new'},0),/Attach the drawings/);assert.equal(drawingsDocumentProblem({kind:'new'},1),null);assert.equal(drawingsDocumentProblem({kind:'whole'},0),null);assert.equal(drawingsDocumentProblem({kind:'furniture'},0),null);
 }
@@ -226,4 +264,4 @@ const furniture=make('furniture');furniture.furniture=[{description:'Desk',quant
  // Results saved with a provision note still read as not costed.
  assert.ok(isNotCostedItem({provision:'Provision · included in the solar borehole cost'}));assert.equal(itemOperation({key:'handwashing',operation:'Provision',provision:'Provision · x'}),'Provision · x');
 }
-console.log('PASS: strict strategies, model-driven New Construction lists (Primary/JSS, no block of 3), land and fence rules, HOPE VAT, enrolment formulas with rounding, editable Additional, per-row photos, block grouping with ECCDE and toilets, block items costed per block, Costed / Not costed, older packages and furniture.');
+console.log('PASS: strict strategies, model-driven New Construction lists (Primary/JSS, no block of 3), land and fence rules, HOPE VAT, enrolment formulas with rounding, editable Additional, per-row photos, block grouping with ECCDE, toilets and other facilities, groups edited in place, block items costed per block, Costed / Not costed, older packages and furniture.');
