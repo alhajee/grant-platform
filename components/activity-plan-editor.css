@@ -129,3 +129,5 @@
 .school-pick-all > label { display:flex;align-items:center;gap:10px;flex:1;cursor:pointer; }
 @media (prefers-reduced-motion:reduce){ .school-picker-toggle svg { transition:none; } }
 .school-pick-all > .ml-auto ~ .school-picker-toggle { margin-left:0; }
+/* UBEC248: Download template / Upload list beside the Distribution list heading. */
+.distribution-list-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
