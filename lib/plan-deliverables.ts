@@ -10,7 +10,7 @@ export const deliverableHeadingLabels: Record<DeliverableHeading, string> = {
 };
 
 /** block: a Whole School block item (7 November 2026), what one of its blocks holds. */
-type ResultItem = { key: string; quantity: number; unit?: string; block?: { classroomType?: string; classrooms?: number; toilets?: number } | null };
+type ResultItem = { key: string; quantity: number; unit?: string; block?: { classroomType?: string; classrooms?: number; toilets?: number; facilities?: Record<string, number> } | null };
 export type DeliverablePackage = { kind?: string; result?: { items?: readonly ResultItem[] } | null };
 export type DeliverableCounts = Record<DeliverableHeading, number> & { fenceMetres: number };
 
@@ -50,11 +50,13 @@ export function countDeliverables(packages: readonly (DeliverablePackage | null 
     const fence = items.filter(item => baseKey(item.key) === 'fence').reduce((sum, item) => sum + quantity(item), 0);
     if (fence > 0) { counts.fencing += 1; counts.fenceMetres += fence; }
     for (const item of items) {
-      // A block item counts its blocks × what one block holds: classrooms (or ECCDE rooms) and toilet compartments.
+      // A block item counts its blocks × what one block holds: classrooms (or ECCDE rooms), toilet compartments and admin blocks.
       if (item.block) {
         const n = quantity(item), b = item.block;
         counts[b.classroomType === 'eccde' ? 'eccde' : 'classrooms'] += n * (Number(b.classrooms) || 0);
         counts.toilets += n * (Number(b.toilets) || 0);
+        // UBEC252 (client, 11 November 2026): an admin block built or renovated inside a block still counts as an admin block.
+        counts.admin += n * (Number(b.facilities?.adminBlock) || 0);
         continue;
       }
       const hit = classify(item, pkg?.kind);

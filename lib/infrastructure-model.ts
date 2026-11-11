@@ -44,14 +44,16 @@ export type BlockClassroomType = typeof blockClassroomTypes[number];
 /**
  * UBEC252 (10 November 2026, client: "aside from classroom, office and store, include other facilities in the grouping"): rooms
  * of the Whole School audit that are built inside a block, as spaces of a building: the staff room and the Other Facilities
- * rooms (workshop, laboratories, library, ICT room, sick bay). Stand-alone buildings (gate house, admin block, hall, staff
- * quarters, hostel) and everything that is not a room (fence, water, power, furniture, equipment, external works) are left out.
+ * rooms (workshop, laboratories, library, ICT room, sick bay), and (client, 11 November 2026) the admin block, multipurpose hall
+ * and hostel rooms. The gate house and staff quarters stay out, as does everything that is not a room (fence, water, power,
+ * furniture, equipment, external works).
  * Nouns are [one, many], in the order the label lists them.
  */
 export const blockFacilityNouns = {
  staffroom: ['staff room', 'staff rooms'], workshop: ['workshop', 'workshops'], scienceLab: ['science laboratory', 'science laboratories'],
  roboticsLab: ['robotic/AI laboratory', 'robotic/AI laboratories'], vocationalLab: ['vocational laboratory', 'vocational laboratories'],
  library: ['library', 'libraries'], ictRoom: ['ICT/computer room', 'ICT/computer rooms'], clinic: ['sick bay', 'sick bays'],
+ adminBlock: ['admin block', 'admin blocks'], multipurposeHall: ['multipurpose hall', 'multipurpose halls'], hostel: ['hostel room', 'hostel rooms'],
 } as const satisfies Record<string, readonly [string, string]>;
 export type BlockFacility = keyof typeof blockFacilityNouns;
 export const blockFacilityKeys = Object.keys(blockFacilityNouns) as BlockFacility[];
@@ -259,7 +261,8 @@ export function newConstructionRows(model:number,stream:SchoolStream,fenceLength
  * Rows whose non-functional units are renovated: civil works, and toilets (UBEC255, 11 November 2026: "11 required, 11
  * existing, 5 functional": the 6 non-functional are renovated, not built again). For these the shortfall is required − existing.
  */
-const renovatable=(r:{key:string;civil?:boolean})=>!!r.civil||r.key==='toilet';
+// UBEC255: toilets; UBEC252 (client, 11 November 2026): a non-functional staff room is renovated too, so it can go in renovation blocks.
+const renovatable=(r:{key:string;civil?:boolean})=>!!r.civil||r.key==='toilet'||r.key==='staffroom';
 export type AuditGap=ReturnType<typeof auditGaps>[number];
 /** Whole School audit rows: requirements from enrolment (wholeRequirements), what the auditor entered, and what is to be built. */
 export function auditGaps(input:InfrastructureInput, school:SchoolBasis) {
@@ -381,7 +384,7 @@ export function classroomBlockCounts(input: InfrastructureInput, school: SchoolB
 }
 /**
  * UBEC252: the other facilities a kind may put in its blocks, with how many there are: new ones (Additional) for construction,
- * non-functional civil rooms for renovation (the staff room is not civil works, so it is only built).
+ * non-functional rooms for renovation (the staff room too, since 11 November 2026).
  */
 export function blockFacilityCounts(input: InfrastructureInput, school: SchoolBasis): Record<BlockKind, Partial<Record<BlockFacility, number>>> {
  const out: Record<BlockKind, Partial<Record<BlockFacility, number>>> = { construct: {}, renovate: {} };
@@ -392,6 +395,13 @@ export function blockFacilityCounts(input: InfrastructureInput, school: SchoolBa
   if (gap.renovates && gap.nonFunctional > 0) out.renovate[gap.key] = gap.nonFunctional;
  }
  return out;
+}
+/** UBEC252 (client, 11 November 2026): offices and stores in blocks are limited to the audit too: Additional to build, non-functional to renovate. */
+export function blockRoomCounts(input: InfrastructureInput, school: SchoolBasis): Record<BlockKind, { offices: number; stores: number }> {
+ if (input.kind !== 'whole') return { construct: { offices: 0, stores: 0 }, renovate: { offices: 0, stores: 0 } };
+ const gaps = auditGaps(input, school), row = (key: string) => gaps.find(g => g.key === key);
+ const built = (key: string) => row(key)?.toBuild ?? 0, renovated = (key: string) => { const g = row(key); return g?.renovates ? g.nonFunctional : 0; };
+ return { construct: { offices: built('office'), stores: built('store') }, renovate: { offices: renovated('office'), stores: renovated('store') } };
 }
 /** Whether a kind has anything to group. */
 export const hasBlockCounts = (c: BlockCounts) => c.classrooms + c.eccde + c.toilets > 0;
@@ -413,7 +423,11 @@ export function blockGroupingProblem(input: InfrastructureInput, school: SchoolB
    if (g.left[part] < 0) return `The blocks to ${verb} hold ${plural(g.grouped[part], one)}, but only ${g.counts[part]} ${g.counts[part] === 1 ? 'is' : 'are'} to be ${done}. Remove or change a group of blocks`;
    if (g.left[part] > 0) return `Put all ${plural(g.counts[part], one)} to ${verb} into blocks: ${plural(g.left[part], one)} left`;
   }
-  // UBEC252: other facilities are optional in blocks, but never more than the audit has to build or renovate.
+  // UBEC252: offices, stores and other facilities are optional in blocks, but never more than the audit has to build or renovate.
+  const rooms = blockRoomCounts(input, school)[kind];
+  for (const [part, one] of [['offices', 'office'], ['stores', 'store']] as const) {
+   if (g[part] > rooms[part]) return `The blocks to ${verb} hold ${plural(g[part], one)}, but ${rooms[part] > 0 ? `only ${rooms[part]} ${rooms[part] === 1 ? 'is' : 'are'}` : 'none are'} to be ${done}. Remove or change a group of blocks`;
+  }
   const available = blockFacilityCounts(input, school)[kind];
   for (const [key, held] of Object.entries(g.facilities) as [BlockFacility, number][]) {
    const max = available[key] ?? 0;

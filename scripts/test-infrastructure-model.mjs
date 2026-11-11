@@ -210,7 +210,7 @@ const furniture=make('furniture');furniture.furniture=[{description:'Desk',quant
  // UBEC252: other facilities in a block, and a group edited in place.
  {
   const {blockFacilityCounts,blockFacilityKeys}=await import('../lib/infrastructure-model.ts');
-  assert.deepEqual(blockFacilityKeys,['staffroom','workshop','scienceLab','roboticsLab','vocationalLab','library','ictRoom','clinic'],'rooms built inside a block only');
+  assert.deepEqual(blockFacilityKeys,['staffroom','workshop','scienceLab','roboticsLab','vocationalLab','library','ictRoom','clinic','adminBlock','multipurposeHall','hostel'],'rooms built inside a block, plus admin block, hall and hostel (client, 11 November 2026); never the gate house');
   const withRooms={...parsed.data,audit:{...parsed.data.audit,library:{existing:2,functional:1,extra:0},gatehouse:{existing:0,functional:0,extra:0}}};
   assert.deepEqual(blockFacilityCounts(withRooms,facts),{construct:{staffroom:3,scienceLab:1},renovate:{library:1}},'new staff rooms and laboratory; the non-functional library is renovated; the staff room is not civil works');
   const roomy={...withRooms,blocks:{...withRooms.blocks,construct:[{...withRooms.blocks.construct[0],facilities:{staffroom:1,scienceLab:1}},...withRooms.blocks.construct.slice(1)],renovate:[{count:1,classrooms:2,offices:0,stores:1,facilities:{library:1}}]}};
@@ -233,6 +233,24 @@ const furniture=make('furniture');furniture.furniture=[{description:'Desk',quant
   assert.equal(packageSchema.safeParse({...roomy,blocks:{construct:[{count:1,classrooms:3,offices:0,stores:0,facilities:{gatehouse:1}}]}}).success,false,'a gate house is not a room in a block');
   assert.equal(packageSchema.safeParse({...roomy,blocks:{construct:[{count:1,classrooms:3,offices:0,stores:0,facilities:{library:11}}]}}).success,false,'at most 10 of a facility per block');
   assert.equal(packageSchema.safeParse({...roomy,blocks:{construct:[{count:1,classrooms:0,offices:1,stores:0,facilities:{library:0}}]}}).success,false,'a block needs a classroom, toilet or facility');
+  // Client answers (11 November 2026): admin block, hall and hostel go in blocks (gate house stays out); a non-functional staff
+  // room is renovated and can be in a renovation block; offices and stores in blocks are limited to the audit.
+  {
+   const {blockRoomCounts}=await import('../lib/infrastructure-model.ts');
+   const audit={...pr.data.audit,staffroom:{existing:2,functional:0,extra:0},adminBlock:{existing:1,functional:0,extra:0},hostel:{existing:0,functional:0,extra:0,additional:4}};
+   const answered={...pr.data,audit,blocks:{...pr.data.blocks,renovate:[{count:1,classrooms:2,offices:0,stores:1,facilities:{library:1,staffroom:2,adminBlock:1}}]}};
+   const counts=blockFacilityCounts(answered,facts);
+   assert.equal(counts.renovate.staffroom,2,'2 non-functional staff rooms to renovate');assert.equal(counts.renovate.adminBlock,1);assert.equal(counts.construct.hostel,4);
+   assert.equal(blockGroupingProblem(answered,facts),null,'staff rooms and the admin block renovated in a block');
+   const res2=calculateInfrastructure(answered,facts);
+   assert.ok(res2.items.some(i=>i.key.startsWith('block-renovate-')&&i.block?.facilities?.staffroom===2&&i.block?.facilities?.adminBlock===1),'they join the block item: '+res2.items.filter(i=>i.key.startsWith('block-')).map(i=>i.key).join(' '));
+   assert.equal(res2.items.find(i=>i.key==='staffroom-renovate'),undefined,'the staff rooms are in the block');
+   const rooms=blockRoomCounts(answered,facts);
+   const officeHeavy={...answered,blocks:{...answered.blocks,renovate:[{count:1,classrooms:2,offices:rooms.renovate.offices+1,stores:1}]}};
+   assert.match(blockGroupingProblem(officeHeavy,facts),/^The blocks to renovate hold \d+ offices?, but (only \d+ (is|are)|none are) to be renovated/,'offices limited to the audit');
+   const storeHeavy={...answered,blocks:{...answered.blocks,construct:answered.blocks.construct.map((g,i)=>i===0?{...g,stores:rooms.construct.stores+1}:g)}};
+   assert.match(blockGroupingProblem(storeHeavy,facts),/stores?, but .* to be built/,'stores limited to the audit');
+  }
   // Older groups read with no facilities: same keys and labels as before.
   assert.equal(parsed.data.blocks.construct[0].facilities,undefined);assert.ok(calculateInfrastructure(parsed.data,facts).items.some(i=>i.key==='block-construct-p4c1o1s6t'));
   // Edit in place: the edited group keeps its place; a changed count keeps its cost per block, a changed make-up is costed again.

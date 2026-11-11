@@ -8,7 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field';
-import { blockFacilityCounts, blockFacilityKeys, blockGroupText, classroomBlockCounts, deliverableInfo, facilityText, groupIntoBlocks, groupedCounts, groupedFacilities, hasBlockCounts, toBlockGroups, type BlockClassroomType, type BlockCounts, type BlockFacility, type BlockGroup, type BlockKind, type InfrastructureInput, type SchoolBasis } from '@/lib/infrastructure-model';
+import { blockFacilityCounts, blockFacilityKeys, blockRoomCounts, blockGroupText, classroomBlockCounts, deliverableInfo, facilityText, groupIntoBlocks, groupedCounts, groupedFacilities, hasBlockCounts, toBlockGroups, type BlockClassroomType, type BlockCounts, type BlockFacility, type BlockGroup, type BlockKind, type InfrastructureInput, type SchoolBasis } from '@/lib/infrastructure-model';
 
 interface BlockGroupingProps {
   input: InfrastructureInput;
@@ -18,6 +18,9 @@ interface BlockGroupingProps {
 }
 
 type FacilityCounts = Partial<Record<BlockFacility, number>>;
+/** Offices and stores still free to put in blocks (UBEC252: limited to the audit). */
+type RoomsLeft = { offices: number; stores: number };
+const roomsLeftOf = (limit: RoomsLeft, groups: BlockGroup[]): RoomsLeft => ({ offices: limit.offices - groups.reduce((t, g) => t + g.count * g.offices, 0), stores: limit.stores - groups.reduce((t, g) => t + g.count * g.stores, 0) });
 const kindCopy: Record<BlockKind, { title: string; what: string }> = {
   construct: { title: 'New construction', what: 'Additional classrooms and toilets to build' },
   renovate: { title: 'Renovation', what: 'Non-functional classrooms to renovate' },
@@ -41,10 +44,12 @@ const anyFacilityLeft = (left: FacilityCounts) => Object.values(left).some(n => 
 const facilityLabel = (key: BlockFacility) => deliverableInfo(key)?.label ?? key;
 
 /** A new group starts with what is left: Primary/JSS blocks of 3, then ECCDE blocks of 2, then toilet blocks of 6, as many as fit; with only facilities left, one block of them. */
-function freshDraft(left: BlockCounts, facilities: FacilityCounts): Draft {
+function freshDraft(left: BlockCounts, facilities: FacilityCounts, free: RoomsLeft = { offices: 0, stores: 0 }): Draft {
   const fit = (n: number, per: number) => String(Math.max(1, Math.floor(n / per)));
+  // One office and one store per block when the audit has enough for every block, else none.
+  const each = (free: number, blocks: string) => String(free >= Number(blocks) ? 1 : 0);
   const none = { facilities: {} };
-  if (left.classrooms > 0) { const per = Math.min(3, left.classrooms); return { ...none, count: fit(left.classrooms, per), classrooms: String(per), offices: '1', stores: '1', toilets: '0', classroomType: 'primary' }; }
+  if (left.classrooms > 0) { const per = Math.min(3, left.classrooms), count = fit(left.classrooms, per); return { ...none, count, classrooms: String(per), offices: each(free.offices, count), stores: each(free.stores, count), toilets: '0', classroomType: 'primary' }; }
   if (left.eccde > 0) { const per = Math.min(2, left.eccde); return { ...none, count: fit(left.eccde, per), classrooms: String(per), offices: '0', stores: '0', toilets: '0', classroomType: 'eccde' }; }
   if (left.toilets > 0) { const per = Math.min(6, left.toilets); return { ...none, count: fit(left.toilets, per), classrooms: '0', offices: '0', stores: '0', toilets: String(per), classroomType: 'primary' }; }
   const rooms = Object.fromEntries(Object.entries(facilities).filter(([, n]) => (n ?? 0) > 0).map(([key, n]) => [key, String(n)]));
@@ -56,7 +61,7 @@ const groupDraft = (g: BlockGroup): Draft => ({
   facilities: Object.fromEntries(Object.entries(g.facilities ?? {}).map(([key, n]) => [key, String(n)])),
 });
 
-function draftProblems(draft: Draft, left: BlockCounts, roomsLeft: FacilityCounts): Problems {
+function draftProblems(draft: Draft, left: BlockCounts, roomsLeft: FacilityCounts, officesLeft: RoomsLeft): Problems {
   const count = whole(draft.count), classrooms = whole(draft.classrooms), offices = whole(draft.offices), stores = whole(draft.stores), toilets = whole(draft.toilets);
   const problems: Problems = {
     ...(count === null || count < 1 ? { count: 'Enter at least 1 block' } : count > 100 ? { count: 'Use at most 100 blocks' } : {}),
@@ -65,6 +70,11 @@ function draftProblems(draft: Draft, left: BlockCounts, roomsLeft: FacilityCount
     ...(stores === null ? { stores: 'Enter 0 or more' } : stores > 10 ? { stores: 'Use at most 10' } : {}),
     ...(toilets === null ? { toilets: 'Enter 0 or more' } : toilets > 30 ? { toilets: 'Use at most 30 toilets per block' } : {}),
   };
+  for (const [key, one] of [['offices', 'office'], ['stores', 'store']] as const) {
+    const n = key === 'offices' ? offices : stores, max = officesLeft[key];
+    if (problems[key] || n === null || count === null || count < 1 || count * n <= max) continue;
+    problems[key] = max > 0 ? `${plural(count, 'block')} of ${n} hold ${plural(count * n, one)}; only ${max} ${max === 1 ? 'is' : 'are'} left` : `No ${one}s are left in the audit`;
+  }
   let rooms = 0;
   for (const key of Object.keys(roomsLeft) as BlockFacility[]) {
     const n = whole(draft.facilities[key] ?? '0'), max = roomsLeft[key] ?? 0;
@@ -121,20 +131,21 @@ export function ClassroomBlockGrouping({ input, school, disabled, onChange }: Bl
   const others = editing === null ? groups : groups.filter((_, i) => i !== editing);
   const done = groupedCounts(groups), left = remaining(need, groups), formLeft = remaining(need, others);
   const roomsLeft = facilitiesLeft(available, others);
+  const roomLimit = open ? blockRoomCounts(input, school)[open] : { offices: 0, stores: 0 }, officesLeft = roomsLeftOf(roomLimit, others);
   const total = need.classrooms + need.eccde + need.toilets, placed = Math.min(done.classrooms, need.classrooms) + Math.min(done.eccde, need.eccde) + Math.min(done.toilets, need.toilets);
   const over = { classrooms: Math.max(0, -left.classrooms), eccde: Math.max(0, -left.eccde), toilets: Math.max(0, -left.toilets) };
-  const problems = draftProblems(draft, formLeft, roomsLeft);
+  const problems = draftProblems(draft, formLeft, roomsLeft, officesLeft);
   const kindGroups = (kind: BlockKind) => toBlockGroups(counts[kind].classrooms, input.blocks?.[kind]);
   const begin = (kind: BlockKind, edit: number | null = null) => {
     const stored = kindGroups(kind);
     setGroups(stored); setEditing(edit); setTried(false); setOpen(kind);
-    setDraft(edit === null ? freshDraft(remaining(counts[kind], stored), facilitiesLeft(facilityCounts[kind], stored)) : groupDraft(stored[edit]));
+    setDraft(edit === null ? freshDraft(remaining(counts[kind], stored), facilitiesLeft(facilityCounts[kind], stored), roomsLeftOf(blockRoomCounts(input, school)[kind], stored)) : groupDraft(stored[edit]));
   };
   const store = (kind: BlockKind, next: BlockGroup[]) => {
     const rest = Object.fromEntries(Object.entries(input.blocks ?? {}).filter(([k]) => k !== kind));
     onChange({ blocks: next.length ? { ...rest, [kind]: next } : rest });
   };
-  const update = (next: BlockGroup[]) => { setGroups(next); setEditing(null); setDraft(freshDraft(remaining(need, next), facilitiesLeft(available, next))); setTried(false); };
+  const update = (next: BlockGroup[]) => { setGroups(next); setEditing(null); setDraft(freshDraft(remaining(need, next), facilitiesLeft(available, next), roomsLeftOf(roomLimit, next))); setTried(false); };
   function draftGroup(): BlockGroup {
     const classrooms = Number(draft.classrooms);
     const facilities = Object.fromEntries(Object.keys(roomsLeft).map(key => [key, whole(draft.facilities[key as BlockFacility] ?? '0') ?? 0]).filter(([, n]) => Number(n) > 0));
@@ -147,7 +158,7 @@ export function ClassroomBlockGrouping({ input, school, disabled, onChange }: Bl
     // Editing replaces the group where it is, so the list keeps its order.
     update(editing === null ? [...groups, group] : groups.map((g, i) => i === editing ? group : g));
   }
-  function cancelEdit() { setEditing(null); setTried(false); setDraft(freshDraft(left, facilitiesLeft(available, groups))); }
+  function cancelEdit() { setEditing(null); setTried(false); setDraft(freshDraft(left, facilitiesLeft(available, groups), roomsLeftOf(roomLimit, groups))); }
   function removeGroup(index: number) {
     const next = groups.filter((_, i) => i !== index);
     if (editing === index) { update(next); return; }
@@ -160,6 +171,7 @@ export function ClassroomBlockGrouping({ input, school, disabled, onChange }: Bl
     <FieldLabel htmlFor={'block-' + key}>{label}<span className="text-destructive" aria-hidden="true">*</span></FieldLabel>
     <Input id={'block-' + key} type="number" inputMode="numeric" min={key === 'count' ? 1 : 0} step={1} required aria-required="true" aria-invalid={tried && problems[key] ? true : undefined}
       value={draft[key]} onChange={e => setDraft(d => ({ ...d, [key]: e.target.value }))} />
+    {(key === 'offices' || key === 'stores') && <FieldDescription>{Math.max(0, officesLeft[key])} left</FieldDescription>}
     {tried && problems[key] && <FieldError>{problems[key]}</FieldError>}
   </Field>;
   // The classroom type is asked only when the kind has ECCDE classrooms (otherwise every classroom is Primary/JSS).
