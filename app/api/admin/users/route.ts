@@ -6,7 +6,8 @@ import { getAuthenticatedUser } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
 import { stateDepartments } from '@/lib/subeb-departments';
-import { holdsUbecChair, isComponentDepartment, maxUbecChairs, tooManyChairsMessage, ubecChairSql, ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
+import { holdsUbecChair, isComponentDepartment, ubecRoleDepartments, ubecRoleList, ubecRoles } from '@/lib/ubec';
+import { activeUbecChairs, readUbecChairLimit, tooManyChairsMessage } from '@/lib/ubec-chair-limit';
 import { officerLimitProblem, pruneDefaultOfficers } from '@/lib/ubec-officer-limits';
 import { normalizeDepartments, replaceUserDepartments, userDepartmentsSql } from '@/lib/user-departments';
 import { isUbecEmail, maxRoleTitleLength, roleTitleRequiredError, ubecEmailError } from '@/lib/officer-title';
@@ -98,8 +99,14 @@ async function mutate(request: NextRequest, creating: boolean) {
         // an account takes that place: created, activated, or given the role or department; UBEC241 flags change nothing here).
         const keepsPlace = !!target && target.active && target.role === input.role && target.department === (selectedDepartments[0] ?? null);
         if (input.active && !keepsPlace && [ubecRoles.director, ubecRoles.oversight].includes(input.role as typeof ubecRoles.director) && (await db.query('SELECT 1 FROM users WHERE role=$1 AND active AND department IS NOT DISTINCT FROM $2 AND id<>$3 LIMIT 1', [input.role, selectedDepartments[0], target?.id ?? 0])).rowCount) return json({ error: 'This department already has an active account in this role' }, 409);
-        // UBEC241/242: at most two active BEAP Chair holders, counting the UBEC BEAP Chair role and Directors given the duty.
-        if (input.active && holdsUbecChair({ role: input.role, isUbecBeapChair: input.isUbecBeapChair ?? target?.isUbecBeapChair }) && (await db.query<{ n: number }>(`SELECT COUNT(*)::int AS n FROM users WHERE active AND deleted_at IS NULL AND id<>$1 AND ${ubecChairSql()}`, [target?.id ?? 0])).rows[0].n >= maxUbecChairs) return json({ error: tooManyChairsMessage }, 409);
+        // UBEC241/242: active BEAP Chair holders up to the Super Admin's limit, counting the UBEC BEAP Chair role and Directors given the duty.
+        // Migration 101: the Super Admin sets the limit (2 by default). Checked only when an account takes the duty, so
+        // editing a holder while over a lowered limit still works.
+        const takesChair = input.active && holdsUbecChair({ role: input.role, isUbecBeapChair: input.isUbecBeapChair ?? target?.isUbecBeapChair }) && !(target?.active && holdsUbecChair(target));
+        if (takesChair) {
+          const { limit } = await readUbecChairLimit(db);
+          if ((await activeUbecChairs(db, target?.id ?? 0)).length >= limit) return json({ error: tooManyChairsMessage(limit) }, 409);
+        }
         // Assessment Officers per department are capped (migration 056): creating, reactivating, changing the role to
         // officer or moving an officer to another department needs a free place there.
         const officerDepartment = selectedDepartments[0];

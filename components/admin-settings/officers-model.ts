@@ -7,15 +7,18 @@ export type Department = {
   defaultLimit: number; limit: number; custom: boolean; active: number; warning: string | null; officers: Officer[];
 };
 export type ReleasedPlan = { planId: number; state: string; period: string; round: number; releasedAt: string | null; atDirector: number; released: number };
-export type OfficerSettings = { departments: Department[]; plans: ReleasedPlan[] };
-export type OfficerDraft = { limits: Record<string, string>; defaults: Record<string, number[]> };
-export type OfficerChanges = { limits: { department: string; limit: number | null }[]; defaults: { pillar: ImplementedPillar; officerIds: number[] }[] };
+/** Holders of the UBEC BEAP Chair (role or Director with the duty) against the Super Admin's limit (migration 101). */
+export type ChairSettings = { limit: number; defaultLimit: number; custom: boolean; active: number; warning: string | null; holders: { id: number; name: string; email: string; role: string }[] };
+export type OfficerSettings = { departments: Department[]; plans: ReleasedPlan[]; chairs: ChairSettings };
+export type OfficerDraft = { limits: Record<string, string>; defaults: Record<string, number[]>; chairLimit: string };
+export type OfficerChanges = { limits: { department: string; limit: number | null }[]; defaults: { pillar: ImplementedPillar; officerIds: number[] }[]; chairLimit?: number | null };
 
 export const minLimit = 1, maxLimit = 50;
 
 export const draftOf = (settings: OfficerSettings): OfficerDraft => ({
   limits: Object.fromEntries(settings.departments.map(d => [d.department, String(d.limit)])),
   defaults: Object.fromEntries(settings.departments.flatMap(d => d.components.map(c => [c.pillar, c.defaults]))),
+  chairLimit: String(settings.chairs.limit),
 });
 
 export const sameIds = (a: readonly number[], b: readonly number[]): boolean => {
@@ -31,7 +34,8 @@ export function changesOf(saved: OfficerSettings, draft: OfficerDraft): OfficerC
     .map(d => ({ department: d.department, limit: Number(draft.limits[d.department]) === d.defaultLimit ? null : Number(draft.limits[d.department]) }));
   const defaults = saved.departments.flatMap(d => d.components).filter(c => !sameIds(draft.defaults[c.pillar] ?? [], c.defaults))
     .map(c => ({ pillar: c.pillar, officerIds: draft.defaults[c.pillar] ?? [] }));
-  return { limits, defaults };
+  const chair = draft.chairLimit === String(saved.chairs.limit) ? {} : { chairLimit: Number(draft.chairLimit) === saved.chairs.defaultLimit ? null : Number(draft.chairLimit) };
+  return { limits, defaults, ...chair };
 }
 
 /** "UBEC Assessment Officer – Sports" reads as "Sports"; a person's name is kept as it is. */

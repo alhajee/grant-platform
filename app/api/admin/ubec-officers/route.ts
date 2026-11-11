@@ -9,18 +9,21 @@ import { stateDisplayName } from '@/lib/state-names';
 import { componentDepartments, departmentPillars, pillarDepartments, ubecRoles } from '@/lib/ubec';
 import { componentName } from '@/lib/ubec-flow';
 import type { Db } from '@/lib/ubec-flow-db';
+import { activeUbecChairs, defaultUbecChairLimit, maxUbecChairLimit, minUbecChairLimit, overChairLimitWarning, readUbecChairLimit } from '@/lib/ubec-chair-limit';
 import { maxDefaultOfficers, maxOfficerLimit, overLimitWarning, readDefaultOfficers, readOfficerLimits } from '@/lib/ubec-officer-limits';
 
 // Super Admin: UBEC Assessment Officers per department (migration 056). GET lists each component department's officer
 // limit, active officers and the default officers of its components, plus the plans in department assessment (where
 // the Super Admin can reassign officers). PUT changes limits (null = back to the default) and replaces the default
-// officers of the listed components. Writes need the same origin and take the user-management lock, so they serialise
+// officers of the listed components. It also holds how many may be UBEC BEAP Chair at once (migration 101, `chairLimit`). Writes need the same origin and take the user-management lock, so they serialise
 // with officer additions on Admin > Users and the UBEC Officers page.
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 const departmentIds = componentDepartments.map(d => d.id) as [string, ...string[]];
 const input = z.object({
   limits: z.array(z.object({ department: z.enum(departmentIds), limit: z.number().int().min(1).max(maxOfficerLimit).nullable() }).strict()).max(departmentIds.length).optional(),
   defaults: z.array(z.object({ pillar: z.enum(implementedPillars), officerIds: z.array(z.number().int().positive()).max(maxDefaultOfficers) }).strict()).max(implementedPillars.length).optional(),
+  /** null = back to the default. */
+  chairLimit: z.number().int().min(minUbecChairLimit).max(maxUbecChairLimit).nullable().optional(),
 }).strict()
   .refine(value => new Set(value.limits?.map(l => l.department)).size === (value.limits?.length ?? 0), 'Each department once')
   .refine(value => new Set(value.defaults?.map(d => d.pillar)).size === (value.defaults?.length ?? 0), 'Each component once')
@@ -49,7 +52,9 @@ async function readSettings(db: Db) {
     WHERE r.status='reviewing' AND r.number=(SELECT MAX(number) FROM ubec_rounds WHERE plan_id=r.plan_id)
     ORDER BY r.released_at DESC NULLS LAST LIMIT 50`)).rows
     .map(r => ({ planId: r.plan_id, state: stateDisplayName(r.state_code), period: planPeriod({ startYear: r.start_year, endYear: r.end_year, fundingQuarters: r.funding_quarters }), round: r.number, releasedAt: r.released_at, atDirector: r.at_director, released: r.released }));
-  return { departments, plans };
+  const chairLimit = await readUbecChairLimit(db), holders = await activeUbecChairs(db);
+  const chairs = { ...chairLimit, defaultLimit: defaultUbecChairLimit, active: holders.length, holders, warning: overChairLimitWarning(holders.length, chairLimit.limit) };
+  return { departments, plans, chairs };
 }
 
 export async function GET(request: NextRequest) {
@@ -69,7 +74,7 @@ export async function PUT(request: NextRequest) {
     if (!actor) return json({ error: 'Super-admin access required' }, 403);
     const parsed = input.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return json({ error: 'Enter a limit from 1 to 50 for each department and choose officers for each component' }, 400);
-    const { limits = [], defaults = [] } = parsed.data;
+    const { limits = [], defaults = [], chairLimit } = parsed.data;
     return await getPostgres().transaction(async db => {
       await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['admin:user-management']);
       const admin = (await db.query<{ full_name: string }>("SELECT full_name FROM users WHERE id=$1 AND active AND role='Super Admin' AND session_version=$2 FOR SHARE", [actor.userId, actor.sessionVersion])).rows[0];
@@ -84,6 +89,8 @@ export async function PUT(request: NextRequest) {
         else await db.query(`INSERT INTO ubec_officer_limits(department, max_officers, updated_by_name) VALUES($1,$2,$3)
           ON CONFLICT (department) DO UPDATE SET max_officers=EXCLUDED.max_officers, updated_by_name=EXCLUDED.updated_by_name, updated_at=NOW()`, [department, limit, admin.full_name]);
       }
+      // Lowering it below the current holders is allowed: nobody loses the duty, but no one new can take it (`warning`).
+      if (chairLimit !== undefined) await db.query(`INSERT INTO state_workflow_settings(state_code, ubec_chair_limit) VALUES ('GLOBAL', $1) ON CONFLICT (state_code) DO UPDATE SET ubec_chair_limit=EXCLUDED.ubec_chair_limit`, [chairLimit]);
       for (const { pillar, officerIds } of defaults) {
         await db.query('DELETE FROM ubec_default_officers WHERE pillar=$1 AND NOT (officer_id=ANY($2::int[]))', [pillar, officerIds]);
         for (const officerId of officerIds) await db.query('INSERT INTO ubec_default_officers(pillar, officer_id, updated_by_name) VALUES($1,$2,$3) ON CONFLICT DO NOTHING', [pillar, officerId, admin.full_name]);

@@ -89,6 +89,24 @@ try {
   ok(await flag('dme', 'quality', true)); ok(await flag('dme', 'quality', false));
   ok(await flag('dpp', 'physical', true));
   step('removing the duty frees the place for another Director ("unlinked and given to another Director")');
+  // Migration 101: the Super Admin sets how many may hold the chair (Admin > Settings > UBEC Assessment Officers).
+  {
+    const settings = path => api('admin', '/api/admin/ubec-officers', path, path ? 'PUT' : 'GET');
+    const chairs = ok(await settings()).chairs, count = chairs.active;
+    assert.equal(chairs.defaultLimit, 2); assert.equal(chairs.holders.length, count);
+    fails(await api('admin', '/api/admin/ubec-officers', { chairLimit: 0 }, 'PUT'), 400);
+    fails(await api('dpp', '/api/admin/ubec-officers', { chairLimit: 5 }, 'PUT'), 403);
+    ok(await settings({ chairLimit: count + 1 }));
+    ok(await flag('dacs', 'academic', true));
+    fails(await flag('dme', 'quality', true), 409, new RegExp(`already has ${count + 1} BEAP Chairs`));
+    const raised = ok(await settings()).chairs;
+    assert.deepEqual([raised.limit, raised.custom, raised.active], [count + 1, true, count + 1]);
+    ok(await settings({ chairLimit: count }));
+    assert.match(ok(await settings()).chairs.warning, /no new BEAP Chairs/, 'a limit below the holders warns; nobody loses the duty');
+    ok(await flag('dacs', 'academic', false));
+    assert.equal(ok(await settings({ chairLimit: null })).chairs.custom, false, 'null goes back to the default');
+  }
+  step('migration 101: the Super Admin raises or lowers the BEAP Chair limit; holders beyond it are refused, a lowered limit only warns');
 
   // A plan sent to UBEC.
   const rat = new ExcelJS.Workbook(); rat.addWorksheet('RAT').addRow(['UBEC chair QA']);
@@ -159,6 +177,7 @@ try {
   step('deleting a Director clears the duty');
   console.log(`\nPASS: ${passed} UBEC chair-director checks.`);
 } finally {
+  await db.query("UPDATE state_workflow_settings SET ubec_chair_limit=NULL WHERE state_code='GLOBAL'").catch(() => undefined);
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2, full_allocation_required=$3, eccde_share_required=$4 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode, settings.full_allocation_required, settings.eccde_share_required]);
   if (savedDefaults) {
     await db.query('DELETE FROM ubec_default_officers');

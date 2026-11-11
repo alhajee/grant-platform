@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
+import { ChairLimitCard } from './chair-limit-card';
 import { OfficersTable } from './officers-table';
 import { changesOf, draftOf, maxLimit, minLimit, validLimit, type OfficerDraft, type OfficerSettings, type ReleasedPlan } from './officers-model';
 import { PanelError, PanelSkeleton, SaveBar, SettingsCard, SettingsPanel } from './settings-primitives';
@@ -31,8 +32,8 @@ export function OfficersPanel({ onDirty }: { onDirty?: (dirty: boolean) => void 
   useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const changes = useMemo(() => saved && draft ? changesOf(saved, draft) : null, [saved, draft]);
-  const dirty = !!changes && (changes.limits.length > 0 || changes.defaults.length > 0);
-  const invalid = !!draft && Object.values(draft.limits).some(value => !validLimit(value));
+  const dirty = !!changes && (changes.limits.length > 0 || changes.defaults.length > 0 || changes.chairLimit !== undefined);
+  const invalid = !!draft && [...Object.values(draft.limits), draft.chairLimit].some(value => !validLimit(value));
   useEffect(() => { onDirty?.(dirty); }, [dirty, onDirty]);
 
   const save = async () => {
@@ -49,9 +50,10 @@ export function OfficersPanel({ onDirty }: { onDirty?: (dirty: boolean) => void 
   const setLimit = (department: string, value: string) => setDraft(current => current && ({ ...current, limits: { ...current.limits, [department]: value } }));
   const setDefaults = (pillar: ImplementedPillar, ids: number[]) => setDraft(current => current && ({ ...current, defaults: { ...current.defaults, [pillar]: ids } }));
 
-  return <SettingsPanel title="UBEC Assessment Officers" description="Officer limits per UBEC department, and the officers pre-ticked for each component when its Director assigns staff. Open a row to set its defaults.">
+  return <SettingsPanel title="UBEC Assessment Officers" description="How many may be UBEC BEAP Chair, officer limits per UBEC department, and the officers pre-ticked for each component when its Director assigns staff. Open a row to set its defaults.">
     {error ? <PanelError title="UBEC Assessment Officer settings unavailable" message={error} onRetry={() => void load()} />
       : !saved || !draft ? <PanelSkeleton rows={4} /> : <>
+        <ChairLimitCard chairs={saved.chairs} value={draft.chairLimit} disabled={saving} onChange={value => setDraft(current => current && ({ ...current, chairLimit: value }))} />
         <SettingsCard className="overflow-hidden">
           <OfficersTable departments={saved.departments} draft={draft} disabled={saving} onLimit={setLimit} onDefaults={setDefaults} />
         </SettingsCard>

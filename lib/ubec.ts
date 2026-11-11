@@ -15,14 +15,12 @@ export const ubecRoleList: readonly UbecRole[] = Object.values(ubecRoles);
 /**
  * UBEC241/242: the UBEC BEAP Chair duty is held by the dedicated role or by a UBEC Director the Super Admin flagged
  * (`users.is_ubec_beap_chair`, migration 094), who keeps every Director ability on their department. At most
- * `maxUbecChairs` holders in all.
+ * as many holders as the Super Admin's limit (lib/ubec-chair-limit.ts, migration 101; 2 by default).
  */
-export const maxUbecChairs = 2;
 export const holdsUbecChair = (user: { role: string; isUbecBeapChair?: boolean | null; chair?: boolean | null }): boolean =>
   user.role === ubecRoles.chair || (user.role === ubecRoles.director && !!(user.isUbecBeapChair ?? user.chair));
 /** SQL condition: the users row `alias` holds the UBEC BEAP Chair duty (active is checked by the caller). */
 export const ubecChairSql = (alias = 'users') => `(${alias}.role='${ubecRoles.chair}' OR (${alias}.role='${ubecRoles.director}' AND ${alias}.is_ubec_beap_chair))`;
-export const tooManyChairsMessage = `UBEC already has ${maxUbecChairs} BEAP Chairs. Remove the duty from one of them first`;
 /** Replaced by UBEC Assessment Officer (migration 055); kept only so old rows still read. It has no UBEC access. */
 export const legacyReviewerRole = 'UBEC Department Reviewer';
 
