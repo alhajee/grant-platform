@@ -128,7 +128,7 @@ try {
   const upload = async (who, workstream = 'tlm') => { const form = new FormData(); form.append('workstream', workstream); form.append('file', new Blob([await filled.xlsx.writeBuffer()]), 'list.xlsx'); return api(who, `/api/distribution-lists?plan=${planId}`, form); };
   const preview = ok(await upload('academic'));
   assert.equal(preview.rows, 6);
-  assert.deepEqual(preview.matched.map(m => m.school.id), [a]);
+  assert.deepEqual(preview.matched.map(m => m.school.id), [a, b], 'the DNEMIS code is enough; a differing name is a check (client, 11 November 2026)');
   assert.deepEqual(preview.listed.map(m => m.school.id), [c]);
   assert.deepEqual(preview.mismatched.map(m => [m.row, m.school.name]), [[3, 'QA Alloc School B']]);
   assert.deepEqual(preview.unknown.map(m => m.code), ['NOPE123']);
@@ -138,14 +138,14 @@ try {
   fails(await upload('physical'), 403);
   // The PHE training schools (Sports) take the same template and preview.
   assert.equal((await api('academic', `/api/distribution-lists?plan=${planId}&workstream=phe`)).status, 200);
-  assert.deepEqual(ok(await upload('academic', 'phe')).matched.map(m => m.school.id).sort(), [a, c].sort());
+  assert.deepEqual(ok(await upload('academic', 'phe')).matched.map(m => m.school.id).sort(), [a, b, c].sort());
   fails(await api('academic', `/api/distribution-lists?plan=${planId}&workstream=sbmc`), 400, /Choose a school list/);
   fails(await api('physical', `/api/distribution-lists?plan=${planId}&workstream=tlm`), 403);
   const bad = new FormData(); bad.append('workstream', 'tlm'); bad.append('file', new Blob(['not a workbook']), 'list.xlsx');
   fails(await api('academic', `/api/distribution-lists?plan=${planId}`, bad), 400, /Excel/);
   ok(await api('academic', url('tlm'), { workstream: 'tlm', entity: 'school', action: 'create', schoolIds: preview.matched.map(m => m.school.id) }));
-  assert.deepEqual(ok(await api('academic', url('tlm'))).distribution.map(s => s.id).sort(), [a, c].sort());
-  step('the school list template is prefilled; an upload is matched by DNEMIS code and name (mismatches, unknown codes, repeats, rows without a code, schools already listed) and saves nothing until added (UBEC248)');
+  assert.deepEqual(ok(await api('academic', url('tlm'))).distribution.map(s => s.id).sort(), [a, b, c].sort());
+  step('the school list template is prefilled; an upload is matched by DNEMIS code, differing names shown as a check ( unknown codes, repeats, rows without a code, schools already listed) and saves nothing until added (UBEC248)');
   console.log(`\n${passed} distribution allocation checks passed`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);

@@ -7,6 +7,7 @@ const schools = [
   { id: 2, name: 'Government J.S.S. Potiskum', lga: 'Potiskum', level: 'JSS', code: '3502020002' },
   { id: 3, name: 'St. Mary’s & Joseph ECCDE', lga: 'Potiskum', level: 'ECCDE', code: '3502020003' },
   { id: 4, name: 'No Code School', lga: 'Potiskum', level: 'Primary', code: null },
+  { id: 5, name: 'Code Only School', lga: 'Potiskum', level: 'Primary', code: '3502020005' },
 ];
 
 assert.equal(normalCode(' 3501 010001 '), '3501010001');
@@ -25,15 +26,16 @@ const rows = [
   { row: 6, code: '', name: 'No Code School' },
   { row: 7, code: '3501010001', name: 'Central Primary School Damaturu' },
   { row: 8, code: '', name: '' },
+  { row: 9, code: '3502020005', name: '' },
 ];
 const result = matchUploadRows(rows, schools, new Set([2]));
-assert.deepEqual(result.matched.map(m => [m.row, m.school.id]), [[2, 1]]);
+assert.deepEqual(result.matched.map(m => [m.row, m.school.id]), [[2, 1], [4, 3], [9, 4 + 1]], 'the DNEMIS code is enough (client, 11 November 2026)');
 assert.deepEqual(result.listed.map(m => [m.row, m.school.id]), [[3, 2]], 'already on the list');
-assert.deepEqual(result.mismatched.map(m => [m.row, m.school.name]), [[4, 'St. Mary’s & Joseph ECCDE']], 'shows the register name');
+assert.deepEqual(result.mismatched.map(m => [m.row, m.school.name]), [[4, 'St. Mary’s & Joseph ECCDE']], 'a differing name is shown as a check, with the register name');
 assert.deepEqual(result.unknown.map(m => m.row), [5]);
 assert.deepEqual(result.noCode.map(m => m.row), [6], 'a name alone is not enough');
 assert.deepEqual(result.duplicates.map(m => [m.row, m.firstRow]), [[7, 2]]);
 const total = Object.values(result).reduce((sum, list) => sum + list.length, 0);
-assert.equal(total, 6, 'blank rows are skipped');
+assert.equal(total, 8, 'blank rows are skipped; a differing name is counted under both matched and mismatched');
 assert.deepEqual(matchUploadRows([], schools, new Set()).matched, []);
 console.log('distribution upload matching: ok');

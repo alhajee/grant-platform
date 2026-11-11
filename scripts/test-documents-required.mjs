@@ -51,7 +51,7 @@ assert.match(componentReadinessProblem('ict', ictLines.slice(0, 1), null, { docu
 step('Readiness skips line documents only while they are optional (unit)');
 
 const { infrastructureDocumentProblem } = load(resolve('lib/infrastructure-documents.ts'));
-const newLine = (documentIds, land) => ({ school: { id: 7, name: 'Unit school' }, package: { kind: 'new', input: { schoolId: 7, documentIds, land } } });
+const newLine = (documentIds, land) => ({ school: { id: 7, name: 'Unit school' }, target_group: 'Primary School Learners', package: { kind: 'new', input: { schoolId: 7, documentIds, land } } });
 const all = { available: true, documented: true, unencumbered: true };
 // New Construction: all three land declarations and the C of O / R of O / Community Agreement document, in either mode (client feedback, October 2026).
 const bare = { infrastructure: [newLine([], { available: true, documented: false, unencumbered: false })], infrastructureDocuments: [] };
@@ -71,7 +71,7 @@ assert.match(infrastructureDocumentProblem(landed, { documentsRequired: true }) 
 const complete = { ...landed, infrastructureDocuments: [...landed.infrastructureDocuments, { id: 'b', kind: 'boq', schoolId: 7 }, { id: 's', kind: 'survey', schoolId: 7 }] };
 assert.equal(infrastructureDocumentProblem(complete, { documentsRequired: true }), null);
 // Whole School and Furniture drawings stay optional.
-const wholeLine = { school: { id: 8, name: 'Whole school' }, package: { kind: 'whole', input: { schoolId: 8, documentIds: [] } } };
+const wholeLine = { school: { id: 8, name: 'Whole school' }, target_group: 'Primary School Learners', package: { kind: 'whole', input: { schoolId: 8, documentIds: [] } } };
 assert.equal(infrastructureDocumentProblem({ infrastructure: [wholeLine], infrastructureDocuments: [{ id: 'b8', kind: 'boq', schoolId: 8 }] }, { documentsRequired: false }), null, 'Whole School drawings are optional');
 step('Infrastructure readiness: BOQ always, survey follows the setting, New Construction drawings and land documents always (unit)');
 

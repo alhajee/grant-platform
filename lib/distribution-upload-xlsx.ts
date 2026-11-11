@@ -29,8 +29,8 @@ export async function buildListTemplate(title: string, listed: readonly Template
     [title, 'School list template'],
     ['How to use', 'Enter one school per row on the Schools sheet, under the header row. Keep the header row unchanged'],
     ['DNEMIS code', 'The school\'s DNEMIS school code, as shown in the School list. Required'],
-    ['School name', 'The school\'s name as in the School list. Case, spaces and punctuation do not matter. Required'],
-    ['Checks', 'A school is added only when its DNEMIS code and name both match the same school. Rows that do not match are shown before anything is added'],
+    ['School name', 'The school\'s name, to check the code. Recommended: a name that differs from the School list is shown before adding'],
+    ['Checks', 'Schools are found by their DNEMIS code. Before anything is added you see the schools to add, codes not found, rows without a code, repeated rows and names that differ from the School list'],
     ['Listed schools', 'Schools already on the list are filled in. Uploading never removes a school; remove schools in the editor'],
   ];
   rows.forEach(([label, value], index) => { const row = guide.getRow(index + 1); row.getCell(1).value = label; row.getCell(2).value = value; row.getCell(1).font = { bold: true }; row.getCell(2).alignment = { wrapText: true }; });

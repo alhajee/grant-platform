@@ -22,6 +22,8 @@ export function infrastructureDocumentProblem(snapshot: Snapshot, options: Readi
    // UBEC230: New Construction drawings are always required (packages saved before are asked for them here).
    if(attached('drawings')<1)return `Attach the drawings for ${line.school.name} before sending Infrastructure`;
   }
+  // UBEC254: packages saved before the target group (and plans returned by UBEC) must name it before Infrastructure is sent.
+  if(line.package&&!String(line.target_group??'').trim())return `Choose the target group for ${line.school.name}'s package before sending Infrastructure`;
   const survey=line.package?.kind!=='furniture';
   schools.set(id,{name:line.school.name,survey:survey||schools.get(id)?.survey===true});
  }

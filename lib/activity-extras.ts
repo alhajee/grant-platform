@@ -178,12 +178,14 @@ const teacherDocumentSlots: readonly LineDocumentSlot[] = [
 /**
  * UBEC229 (client, 5 November 2026: "any activity procurement should have an upload proforma invoice"): every item on an
  * activity that buys goods (the Procurement price-list activities: QA 0, ICT 0, Monitoring 0-1, Curriculum 0, Planning 4,
- * SBMC 15, TLM 5-22) needs the supplier's proforma invoice before the component is sent, whatever the Supporting
+ * SBMC 15; TLM since UBEC250 and Curriculum since UBEC257 take none) needs the supplier's proforma invoice before the component is sent, whatever the Supporting
  * documents setting (migration 090).
  */
 export const proformaSlot: LineDocumentSlot = { kind: 'proforma', label: 'Proforma invoice', governed: true, always: true, accept: supportingDocumentAccept, hint: 'The supplier’s proforma invoice for this item. PDF, Excel, Word or images' };
-/** UBEC250 (bug sheet 16, 10 November 2026): TLM items take their BOQ and Sample of the item, not a proforma invoice. */
-export const needsProforma = (workstream: string, activity: number) => workstream !== 'tlm' && isPriceListActivity(workstream, activity);
+/** UBEC250 (bug sheet 16, 10 November 2026): TLM items take their BOQ and Sample of the item, not a proforma invoice; UBEC257
+ *  (bug sheet 18, 11 November 2026): Curriculum items take none either. */
+const withoutProforma = new Set(['tlm', 'curriculum']);
+export const needsProforma = (workstream: string, activity: number) => !withoutProforma.has(workstream) && isPriceListActivity(workstream, activity);
 function baseDocumentSlots(workstream: string, activity: number): readonly LineDocumentSlot[] {
   if (workstream === 'tlm') return tlmDocumentSlots;
   if (workstream === 'teachers') return teacherDocumentSlots;

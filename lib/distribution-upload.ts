@@ -1,5 +1,6 @@
-// UBEC248: distribution lists from an uploaded template. Each row names a school by its DNEMIS code and its name; both
-// must agree with the School list before the school is added. Dependency-free so the unit test can import it.
+// UBEC248: distribution lists from an uploaded template. Each row names a school by its DNEMIS code, which is enough to add
+// it (client, 11 November 2026); the name is a check: a name that differs from the School list is shown, and the school is
+// still added by its code. Dependency-free so the unit test can import it.
 
 /** The workstreams whose school lists take a template: the three distribution lists and the PHE training schools. */
 export const uploadListWorkstreams = ['tlm', 'curriculum', 'gscci', 'phe', 'sports'] as const;
@@ -12,11 +13,11 @@ export const maxUploadRows = 10000;
 export type UploadRow = { row: number; code: string; name: string };
 export type UploadSchool = { id: number; name: string; code: string | null; lga: string; level: string };
 export type UploadMatch = {
-  /** Code and name agree with the School list; these are added. */
+  /** The code is in the School list; these are added (a differing name is also listed under `mismatched`). */
   matched: { row: number; school: UploadSchool }[];
   /** Already on the list; nothing to do. */
   listed: { row: number; school: UploadSchool }[];
-  /** The code is in the School list but the name is another school's. */
+  /** The code is in the School list but the name in the file differs from it: shown as a check, the school is still added. */
   mismatched: { row: number; code: string; name: string; school: UploadSchool }[];
   /** No school in the state has this code. */
   unknown: { row: number; code: string; name: string }[];
@@ -47,9 +48,11 @@ export function matchUploadRows(rows: readonly UploadRow[], schools: readonly Up
     seen.set(code, row);
     const school = byCode.get(code);
     if (!school) result.unknown.push({ row, code, name });
-    else if (!namesAgree(name, school.name)) result.mismatched.push({ row, code, name, school });
-    else if (listedIds.has(school.id)) result.listed.push({ row, school });
-    else result.matched.push({ row, school });
+    else {
+      if (name && !namesAgree(name, school.name)) result.mismatched.push({ row, code, name, school });
+      if (listedIds.has(school.id)) result.listed.push({ row, school });
+      else result.matched.push({ row, school });
+    }
   }
   return result;
 }

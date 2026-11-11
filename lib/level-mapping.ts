@@ -7,8 +7,9 @@ import { isEccdeItem } from './infrastructure-deliverables.ts';
 // Primary and JSS, and how much is not school-specific (training, census, equipment, SUBEB activities…). Shown on the plan
 // page and on the SUBEB and UBEC dashboards. Each line's amount is shared out, in whole minor units (1/10,000 naira, lib/money.ts), by what the line says:
 //   Infrastructure      items plainly for ECCDE (ECCDE classrooms and blocks, ECCDE furniture, play equipment, kindergarten
-//                       beds) as ECCDE; the rest of the package (or a lump-sum New Construction package) by the levels its
-//                       target groups name (UBEC254), else the school's level;
+//                       beds) as ECCDE; classrooms, their furniture and toilets (or a lump-sum New Construction package) by
+//                       the levels its target groups name, split by the school's enrolment (UBEC254), else the school's
+//                       level; the shared parts (fence, water, power, VAT…) by the school's level;
 //   Sports              each allocation's school level by quantity allocated (the unallocated rest: not school-specific);
 //   lines with schools  evenly across the chosen schools' levels (ICT and any other line that names schools);
 //   Textbooks (TLM)     by the classes chosen (Primary 1-6 → Primary, JSS 1-3 → JSS);
@@ -57,18 +58,46 @@ export function targetGroupWeights(targetGroup: string | null | undefined): Weig
 const activityComponents = ['sbmc', 'tlm', 'monitoring', 'gscci', 'curriculum', 'quality', 'ict', 'teachers', 'planning'] as const;
 const minorOf = (line: { quantity: number; unit_cost: string }) => Number(lineMinor(line.unit_cost, line.quantity));
 
+/** Infrastructure items built for one level's learners: classrooms and classroom blocks, their furniture and toilets. */
+const learnerItemKeys = new Set(['classroomPri', 'toilet', 'dualDesk', 'magneticBoard', 'teachersFurniture', 'classBlock6', 'classBlock9', 'block3os', 'block6os', 'block9os']);
+const isLearnerItem = (key: string) => learnerItemKeys.has(key.replace(/-(renovate|construct)$/, '')) || /^block-(construct|renovate)-/.test(key);
+type PackageSchool = { level?: string; enrolmentByClass?: Record<string, { male?: number; female?: number } | null> | null };
+/** The school's ECCDE, Primary and JSS learners (DNEMIS enrolment by class). */
+function enrolmentByLevel(school: PackageSchool | undefined): Weights {
+  const learners: Weights = {};
+  for (const [key, value] of Object.entries(school?.enrolmentByClass ?? {})) {
+    const level: SchoolLevelKey | null = key.startsWith('ECCDE') ? 'eccde' : key.startsWith('JSS') ? 'jss' : /^P\d/.test(key) ? 'primary' : null;
+    if (level) learners[level] = (learners[level] ?? 0) + (Number(value?.male) || 0) + (Number(value?.female) || 0);
+  }
+  return learners;
+}
+/** The levels the target groups name, weighed by the school's learners at those levels (evenly when it has none there). */
+function namedLevelWeights(targetGroup: string | null | undefined, school: PackageSchool | undefined): Weights | null {
+  const named = Object.keys(targetGroupWeights(targetGroup)) as SchoolLevelKey[];
+  if (!named.length) return null;
+  const learners = enrolmentByLevel(school);
+  const weighed = Object.fromEntries(named.map(level => [level, learners[level] ?? 0])) as Weights;
+  return Object.values(weighed).some(n => (n ?? 0) > 0) ? weighed : Object.fromEntries(named.map(level => [level, 1]));
+}
 /**
- * UBEC254: one Infrastructure package by level. Items plainly for ECCDE count as ECCDE (by their own amounts, never more than
- * the package); the rest follows the levels the package's target groups name, else the school's level (packages saved
- * before UBEC254 have no target group). A lump-sum New Construction package has no per-item amounts, so all of it follows
- * the target groups.
+ * UBEC254 (client answers, 11 November 2026): one Infrastructure package by level.
+ *   - items plainly for ECCDE count as ECCDE by their own amounts (never more than the package);
+ *   - items built for one level's learners (classrooms and blocks, their furniture, toilets) follow the levels the package's
+ *     target groups name, split by the school's enrolment at those levels (evenly without enrolment), else the school's level;
+ *   - the shared parts of the package (fence, gate house, water, power, other facilities, VAT) follow the school's level.
+ * A lump-sum New Construction package has no per-item amounts, so all of it follows the target groups (else the school's level).
  */
 function infrastructureLevels(line: Snapshot['infrastructure'][number]): Record<SchoolLevelKey, number> {
-  const minor = minorOf(line);
-  const eccde = Math.min(minor, (line.package?.result?.items ?? []).filter(isEccdeItem).reduce((sum, item) => sum + minorOfNumber(Number(item.total) || 0), 0));
-  const named = targetGroupWeights(line.target_group);
-  const rest = share(minor - eccde, Object.keys(named).length ? named : { [levelOf(line.school?.level)]: 1 });
-  return { ...rest, eccde: rest.eccde + eccde };
+  const minor = minorOf(line), school = (line.package?.school ?? line.school) as PackageSchool | undefined;
+  const items = line.package?.result?.items ?? [];
+  const own = { [levelOf(line.school?.level)]: 1 } as Weights, named = namedLevelWeights(line.target_group, school) ?? own;
+  const costed = items.filter(item => item.key !== 'package' && (Number(item.total) || 0) > 0);
+  if (line.package?.kind === 'new' && !costed.length) return share(minor, named);
+  const amount = (keep: (item: typeof items[number]) => boolean) => items.filter(keep).reduce((sum, item) => sum + minorOfNumber(Number(item.total) || 0), 0);
+  const eccde = Math.min(minor, amount(isEccdeItem));
+  const learners = Math.min(minor - eccde, amount(item => !isEccdeItem(item) && isLearnerItem(item.key)));
+  const parts = [share(learners, named), share(minor - eccde - learners, own)];
+  return Object.fromEntries(schoolLevelKeys.map(key => [key, parts[0][key] + parts[1][key] + (key === 'eccde' ? eccde : 0)])) as Record<SchoolLevelKey, number>;
 }
 /** The plan's proposed budget by school level, from a snapshot (or the part of one the viewer may see). */
 export function levelMapping(snapshot: Snapshot): LevelMapping {

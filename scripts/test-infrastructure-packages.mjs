@@ -123,6 +123,7 @@ try{
  review=ok(await api('officer',reviewPath));assert.ok(review.snapshot.infrastructure.find(l=>l.id===-oldNewId).package.result.items.some(i=>i.key==='block3os'),'Stored rows of an older package are kept');
  const {infrastructureDocumentProblem:landReadiness}=await import('../lib/infrastructure-documents.ts');
  assert.match(landReadiness({infrastructure:review.snapshot.infrastructure.filter(l=>l.id===-oldNewId),infrastructureDocuments:review.snapshot.infrastructureDocuments},{documentsRequired:false}),/Tick all three land declarations for Infrastructure QA/);
+ {const noGroup=review.snapshot.infrastructure.filter(l=>l.id===-oldNewId).map(l=>({...l,target_group:'',package:{...l.package,kind:'whole'}}));assert.match(landReadiness({infrastructure:noGroup,infrastructureDocuments:[]},{documentsRequired:false}),/Choose the target group for .*package before sending Infrastructure/,'UBEC254: a package without a target group is not sent');}
  {const loaded=ok(await api('officer',path)).packages.find(p=>p.id===oldNewId);ok(await api('officer',path,{action:'delete',id:oldNewId,version:loaded.version}));}
  // New Whole School package: no model; requirements from DNEMIS enrolment by level and teachers (rounded up); Minimum Standard rows are required.
  await db.query('UPDATE schools SET enrolment_by_class=$2::jsonb,teachers=$3::jsonb WHERE id=$1',[school,JSON.stringify({ECCDE:{male:20,female:25},P1:{male:90,female:90},P2:{male:90,female:85}}),JSON.stringify({male:10,female:9})]);

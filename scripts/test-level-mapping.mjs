@@ -56,6 +56,15 @@ assert.equal(levelMapping({ infrastructure: [line(500, 1, { school: school('JSS'
 assert.deepEqual(levelMapping({ infrastructure: [line(300, 1, { school: school('JSS') })], sports: [] }), { eccde: 0, primary: 0, jss: 300, none: 0, total: 300 });
 // The ECCDE items never count for more than the package.
 assert.equal(levelMapping({ infrastructure: [line(100, 1, { school: school('Primary'), package: pkg('whole', [item('classroomEccde-construct', 250)]) })], sports: [] }).eccde, 100);
+// UBEC254 client answers (11 November 2026): classrooms, furniture and toilets split by the school's enrolment at the named
+// levels; shared parts (fence, water, VAT…) follow the school's level.
+const enrolled = { ...school('Primary'), enrolmentByClass: { ECCDE: { male: 30, female: 30 }, P1: { male: 90, female: 90 } } };
+const mixed = line(1000, 1, { school: enrolled, target_group: 'ECCDE Learners, Primary School Learners', package: pkg('whole', [
+  item('classroomEccde-construct', 100), item('classroomPri-renovate', 400), item('toilet-renovate', 200), item('fence', 150), item('solarBorehole', 50)]) });
+// ECCDE 100; learner items 600 split 60:180 → 150 ECCDE, 450 Primary; shared 300 (fence, borehole, VAT 100) → Primary.
+assert.deepEqual(levelMapping({ infrastructure: [mixed], sports: [] }), { eccde: 250, primary: 750, jss: 0, none: 0, total: 1000 });
+assert.deepEqual(levelMapping({ infrastructure: [{ ...mixed, school: school('JSS'), target_group: 'Primary School Learners' }], sports: [] }), { eccde: 100, primary: 600, jss: 300, none: 0, total: 1000 }, 'shared parts follow the school level, not the target groups');
+assert.deepEqual(levelMapping({ infrastructure: [{ ...lump, school: enrolled }], sports: [] }), { eccde: 225, primary: 675, jss: 0, none: 0, total: 900 }, 'a lump-sum package by enrolment at the named levels');
 // UBEC231: the 15% ECCDE rule.
 assert.equal(eccdeShareProblem({ infrastructure: [], sports: [] }), null, 'nothing proposed: nothing to check');
 assert.equal(eccdeShareProblem({ infrastructure: [], sports: [], monitoring: [line(15, 1, { target_group: 'ECCDE Learners' }), line(85, 1)] }), null, 'exactly 15% passes');

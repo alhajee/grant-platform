@@ -27,8 +27,8 @@ const withParam = (href: string, key: string, value: string) => `${href}${href.i
 
 /**
  * UBEC248: "Download template" and "Upload list" for a school list (TLM, Curriculum and Greening distribution lists, PHE
- * training schools). The upload is checked on the server (DNEMIS code and School name must both match the same school)
- * and shown here before anything is added; nothing is ever removed by an upload.
+ * training schools). The upload is checked on the server (the DNEMIS code finds the school; a name that differs from the
+ * School list is shown as a check, client 11 November 2026) and shown here before anything is added; nothing is ever removed by an upload.
  */
 export function DistributionListUpload({ workstream, planHref, disabled, onAdd }: DistributionListUploadProps) {
   const input = useRef<HTMLInputElement>(null);
@@ -62,7 +62,7 @@ export function DistributionListUpload({ workstream, planHref, disabled, onAdd }
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Check the uploaded schools</DialogTitle>
-          <DialogDescription>{preview ? `${plural(preview.rows, 'row')} read. A school is added only when its DNEMIS code and name match the same school in the School list` : ''}</DialogDescription>
+          <DialogDescription>{preview ? `${plural(preview.rows, 'row')} read. Schools are found by their DNEMIS code. Check any name that differs from the School list` : ''}</DialogDescription>
         </DialogHeader>
         {preview && <UploadPreview preview={preview} />}
         <DialogFooter>
@@ -75,18 +75,18 @@ export function DistributionListUpload({ workstream, planHref, disabled, onAdd }
 }
 
 function UploadPreview({ preview }: { preview: Preview }) {
-  const problems = preview.mismatched.length + preview.unknown.length + preview.noCode.length + preview.duplicates.length;
+  const problems = preview.unknown.length + preview.noCode.length + preview.duplicates.length;
   return <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1">
     <div className="flex flex-wrap gap-2">
       <Badge>{plural(preview.matched.length, 'school')} to add</Badge>
       {preview.listed.length > 0 && <Badge variant="secondary">{count.format(preview.listed.length)} already on the list</Badge>}
-      {preview.mismatched.length > 0 && <Badge variant="warning">{count.format(preview.mismatched.length)} name does not match</Badge>}
+      {preview.mismatched.length > 0 && <Badge variant="outline">{count.format(preview.mismatched.length)} name differs</Badge>}
       {preview.unknown.length > 0 && <Badge variant="warning">{count.format(preview.unknown.length)} code not found</Badge>}
       {preview.noCode.length > 0 && <Badge variant="warning">{count.format(preview.noCode.length)} without a code</Badge>}
       {preview.duplicates.length > 0 && <Badge variant="outline">{count.format(preview.duplicates.length)} repeated</Badge>}
     </div>
     {problems > 0 && <Alert variant="warning"><AlertTitle>{plural(problems, 'row')} will not be added</AlertTitle><AlertDescription>Correct them in the file and upload it again. The schools that match can be added now</AlertDescription></Alert>}
-    {preview.mismatched.length > 0 && <Section title="DNEMIS code and name do not match" head={['Row', 'DNEMIS code', 'Name in the file', 'Name in the School list']} rows={preview.mismatched.map(r => [r.row, r.code, r.name || '—', `${r.school.name} · ${r.school.lga}`])} />}
+    {preview.mismatched.length > 0 && <Section title="Name differs from the School list (added by its DNEMIS code)" head={['Row', 'DNEMIS code', 'Name in the file', 'Name in the School list']} rows={preview.mismatched.map(r => [r.row, r.code, r.name || '—', `${r.school.name} · ${r.school.lga}`])} />}
     {preview.unknown.length > 0 && <Section title="DNEMIS code not in your state's School list" head={['Row', 'DNEMIS code', 'Name in the file']} rows={preview.unknown.map(r => [r.row, r.code, r.name || '—'])} />}
     {preview.noCode.length > 0 && <Section title="No DNEMIS code" head={['Row', 'Name in the file']} rows={preview.noCode.map(r => [r.row, r.name])} />}
     {preview.duplicates.length > 0 && <Section title="Repeated in the file" head={['Row', 'DNEMIS code', 'Name in the file', 'First on row']} rows={preview.duplicates.map(r => [r.row, r.code, r.name || '—', r.firstRow])} />}
