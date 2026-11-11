@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN LATERAL (SELECT jsonb_object_agg(component, ids) AS ids FROM (SELECT component, ARRAY_AGG(DISTINCT school_id ORDER BY school_id) AS ids FROM (
         SELECT 'infrastructure' AS component, school_id FROM infrastructure_packages WHERE plan_id=p.id
         UNION ALL SELECT 'sports', allocation.school_id FROM sports_allocations allocation JOIN sports_budget_lines line ON line.id=allocation.line_id JOIN schools school ON school.id=allocation.school_id WHERE line.plan_id=p.id AND line.state_code=p.state_code AND school.state_code=p.state_code
-        UNION ALL SELECT distribution.workstream, distribution.school_id FROM tlm_distribution distribution JOIN schools school ON school.id=distribution.school_id WHERE distribution.plan_id=p.id AND school.state_code=p.state_code
+        UNION ALL SELECT distribution.workstream, distribution.school_id FROM tlm_distribution distribution JOIN schools school ON school.id=distribution.school_id WHERE distribution.plan_id=p.id AND distribution.workstream<>'sports' AND school.state_code=p.state_code
         UNION ALL SELECT line.workstream, chosen.school_id FROM activity_line_schools chosen JOIN activity_plan_lines line ON line.id=chosen.line_id JOIN schools school ON school.id=chosen.school_id WHERE line.plan_id=p.id AND school.state_code=p.state_code
       ) plan_beneficiaries WHERE school_id IS NOT NULL GROUP BY component) grouped) beneficiaries ON TRUE
       WHERE p.state_code = $1 ORDER BY "updatedAt" DESC, p.id DESC`, [workspace.stateCode]);

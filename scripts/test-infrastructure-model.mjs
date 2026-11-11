@@ -111,6 +111,13 @@ assert.equal(other.included,true);assert.equal(other.toBuild,1);assert.equal(oth
 // Older rows: a retired “Extra beyond standard” figure is added to the calculated Additional, so totals are kept.
 const legacy=auditGaps({...whole,audit:{...whole.audit,toilet:{existing:10,functional:10,extra:2}}},facts).find(g=>g.key==='toilet');
 assert.equal(legacy.calculated,4,'12 − 10 + 2 extra');
+// UBEC255: non-functional toilets are renovated (shortfall = required − existing), like classrooms.
+{const broken={...whole,audit:{...whole.audit,toilet:{existing:12,functional:5,extra:0}}};
+ const row=auditGaps(broken,facts).find(g=>g.key==='toilet');
+ assert.equal(row.calculated,0,'12 required, 12 existing: nothing to build');assert.equal(row.nonFunctional,7);
+ const items=calculateInfrastructure(broken,facts).items;
+ const reno=items.find(i=>i.key==='toilet-renovate');assert.ok(reno,'the 7 non-functional toilets are renovated');assert.equal(reno.quantity,7);assert.equal(reno.operation,'Renovation');
+ assert.equal(items.find(i=>i.key==='toilet'),undefined,'no new toilets');}
 // Photographic evidence, per row with non-functional units.
 const photo='11111111-1111-4111-8111-111111111111',other2='22222222-2222-4222-8222-222222222222';
 assert.match(photoEvidenceProblem(whole,gaps,[]),/Classroom · Primary: non-functional units/);
@@ -146,7 +153,7 @@ const furniture=make('furniture');furniture.furniture=[{description:'Desk',quant
  assert.equal(blockGroupText({count:1,classrooms:0,offices:0,stores:0,toilets:6,classroomType:'primary'}),'1 toilet block of 6 compartments');
  assert.equal(blockGroupText({count:2,classrooms:0,offices:0,stores:0,toilets:6,classroomType:'primary'}),'2 toilet blocks of 6 compartments');
  const grouped=structuredClone(whole);grouped.audit.classroomPri={existing:4,functional:2,additional:7,extra:0};grouped.audit.office={existing:0,functional:0,additional:5,extra:0};grouped.audit.store={existing:2,functional:0,additional:1,extra:0};grouped.audit.toilet={existing:0,functional:0,additional:12,extra:0};
- assert.deepEqual(classroomBlockCounts(grouped,facts),{construct:{classrooms:7,eccde:3,toilets:12},renovate:{classrooms:2,eccde:0,toilets:0}},'new toilets are grouped; toilets are not civil, so none to renovate');
+ assert.deepEqual(classroomBlockCounts(grouped,facts),{construct:{classrooms:7,eccde:3,toilets:12},renovate:{classrooms:2,eccde:0,toilets:0}},'new toilets are grouped; none are non-functional, so none to renovate');
  const before=calculateInfrastructure(grouped,facts);assert.equal(before.items.find(i=>i.key==='classroomPri-construct').grouping,undefined,'not grouped until asked');
  assert.equal(before.items.find(i=>i.key==='classroomEccde-construct').quantity,2,'ungrouped: 3 ECCDE classrooms → 2 ECCDE blocks of 2');
  assert.equal(blockGroupingProblem(grouped,facts),null);

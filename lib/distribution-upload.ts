@@ -2,9 +2,9 @@
 // must agree with the School list before the school is added. Dependency-free so the unit test can import it.
 
 /** The workstreams whose school lists take a template: the three distribution lists and the PHE training schools. */
-export const uploadListWorkstreams = ['tlm', 'curriculum', 'gscci', 'phe'] as const;
+export const uploadListWorkstreams = ['tlm', 'curriculum', 'gscci', 'phe', 'sports'] as const;
 export type UploadListWorkstream = typeof uploadListWorkstreams[number];
-export const uploadListNames: Record<UploadListWorkstream, string> = { tlm: 'TLM distribution list', curriculum: 'Curriculum distribution list', gscci: 'Greening distribution list', phe: 'PHE training schools' };
+export const uploadListNames: Record<UploadListWorkstream, string> = { tlm: 'TLM distribution list', curriculum: 'Curriculum distribution list', gscci: 'Greening distribution list', phe: 'PHE training schools', sports: 'Sports beneficiary schools' };
 /** The component whose edit rights cover each list. */
 export const uploadListComponent = (workstream: UploadListWorkstream) => workstream === 'phe' ? 'sports' as const : workstream;
 export const maxUploadRows = 10000;

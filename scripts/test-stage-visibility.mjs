@@ -138,6 +138,7 @@ try {
   if (planId) {
     for (const t of ['plan_notifications', 'plan_comments', 'plan_review_events', 'plan_submissions', 'plan_pillar_reviews', 'component_documents', 'activity_plan_lines']) await db.query(`DELETE FROM ${t} WHERE plan_id=$1`, [planId]);
     await db.query('DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE plan_id=$1)', [planId]);
+    await db.query('DELETE FROM tlm_distribution WHERE plan_id=$1', [planId]);
     await db.query('DELETE FROM sports_budget_lines WHERE plan_id=$1', [planId]);
     await db.query('DELETE FROM action_plans WHERE id=$1', [planId]);
   }

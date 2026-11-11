@@ -14,7 +14,7 @@ const password = randomUUID();
 const db = new Client({ connectionString: process.env.DATABASE_URL });
 let cookie;
 async function api(body, authenticated = true, path = "/api/sports") {
-  const response = await fetch(`${baseUrl}${path}`, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", ...(authenticated && cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  const response = await fetch(`${baseUrl}${path}`, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", Origin: baseUrl, ...(authenticated && cookie ? { Cookie: cookie } : {}) }, body: body ? JSON.stringify(body) : undefined });
   return { status: response.status, body: await response.json(), response };
 }
 const budget = { entity: "budget", action: "create", targetGroup: "Schools", section: "equipment", activityType: "Children's football", description: "Training balls", quantity: 10, unitCost: 12500.25 };
@@ -173,8 +173,22 @@ try {
   assert.equal((await set([{ lineId, schoolId: schoolA, quantity: -1 }])).status, 400);
   assert.equal((await set([])).status, 400);
   assert.equal((await api({ entity: "budget", action: "set", allocations: [{ lineId, schoolId: schoolA, quantity: 1 }] })).status, 400, "Only allocations are set");
-  const removed = await set([{ lineId, schoolId: schoolA, quantity: 0 }, { lineId: cones.body.id, schoolId: schoolA, quantity: 0 }, { lineId, schoolId: schoolB, quantity: 0 }]);
-  assert.deepEqual([removed.status, removed.body.removed], [200, 3], "0 takes the items off the schools");
+  // UBEC249 (migration 100): schools given items join the beneficiary schools list; taking one off the list takes back its items.
+  const byId = (a, b) => a - b;
+  const listed = async () => (await api()).body.beneficiarySchools.map((school) => school.id).sort(byId);
+  const list = (body) => api({ list: "sports", ...body }, true, "/api/sports/training-schools");
+  assert.deepEqual(await listed(), [schoolA, schoolB].sort(byId), "Schools given items join the beneficiary list");
+  assert.equal((await list({ action: "remove", schoolId: schoolB })).status, 200);
+  assert.deepEqual(await held(), [`${lineId}:${schoolA}:5`, `${cones.body.id}:${schoolA}:2`].sort(), "Taking a school off the list takes back its items");
+  assert.deepEqual(await listed(), [schoolA]);
+  const back = await list({ action: "add", schoolIds: [schoolB, schoolA] });
+  assert.deepEqual([back.status, back.body.added, back.body.skipped], [200, 1, 1], "Adding skips listed schools");
+  assert.deepEqual(await listed(), [schoolA, schoolB].sort(byId));
+  assert.equal((await list({ action: "add", schoolIds: [foreignSchool] })).status, 404, "Schools of another state are refused");
+  assert.equal((await api({ list: "tlm", action: "add", schoolIds: [schoolA] }, true, "/api/sports/training-schools")).status, 400, "Only the Sports lists");
+  const removed = await set([{ lineId, schoolId: schoolA, quantity: 0 }, { lineId: cones.body.id, schoolId: schoolA, quantity: 0 }]);
+  assert.deepEqual([removed.status, removed.body.removed], [200, 2], "0 takes the items off the schools");
+  assert.deepEqual((await list({ action: "remove", schoolIds: [schoolA, schoolB] })).body.removed, 2, "Several schools come off the list at once");
   assert.deepEqual(await held(), []);
   assert.equal((await api({ entity: "budget", action: "delete", id: cones.body.id })).status, 200);
   assert.equal((await api({ entity: "budget", action: "delete", id: lineId })).status, 200);
@@ -275,6 +289,7 @@ try {
   console.log("PASS: target groups (UBEC219), codes from 001 per plan without quarters (UBEC233), unallocated equipment refused at send (UBEC224), four sections, sub-activity lists, max three procurement sports, typed sports items, decimal totals, persistence, edits/deletes, state isolation, authentication, school allocations, duplicate/over-allocation checks, sports envelope, section and competition sub-activity caps (save and send; lowering allowed), Debate programme components (V2 UBEC07: listed, capped at their maximum, minimums at send, earlier Debate lines kept), concurrent writes, coordinates, overview totals, and preserved Infrastructure data.");
 } finally {
   await db.query("DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code = ANY($1::text[]))", [[marker, foreignMarker]]);
+  await db.query('DELETE FROM tlm_distribution WHERE plan_id IN (SELECT id FROM action_plans WHERE state_code = ANY($1::text[]))', [[marker, foreignMarker]]);
   await db.query("DELETE FROM sports_budget_lines WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);
   await db.query("DELETE FROM action_plans WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);
   await db.query("DELETE FROM schools WHERE state_code = ANY($1::text[])", [[marker, foreignMarker]]);

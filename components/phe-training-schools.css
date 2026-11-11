@@ -18,3 +18,4 @@
 .phe-schools:not([data-open]) .phe-schools-toggle svg { transform: rotate(-90deg); }
 .phe-schools-body { display: flex; flex-direction: column; gap: 10px; }
 @media (prefers-reduced-motion: reduce) { .phe-schools-toggle svg { transition: none; } }
+.phe-schools-no-items { font-style: normal; color: #9a6b00; }

@@ -125,7 +125,7 @@ export function SportsItemsForSchools({ plan, disabled, onSaved }: { plan: Sport
   const done = items.filter((line) => allocatedOf(plan, line.id) >= line.quantity).length;
   return <section className="distribution-items sports-items-for-schools" aria-labelledby="sports-items-title">
     <div className="distribution-items-head"><h3 id="sports-items-title">Items for schools</h3><Badge variant={done === items.length ? "secondary" : "warning"}>{done} of {items.length} shared out</Badge></div>
-    <p className="distribution-note">Share each equipment item&apos;s quantity across beneficiary schools. Every item must be shared in full before sending</p>
+    <p className="distribution-note">Share each equipment item&apos;s quantity across the schools on the Beneficiary schools list. Every item must be shared in full before sending</p>
     <ul>{items.map((line) => {
       const allocated = allocatedOf(plan, line.id), full = allocated >= line.quantity, schools = plan.allocations.filter((item) => item.lineId === line.id).length;
       return <li key={line.id} data-full={full || undefined}>
@@ -141,14 +141,13 @@ export function SportsItemsForSchools({ plan, disabled, onSaved }: { plan: Sport
 }
 
 function SportsAllocateDialog({ plan, line, onClose, onSaved }: { plan: SportsPlan; line: SportsLine; onClose: () => void; onSaved: () => Promise<unknown> }) {
-  // The rows: schools holding this item, then the plan's other beneficiary schools, then any school added here.
-  const [added, setAdded] = useState<number[]>([]);
+  // The rows (UBEC249, client 11 November 2026): the beneficiary schools list, plus any school holding this item that is not on it.
   const rows = useMemo(() => {
+    const listed = (plan.beneficiarySchools ?? []).map((school) => school.id);
     const holders = plan.allocations.filter((item) => item.lineId === line.id).map((item) => item.schoolId);
-    const beneficiaries = plan.allocations.map((item) => item.schoolId);
-    const ids = [...new Set([...holders, ...beneficiaries, ...added])];
-    return ids.map((id) => plan.schools.find((school) => school.id === id)).filter((school): school is SportsSchool => Boolean(school));
-  }, [plan, line.id, added]);
+    const ids = [...new Set([...listed, ...holders])];
+    return ids.map((id) => plan.schools.find((school) => school.id === id) ?? plan.beneficiarySchools?.find((school) => school.id === id)).filter((school): school is SportsSchool => Boolean(school));
+  }, [plan, line.id]);
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(plan.allocations.filter((item) => item.lineId === line.id).map((item) => [String(item.schoolId), String(item.quantity)])));
   const [saving, setSaving] = useState(false), [error, setError] = useState("");
   const quantityOf = (schoolId: number) => typed(values[String(schoolId)]);
@@ -157,7 +156,6 @@ function SportsAllocateDialog({ plan, line, onClose, onSaved }: { plan: SportsPl
   const fill = (shares: Map<number, number>) => { setValues(Object.fromEntries([...shares].filter(([, q]) => q > 0).map(([id, q]) => [String(id), String(q)]))); setError(""); };
   // Whole items, the remainder to the first schools.
   const even = () => fill(new Map(rows.map((school, index) => [school.id, Math.floor(line.quantity / rows.length) + (index < line.quantity % rows.length ? 1 : 0)])));
-  const others = plan.schools.filter((school) => !rows.some((row) => row.id === school.id));
 
   async function save() {
     if (saving) return;
@@ -177,10 +175,6 @@ function SportsAllocateDialog({ plan, line, onClose, onSaved }: { plan: SportsPl
   return <Dialog open onOpenChange={(next) => { if (!next && !saving) onClose(); }}>
     <DialogContent className="sm:max-w-2xl distribution-allocate-dialog">
       <DialogHeader><DialogTitle>Allocate · {line.description}</DialogTitle><DialogDescription>{line.activityType} · {plural(line.quantity, "item")} at {nairaFormat.format(Number(line.unitCost))} each. Give each school its number of items; schools left blank get none</DialogDescription></DialogHeader>
-      <Field>
-        <FieldLabel htmlFor={`sports-allocate-${line.id}-school`}>Add a school</FieldLabel>
-        <SchoolPicker id={`sports-allocate-${line.id}-school`} schools={others} value={null} onChange={(school) => { if (school) { setAdded((current) => [...current, school.id]); setError(""); } }} disabled={saving} placeholder="Search by school, LGA or DNEMIS code…" />
-      </Field>
       <div className="distribution-allocate-tools">
         <Button size="sm" variant="outline" className="rounded-full" disabled={saving || !rows.length} onClick={even}>Share evenly</Button>
         <Button size="sm" variant="ghost" className="rounded-full" disabled={saving || !allocated} onClick={() => fill(new Map())}>Clear</Button>
@@ -190,7 +184,7 @@ function SportsAllocateDialog({ plan, line, onClose, onSaved }: { plan: SportsPl
         <TableBody>{rows.map((school) => <TableRow key={school.id}><TableCell className="whitespace-normal">{school.name}</TableCell><TableCell>{school.lga}</TableCell><TableCell>{school.level}</TableCell>
           <TableCell className="text-right"><Input type="number" inputMode="numeric" min={0} max={line.quantity} step={1} placeholder="0" className="h-8 w-24 ml-auto text-right" aria-label={`Items for ${school.name}`} value={values[String(school.id)] ?? ""} disabled={saving} onChange={(event) => { setValues({ ...values, [String(school.id)]: event.target.value }); setError(""); }} /></TableCell></TableRow>)}</TableBody>
         <TableFooter><TableRow><TableCell colSpan={3}>Allocated</TableCell><TableCell className="text-right tabular-nums">{count.format(allocated)} / {count.format(line.quantity)}</TableCell></TableRow></TableFooter></Table></div>
-        : <p className="distribution-note"><PlusIcon aria-hidden="true" className="inline size-4 align-text-bottom" /> Add the schools that get this item</p>}
+        : <p className="distribution-note"><PlusIcon aria-hidden="true" className="inline size-4 align-text-bottom" /> Add schools to the Beneficiary schools list first, then share this item across them</p>}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       <DialogFooter><Button variant="outline" disabled={saving} onClick={onClose}>Cancel</Button><Button disabled={saving || left < 0 || invalid} onClick={() => void save()}>{saving && <Spinner data-icon="inline-start" />}Save allocation</Button></DialogFooter>
     </DialogContent>

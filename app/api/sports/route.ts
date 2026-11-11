@@ -36,6 +36,8 @@ export async function GET(request: NextRequest) {
     if (!(await readStageVisibility(db, workspace, plan.id)).includes('sports')) return error(notSentYetMessage, 403);
     // UBEC74: the schools of the PHE officer training (migration 079).
     const trainingSchools = (await db.query(`SELECT s.id, s.name, s.lga, s.level, s.location FROM tlm_distribution d JOIN schools s ON s.id = d.school_id WHERE d.plan_id = $1 AND d.workstream = 'phe' ORDER BY s.name`, [plan.id])).rows;
+    // UBEC249: the beneficiary schools list (migration 100) the equipment items are shared across.
+    const beneficiarySchools = (await db.query(`SELECT s.id, s.name, s.lga, s.level, s.location, s.school_code AS code FROM tlm_distribution d JOIN schools s ON s.id = d.school_id WHERE d.plan_id = $1 AND d.workstream = 'sports' AND s.state_code = $2 ORDER BY s.name`, [plan.id, workspace.stateCode])).rows;
     const [lines, allocations, schools] = await Promise.all([
       db.query(`SELECT id, code, section, activity_type AS "activityType", description, target_group AS "targetGroup", quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey", price_item_id AS "priceItemId"
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),
@@ -45,7 +47,7 @@ export async function GET(request: NextRequest) {
         WHERE b.state_code = ${state} AND b.plan_id = ${plan.id} AND s.state_code = ${state} ORDER BY s.name, a.id`),
       cachedSchoolList(workspace.stateCode, 'sports-v2', async () => (await db.query(`SELECT id, name, lga, level, location, school_code AS code FROM schools WHERE state_code = ${state} ORDER BY name`)).rows),
     ]);
-    return NextResponse.json({ plan, envelope: componentEnvelope(plan, "sports"), canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, trainingSchools, schools }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ plan, envelope: componentEnvelope(plan, "sports"), canEdit: mayEditPillar(workspace.role,workspace.departments ?? workspace.department,'sports',plan.status,await readPillarReviews(db,plan.id)), lines: lines.rows, allocations: allocations.rows, trainingSchools, beneficiarySchools, schools }, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Unable to load sports plan", cause);
     return error("Your sports plan could not be loaded. Please try again.", 503);
@@ -185,6 +187,7 @@ export async function POST(request: NextRequest) {
             VALUES (${allocation.lineId}, ${allocation.schoolId}, ${allocation.quantity}, ${sqlText(allocation.longitude)}, ${sqlText(allocation.latitude)}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid) RETURNING id`)
         : await db.query(`UPDATE sports_allocations SET line_id = ${allocation.lineId}, school_id = ${allocation.schoolId}, quantity = ${allocation.quantity},
             longitude = ${sqlText(allocation.longitude)}, latitude = ${sqlText(allocation.latitude)}, updated_at = NOW() WHERE id = ${id} RETURNING id`);
+      await listBeneficiaries(db, plan.id, [allocation.schoolId]);
       return NextResponse.json(result.rows[0], { status: action === "create" ? 201 : 200 });
     });
   } catch (cause) {
@@ -223,5 +226,12 @@ async function setAllocations(db: Client, stateCode: string, planId: number, row
       saved += 1;
     }
   }
+  await listBeneficiaries(db, planId, rows.filter((row) => row.quantity > 0).map((row) => row.schoolId));
   return NextResponse.json({ ok: true, saved, removed });
+}
+
+/** UBEC249: a school given equipment joins the beneficiary schools list (migration 100), if it is not on it already. */
+async function listBeneficiaries(db: Client, planId: number, schoolIds: number[]) {
+  const ids = [...new Set(schoolIds)];
+  if (ids.length) await db.query("INSERT INTO tlm_distribution(plan_id, workstream, school_id) SELECT $1, 'sports', unnest($2::int[]) ON CONFLICT DO NOTHING", [planId, ids]);
 }

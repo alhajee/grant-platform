@@ -97,6 +97,7 @@ try {
   console.log("PASS: plan creation, authenticated state scope, isolated editor data and mutations, allocation isolation, plan references, dashboard totals, unique targeted schools across plans, and preserved existing plans.");
 } finally {
   await db.query("DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code = ANY($1::text[]))", [states]);
+  await db.query('DELETE FROM tlm_distribution WHERE plan_id IN (SELECT id FROM action_plans WHERE state_code = ANY($1::text[]))', [states]);
   await db.query("DELETE FROM sports_budget_lines WHERE state_code = ANY($1::text[])", [states]);
   await db.query("DELETE FROM action_plans WHERE state_code = ANY($1::text[])", [states]);
   await db.query("DELETE FROM schools WHERE state_code = ANY($1::text[])", [states]);

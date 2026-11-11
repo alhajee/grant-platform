@@ -164,6 +164,7 @@ try {
   await db.query(`DELETE FROM ubec_assignments WHERE round_id IN (SELECT id FROM ubec_rounds WHERE plan_id IN (${plans}))`, [states]);
   for (const table of ['ubec_rounds', 'plan_review_events', 'plan_submissions', 'plan_pillar_reviews', 'activity_plan_lines']) await db.query(`DELETE FROM ${table} WHERE plan_id IN (${plans})`, [states]);
   await db.query('DELETE FROM sports_allocations WHERE line_id IN (SELECT id FROM sports_budget_lines WHERE state_code=ANY($1::text[]))', [states]);
+  await db.query('DELETE FROM tlm_distribution WHERE plan_id IN (SELECT id FROM action_plans WHERE state_code = ANY($1::text[]))', [states]);
   for (const table of ['sports_budget_lines', 'action_plans', 'schools']) await db.query(`DELETE FROM ${table} WHERE state_code=ANY($1::text[])`, [states]);
   const userIds = Object.values(ids);
   if (userIds.length) {

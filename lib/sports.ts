@@ -114,7 +114,7 @@ export type SportsLine = { id: number; code: string; section: SportsSection; act
   /** UBEC244 (migration 095): the price-list item picked, null when typed. */
   priceItemId?: number | null };
 export type SportsAllocation = { id: number; schoolId: number; lineId: number; quantity: number; longitude: string; latitude: string; clientKey?: string | null; name: string; lga: string; level: string; location: "Rural" | "Urban" };
-export type SportsPlan = { lines: SportsLine[]; allocations: SportsAllocation[]; schools: SportsSchool[]; /** UBEC74: the PHE officer training schools. */ trainingSchools?: SportsSchool[] };
+export type SportsPlan = { lines: SportsLine[]; allocations: SportsAllocation[]; schools: SportsSchool[]; /** UBEC74: the PHE officer training schools. */ trainingSchools?: SportsSchool[]; /** UBEC249: the beneficiary schools list (migration 100). */ beneficiarySchools?: SportsSchool[] };
 
 const id = z.number().int().positive();
 const quantity = z.number().int("Use a whole number").min(1, "Enter a quantity of at least 1").max(1000000, "Use a quantity of 1,000,000 or less");

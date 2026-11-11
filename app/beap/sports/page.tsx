@@ -2,7 +2,7 @@
 import { PlanStatusBadge } from "@/components/plan-status";
 import { currentPlanHref, planPeriod, type ActionPlan } from "@/lib/action-plans";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, EyeIcon, PencilIcon, PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { SportsBudgetFields, emptyBudget, type BudgetDraft, type FormErrors } from "@/components/sports-plan-forms";
@@ -79,7 +79,8 @@ export default function SportsPage() {
   // Equipment items go to schools; Training of PHE Officers lines do not (UBEC121).
   const hasEquipment = plan.lines.some((line) => line.section === "equipment" && !isPheTraining(line));
   const budgetTotal = sportsBudget(plan.lines);
-  const schoolCount = new Set(plan.allocations.map((item) => item.schoolId)).size;
+  const schoolCount = new Set([...plan.allocations.map((item) => item.schoolId), ...(plan.beneficiarySchools ?? []).map((school) => school.id)]).size;
+  const itemsBySchool = useMemo(() => plan.allocations.reduce((map, item) => map.set(item.schoolId, (map.get(item.schoolId) ?? 0) + item.quantity), new Map<number, number>()), [plan.allocations]);
   const equipmentQuantity = plan.lines.filter((line) => line.section === "equipment" && !isPheTraining(line)).reduce((sum, line) => sum + line.quantity, 0);
   const allocatedQuantity = plan.allocations.reduce((sum, item) => sum + item.quantity, 0);
   const unallocated = unallocatedSportsItems(plan.lines.map((line) => ({ section: line.section, activityType: line.activityType, description: line.description, quantity: line.quantity, allocated: plan.allocations.filter((item) => item.lineId === line.id).reduce((sum, item) => sum + item.quantity, 0) })));
@@ -371,7 +372,10 @@ export default function SportsPage() {
   </article>;
   const preview = <section className="workspace-pane preview-pane" aria-label="Sports plan preview"><ScrollArea className="pane-scroll">{view === "budget" ? budgetPanel : <article className="preview-document sports-preview">
     <div className="plan-overview"><div><span>Beneficiary schools</span>{loading ? <Skeleton className="h-8 w-48" /> : <strong>{`${schoolCount} ${schoolCount === 1 ? "school" : "schools"}`}</strong>}</div><p>{`${allocatedQuantity.toLocaleString()} of ${equipmentQuantity.toLocaleString()} equipment items allocated`}</p></div>
-    {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : <><SportsItemsForSchools plan={plan} disabled={disabled} onSaved={refreshAllocations} /><SportsBeneficiaryPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} /></>}
+    {loading ? <div className="preview-loading"><Skeleton className="h-20 w-full" /><Skeleton className="h-32 w-full" /></div> : <>
+      {/* UBEC249: the beneficiary schools list the equipment items are shared across. */}
+      {hasEquipment && <PheTrainingSchools list="sports" planHref={currentPlanHref} schools={plan.schools} listed={plan.beneficiarySchools ?? []} itemsBySchool={itemsBySchool} disabled={disabled} required onChanged={refreshAllocations} />}
+      <SportsItemsForSchools plan={plan} disabled={disabled} onSaved={refreshAllocations} /><SportsBeneficiaryPreview plan={plan} disabled={disabled} onEdit={edit} onRemove={setRemoveTarget} /></>}
   </article>}</ScrollArea></section>;
 
   return <div className="portal-shell"><div className="portal-workspace" ref={workspaceRef}>

@@ -164,7 +164,7 @@ export function ClassroomBlockGrouping({ input, school, disabled, onChange }: Bl
   </Field>;
   // The classroom type is asked only when the kind has ECCDE classrooms (otherwise every classroom is Primary/JSS).
   const showType = need.eccde > 0;
-  // Only what the kind has: renovation has no toilets (they are not civil works), and a kind may have toilets alone.
+  // Only what the kind has (renovation has toilets only when some are non-functional), and a kind may have toilets alone.
   const showRooms = need.classrooms + need.eccde > 0, showToilets = need.toilets > 0;
   const facilityKeys = Object.keys(roomsLeft) as BlockFacility[];
   const showForm = editing !== null || anyLeft(left) || anyFacilityLeft(facilitiesLeft(available, groups));

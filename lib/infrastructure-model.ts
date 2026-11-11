@@ -255,18 +255,23 @@ export function newConstructionRows(model:number,stream:SchoolStream,fenceLength
  rows.push({key:'fence',label:'Perimeter wall fence with concertina security wire',quantity:fenceLength,unit:'metres',lump:false});
  return rows;
 }
+/**
+ * Rows whose non-functional units are renovated: civil works, and toilets (UBEC255, 11 November 2026: "11 required, 11
+ * existing, 5 functional": the 6 non-functional are renovated, not built again). For these the shortfall is required − existing.
+ */
+const renovatable=(r:{key:string;civil?:boolean})=>!!r.civil||r.key==='toilet';
 export type AuditGap=ReturnType<typeof auditGaps>[number];
 /** Whole School audit rows: requirements from enrolment (wholeRequirements), what the auditor entered, and what is to be built. */
 export function auditGaps(input:InfrastructureInput, school:SchoolBasis) {
  const facts=toFacts(school,input.components),stream=schoolStream(input.components),need=wholeRequirements(facts,stream);
- const fence={...fenceDeliverable,qty:[0,0,0],lump:false,block:undefined as number|undefined,standard:undefined as [string,string,string]|undefined};
- return [...requirements.map(r=>({...r,civil:!!r.civil,lump:!!r.lump,tick:!!r.tick})),fence].filter(r=>appliesToStream(r.key,stream)).map(r=>{
+ const fence={...fenceDeliverable,qty:[0,0,0],lump:false,renovates:renovatable(fenceDeliverable),block:undefined as number|undefined,standard:undefined as [string,string,string]|undefined};
+ return [...requirements.map(r=>({...r,civil:!!r.civil,lump:!!r.lump,tick:!!r.tick,renovates:renovatable(r)})),fence].filter(r=>appliesToStream(r.key,stream)).map(r=>{
   const stored=input.audit[r.key];
   const existing=stored?.existing??0,functional=stored?.functional??0,extra=stored?.extra??0;
   const category:DeliverableCategory=r.category;
   const required=category==='other'?0:r.key==='fence'?input.fenceRequired:need[r.key]?.qty??0;
   // Calculated shortfall; a retired "Extra beyond standard" figure is added so older packages keep their totals.
-  const calculated=Math.max(0,required-(r.civil?existing:functional))+extra;
+  const calculated=Math.max(0,required-(r.renovates?existing:functional))+extra;
   const additional=stored?.additional??calculated;
   return {...r,label:r.key==='classroomPri'?classroomLabel(facts,stream):r.label,category,existing,functional,extra,entered:{existing:stored?.existing!==undefined,functional:stored?.functional!==undefined,additional:stored?.additional!==undefined},
    /** Other Facilities count only once something is entered. */
@@ -363,13 +368,12 @@ export function blockGroupingText(g: BlockGrouping): string {
 }
 /**
  * What a Whole School package builds (Additional) and renovates (non-functional), the counts block grouping draws from:
- * Primary/JSS classrooms, ECCDE classrooms and toilets. Toilets are not civil works, so only new ones are grouped (non-functional
- * toilets are replaced through the Additional figure).
+ * Primary/JSS classrooms, ECCDE classrooms and toilets. Non-functional toilets are renovated like classrooms (UBEC255).
  */
 export function classroomBlockCounts(input: InfrastructureInput, school: SchoolBasis): Record<BlockKind, BlockCounts> {
  if (input.kind !== 'whole') return { construct: noCounts, renovate: noCounts };
  const gaps = auditGaps(input, school), row = (key: string) => gaps.find(g => g.key === key);
- const renovate = (key: string) => { const g = row(key); return g?.civil ? g.nonFunctional : 0; };
+ const renovate = (key: string) => { const g = row(key); return g?.renovates ? g.nonFunctional : 0; };
  return {
   construct: { classrooms: row('classroomPri')?.toBuild ?? 0, eccde: row('classroomEccde')?.toBuild ?? 0, toilets: row('toilet')?.toBuild ?? 0 },
   renovate: { classrooms: renovate('classroomPri'), eccde: renovate('classroomEccde'), toilets: renovate('toilet') },
@@ -385,7 +389,7 @@ export function blockFacilityCounts(input: InfrastructureInput, school: SchoolBa
  for (const gap of auditGaps(input, school)) {
   if (!isBlockFacility(gap.key) || !gap.included) continue;
   if (gap.toBuild > 0) out.construct[gap.key] = gap.toBuild;
-  if (gap.civil && gap.nonFunctional > 0) out.renovate[gap.key] = gap.nonFunctional;
+  if (gap.renovates && gap.nonFunctional > 0) out.renovate[gap.key] = gap.nonFunctional;
  }
  return out;
 }
@@ -485,7 +489,7 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
    return `${text} ${held===1?'is':'are'} in the blocks`;
   };
   const renovate=Math.max(0,gap.nonFunctional-inBlocks('renovate')),construct=Math.max(0,gap.toBuild-inBlocks('construct'));
-  if(gap.civil&&renovate>0)addGap(gap.key+'-renovate','Renovation',renovate,true,gap.unit,blockNote('renovate'));
+  if(gap.renovates&&renovate>0)addGap(gap.key+'-renovate','Renovation',renovate,true,gap.unit,blockNote('renovate'));
   // New ECCDE classrooms are built as ECCDE blocks of 2 classrooms, unless the new classrooms are grouped by block (their block
   // items then hold them). Toilets read "Supply / New Construction" (October 2026).
   const eccdePairs=gap.key==='classroomEccde'&&!groupings.construct;

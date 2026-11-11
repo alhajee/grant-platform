@@ -139,7 +139,7 @@ try{
  // Other Facilities are optional: one is added (a science laboratory, Additional entered), the rest stay blank. Dual desks: Additional overridden.
  whole.audit.scienceLab={additional:1,extra:0};whole.audit.dualDesk={existing:0,functional:0,additional:150,extra:0};
  // Per-row photographic evidence (the setting is Required in this test): toilets recorded non-functional need their own photo.
- whole.audit.toilet={existing:6,functional:4,extra:0};
+ whole.audit.toilet={existing:6,functional:4,additional:14,extra:0};
  for(const i of calculateInfrastructure(whole,facts).items)whole.packageCosts[i.key]={cost:1,strategy:'NCB',duration:'8 weeks'};
  const noPhoto=await api('officer',path,{action:'save',input:whole});ok(noPhoto,400);assert.match(noPhoto.data.error,/photographic evidence for Toilet/);
  const toiletPhoto=await upload('photo');whole.documentIds.push(toiletPhoto.id);
@@ -154,7 +154,7 @@ try{
  const item=key=>savedWhole.result.items.find(i=>i.key===key);
  assert.equal(item('classroomPri-construct').quantity,9,'355 Primary learners ÷ 40 → 9 classrooms');assert.equal(item('classroomEccde-construct').quantity,1,'45 ÷ 30 → 2 ECCDE classrooms = 1 block');
  assert.equal(item('office-construct').quantity,4,'11 classrooms ÷ 3 → 4');assert.equal(item('staffroom').quantity,3,'19 teachers ÷ 9 → 3');
- assert.equal(item('toilet').quantity,14,'Primary 355 ÷ 20 = 18 compartments (ECCDE learners excluded) − 4 functional');assert.equal(item('toilet-renovate'),undefined,'Toilets are not civil works');
+ assert.equal(item('toilet').quantity,14,'The Additional figure entered is built');assert.equal(item('toilet-renovate').quantity,2,'UBEC255: the 2 non-functional toilets are renovated');
  assert.equal(item('teachersFurniture').quantity,11);assert.equal(item('magneticBoard').quantity,11);assert.equal(item('dualDesk').quantity,150,'The Additional figure entered is costed');
  assert.ok(item('scienceLab-construct'));assert.ok(!savedWhole.result.items.some(i=>i.key.startsWith('workshop')),'Blank Other Facilities are left out');
  current=ok(await api('officer',path));const assessment=current.packages.find(p=>p.kind==='whole');
