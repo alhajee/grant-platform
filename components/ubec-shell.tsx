@@ -39,7 +39,7 @@ export function UbecShell({ children, user, review = false, allocations = false,
           {!admin && <NotificationBell />}
           <div className="national-header-account">
             {/* The account shows the role and department, e.g. "UBEC Director · Physical Planning (DPP)". */}
-            <AccountMenu user={user ? { ...user, role: ubecRoleTitle(user.role, user.department, !!user.chair), email: '', stateCode: 'UBEC', isBeapChair: holdsUbecChair(user) } : null} />
+            <AccountMenu user={user ? { ...user, role: ubecRoleTitle(user.role, user.department, !!user.chair), email: '', stateCode: 'UBEC', isBeapChair: holdsUbecChair(user) } : null} badgeRole={user?.role} />
           </div>
         </div>
       </header>

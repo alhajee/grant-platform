@@ -42,6 +42,28 @@ const badges: Record<string, Badge> = {
   // UBEC BEAP Chair (not a department; the chair-limit row on Admin > Settings): a crown
   chair: { shape: 'hexagon', tones: { base: '#ffd24a', edge: '#d9a10f', face: '#ffc61f', glyph: '#a86f00', light: '#ffe9a3' },
     glyph: c => <g fill={c}><path d="M11.2 15.2 15.6 19 20 12.6l4.4 6.4 4.4-3.8-1.7 8.6H12.9Z" /><rect x="12.9" y="25.1" width="14.2" height="2.6" rx="1" /><circle cx="11.2" cy="14.6" r="1.6" /><circle cx="20" cy="11.6" r="1.6" /><circle cx="28.8" cy="14.6" r="1.6" /><circle cx="20" cy="20.6" r="1.3" fill="#ffffff" fillOpacity=".75" /></g> },
+  // Roles (client, 11 November 2026: a badge for everyone, like the departments). Keys start with "role-"; see components/role-art.tsx.
+  // Data Entry: a pencil
+  'role-dataEntry': { shape: 'shield', tones: { base: '#ff9a6b', edge: '#e0683a', face: '#ff8552', glyph: '#b44a1e', light: '#ffc6ab' },
+    glyph: c => <g><path fill={c} d="m24.6 10.8 4.6 4.6-11.6 11.6-5.6 1 1-5.6Z" /><path d="m22.4 13 4.6 4.6" stroke="#ffffff" strokeOpacity=".8" strokeWidth="1.5" /></g> },
+  // Director (SUBEB and UBEC): a briefcase
+  'role-director': { shape: 'hexagon', tones: { base: '#8e86ff', edge: '#5f55d6', face: '#7d74fa', glyph: '#3b2fa8', light: '#cbc6ff' },
+    glyph: c => <g><path d="M16.6 14.2v-1.7a1.7 1.7 0 0 1 1.7-1.7h3.4a1.7 1.7 0 0 1 1.7 1.7v1.7" fill="none" stroke={c} strokeWidth="2" /><rect x="10.5" y="14.2" width="19" height="12.6" rx="2.2" fill={c} /><path d="M10.5 19.6h19" stroke="#ffffff" strokeOpacity=".7" strokeWidth="1.3" /><rect x="18.6" y="18.4" width="2.8" height="2.6" rx=".7" fill="#ffffff" fillOpacity=".85" /></g> },
+  // Executive Chairman: a gavel
+  'role-chairman': { shape: 'shield', tones: { base: '#4a74f0', edge: '#2b4fc4', face: '#3d66e8', glyph: '#1b358f', light: '#a9beff' },
+    glyph: c => <g fill={c}><g transform="rotate(-40 19 17)"><rect x="13.5" y="11" width="11" height="5.6" rx="1.5" /><rect x="17.7" y="16" width="2.6" height="10.5" rx="1.2" /></g><rect x="20" y="25.4" width="9.5" height="2.6" rx="1.2" /></g> },
+  // UBEC Executive Secretary: a seal with ribbons
+  'role-secretary': { shape: 'hexagon', tones: { base: '#e0a26b', edge: '#b8743a', face: '#d69457', glyph: '#8a4f1c', light: '#f3cfac' },
+    glyph: c => <g><path fill={c} d="m16.8 21 -1.8 7 3.1-1.6 1.9 2.4 1-6.6Zm6.4 0 1.8 7-3.1-1.6-1.9 2.4-1-6.6Z" /><circle cx="20" cy="17.4" r="6.4" fill={c} /><path fill="#ffffff" fillOpacity=".85" d="m20 13.9 1.1 2.2 2.4.3-1.8 1.7.4 2.4-2.1-1.1-2.1 1.1.4-2.4-1.8-1.7 2.4-.3Z" /></g> },
+  // UBEC Oversight Director: an eye
+  'role-oversight': { shape: 'shield', tones: { base: '#8fa8c8', edge: '#5f7aa0', face: '#7f9abd', glyph: '#3d5577', light: '#c9d7ea' },
+    glyph: c => <g><path fill={c} d="M9.8 19.2c2.6-4.6 6.1-7 10.2-7s7.6 2.4 10.2 7c-2.6 4.6-6.1 7-10.2 7s-7.6-2.4-10.2-7Z" /><circle cx="20" cy="19.2" r="4" fill="#ffffff" fillOpacity=".9" /><circle cx="20" cy="19.2" r="2" fill={c} /></g> },
+  // UBEC Assessment Officer: a clipboard with a check
+  'role-officer': { shape: 'hexagon', tones: { base: '#4fd6a8', edge: '#21a77a', face: '#38c896', glyph: '#11744f', light: '#a9efd6' },
+    glyph: c => <g><rect x="12.5" y="12.2" width="15" height="16" rx="2.2" fill={c} /><rect x="16.4" y="10.2" width="7.2" height="4" rx="1.3" fill={c} stroke="#ffffff" strokeOpacity=".7" strokeWidth="1" /><path d="m16.2 21 2.6 2.6 5-5.4" fill="none" stroke="#ffffff" strokeOpacity=".9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></g> },
+  // Super Admin: a key
+  'role-admin': { shape: 'shield', tones: { base: '#8a94a6', edge: '#5c6577', face: '#7b8597', glyph: '#363d4a', light: '#c8ced9' },
+    glyph: c => <g fill={c}><circle cx="15.2" cy="18.6" r="5.2" /><rect x="19" y="17.2" width="11" height="2.9" rx="1" /><rect x="24.6" y="19.4" width="2.4" height="3.4" rx=".6" /><rect x="27.6" y="19.4" width="2.2" height="2.6" rx=".6" /><circle cx="14.4" cy="18.6" r="1.9" fill="#ffffff" fillOpacity=".85" /></g> },
 };
 
 /** The department's badge; nothing for an unknown department. */

@@ -4,6 +4,8 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { MoreHorizontalIcon, PencilIcon, KeyRoundIcon, Trash2Icon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { RoleWithArt } from '@/components/role-art';
+import { DepartmentArt } from '@/components/ubec/department-art';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { departments as ubecDepartments } from '@/lib/ubec';
@@ -45,7 +47,7 @@ export function userColumns(actorId: number, actorRole: string, actorDepartments
     helper.accessor('role', {
       header: ({ column }) => <SortHeader column={column} title="Role" />,
       sortFn: 'text',
-      cell: ({ row }) => <div className="flex flex-wrap items-center gap-2">{row.original.role}{row.original.isBeapChair && <Badge variant="secondary">BEAP Chair</Badge>}</div>,
+      cell: ({ row }) => <div className="flex flex-wrap items-center gap-2"><RoleWithArt role={row.original.role} />{row.original.isBeapChair && <Badge variant="secondary" className="chair-badge"><DepartmentArt department="chair" className="department-art-xs" />BEAP Chair</Badge>}</div>,
     }),
     helper.accessor(departmentLabel, {
       id: 'department',

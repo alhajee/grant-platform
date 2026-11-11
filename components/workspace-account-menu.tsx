@@ -9,8 +9,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import type { LocalUser } from "@/lib/local-session";
 import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { DepartmentArt } from "@/components/ubec/department-art";
+import { RoleArt } from "@/components/role-art";
 
-export function AccountMenu({ user, onViewPlan, disabled = false }: { user: LocalUser | null; onViewPlan?: () => void; disabled?: boolean }) {
+export function AccountMenu({ user, onViewPlan, disabled = false, badgeRole }: { user: LocalUser | null; onViewPlan?: () => void; disabled?: boolean; /** The stored role, when `user.role` is a display title (UBEC). */ badgeRole?: string }) {
   const name = user?.name || "Your account";
   const role = user?.role?.replaceAll("_", " ") || "";
   const [changing, setChanging] = useState(false);
@@ -47,7 +48,7 @@ export function AccountMenu({ user, onViewPlan, disabled = false }: { user: Loca
             <span className="account-avatar-wrap">
               <Avatar size="lg" className="account-avatar"><AvatarFallback>{initials}</AvatarFallback></Avatar>
             </span>
-            <span><strong>{name}</strong>{role && <small>{role}</small>}{chairLabel && role !== chairLabel && <span className="account-chair-label"><DepartmentArt department="chair" className="department-art-xs" />{chairLabel}</span>}</span>
+            <span><strong>{name}</strong>{role && <small className="account-menu-role"><RoleArt role={badgeRole ?? user?.role ?? ""} className="department-art-xs" />{role}</small>}{chairLabel && role !== chairLabel && <span className="account-chair-label"><DepartmentArt department="chair" className="department-art-xs" />{chairLabel}</span>}</span>
           </DropdownMenuLabel>
           {user?.email && <div className="account-menu-email"><MailIcon aria-hidden="true" /><span>{user.email}</span></div>}
         </DropdownMenuGroup>

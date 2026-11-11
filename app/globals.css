@@ -206,6 +206,7 @@
 .account-menu-profile { display: flex; align-items: center; gap: 12px; padding: 12px 10px 10px; }
 .account-menu-profile > span:last-child { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .account-menu-profile strong { font-size: 14px; line-height: 1.4; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.account-menu-role { display: inline-flex; align-items: center; gap: 6px; }
 .account-menu-profile small { font-size: 14px; line-height: 1.4; font-weight: 400; color: var(--muted-foreground); }
 .account-chair-label { display: inline-flex; width: fit-content; align-items: center; gap: 5px; margin-top: 2px; padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, #e8b44d 22%, var(--background)); color: color-mix(in srgb, var(--primary) 86%, #7a4b00); font-size: 11px; line-height: 1.25; font-weight: 650; letter-spacing: .01em; }
 .account-chair-label svg { width: 15px; height: 15px; }
