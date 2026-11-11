@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     // UBEC74: the schools of the PHE officer training (migration 079).
     const trainingSchools = (await db.query(`SELECT s.id, s.name, s.lga, s.level, s.location FROM tlm_distribution d JOIN schools s ON s.id = d.school_id WHERE d.plan_id = $1 AND d.workstream = 'phe' ORDER BY s.name`, [plan.id])).rows;
     // UBEC249: the beneficiary schools list (migration 100) the equipment items are shared across.
-    const beneficiarySchools = (await db.query(`SELECT s.id, s.name, s.lga, s.level, s.location, s.school_code AS code FROM tlm_distribution d JOIN schools s ON s.id = d.school_id WHERE d.plan_id = $1 AND d.workstream = 'sports' AND s.state_code = $2 ORDER BY s.name`, [plan.id, workspace.stateCode])).rows;
+    const beneficiarySchools = (await db.query(`SELECT s.id, s.name, s.lga, s.level, s.location, s.school_code AS code, (s.enrolment_male + s.enrolment_female)::int AS enrolment FROM tlm_distribution d JOIN schools s ON s.id = d.school_id WHERE d.plan_id = $1 AND d.workstream = 'sports' AND s.state_code = $2 ORDER BY s.name`, [plan.id, workspace.stateCode])).rows;
     const [lines, allocations, schools] = await Promise.all([
       db.query(`SELECT id, code, section, activity_type AS "activityType", description, target_group AS "targetGroup", quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey", price_item_id AS "priceItemId"
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),

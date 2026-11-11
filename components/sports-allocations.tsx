@@ -17,6 +17,7 @@ import { EmptySportsFieldArt } from "@/components/empty-art/sports";
 import { SchoolFilters, allLevels, allLgas, filterSchools, schoolMatches, type SchoolLevelChoice, type SchoolLgaChoice } from "@/components/school-level-filter";
 import { currentPlanHref } from "@/lib/action-plans";
 import { nairaFormat } from "@/lib/money-format";
+import { allocateByEnrolment } from "@/lib/activity-plans";
 import { postJson } from "@/lib/save-request";
 import { isPheTraining, type SportsAllocationSet, type SportsLine, type SportsPlan, type SportsSchool } from "@/lib/sports";
 import "./activity-plan-editor.css";
@@ -146,7 +147,7 @@ function SportsAllocateDialog({ plan, line, onClose, onSaved }: { plan: SportsPl
     const listed = (plan.beneficiarySchools ?? []).map((school) => school.id);
     const holders = plan.allocations.filter((item) => item.lineId === line.id).map((item) => item.schoolId);
     const ids = [...new Set([...listed, ...holders])];
-    return ids.map((id) => plan.schools.find((school) => school.id === id) ?? plan.beneficiarySchools?.find((school) => school.id === id)).filter((school): school is SportsSchool => Boolean(school));
+    return ids.map((id) => plan.beneficiarySchools?.find((school) => school.id === id) ?? plan.schools.find((school) => school.id === id)).filter((school): school is SportsSchool => Boolean(school));
   }, [plan, line.id]);
   const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(plan.allocations.filter((item) => item.lineId === line.id).map((item) => [String(item.schoolId), String(item.quantity)])));
   const [saving, setSaving] = useState(false), [error, setError] = useState("");
@@ -156,6 +157,9 @@ function SportsAllocateDialog({ plan, line, onClose, onSaved }: { plan: SportsPl
   const fill = (shares: Map<number, number>) => { setValues(Object.fromEntries([...shares].filter(([, q]) => q > 0).map(([id, q]) => [String(id), String(q)]))); setError(""); };
   // Whole items, the remainder to the first schools.
   const even = () => fill(new Map(rows.map((school, index) => [school.id, Math.floor(line.quantity / rows.length) + (index < line.quantity % rows.length ? 1 : 0)])));
+  // In proportion to each school's DNEMIS learners (client, 11 November 2026), like the distribution lists.
+  const byLearners = () => fill(allocateByEnrolment(line.quantity, rows));
+  const hasLearners = rows.some((school) => (school.enrolment ?? 0) > 0);
 
   async function save() {
     if (saving) return;
@@ -177,13 +181,14 @@ function SportsAllocateDialog({ plan, line, onClose, onSaved }: { plan: SportsPl
       <DialogHeader><DialogTitle>Allocate · {line.description}</DialogTitle><DialogDescription>{line.activityType} · {plural(line.quantity, "item")} at {nairaFormat.format(Number(line.unitCost))} each. Give each school its number of items; schools left blank get none</DialogDescription></DialogHeader>
       <div className="distribution-allocate-tools">
         <Button size="sm" variant="outline" className="rounded-full" disabled={saving || !rows.length} onClick={even}>Share evenly</Button>
+        {hasLearners && <Button size="sm" variant="outline" className="rounded-full" disabled={saving} onClick={byLearners}>Share by learners</Button>}
         <Button size="sm" variant="ghost" className="rounded-full" disabled={saving || !allocated} onClick={() => fill(new Map())}>Clear</Button>
         <span className="distribution-allocate-left" data-over={left < 0 || undefined} data-done={left === 0 || undefined}>{left === 0 ? "All items shared" : left > 0 ? `${count.format(left)} left to share` : `${count.format(-left)} too many`}</span>
       </div>
-      {rows.length ? <div className="distribution-allocate-table"><Table><TableHeader><TableRow><TableHead>School</TableHead><TableHead>LGA</TableHead><TableHead>Level</TableHead><TableHead className="text-right w-28">Items</TableHead></TableRow></TableHeader>
-        <TableBody>{rows.map((school) => <TableRow key={school.id}><TableCell className="whitespace-normal">{school.name}</TableCell><TableCell>{school.lga}</TableCell><TableCell>{school.level}</TableCell>
+      {rows.length ? <div className="distribution-allocate-table"><Table><TableHeader><TableRow><TableHead>School</TableHead><TableHead>LGA</TableHead><TableHead>Level</TableHead><TableHead className="text-right">Learners</TableHead><TableHead className="text-right w-28">Items</TableHead></TableRow></TableHeader>
+        <TableBody>{rows.map((school) => <TableRow key={school.id}><TableCell className="whitespace-normal">{school.name}</TableCell><TableCell>{school.lga}</TableCell><TableCell>{school.level}</TableCell><TableCell className="text-right tabular-nums">{school.enrolment ? count.format(school.enrolment) : "—"}</TableCell>
           <TableCell className="text-right"><Input type="number" inputMode="numeric" min={0} max={line.quantity} step={1} placeholder="0" className="h-8 w-24 ml-auto text-right" aria-label={`Items for ${school.name}`} value={values[String(school.id)] ?? ""} disabled={saving} onChange={(event) => { setValues({ ...values, [String(school.id)]: event.target.value }); setError(""); }} /></TableCell></TableRow>)}</TableBody>
-        <TableFooter><TableRow><TableCell colSpan={3}>Allocated</TableCell><TableCell className="text-right tabular-nums">{count.format(allocated)} / {count.format(line.quantity)}</TableCell></TableRow></TableFooter></Table></div>
+        <TableFooter><TableRow><TableCell colSpan={4}>Allocated</TableCell><TableCell className="text-right tabular-nums">{count.format(allocated)} / {count.format(line.quantity)}</TableCell></TableRow></TableFooter></Table></div>
         : <p className="distribution-note"><PlusIcon aria-hidden="true" className="inline size-4 align-text-bottom" /> Add schools to the Beneficiary schools list first, then share this item across them</p>}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       <DialogFooter><Button variant="outline" disabled={saving} onClick={onClose}>Cancel</Button><Button disabled={saving || left < 0 || invalid} onClick={() => void save()}>{saving && <Spinner data-icon="inline-start" />}Save allocation</Button></DialogFooter>
