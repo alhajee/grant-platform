@@ -39,6 +39,28 @@ services:
 
   # DNEMIS sync worker: same image as the app. Runs scheduled refreshes and "Sync now" jobs (lib/dnemis-jobs.ts).
   # Needs the frontend network for internet access to DNEMIS, and AUTH_SECRET to decrypt the saved token.
+  # Answers in the app's place while a deploy swaps the app container (about 25 s), so saves made then wait and go through
+  # instead of failing with the proxy's "404 page not found" (deploy/updating, lib/deploy-retry.ts). Its router has the
+  # lowest priority: Traefik uses it only while the app has no route. Its image and config rarely change, so a deploy
+  # leaves it running.
+  updating:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./deploy/updating/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/updating/updating.html:/usr/share/nginx/html/updating.html:ro
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.ubec-updating.rule=Host(`${APP_HOST:-ubec.byteflow.com.ng}`)
+      - traefik.http.routers.ubec-updating.entrypoints=websecure
+      - traefik.http.routers.ubec-updating.priority=1
+      - traefik.http.routers.ubec-updating.tls.certresolver=letsencrypt
+      - traefik.http.routers.ubec-updating.service=ubec-updating
+      - traefik.http.services.ubec-updating.loadbalancer.server.port=80
+    networks:
+      - dokploy-network
+
   worker:
     build:
       context: .
@@ -133,3 +155,5 @@ networks:
   frontend:
   backend:
     internal: true
+  dokploy-network:
+    external: true

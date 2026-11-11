@@ -8,6 +8,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { signInHref } from '@/components/login-shell';
+import { deployWaitMs, errorPage, notDelivered, retryDelayMs, unreachableMessage, updatingMessage } from '@/lib/deploy-retry';
 
 // One device per account (UBEC115, migration 072): signing in on a new device signs the older one out. On the older
 // device this guard notices (any API call answered 401 while the server says the session was superseded, or a check
@@ -16,6 +17,28 @@ import { signInHref } from '@/components/login-shell';
 // are sent once more, so a save that was clicked completes by itself.
 const checkEveryMs = 60 * 1000;
 type Held = { retry: () => void };
+const sameOrigin = (url: URL) => url.origin === window.location.origin;
+const jsonError = (error: string, status: number) => new Response(JSON.stringify({ error }), { status, headers: { 'content-type': 'application/json' } });
+
+/**
+ * A request sent while a new version is being deployed (lib/deploy-retry.ts): while the proxy answers that the app is not
+ * there, wait and send it again (it never reached the app), for up to two minutes; a bare proxy or server error page
+ * becomes a JSON error with a plain message, so every page that reads `response.json()` shows it.
+ */
+async function throughDeploys(base: typeof fetch, input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const template = (input instanceof Request ? input.clone() : input) as RequestInfo | URL;
+  const copy = () => (template instanceof Request ? template.clone() : template) as RequestInfo | URL;
+  const started = Date.now();
+  let response = await base(input, init);
+  while (notDelivered(response) && Date.now() - started < deployWaitMs && !init?.signal?.aborted) {
+    await new Promise(resolve => window.setTimeout(resolve, retryDelayMs(response)));
+    try { response = await base(copy(), init); }
+    catch { continue; }
+  }
+  if (notDelivered(response)) return jsonError(updatingMessage, 503);
+  if (errorPage(response)) return jsonError(response.status === 500 ? 'Something went wrong on the server. Please try again' : unreachableMessage, response.status);
+  return response;
+}
 
 async function superseded(fetcher: typeof fetch): Promise<boolean> {
   try {
@@ -42,7 +65,7 @@ export function SessionGuard() {
       const path = new URL(url, window.location.href);
       const watched = path.origin === window.location.origin && path.pathname.startsWith('/api/') && !path.pathname.startsWith('/api/auth/');
       const again = (input instanceof Request ? input.clone() : input) as RequestInfo | URL;
-      const response = await base(input, init);
+      const response = sameOrigin(path) && path.pathname.startsWith('/api/') ? await throughDeploys(base, input, init) : await base(input, init);
       if (!watched || response.status !== 401 || !(openRef.current || await superseded(base))) return response;
       show();
       // Held until the user signs in again here, then sent once more with the new sign-in.
