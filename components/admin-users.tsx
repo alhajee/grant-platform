@@ -10,6 +10,7 @@ import { DataTableColumnHeader } from '@/components/data-table-column-header';
 import type { DataTableFeatures } from '@/components/data-table-features';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { DepartmentArt } from '@/components/ubec/department-art';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -96,7 +97,7 @@ export function AdminUsers({users,busy,onSwitch,onChanged}:{users:AdminManagedUs
   ],[users]);
   const columns = useMemo(()=>helper.columns([
     helper.accessor('name',{enableHiding:false,header:({column})=><DataTableColumnHeader column={column} title="User"/>,filterFn:(row,_id,value)=>[row.original.name,row.original.email,row.original.role,workspaceName(row.original.stateCode),departmentLabel(row.original)].join(' ').toLowerCase().includes(String(value).toLowerCase()),cell:({row})=><div><p className="font-medium">{row.original.roleTitle ? `${row.original.roleTitle} (${row.original.name})` : row.original.name}</p><p className="text-xs text-muted-foreground">{row.original.email}</p></div>}),
-    helper.accessor('role',{filterFn:(row,_id,value)=>anyOf(roleValues(row.original))(value),header:({column})=><DataTableColumnHeader column={column} title="Role"/>,cell:({row})=><div className="flex flex-wrap items-center gap-2">{row.original.role}{(row.original.isBeapChair||row.original.isUbecBeapChair)&&<Badge variant="secondary">BEAP Chair</Badge>}</div>}),
+    helper.accessor('role',{filterFn:(row,_id,value)=>anyOf(roleValues(row.original))(value),header:({column})=><DataTableColumnHeader column={column} title="Role"/>,cell:({row})=><div className="flex flex-wrap items-center gap-2">{row.original.role==='UBEC BEAP Chair'?<span className="inline-flex items-center gap-1.5"><DepartmentArt department="chair" className="department-art-sm"/>{row.original.role}</span>:row.original.role}{(row.original.isBeapChair||row.original.isUbecBeapChair)&&<Badge variant="secondary" className="chair-badge"><DepartmentArt department="chair" className="department-art-xs"/>BEAP Chair</Badge>}</div>}),
     helper.accessor('stateCode',{filterFn:(row,_id,value)=>anyOf([row.original.stateCode])(value),header:({column})=><DataTableColumnHeader column={column} title="Workspace"/>,cell:info=>workspaceName(info.getValue())}),
     helper.accessor('department',{filterFn:(row,_id,value)=>anyOf(departmentValues(row.original))(value),header:({column})=><DataTableColumnHeader column={column} title="Department"/>,cell:({row})=>departmentLabel(row.original)}),
     helper.accessor('active',{filterFn:(row,_id,value)=>anyOf([statusValue(row.original)])(value),header:({column})=><DataTableColumnHeader column={column} title="Status"/>,cell:info=><Badge variant={info.getValue()?'secondary':'outline'}>{info.getValue()?'Active':'Inactive'}</Badge>}),

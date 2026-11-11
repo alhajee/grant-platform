@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { UbecLogo } from './ubec-logo';
 import { AccountMenu } from './workspace-account-menu';
 import { NotificationBell } from './notifications/notification-bell';
-import { ubecRoles, ubecRoleTitle } from '@/lib/ubec';
+import { holdsUbecChair, ubecRoles, ubecRoleTitle } from '@/lib/ubec';
 
 // Each menu item is its own page; a plan page counts as Submissions.
 const navigation = [
@@ -39,7 +39,7 @@ export function UbecShell({ children, user, review = false, allocations = false,
           {!admin && <NotificationBell />}
           <div className="national-header-account">
             {/* The account shows the role and department, e.g. "UBEC Director · Physical Planning (DPP)". */}
-            <AccountMenu user={user ? { ...user, role: ubecRoleTitle(user.role, user.department, !!user.chair), email: '' } : null} />
+            <AccountMenu user={user ? { ...user, role: ubecRoleTitle(user.role, user.department, !!user.chair), email: '', stateCode: 'UBEC', isBeapChair: holdsUbecChair(user) } : null} />
           </div>
         </div>
       </header>

@@ -198,8 +198,8 @@
 .account-avatar { --muted: color-mix(in srgb, var(--primary) 12%, var(--background)); --muted-foreground: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--background)); box-shadow: inset 0 0 0 2px var(--background); }
 .account-avatar [data-slot="avatar-fallback"] { font-weight: 600; letter-spacing: -.025em; }
 .account-avatar-wrap { position: relative; display: inline-flex; flex: 0 0 auto; }
-.account-chair-seal { position: absolute; right: -4px; bottom: -3px; display: grid; width: 20px; height: 20px; place-items: center; border: 2px solid var(--background); border-radius: 999px; background: #e8b44d; color: #173f38; box-shadow: 0 2px 5px rgb(23 63 56 / 20%); }
-.account-chair-seal svg { width: 13px; height: 13px; stroke-width: 2.3; }
+.account-chair-seal { position: absolute; right: -6px; bottom: -5px; display: grid; width: 22px; height: 22px; place-items: center; filter: drop-shadow(0 0 1.5px var(--background)) drop-shadow(0 1px 2px rgb(23 63 56 / 25%)); }
+.account-chair-crown { width: 22px; height: 22px; }
 .account-chevron { color: var(--muted-foreground); }
 .account-trigger[data-state="open"] .account-chevron { transform: rotate(180deg); }
 .account-dropdown { width: 296px; max-width: calc(100vw - 24px); padding: 6px; border-radius: 16px; box-shadow: 0 14px 36px -12px rgb(0 0 0 / 18%), 0 3px 8px -3px rgb(0 0 0 / 8%); }
@@ -208,7 +208,7 @@
 .account-menu-profile strong { font-size: 14px; line-height: 1.4; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .account-menu-profile small { font-size: 14px; line-height: 1.4; font-weight: 400; color: var(--muted-foreground); }
 .account-chair-label { display: inline-flex; width: fit-content; align-items: center; gap: 5px; margin-top: 2px; padding: 3px 7px; border-radius: 999px; background: color-mix(in srgb, #e8b44d 22%, var(--background)); color: color-mix(in srgb, var(--primary) 86%, #7a4b00); font-size: 11px; line-height: 1.25; font-weight: 650; letter-spacing: .01em; }
-.account-chair-label svg { width: 13px; height: 13px; }
+.account-chair-label svg { width: 15px; height: 15px; }
 .account-menu-email { display: flex; align-items: center; gap: 8px; padding: 8px 10px 12px; color: var(--muted-foreground); font-size: 14px; line-height: 1.5; }
 .account-menu-email svg { width: 14px; height: 14px; flex-shrink: 0; }
 .account-menu-email span { min-width: 0; overflow-wrap: anywhere; }
@@ -789,6 +789,8 @@
 /* UBEC department pictures (components/ubec/department-art.tsx) beside department names */
 .department-with-art { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .department-art-xs { width: 16px; height: 16px; flex: none; }
+/* BEAP Chair badges carry the crown (Users, UBEC Officers). */
+.chair-badge { gap: 4px; padding-left: 4px; }
 .department-art-sm { width: 22px; height: 22px; flex: none; }
 .department-art-md { width: 30px; height: 30px; flex: none; }
 /* "Signed in on another device" dialog (components/session-guard.tsx) */
