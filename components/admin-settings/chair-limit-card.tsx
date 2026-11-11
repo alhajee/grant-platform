@@ -1,6 +1,6 @@
 'use client';
 
-import { CrownIcon } from 'lucide-react';
+import { DepartmentArt } from '@/components/ubec/department-art';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -23,7 +23,7 @@ export function ChairLimitCard({ chairs, value, disabled, onChange }: ChairLimit
   const limit = validLimit(value) ? Number(value) : chairs.limit, over = chairs.active > limit;
   return <SettingsCard className="admin-chair-limit">
     <div className="admin-chair-limit-name">
-      <span className="admin-chair-limit-icon" aria-hidden="true"><CrownIcon /></span>
+      <DepartmentArt department="chair" className="department-art admin-chair-limit-art" />
       <div className="flex min-w-0 flex-col">
         <span className="font-medium">UBEC BEAP Chair</span>
         <span className="text-xs text-muted-foreground">BEAP Chair accounts and UBEC Directors given the duty on Users</span>

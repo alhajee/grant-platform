@@ -39,6 +39,9 @@ const badges: Record<string, Badge> = {
   // Social Mobilisation: a megaphone
   social: { shape: 'shield', tones: { base: '#ff7eb6', edge: '#d9447f', face: '#ff63a5', glyph: '#ad215a', light: '#ffb8d6' },
     glyph: c => <g fill={c}><path d="M11.8 16.3h3.4l9.3-4.8v14l-9.3-4.8h-3.4a1.4 1.4 0 0 1-1.4-1.4v-1.6a1.4 1.4 0 0 1 1.4-1.4Z" /><path d="M14 21.2h2.8l1 4.3h-2.5Z" /><path d="M27 16c1 .8 1 3.7 0 4.6" fill="none" stroke={c} strokeWidth="1.6" strokeLinecap="round" /></g> },
+  // UBEC BEAP Chair (not a department; the chair-limit row on Admin > Settings): a crown
+  chair: { shape: 'hexagon', tones: { base: '#ffd24a', edge: '#d9a10f', face: '#ffc61f', glyph: '#a86f00', light: '#ffe9a3' },
+    glyph: c => <g fill={c}><path d="M11.2 15.2 15.6 19 20 12.6l4.4 6.4 4.4-3.8-1.7 8.6H12.9Z" /><rect x="12.9" y="25.1" width="14.2" height="2.6" rx="1" /><circle cx="11.2" cy="14.6" r="1.6" /><circle cx="20" cy="11.6" r="1.6" /><circle cx="28.8" cy="14.6" r="1.6" /><circle cx="20" cy="20.6" r="1.3" fill="#ffffff" fillOpacity=".75" /></g> },
 };
 
 /** The department's badge; nothing for an unknown department. */

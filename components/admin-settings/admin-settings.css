@@ -103,6 +103,5 @@
 /* UBEC BEAP Chair limit (migration 101): one row above the officers table, same columns. */
 .admin-chair-limit { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 24px; padding: 14px 20px; }
 .admin-chair-limit-name { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.admin-chair-limit-icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 9px; background: color-mix(in srgb, var(--primary) 12%, transparent); color: var(--primary); }
-.admin-chair-limit-icon svg { width: 17px; height: 17px; }
+.admin-chair-limit-art { flex: none; width: 34px; height: 34px; }
 @media (max-width: 720px) { .admin-chair-limit { grid-template-columns: 1fr; gap: 12px; } }
