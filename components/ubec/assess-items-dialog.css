@@ -79,3 +79,8 @@
   .assess-item-decision { grid-column: 1; align-items: flex-start; text-align: left; }
   .assess-head { padding-right: 48px; }
 }
+/* UBEC261: larger text for easier reading (the toolbar's "Larger text"); the panes scale, the dialog keeps its size. */
+.assess-text-size[aria-pressed=true] { background: color-mix(in srgb, var(--primary) 10%, var(--card)); border-color: var(--primary); color: var(--primary); }
+.assess-dialog[data-text=large] .assess-list, .assess-dialog[data-text=large] .assess-groups { zoom: 1.2; }
+.assess-dialog[data-text=large] .assess-list[data-layout=grid] { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.assess-toolbar .assess-text-size { margin-left: auto; }

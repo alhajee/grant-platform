@@ -135,6 +135,9 @@ export default function UbecReviewPage() {
     if (window.location.hash !== hash) history.pushState(null, '', hash);
     window.dispatchEvent(new HashChangeEvent('hashchange'));
   };
+  /** The viewer assesses or reviews this component's items (their own step), else they may still read them (UBEC261). */
+  const itemsWork = (pillar: ImplementedPillar) => !!(can?.assess.includes(pillar) || can?.observe.includes(pillar) || can?.comment?.includes(pillar));
+  const itemsLabel = (pillar: ImplementedPillar) => can?.assess.includes(pillar) ? 'Assess items' : itemsWork(pillar) || can?.override?.includes(pillar) ? 'Review items' : 'View items';
   const stepsFor = (pillar: ImplementedPillar): CardStep[] => !can ? [] : [
     ...(can.assign.includes(pillar) ? [{ label: assignLabel(pillar), kind: 'assign' as const, secondary: assignLabel(pillar) !== 'Assign staff', run: () => setRequest({ kind: 'assign', pillar }) }] : []),
     // UBEC138: Assess items opens the assessment screen (the workbook sheet stays one click away).
@@ -145,6 +148,8 @@ export default function UbecReviewPage() {
     ...(can.comment?.includes(pillar) || can.observe.includes(pillar) ? [{ label: 'Review items', kind: 'assess' as const, run: () => setAssessing(pillar) }] : []),
     ...(can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observe', pillar }) }] : []),
     ...(can.observerDone?.includes(pillar) && !can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observerDone', pillar }) }] : []),
+    // UBEC261: everyone who sees the component can open the same items screen (list or grid, larger text) to read it.
+    ...(!itemsWork(pillar) ? [{ label: itemsLabel(pillar), kind: 'assess' as const, secondary: true, run: () => setAssessing(pillar) }] : []),
   ];
   const released = flow?.components ?? [];
   const activeTab = released.some(c => c.pillar === tab) ? tab : (released.find(c => can?.assess.includes(c.pillar) || can?.observe.includes(c.pillar) || can?.comment?.includes(c.pillar)) ?? released[0])?.pillar ?? '';
@@ -161,7 +166,7 @@ export default function UbecReviewPage() {
       : <Tabs value={activeTab} onValueChange={value => { setTab(value); history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#ubec-${value}`); }}>
         <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs ubec-assessment-tabs">{released.map(c => <TabsTrigger key={c.pillar} value={c.pillar}>{componentName(c.pillar)}{c.counts.rejected > 0 && <Badge variant="destructive" className="ml-1">{c.counts.rejected}</Badge>}</TabsTrigger>)}</TabsList></div>
         {released.map(c => <TabsContent key={c.pillar} value={c.pillar} className="ubec-assessment-panel">
-          <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} />{(can?.assess.includes(c.pillar) || can?.observe.includes(c.pillar) || can?.comment?.includes(c.pillar)) && <Button size="sm" className="rounded-full" onClick={() => setAssessing(c.pillar)}>{can?.assess.includes(c.pillar) ? 'Assess items' : 'Review items'}</Button>}<Button variant="outline" size="sm" className="rounded-full" onClick={() => { openSheet(c.pillar); }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : can?.observe.includes(c.pillar) || can?.comment?.includes(c.pillar) ? 'Review in the workbook' : 'View in the workbook'}</Button></div>
+          <div className="ubec-assessment-summary"><StagePill stage={c.stage} /><DecisionBar counts={c.counts} /><Button size="sm" className="rounded-full" variant={itemsWork(c.pillar) ? 'default' : 'outline'} onClick={() => setAssessing(c.pillar)}>{itemsLabel(c.pillar)}</Button><Button variant="outline" size="sm" className="rounded-full" onClick={() => { openSheet(c.pillar); }}>{can?.assess.includes(c.pillar) ? 'Assess in the workbook' : can?.observe.includes(c.pillar) || can?.comment?.includes(c.pillar) ? 'Review in the workbook' : 'View in the workbook'}</Button></div>
           <ComponentPeople component={c} planId={data.plan.id} roundId={round.id} viewerId={flow.viewerId} canSendBack={!!can?.override?.includes(c.pillar)} canComplete={!!can?.complete.includes(c.pillar)} canRemove={!!can?.assign.includes(c.pillar)} removableObservers={can?.assignObservers?.includes(c.pillar) ? data.department : null} onComplete={() => setRequest({ kind: 'complete', pillar: c.pillar })} onChanged={() => void load()} />
         </TabsContent>)}
       </Tabs>}

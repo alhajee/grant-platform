@@ -1,7 +1,7 @@
 'use client';
 import './assess-items-dialog.css';
 import { useMemo, useState } from 'react';
-import { CheckIcon, ChevronDownIcon, ClipboardCheckIcon, FileTextIcon, HistoryIcon, LayoutGridIcon, ListIcon, MessageSquareTextIcon, ShieldCheckIcon, Undo2Icon, XIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon, ClipboardCheckIcon, FileTextIcon, HistoryIcon, LayoutGridIcon, ListIcon, MessageSquareTextIcon, ShieldCheckIcon, TypeIcon, Undo2Icon, XIcon } from 'lucide-react';
 import type { CommentsController } from '@/components/plan-workbook/comments-context';
 import { sheetPillar, type CommentSheet } from '@/lib/plan-comments';
 import { EditableCommentBody } from '@/components/plan-workbook/comment-thread';
@@ -24,6 +24,8 @@ import type { ItemDecisionValue } from '@/lib/ubec-flow';
 import { nairaFormat } from '@/lib/money-format';
 
 type Filter = 'all' | 'open' | 'accept' | 'reject' | 'corrected';
+const layoutKey = 'beapms:assess-items:layout', textKey = 'beapms:assess-items:text';
+const stored = (key: string) => { try { return localStorage.getItem(key); } catch { return null; } };
 const filterLabels: Record<Filter, string> = { all: 'All', open: 'To decide', accept: 'Accepted', reject: 'Rejected', corrected: 'Corrected' };
 
 /**
@@ -54,7 +56,11 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment, c
   const can = assessment.canDecide(pillar);
   // UBEC186: Oversight Directors and their officers review items and add observations.
   const observing = !can && (assessment.canObserve(pillar) || !!assessment.canComment?.(pillar));
-  const [layout, setLayout] = useState<'list' | 'grid'>('list');
+  // UBEC261: the layout and a larger text size (for easier reading) are remembered in this browser.
+  // The dialog only mounts in the browser (after a click), so reading storage while initialising is safe.
+  const [layout, setLayout] = useState<'list' | 'grid'>(() => stored(layoutKey) === 'grid' ? 'grid' : 'list');
+  const [large, setLarge] = useState(() => stored(textKey) === 'large');
+  const remember = (key: string, value: string) => { try { localStorage.setItem(key, value); } catch { /* storage blocked */ } };
   const threadsFor = (rowRef: string) => (comments?.threads ?? []).filter(t => t.scope === 'ubec' && t.sheet === pillar && t.rowRef === rowRef);
   const observations = items.filter(i => threadsFor(i.rowRef).some(t => !t.resolvedAt)).length;
   const [group, setGroup] = useState<string | null>(null), [filter, setFilter] = useState<Filter>('all');
@@ -81,10 +87,10 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment, c
   const complete = assessment.canComplete(pillar);
 
   return <Dialog open={open} onOpenChange={next => { if (!busy) onOpenChange(next); }}>
-    <DialogContent className="assess-dialog" showCloseButton={!busy} onInteractOutside={event => event.preventDefault()}>
+    <DialogContent className="assess-dialog" data-text={large ? 'large' : undefined} showCloseButton={!busy} onInteractOutside={event => event.preventDefault()}>
       <DialogHeader className="assess-head">
-        <div className="assess-head-title"><DialogTitle>{observing ? 'Review' : 'Assess'} {name}</DialogTitle>
-          <DialogDescription>{can ? 'Accept or reject each item' : observing ? 'Add your observation on any item. Accepting and rejecting is for the component\'s officers' : 'You can read the items and their documents; deciding is for the assigned officers'}</DialogDescription></div>
+        <div className="assess-head-title"><DialogTitle>{can ? 'Assess' : observing ? 'Review' : 'View'} {name}</DialogTitle>
+          <DialogDescription>{can ? 'Accept or reject each item' : observing ? 'Add your observation on any item. Accepting and rejecting is for the component\'s officers' : 'Read every item with its figures and documents. Deciding is for the assigned officers'}</DialogDescription></div>
         <div className="assess-progress"><Progress value={items.length ? decided / items.length * 100 : 0} aria-label={`${decided} of ${items.length} decided`} /><span>{decided} of {items.length} decided</span></div>
         {observing && <span className="assess-observed"><MessageSquareTextIcon aria-hidden="true" />{observations} {observations === 1 ? 'item' : 'items'} with open observations</span>}
         {assessment.canObserve(pillar) && <Button className="rounded-full" disabled={busy} onClick={() => { onOpenChange(false); assessment.observe(pillar); }}><ShieldCheckIcon data-icon="inline-start" />Observations done</Button>}
@@ -103,9 +109,10 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment, c
             <ToggleGroup type="single" variant="outline" size="sm" value={filter} onValueChange={value => { if (value) setFilter(value as Filter); }} aria-label="Show">
               {(Object.keys(filterLabels) as Filter[]).filter(f => f !== 'corrected' || corrected.size > 0).map(f => <ToggleGroupItem key={f} value={f}>{filterLabels[f]} · {inGroup.filter(i => matches(i, f)).length}</ToggleGroupItem>)}
             </ToggleGroup>
-            <ToggleGroup type="single" variant="outline" size="sm" value={layout} onValueChange={value => { if (value) setLayout(value as 'list' | 'grid'); }} aria-label="Layout">
-              <ToggleGroupItem value="list" aria-label="List" title="List"><ListIcon /></ToggleGroupItem><ToggleGroupItem value="grid" aria-label="Grid" title="Grid"><LayoutGridIcon /></ToggleGroupItem>
+            <ToggleGroup type="single" variant="outline" size="sm" value={layout} onValueChange={value => { if (value) { setLayout(value as 'list' | 'grid'); remember(layoutKey, value); } }} aria-label="Layout">
+              <ToggleGroupItem value="list" aria-label="List" title="List"><ListIcon />List</ToggleGroupItem><ToggleGroupItem value="grid" aria-label="Grid" title="Grid"><LayoutGridIcon />Grid</ToggleGroupItem>
             </ToggleGroup>
+            <Button type="button" variant="outline" size="sm" className="assess-text-size" aria-pressed={large} onClick={() => { setLarge(!large); remember(textKey, large ? 'normal' : 'large'); }}><TypeIcon data-icon="inline-start" />{large ? 'Normal text' : 'Larger text'}</Button>
           </div>
           {!shown.length ? <UbecEmpty art={<NoItemsArt />} title={filter === 'all' ? 'No items here' : `No ${filterLabels[filter].toLowerCase()} items`}>{filter === 'open' ? 'Every item here has been decided' : 'Choose another activity or filter'}</UbecEmpty>
             : <ul className="assess-list" data-layout={layout}>{shown.map(item => {
