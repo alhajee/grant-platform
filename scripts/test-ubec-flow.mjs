@@ -171,7 +171,8 @@ try {
   // UBEC149: an officer sees the other released components too, but assesses only what is assigned.
   assert.deepEqual(offP1View.flow.components.map(c => c.pillar).sort(), ['monitoring', 'sports']); assert.deepEqual(offP1View.flow.abilities.assess, ['monitoring']);
   fails(await decide('offP1', 'sports', String(sportsLine), 'accept'), 403, /not assigned/);
-  fails(await api('audit', path), 404, /No assigned submission/);
+  // UBEC258: the Oversight Departments see released components at once and may comment, but never decide.
+  { const auditEarly = ok(await api('audit', path)).flow; assert.deepEqual(auditEarly.components.map(c => c.pillar).sort(), ['monitoring', 'sports']); assert.deepEqual(auditEarly.abilities.comment.sort(), ['monitoring', 'sports']); assert.deepEqual(auditEarly.abilities.observe, []); }
   fails(await decide('offA', 'monitoring', monitoringLine, 'accept'), 403, /not assigned/);
   fails(await decide('audit', 'monitoring', monitoringLine, 'accept'), 403, /cannot accept or reject/);
   fails(await decide('es', 'monitoring', monitoringLine, 'accept'), 403);
@@ -201,12 +202,14 @@ try {
   ok(await step2('offP1', 'complete_assessment', 'monitoring', { note: 'Rechecked.' }));
   step('the Director changes a decision (recorded as the Director) and sends a completed assessment back with a comment; the officer is notified and completes again');
   assert.ok(await notified('dpp', 'complete_assessment'));
-  fails(await step2('dpp', 'send_oversight', 'monitoring', { comment: 'x' }), 409, /still working/);
-  const offP2Assignment = (await view('dpp')).flow.components.find(c => c.pillar === 'monitoring').officers.find(o => o.officerId === users.offP2).id;
-  ok(await step2('dpp', 'unassign_officer', 'monitoring', { assignmentId: offP2Assignment }));
-  assert.deepEqual(ok(await api('offP2', path)).flow.abilities.assess, [], 'a removed officer can no longer assess (UBEC149: they still observe)');
+  // UBEC259: offP2 never completes; one completed assessment with every item decided is enough, and offP2 is taken off.
+  assert.deepEqual((await view('dpp')).flow.abilities.sendOversight, ['monitoring'], 'the Director can send although offP2 has not completed');
   fails(await step2('dpp', 'send_oversight', 'monitoring'), 400, /comment/);
   ok(await step2('dpp', 'send_oversight', 'monitoring', { comment: 'Monitoring assessed and endorsed.' }));
+  { const sent = (await view('dpp')).flow; const people = sent.components.find(c => c.pillar === 'monitoring').officers.map(o => o.officerId);
+    assert.deepEqual(people, [users.offP1], 'the officer who never completed is taken off the component');
+    assert.ok((await view('chair')).events.some(e => e.action === 'unassign_officer' && /had not completed/.test(e.comment)), 'the trail says so'); }
+  assert.deepEqual(ok(await api('offP2', path)).flow.abilities.assess, [], 'the removed officer can no longer assess (UBEC149: they still observe)');
   fails(await step2('dpp', 'assign_officers', 'monitoring', { officerIds: [users.offP2], comment: 'late' }), 409, /Oversight Departments/);
   assert.ok(await notified('audit', 'send_oversight') && await notified('finance', 'send_oversight'));
   step('officers decide items only on assigned components (oversight, ES, Directors, others 403); complete needs every item decided and locks decisions; a pending officer can be removed; send for oversight needs all officers done and a comment');

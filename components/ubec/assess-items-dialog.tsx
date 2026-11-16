@@ -88,7 +88,7 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment, c
         <div className="assess-progress"><Progress value={items.length ? decided / items.length * 100 : 0} aria-label={`${decided} of ${items.length} decided`} /><span>{decided} of {items.length} decided</span></div>
         {observing && <span className="assess-observed"><MessageSquareTextIcon aria-hidden="true" />{observations} {observations === 1 ? 'item' : 'items'} with open observations</span>}
         {assessment.canObserve(pillar) && <Button className="rounded-full" disabled={busy} onClick={() => { onOpenChange(false); assessment.observe(pillar); }}><ShieldCheckIcon data-icon="inline-start" />Observations done</Button>}
-        {!assessment.canObserve(pillar) && assessment.canComment?.(pillar) && assessment.observerDone && <Button className="rounded-full" disabled={busy} onClick={() => { onOpenChange(false); assessment.observerDone!(pillar); }}><ShieldCheckIcon data-icon="inline-start" />Observations done</Button>}
+        {!assessment.canObserve(pillar) && assessment.canObserverDone?.(pillar) && assessment.observerDone && <Button className="rounded-full" disabled={busy} onClick={() => { onOpenChange(false); assessment.observerDone!(pillar); }}><ShieldCheckIcon data-icon="inline-start" />Observations done</Button>}
         {complete && <Button className="rounded-full" disabled={busy || decided < items.length} title={decided < items.length ? `Decide the remaining ${items.length - decided} items first` : undefined} onClick={() => { onOpenChange(false); assessment.complete(pillar); }}><ClipboardCheckIcon data-icon="inline-start" />Complete assessment</Button>}
       </DialogHeader>
       <div className="assess-body">

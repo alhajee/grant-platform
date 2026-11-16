@@ -28,6 +28,8 @@ export type WorkbookAssessment = {
   canComment?: (pillar: ImplementedPillar) => boolean;
   /** UBEC187: an oversight Assessment Officer's own Observations done (while `canComment`). */
   observerDone?: (pillar: ImplementedPillar) => void;
+  /** Components where the viewer is an officer assigned before UBEC258 and may record their own Observations done. */
+  canObserverDone?: (pillar: ImplementedPillar) => boolean;
   /** Oversight departments that have finished on the component. */
   oversightDone: (pillar: ImplementedPillar) => readonly string[];
   /** Validation Reports (Infrastructure, migration 069): null when the component takes none. */

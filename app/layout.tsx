@@ -13,7 +13,11 @@ export const metadata: Metadata = {
   icons: {
     icon: { url: "/ubec-logo.png", type: "image/png" },
     shortcut: "/ubec-logo.png",
+    apple: "/app-icons/apple-touch-icon.png",
   },
+  // UBEC260: installable app (public/manifest.webmanifest, public/sw.js) so alerts arrive while the portal is closed.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "BEAPMS", statusBarStyle: "default" },
 };
 
 export default function RootLayout({

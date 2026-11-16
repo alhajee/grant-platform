@@ -13,6 +13,7 @@ import { getPostgres } from '../lib/postgres';
 import { getRedis, newRedisConnection, redisReportError } from '../lib/redis';
 import { failStaleRuns, jobsKey, lockKey, queueDueScheduledSync, runQueuedSync, workerKey } from '../lib/dnemis-jobs';
 import { syncDnemisSchools } from '../lib/dnemis-sync';
+import { deliverNotifications } from '../lib/notification-delivery';
 
 const tickMs = 60_000, heartbeatFile = '/tmp/dnemis-worker-alive', workerId = randomUUID();
 const log = (message: string) => console.log(`[dnemis-worker] ${new Date().toISOString()} ${message}`);
@@ -72,12 +73,15 @@ async function loop() {
   while (!stopping) {
     await heartbeat();
     try {
+      // UBEC260: push and email for new bell notifications, on every pass (at most ~30 s late).
+      const delivered = await deliverNotifications(getPostgres()).catch(cause => { log(`delivery error: ${cause instanceof Error ? cause.message.slice(0, 300) : 'unknown error'}`); return null; });
+      if (delivered?.claimed) log(`notifications: ${delivered.claimed} new, ${delivered.pushed} pushed, ${delivered.emailed} emailed`);
       if (Date.now() - lastTick >= tickMs) { lastTick = Date.now(); await runQueued(); }
       if (blocking) {
-        const job = await blocking.brpop(jobsKey, 30).catch(cause => { redisReportError(cause); return null; });
+        const job = await blocking.brpop(jobsKey, 15).catch(cause => { redisReportError(cause); return null; });
         if (job) await runQueued();
         else if (!blocking.status || blocking.status === 'end') await new Promise(resolve => setTimeout(resolve, 30_000));
-      } else await new Promise(resolve => setTimeout(resolve, 30_000));
+      } else await new Promise(resolve => setTimeout(resolve, 15_000));
     } catch (cause) {
       log(`error: ${cause instanceof Error ? cause.message.slice(0, 300) : 'unknown error'}`);
       await new Promise(resolve => setTimeout(resolve, 30_000));

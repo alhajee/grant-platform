@@ -27,8 +27,13 @@ export const seesEverything = (viewer: { role: string; chair?: boolean }) => vie
 export function ubecSeesPillarSql(round: string, pillar: string, role: string, userId: string, department: string, { wide = true } = {}) {
   const match = `(${pillar} IS NULL OR rc.pillar=${pillar})`;
   const units = componentDepartments.map(d => `'${d.id}'`).join(',');
+  const released = `EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match})`;
+  const oversightUnits = oversightIds.map(d => `'${d}'`).join(',');
+  // UBEC258: the Oversight Departments (Directors and every one of their officers, no assignment needed) see every
+  // component as soon as the BEAP Chair releases it, in real time, and comment on it.
   const anyUnit = wide ? `
-    OR (${role} IN ('${ubecRoles.director}','${ubecRoles.officer}') AND ${department} IN (${units}) AND EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match}))` : '';
+    OR (${role} IN ('${ubecRoles.director}','${ubecRoles.officer}') AND ${department} IN (${units}) AND ${released})
+    OR (${role} IN ('${ubecRoles.oversight}','${ubecRoles.officer}') AND ${department} IN (${oversightUnits}) AND ${released})` : '';
   // UBEC241: a Director flagged as UBEC BEAP Chair sees everything, like the chair.
   return `(${role} IN ('${ubecRoles.es}','${ubecRoles.chair}')
     OR EXISTS(SELECT 1 FROM users cu WHERE cu.id=${userId} AND cu.active AND ${ubecChairSql('cu')})${anyUnit}
@@ -122,17 +127,24 @@ export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status
   const atDirector = components.filter(c => reviewing && c.stage === 'director');
   // Oversight: components with oversight that the viewer's department has not finished yet.
   const withOversight = components.filter(c => reviewing && c.stage === 'oversight' && isOversightDepartment(viewer.department) && !c.oversight.some(o => o.department === viewer.department));
+  // UBEC258: from release until their department has finished, Oversight Directors and all their officers add observations.
+  const oversightPerson = isOversightDepartment(viewer.department) && (viewer.role === ubecRoles.oversight || viewer.role === ubecRoles.officer);
+  const doneSelf = (c: FlowComponent) => c.observers.some(o => o.officerId === viewer.id && !!o.completedAt);
+  const observable = components.filter(c => reviewing && oversightPerson && (c.stage === 'director' || c.stage === 'oversight') && !c.oversight.some(o => o.department === viewer.department) && !doneSelf(c));
   return {
     release: chair && latest && round.status === 'received',
     decide: chair && reviewing && components.length > 0 && components.every(c => c.stage === 'chair'),
     assign: atDirector.filter(assigns).map(c => c.pillar),
-    sendOversight: atDirector.filter(c => ownDepartment(c) && c.officers.length > 0 && c.officers.every(o => o.completedAt)).map(c => c.pillar),
+    // UBEC259: one completed assessment and every item decided; officers who never finished do not hold the component.
+    sendOversight: atDirector.filter(c => ownDepartment(c) && c.officers.some(o => o.completedAt) && c.counts.undecided === 0).map(c => c.pillar),
     assess: atDirector.filter(mine).map(c => c.pillar),
     complete: atDirector.filter(mine).map(c => c.pillar),
     override: atDirector.filter(ownDepartment).map(c => c.pillar),
     observe: withOversight.filter(() => viewer.role === ubecRoles.oversight).map(c => c.pillar),
-    assignObservers: withOversight.filter(() => viewer.role === ubecRoles.oversight).map(c => c.pillar),
-    comment: withOversight.filter(c => viewer.role === ubecRoles.officer && c.observers.some(o => o.officerId === viewer.id && !o.completedAt)).map(c => c.pillar),
+    // UBEC258: officers no longer need assigning (they all see and comment); earlier assignments stay readable.
+    assignObservers: [],
+    comment: observable.map(c => c.pillar),
+    observerDone: withOversight.filter(c => viewer.role === ubecRoles.officer && c.observers.some(o => o.officerId === viewer.id && !o.completedAt)).map(c => c.pillar),
   };
 }
 

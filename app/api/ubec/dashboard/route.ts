@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN ubec_rounds r ON r.submitted_at>=m.month AND r.submitted_at<m.month+interval '1 month' AND r.plan_id=ANY($1::int[]) GROUP BY m.month ORDER BY m.month`, [planIds])).rows;
     // UBEC149: plans of other units this viewer may observe and comment on (latest round, released, not their own work).
     const own = new Set(all.map(r => r.id));
-    const observing = viewer.role === ubecRoles.director || viewer.role === ubecRoles.officer ? (await db.query<RoundRow>(`SELECT r.*,p.state_code,p.start_year,p.end_year,p.funding_quarters FROM ubec_rounds r JOIN action_plans p ON p.id=r.plan_id
+    const observing = viewer.role === ubecRoles.director || viewer.role === ubecRoles.officer || viewer.role === ubecRoles.oversight ? (await db.query<RoundRow>(`SELECT r.*,p.state_code,p.start_year,p.end_year,p.funding_quarters FROM ubec_rounds r JOIN action_plans p ON p.id=r.plan_id
       WHERE r.number=(SELECT MAX(number) FROM ubec_rounds WHERE plan_id=r.plan_id) AND r.status IN ('reviewing','returned','approved') AND ${ubecSeesPillarSql('r', 'NULL::text', '$1::text', '$2::int', '$3::text')} ORDER BY r.submitted_at DESC`, [viewer.role, viewer.id, viewer.department])).rows
       .filter(r => !own.has(r.id) && coversPlanningYear(r.start_year, r.end_year, year))
       .map(r => ({ planId: r.plan_id, state: stateDisplayName(r.state_code), period: planPeriod({ startYear: r.start_year, endYear: r.end_year, fundingQuarters: r.funding_quarters }), status: r.status, round: r.number })) : [];

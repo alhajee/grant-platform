@@ -1,0 +1,14 @@
+{
+  "name": "BEAPMS · Basic Education Action Plan Management System",
+  "short_name": "BEAPMS",
+  "description": "Annual grant planning and submission for State Universal Basic Education Boards",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F4F2EE",
+  "theme_color": "#004540",
+  "icons": [
+    { "src": "/app-icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app-icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

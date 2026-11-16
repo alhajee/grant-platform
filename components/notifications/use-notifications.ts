@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { describeNotification, notificationText, type NotificationFeed, type NotificationItem } from '@/lib/notifications';
 import { installAudioUnlock, isSoundEnabled, playChime } from './notification-sound';
+import { ensurePushSubscription, pushIsActive } from './push';
 
 const POLL_MS = 30_000;
 // Shared by every tab so only one of them chimes and raises a browser alert for a notification.
@@ -85,7 +86,8 @@ export function useNotifications() {
           // One chime per poll however many arrived; it plays whether or not the window has focus.
           setRinging(count => count + 1);
           if (isSoundEnabled()) playChime();
-          if (document.visibilityState !== 'visible' || !document.hasFocus()) showBrowserAlerts(fresh, openFromAlert);
+          // With push on, the service worker shows the alert (also while the portal is closed): never twice.
+          if ((document.visibilityState !== 'visible' || !document.hasFocus()) && !pushIsActive()) showBrowserAlerts(fresh, openFromAlert);
         }
       }
       setFeed(next);
@@ -105,10 +107,12 @@ export function useNotifications() {
   useEffect(() => { if (feed) syncTitle(feed.unreadCount); }, [feed]);
   // The bell is always mounted, so this is where the first click or key press unlocks audio for the chime.
   useEffect(() => { installAudioUnlock(); }, []);
+  // UBEC260: with alerts already allowed, keep this device's push subscription registered (and with this user).
+  useEffect(() => { void ensurePushSubscription(); }, []);
 
   const requestPermission = useCallback(async () => {
     if (currentPermission() !== 'default') return;
-    try { await Notification.requestPermission(); } finally { permissionListeners.forEach(listener => listener()); }
+    try { if (await Notification.requestPermission() === 'granted') await ensurePushSubscription(); } finally { permissionListeners.forEach(listener => listener()); }
   }, []);
 
   return { feed, failed, ringing, permission, reload: load, markRead, requestPermission };

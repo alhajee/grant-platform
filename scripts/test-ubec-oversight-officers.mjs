@@ -73,16 +73,23 @@ try {
   ok(await api('offP', `/api/ubec/decisions${q}`, { roundId: (await view('chair')).round.id, pillar: 'monitoring', rowRef: line, decision: 'accept', note: '' }, 'PUT'));
   ok(await step2('offP', 'complete_assessment', { note: 'Done.' }));
   fails(await step2('audit', 'assign_observers', { officerIds: [users.auditOff1], comment: 'early' }), 409, /not been sent to the Oversight Departments/);
+  // UBEC258: before the send, every oversight officer (no assignment) and Director already sees the component and comments.
+  const early = await view('auditOff1');
+  assert.deepEqual(early.flow.abilities.comment, ['monitoring'], 'an unassigned oversight officer comments from release');
+  assert.deepEqual(early.flow.abilities.observerDone, [], 'but has no Observations done of their own');
+  assert.deepEqual((await view('audit')).flow.abilities.comment, ['monitoring']);
+  const earlyThread = ok(await api('finOff', comments, { sheet: 'monitoring', rowRef: line, columnId: null, body: 'FINANCE OFFICER: early note' }), 201).id;
+  ok(await api('finOff', comments, { id: earlyThread, action: 'edit', body: 'FINANCE OFFICER: early note, edited' }, 'PATCH'));
+  ok(await api('chair', comments, { id: earlyThread, action: 'resolve' }, 'PATCH'));
   ok(await step2('dpp', 'send_oversight', { comment: 'Assessed.' }));
-  step('a plan reaches oversight (assigning oversight officers before then is refused)');
+  step('oversight Directors and every oversight officer see and comment from release; the plan reaches oversight');
 
-  assert.notEqual((await api('auditOff1', path)).status, 200, 'an unassigned oversight officer cannot open the plan');
   fails(await step2('dpp', 'assign_observers', { officerIds: [users.auditOff1], comment: 'x' }), 403);
   fails(await step2('procurement', 'assign_observers', { officerIds: [users.auditOff1], comment: 'x' }), 400, /Procurement/);
   fails(await step2('audit', 'assign_observers', { officerIds: [users.offP], comment: 'x' }), 400, /Audit/);
   fails(await step2('audit', 'assign_observers', { officerIds: [users.auditOff1] }), 400, /comment/);
   const auditView = (await view('audit')).flow;
-  assert.deepEqual(auditView.abilities.assignObservers, ['monitoring']);
+  assert.deepEqual(auditView.abilities.assignObservers, [], 'UBEC258: assigning is no longer needed');
   assert.deepEqual(auditView.officers.map(o => o.id).sort(), [users.auditOff1, users.auditOff2].sort(), 'the Oversight Director picks from their own officers');
   assert.equal(auditView.defaultOfficers.monitoring, undefined, 'two officers: nobody is pre-ticked');
   assert.deepEqual((await view('finance')).flow.defaultOfficers.monitoring, [users.finOff], 'one officer per unit is pre-ticked by default');
@@ -126,8 +133,8 @@ try {
   const auditOff2Assignment = (await view('audit')).flow.components[0].observers.find(o => o.officerId === users.auditOff2).id;
   fails(await step2('finance', 'unassign_observer', { assignmentId: auditOff2Assignment }), 404);
   ok(await step2('audit', 'unassign_observer', { assignmentId: auditOff2Assignment }));
-  assert.notEqual((await api('auditOff2', path)).status, 200, 'a removed officer no longer sees the plan');
-  step('the Oversight Director removes their own officer (not another department\'s); the officer loses access');
+  assert.deepEqual((await view('auditOff2')).flow.abilities.observerDone, [], 'a removed officer has no Observations done (UBEC258: they still see the plan)');
+  step('the Oversight Director removes their own officer (not another department\'s)');
 
   for (const who of ['audit', 'procurement', 'finance']) ok(await step2(who, 'observations_done', { note: `${who} observed` }));
   fails(await step2('audit', 'assign_observers', { officerIds: [users.auditOff2], comment: 'late' }), 409, /reached the UBEC BEAP Chair/);

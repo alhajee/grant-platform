@@ -1,7 +1,7 @@
 "use client";
 import "./notifications.css";
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
-import { ArrowRightIcon, BellIcon, BellOffIcon, BellRingIcon, CheckCheckIcon, CheckIcon, ClipboardCheckIcon, MessageSquareTextIcon, RotateCcwIcon, SendIcon, UserPlusIcon, Volume2Icon, VolumeXIcon } from 'lucide-react';
+import { ArrowRightIcon, BellIcon, BellOffIcon, BellRingIcon, CheckCheckIcon, DownloadIcon, CheckIcon, ClipboardCheckIcon, MessageSquareTextIcon, RotateCcwIcon, SendIcon, UserPlusIcon, Volume2Icon, VolumeXIcon } from 'lucide-react';
 import { Avatar, AvatarBadge, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { describeNotification, groupByPlan, timeAgo, type NotificationItem, type NotificationKind, type NotificationTodo } from '@/lib/notifications';
 import { useNotificationSound } from './notification-sound';
 import { useNotifications, type AlertPermission } from './use-notifications';
+import { useInstallPrompt } from './push';
 
 type View = 'all' | 'unread' | 'todo';
 
@@ -103,9 +104,16 @@ function UnavailableState() {
 function AlertSetting({ permission, onEnable }: { permission: AlertPermission; onEnable: () => void }) {
   // Alerts on, or not possible: nothing to offer.
   if (permission === 'unsupported' || permission === 'granted') return null;
-  if (permission === 'denied') return <span className="notification-alert-state" title="Allow notifications for this site in your browser settings to get desktop alerts"><BellOffIcon aria-hidden="true" />Desktop alerts blocked</span>;
+  if (permission === 'denied') return <span className="notification-alert-state" title="Allow notifications for this site in your browser settings to get alerts"><BellOffIcon aria-hidden="true" />Alerts blocked</span>;
   // The only footer item that needs a decision: tinted, with shadcn's shimmer on the label and a swinging bell.
-  return <Button variant="ghost" size="sm" className="notification-footer-action notification-alerts-cta" onClick={onEnable} title="Get an alert when something new arrives, even while this window is minimised"><BellRingIcon className="notification-alerts-icon" /><span className="shimmer shimmer-duration-2800">Turn on desktop alerts</span></Button>;
+  return <Button variant="ghost" size="sm" className="notification-footer-action notification-alerts-cta" onClick={onEnable} title="Get an alert on this device when something new arrives, even while BEAPMS is closed"><BellRingIcon className="notification-alerts-icon" /><span className="shimmer shimmer-duration-2800">Turn on alerts</span></Button>;
+}
+
+/** UBEC260: the browser's offer to install BEAPMS as an app (alerts then arrive like any app's). */
+function InstallSetting() {
+  const { canInstall, install } = useInstallPrompt();
+  if (!canInstall) return null;
+  return <Button variant="ghost" size="sm" className="notification-footer-action" onClick={() => void install()} title="Add BEAPMS to this device's home screen or apps, with its own alerts"><DownloadIcon />Install the app</Button>;
 }
 
 function SoundSetting() {
@@ -182,6 +190,7 @@ export function NotificationBell() {
       <div className="notification-footer">
         {unread > 0 && <Button variant="ghost" size="sm" className="notification-footer-action notification-mark-all" onClick={() => void markRead('all')}><CheckCheckIcon />Mark all as read</Button>}
         <AlertSetting permission={permission} onEnable={() => void requestPermission()} />
+        <InstallSetting />
         <SoundSetting />
       </div>
     </PopoverContent>

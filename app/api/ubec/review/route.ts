@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
-import { activePillars, holdsUbecChair, isUbec, pillarDepartments, ubecChairSql, ubecRoles, type UbecRound, type UbecAssignment } from '@/lib/ubec';
+import { activePillars, holdsUbecChair, isUbec, oversightIds, pillarDepartments, ubecChairSql, ubecRoles, type UbecRound, type UbecAssignment } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
 import { unfundedInSnapshot } from '@/lib/unfunded-components';
@@ -184,7 +184,8 @@ export async function POST(request: NextRequest) {
       await db.query('UPDATE action_plans SET status=$1,version=version+1,workflow_updated_at=NOW() WHERE id=$2', [status, id]);
       const ubecEvent = await addUbecEvent(db, { roundId: round.id, planId: id, action: input.action, actor: user, comment: input.comment });
       if (input.action === 'submit') await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.chair }, { role: ubecRoles.es });
-      if (input.action === 'release') await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.director, departments: [...new Set(releaseRows(round.snapshot).map(r => pillarDepartments[r.pillar]))] }, { role: ubecRoles.es }, { role: ubecRoles.chair });
+      // UBEC258: the Oversight Departments see released components at once, so they hear about the release too.
+      if (input.action === 'release') await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.director, departments: [...new Set(releaseRows(round.snapshot).map(r => pillarDepartments[r.pillar]))] }, { role: ubecRoles.es }, { role: ubecRoles.chair }, { role: ubecRoles.oversight }, { role: ubecRoles.officer, departments: [...oversightIds] });
       if (input.action === 'return' || input.action === 'approve') {
         const people = (await db.query<{ id: number }>(`SELECT DISTINCT oa.officer_id AS id FROM ubec_officer_assignments oa JOIN ubec_round_components rc ON rc.id=oa.round_component_id WHERE rc.round_id=$1 AND oa.removed_at IS NULL`, [round.id])).rows.map(r => r.id);
         const departments = (await db.query<{ department: string }>('SELECT DISTINCT department FROM ubec_round_components WHERE round_id=$1', [round.id])).rows.map(r => r.department);

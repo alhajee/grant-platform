@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
+import { workerAlive } from '@/lib/dnemis-jobs';
+import { deliverNotifications } from '@/lib/notification-delivery';
 import { z } from 'zod';
 import { getPostgres } from '@/lib/postgres';
 import { getWorkspaceState } from '@/lib/workspace-state';
@@ -50,6 +52,8 @@ export async function GET(request: NextRequest) {
       readTodos(workspace),
     ]);
     const feed: NotificationFeed = { notifications: items.rows, unreadCount: unread.rows[0].count, todos };
+    // UBEC260: without a worker (local development, or the worker down) the bell's own polling delivers pushes and emails.
+    after(async () => { try { if (!await workerAlive()) await deliverNotifications(db); } catch (cause) { console.error('Notifications could not be delivered', cause); } });
     return NextResponse.json(feed, { headers: noStore });
   } catch (cause) { console.error('Notifications could not be loaded', cause); return error('Notifications are unavailable right now', 503); }
 }

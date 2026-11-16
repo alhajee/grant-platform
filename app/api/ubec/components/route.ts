@@ -154,8 +154,17 @@ async function run(db: Db, input: Command, actor: Actor, round: UbecRound, compo
   if (!input.comment) return error('Add your comment before sending to the Oversight Departments');
   const assignments = await live();
   if (!assignments.length) return error('Assign an Assessment Officer first', 409);
-  const open = assignments.filter(a => !a.completed_at).length;
-  if (open) return error(`Wait for every Assessment Officer to complete their assessment (${open} still working)`, 409);
+  // UBEC259: one completed assessment with every item decided is enough. An officer who never finished (on KT and BE,
+  // a default account nobody used) no longer holds the component: they are taken off it, and the trail says so.
+  const unfinished = assignments.filter(a => !a.completed_at);
+  if (unfinished.length === assignments.length) return error(`Wait for an Assessment Officer to complete their assessment (${unfinished.length} still working)`, 409);
+  const decidedRefs = new Set((await readDecisions(db, round.id)).filter(d => d.pillar === component.pillar).map(d => d.rowRef));
+  const undecided = componentItems(round.snapshot, component.pillar).filter(item => !decidedRefs.has(item.rowRef)).length;
+  if (undecided) return error(`Accept or reject every item first (${undecided} still undecided)`, 409);
+  for (const a of unfinished) {
+    await db.query('UPDATE ubec_officer_assignments SET removed_at=NOW() WHERE id=$1', [a.id]);
+    await event('unassign_officer', `${a.officer_name} (had not completed; sent to the Oversight Departments without them)`);
+  }
   await db.query("UPDATE ubec_round_components SET stage='oversight',sent_to_oversight_at=NOW(),director_comment=$1,director_name=$2 WHERE id=$3", [input.comment, actor.full_name, component.id]);
   const id = await event('send_oversight', input.comment);
   await notifyUbec(db, planId, id, actor.id, { role: ubecRoles.oversight });

@@ -25,7 +25,7 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
   if (request.kind === 'release') {
     const departments = new Set(components.map(c => c.department)).size;
     return { title: `Release the ${plan} to the UBEC departments?`, confirm: 'Yes, release to departments', tone: 'default',
-      description: 'Each department Director is notified and assigns Assessment Officers',
+      description: `Each department Director is notified and assigns Assessment Officers. ${oversightList()} can see and comment on it from now`,
       stats: [{ label: 'Components', value: components.length, art: <ComponentsArt />, tint: 'mint' }, { label: departments === 1 ? 'Director' : 'Directors', value: departments, art: <DirectorsArt />, tint: 'lilac' }, { label: 'Total proposed', value: <span title={confirmMoney.format(total)}>{compactMoney.format(total)}</span>, art: <FundsArt />, tint: 'sand' }],
       facts: [],
       notes: [{ kind: 'warning', text: 'A release can’t be undone. You decide on the plan once every component has finished oversight.' }] };
@@ -63,7 +63,9 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
   if (request.kind === 'oversight') return { title: `Send ${name} to the Oversight Departments?`, confirm: 'Yes, send to Oversight Department', tone: 'default',
     description: `${oversightList()} review it next; then it goes to the UBEC BEAP Chair`,
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: oversightNames(oversightDepartments.map(d => d.id)) }],
-    notes: [{ kind: 'lock', text: 'Its item decisions can’t be changed once it is sent, and your department’s assessment ends' }] };
+    notes: [{ kind: 'lock', text: 'Its item decisions can’t be changed once it is sent, and your department’s assessment ends' },
+      // UBEC259: officers who never completed are taken off the component.
+      ...(() => { const waiting = flow.components.find(c => c.pillar === request.pillar)?.officers.filter(o => !o.completedAt).map(o => o.officerName) ?? []; return waiting.length ? [{ kind: 'info' as const, text: `${waiting.join(', ')} ${waiting.length === 1 ? 'has' : 'have'} not completed and will be taken off ${name}` }] : []; })()] };
   if (request.kind === 'observerDone') return { title: `Record your observations on ${name} as done?`, confirm: 'Yes, observations done', tone: 'default',
     description: 'Your Oversight Director is notified. They finish the department’s observations; you don’t need to do anything more on this component',
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: 'Your Oversight Director' }],

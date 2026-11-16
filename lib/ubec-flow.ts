@@ -38,8 +38,10 @@ export type FlowAbilities = {
   override: ImplementedPillar[];
   /** Oversight Director: assign their department's officers to components with oversight (migration 071). */
   assignObservers: ImplementedPillar[];
-  /** Oversight department officer: comment on the items of the components they are assigned to (no decisions), and finish with their own Observations done (UBEC187), until they or their Director have finished. */
+  /** UBEC258: Oversight Directors and their officers add observations (comments, no decisions) on released components until their department has finished. */
   comment: ImplementedPillar[];
+  /** UBEC187: an oversight officer assigned before UBEC258 records their own Observations done. */
+  observerDone?: ImplementedPillar[];
 };
 /** Active Assessment Officers the viewer may assign (a Director's department; every component department for the Super Admin). */
 export type DepartmentOfficer = { id: number; name: string; email: string; open: number; department: string };

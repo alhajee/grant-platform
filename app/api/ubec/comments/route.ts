@@ -8,8 +8,8 @@ import { commentColumns, commentPatchSchema, createCommentSchema, sheetPillar, s
 import { readOwnRoundComment, readRoundRoot, readRoundRows, readViewerRounds, roundCellTaken, roundCutoff, roundOpen, toThreads, viewerPillars, type Db } from '@/lib/ubec-comments';
 
 // UBEC review comments (migrations 029, 055). Every UBEC reviewer comments on the components of the round they
-// can see (lib/ubec-flow-db.ts: the BEAP Chair all, a Director their department's once released, Oversight once sent
-// for oversight, an Assessment Officer their assigned ones); the UBEC ES reads everything but writes nothing.
+// can see (lib/ubec-flow-db.ts: the BEAP Chair all, Directors and officers every released component, the Oversight
+// Departments every released component since UBEC258); the UBEC ES reads everything but writes nothing.
 // Threads stay internal to UBEC until the UBEC BEAP Chair shares them when returning the plan. State users are refused.
 
 type Actor = { id: number; role: string; department: string | null; full_name: string };
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 /** UBEC210: components on which an Oversight Department's Director or officer has finished observing, so their comments no longer change. */
 async function observationsRecorded(db: Db, round: UbecRound, viewer: { id: number; role: string; department: string | null }) {
   if (!isOversightDepartment(viewer.department) || (viewer.role !== ubecRoles.oversight && viewer.role !== ubecRoles.officer)) return new Set<string>();
-  const rows = (await db.query<{ pillar: string }>(`SELECT c.pillar FROM ubec_round_components c WHERE c.round_id=$1 AND (c.stage<>'oversight'
+  const rows = (await db.query<{ pillar: string }>(`SELECT c.pillar FROM ubec_round_components c WHERE c.round_id=$1 AND (c.stage='chair'
     OR EXISTS (SELECT 1 FROM ubec_oversight_reviews r WHERE r.round_component_id=c.id AND r.department=$2)
     OR ($3 AND EXISTS (SELECT 1 FROM ubec_oversight_assignments a WHERE a.round_component_id=c.id AND a.officer_id=$4 AND a.removed_at IS NULL AND a.completed_at IS NOT NULL)))`, [round.id, viewer.department, viewer.role === ubecRoles.officer, viewer.id])).rows;
   return new Set(rows.map(r => r.pillar));

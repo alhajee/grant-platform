@@ -95,7 +95,7 @@ export default function UbecReviewPage() {
     };
     return { pillars: flow.components.map(c => c.pillar), decisions: byPillar(flow.decisions), previous: byPillar(flow.previousDecisions), corrected: pillar => new Set(flow.corrected?.[pillar] ?? []),
       canDecide: pillar => !!can?.assess.includes(pillar) || !!can?.override?.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }),
-      canObserve: pillar => !!can?.observe.includes(pillar), observe: pillar => setRequest({ kind: 'observe', pillar }), canComment: pillar => !!can?.comment?.includes(pillar), observerDone: pillar => setRequest({ kind: 'observerDone', pillar }),
+      canObserve: pillar => !!can?.observe.includes(pillar), observe: pillar => setRequest({ kind: 'observe', pillar }), canComment: pillar => !!can?.comment?.includes(pillar), canObserverDone: pillar => !!can?.observerDone?.includes(pillar), observerDone: pillar => setRequest({ kind: 'observerDone', pillar }),
       oversightDone: pillar => flow.components.find(c => c.pillar === pillar)?.oversight.map(o => o.department) ?? [],
       validation: pillar => {
         const c = flow.components.find(x => x.pillar === pillar);
@@ -144,7 +144,7 @@ export default function UbecReviewPage() {
     // UBEC186: the Oversight Departments review items on the same full-screen view, adding observations per item.
     ...(can.comment?.includes(pillar) || can.observe.includes(pillar) ? [{ label: 'Review items', kind: 'assess' as const, run: () => setAssessing(pillar) }] : []),
     ...(can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observe', pillar }) }] : []),
-    ...(can.comment?.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observerDone', pillar }) }] : []),
+    ...(can.observerDone?.includes(pillar) && !can.observe.includes(pillar) ? [{ label: 'Observations done', kind: 'observe' as const, run: () => setRequest({ kind: 'observerDone', pillar }) }] : []),
   ];
   const released = flow?.components ?? [];
   const activeTab = released.some(c => c.pillar === tab) ? tab : (released.find(c => can?.assess.includes(c.pillar) || can?.observe.includes(c.pillar) || can?.comment?.includes(c.pillar)) ?? released[0])?.pillar ?? '';
