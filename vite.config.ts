@@ -9,7 +9,7 @@ const localBindingConfig = {
   compatibility_flags: ["nodejs_compat"],
 };
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ command }) => {
   // Use Miniflare's local Request.cf placeholder unless fetching is requested.
   process.env.CLOUDFLARE_CF_FETCH_ENABLED ??= "false";
   process.env.WRANGLER_SEND_METRICS ??= "false";
@@ -30,11 +30,13 @@ export default defineConfig(async () => {
     },
     plugins: [
       vinext(),
-      cloudflare({
+      // Local dev only. Production is the Node standalone server (Dockerfile); since vinext 1.4 the Cloudflare plugin
+      // in a build makes a Workers bundle instead, which Node cannot start.
+      ...(command === "serve" ? [cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
         config: localBindingConfig,
-      }),
+      })] : []),
     ],
   };
 });

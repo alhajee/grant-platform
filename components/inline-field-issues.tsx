@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 
 /** The first message for each field, by the field's name (the first part of the issue path). */
 export type FieldIssues = Record<string, string>;
-export function issuesByField(issues: readonly { path: readonly (string | number)[]; message: string }[]): FieldIssues {
+export function issuesByField(issues: readonly { path: readonly PropertyKey[]; message: string }[]): FieldIssues {
   const out: FieldIssues = {};
   for (const issue of issues) { const key = String(issue.path[0] ?? ''); if (key && !out[key]) out[key] = issue.message; }
   return out;

@@ -15,7 +15,7 @@ export const strategies = ['Request for quotation', 'ICB', 'NCB', 'Market survey
 export type InfrastructureStrategy = typeof strategies[number];
 export const defaultStrategy: InfrastructureStrategy = strategies[0];
 const strategyMessage = 'Choose an implementation strategy from the list';
-const strategySchema = z.enum(strategies, { errorMap: () => ({ message: strategyMessage }) });
+const strategySchema = z.enum(strategies, { message: strategyMessage });
 /** Whether a saved strategy is still offered (older packages may carry a retired one until it is changed). */
 export const isListedStrategy = (value: string): value is InfrastructureStrategy => (strategies as readonly string[]).includes(value);
 export const kindNames = { new: 'New Construction', whole: 'Whole School Renovation/Expansion', furniture: 'Furniture/Equipment' } as const;
@@ -61,7 +61,7 @@ const isBlockFacility = (key: string): key is BlockFacility => key in blockFacil
 /** "1 staff room", "2 science laboratories". */
 export const facilityText = (key: BlockFacility, n: number) => `${n} ${blockFacilityNouns[key][n === 1 ? 0 : 1]}`;
 /** Other facilities one block holds, by audit key (absent on groups saved before 10 November 2026 = none). */
-const blockFacilitiesShape = z.record(z.number().int().min(0).max(10, 'Use at most 10 of a facility per block'))
+const blockFacilitiesShape = z.record(z.string(), z.number().int().min(0).max(10, 'Use at most 10 of a facility per block'))
  .refine(f => Object.keys(f).every(isBlockFacility), 'Only rooms built inside a block can be grouped');
 const blockGroupShape = z.object({
  count: z.number().int().min(1, 'Enter at least 1 block').max(100, 'Use at most 100 blocks in one group'),
@@ -99,19 +99,19 @@ export const packageSchema = z.object({
  documentIds:z.array(z.string().uuid()).max(100).default([]),
  /** Whole School photographic evidence: photo document id -> the audit row it shows (client feedback: one upload per row with non-functional units). */
  photoKeys:z.record(z.string().uuid(),z.string().max(40)).default({}).refine(p=>Object.values(p).every(k=>auditKeys.has(k)),'Unknown audit deliverable for a photo'),
- audit:z.record(auditRow).default({}).refine(a=>Object.keys(a).every(k=>auditKeys.has(k)),'Unknown audit deliverable'),
+ audit:z.record(z.string(),auditRow).default({}).refine(a=>Object.keys(a).every(k=>auditKeys.has(k)),'Unknown audit deliverable'),
  /** Edited descriptions by requirement key (17 October 2026): New Construction rows replace the workbook text ('' = blank), Whole School rows add one. */
  /** New Construction: Other Facilities to add, by deliverable (how many; 0 or absent = not added). */
- otherFacilities:z.record(quantity).default({}).refine(o=>Object.keys(o).every(k=>otherFacilityKeys.has(k)),'Only Other Facilities can be added here'),
- descriptions:z.record(z.string().trim().max(maxDescriptionLength,`Use up to ${maxDescriptionLength} characters for a description`)).default({}).refine(d=>Object.keys(d).every(k=>describableKeys.has(k)),'Unknown requirement for a description'),
+ otherFacilities:z.record(z.string(),quantity).default({}).refine(o=>Object.keys(o).every(k=>otherFacilityKeys.has(k)),'Only Other Facilities can be added here'),
+ descriptions:z.record(z.string(),z.string().trim().max(maxDescriptionLength,`Use up to ${maxDescriptionLength} characters for a description`)).default({}).refine(d=>Object.keys(d).every(k=>describableKeys.has(k)),'Unknown requirement for a description'),
  /** New Construction: the chosen model (0-2, Model I-III). Whole School packages saved before October 2026 may carry one; it is ignored. */
  model:modelIndex.optional(),fenceRequired:quantity.default(0),fenceLength:quantity.default(0),
- prices:z.record(amount).default({}),classroomStrategy:strategySchema.default(defaultStrategy),
+ prices:z.record(z.string(),amount).default({}),classroomStrategy:strategySchema.default(defaultStrategy),
  /**
   * Whole School costs by item key. notCosted (client, 7 November 2026): the item is costed inside another item, so it needs no cost,
   * strategy or duration (absent = the item's default: Handwashing Station and Magnetic Board are not costed, everything else is).
   */
- packageCosts:z.record(z.object({cost:amount.default(0),strategy:strategySchema.default(defaultStrategy),duration:z.string().trim().max(100).default(''),notCosted:z.boolean().optional()})).default({}),
+ packageCosts:z.record(z.string(),z.object({cost:amount.default(0),strategy:strategySchema.default(defaultStrategy),duration:z.string().trim().max(100).default(''),notCosted:z.boolean().optional()})).default({}),
  lumpSum:amount.default(0),duration:z.string().trim().max(100).default(''),contingency:amount.default(0),preliminaries:amount.default(0),
  // Retired (no longer asked): kept so packages saved earlier still load.
  observations:z.string().max(5000).default(''),dilapidation:z.enum(['Minor repairs required','Moderate deterioration','Unsafe / reconstruction recommended','Severe dilapidation / major rehabilitation']).default('Minor repairs required'),conditionNotes:z.string().max(5000).default(''),

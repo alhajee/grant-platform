@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
-import { constructionTypeName, constructionTypeSchema, matchesRoomCounts, roomFields, type ConstructionType, type RoomCounts, type RoomKey } from "@/lib/construction-types";
+import { constructionTypeFields, constructionTypeName, constructionTypeSchema, matchesRoomCounts, roomFields, type ConstructionType, type RoomCounts, type RoomKey } from "@/lib/construction-types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { nairaFormat } from "@/lib/money-format";
 
@@ -58,7 +58,7 @@ export function ConstructionTypePicker({ types, value, onSelect, onCreated, disa
     if (!parsed.success) {
       const errors = Object.fromEntries(parsed.error.issues.map((issue) => [String(issue.path[0]), issue.message]));
       setFieldErrors(errors);
-      document.getElementById(`new-type-${parsed.error.issues[0].path[0]}`)?.focus();
+      document.getElementById(`new-type-${String(parsed.error.issues[0].path[0])}`)?.focus();
       return;
     }
     savingRef.current = true; setSaving(true); setFormError(""); setFieldErrors({});
@@ -132,7 +132,7 @@ export function SchoolProjectDefaults({ type, override, onChange, disabled }: {
 
   function apply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); event.stopPropagation();
-    const parsed = constructionTypeSchema.innerType().pick({ duration: true, unitCost: true }).safeParse({ duration: Number(duration), unitCost: Number(unitCost) });
+    const parsed = constructionTypeFields.pick({ duration: true, unitCost: true }).safeParse({ duration: Number(duration), unitCost: Number(unitCost) });
     if (!parsed.success) { setError("Enter a positive unit cost (up to two decimals) and a duration of 1–520 whole weeks"); return; }
     onChange(parsed.data.duration === type.duration && parsed.data.unitCost === type.unitCost ? null : parsed.data);
     setOpen(false);

@@ -14,7 +14,7 @@ const amount = z.string().regex(/^\d{1,13}(\.\d{1,2})?$/, 'Enter an amount below
 export const maxFundingSources = 20;
 export const fundingSourceSchema = z.object({
   // 'all' is plan-wide funding, shared across every component by the policy shares (migration 041).
-  component: z.enum(fundingSourceTargets, { errorMap: () => ({ message: 'Choose the component this funding is for' }) }),
+  component: z.enum(fundingSourceTargets, { message: 'Choose the component this funding is for' }),
   funder: z.string().trim().min(1, 'Enter the funder').max(120, 'Keep the funder name under 120 characters'),
   amount: amount.refine(v => toMinor(v) > BigInt(0), 'Enter an amount greater than zero'),
 }).strict();
