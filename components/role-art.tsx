@@ -16,6 +16,9 @@ const roleBadge: Record<string, string> = {
   'UBEC Department Reviewer': 'role-officer',
 };
 
+/** Whether the role has a badge. */
+export const hasRoleArt = (role: string): boolean => role in roleBadge;
+
 /** The role's badge (decorative); nothing for an unknown role. */
 export function RoleArt({ role, className = 'department-art-sm' }: { role: string; className?: string }) {
   const key = roleBadge[role];

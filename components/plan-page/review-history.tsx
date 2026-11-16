@@ -2,9 +2,10 @@
 import './review-history.css';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CornerUpLeftIcon, CrownIcon, EllipsisIcon, FilePenLineIcon, LandmarkIcon, MessageSquareReplyIcon, ScanEyeIcon, SendHorizontalIcon, ShieldCheckIcon, UserCheckIcon, type LucideIcon } from 'lucide-react';
+import { CornerUpLeftIcon, EllipsisIcon, ForwardIcon, FilePenLineIcon, LandmarkIcon, MessageSquareReplyIcon, ScanEyeIcon, SendHorizontalIcon, ShieldCheckIcon, UserCheckIcon, type LucideIcon } from 'lucide-react';
 import { ReviewTrailArt } from '@/components/empty-art/review-trail';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { RoleArt, hasRoleArt } from '@/components/role-art';
+import { DepartmentArt } from '@/components/ubec/department-art';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { reviewEventAnchor, timeAgo } from '@/lib/notifications';
 import { reviewActionLabels, type ReviewAction, type ReviewEvent } from '@/lib/plan-review';
@@ -12,10 +13,11 @@ import { reviewActionLabels, type ReviewAction, type ReviewEvent } from '@/lib/p
 const stamp = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const full = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 // One glyph per step: sent by Data Entry, endorsed by a Director, forwarded by the BEAP Chair, and so on.
-const icons: Record<ReviewAction, LucideIcon> = { submit: SendHorizontalIcon, endorse: UserCheckIcon, forward: CrownIcon, request_changes: CornerUpLeftIcon, approve: ShieldCheckIcon, edit: FilePenLineIcon, finance_submit: LandmarkIcon, observation_request: ScanEyeIcon, observation_return: MessageSquareReplyIcon };
+const icons: Record<ReviewAction, LucideIcon> = { submit: SendHorizontalIcon, endorse: UserCheckIcon, forward: ForwardIcon, request_changes: CornerUpLeftIcon, approve: ShieldCheckIcon, edit: FilePenLineIcon, finance_submit: LandmarkIcon, observation_request: ScanEyeIcon, observation_return: MessageSquareReplyIcon };
 const tone = (action: ReviewAction) => action === 'request_changes' ? 'changes' : action === 'approve' ? 'approved' : action === 'edit' ? 'edited' : action === 'forward' ? 'forwarded' : 'sent';
 const label = (event: ReviewEvent) => event.action === 'approve' && event.actorRole.startsWith('UBEC ') ? 'Approved by UBEC' : reviewActionLabels[event.action];
-const initials = (name: string) => name.split(/\s+/).filter(word => /^[A-Za-z]/.test(word)).slice(0, 2).map(word => word[0]).join('').toUpperCase();
+// The BEAP Chair forwards (a Director by role): their steps wear the crown, like everywhere the chair is shown.
+const byChair = (event: ReviewEvent) => event.action === 'forward' || event.actorRole === 'UBEC BEAP Chair';
 
 /** Consecutive steps of the same kind by the same person fold into one entry ("Show N similar steps"). */
 type Run = { lead: ReviewEvent; rest: ReviewEvent[] };
@@ -30,11 +32,14 @@ function runs(events: ReviewEvent[]): Run[] {
 function Entry({ event, latest = false, scopeLabel }: { event: ReviewEvent; latest?: boolean; scopeLabel: (scope: string) => string }) {
   const Icon = icons[event.action];
   return <li id={reviewEventAnchor(event.id).slice(1)} data-tone={tone(event.action)} data-latest={latest || undefined} className="trail-entry">
-    <span className="trail-dot" aria-hidden="true"><Icon /></span>
+    {/* The actor's role badge (components/role-art.tsx) with the step's glyph in its corner; a plain glyph for unknown roles. */}
+    {byChair(event) || hasRoleArt(event.actorRole)
+      ? <span className="trail-dot" data-badge aria-hidden="true">{byChair(event) ? <DepartmentArt department="chair" className="trail-badge" /> : <RoleArt role={event.actorRole} className="trail-badge" />}<span className="trail-step"><Icon /></span></span>
+      : <span className="trail-dot" aria-hidden="true"><Icon /></span>}
     <div className="trail-body">
       <p className="trail-time"><time dateTime={event.createdAt} title={full.format(new Date(event.createdAt))}>{stamp.format(new Date(event.createdAt))}</time><span className="trail-ago">{timeAgo(event.createdAt)}</span></p>
       <p className="trail-title">{label(event)}{event.scope !== 'general' && <span className="trail-scope">{scopeLabel(event.scope)}</span>}</p>
-      <p className="trail-actor"><Avatar className="trail-avatar"><AvatarFallback>{initials(event.actorName) || '·'}</AvatarFallback></Avatar>{event.actorName}{event.actorName !== event.actorRole && <><span aria-hidden="true">·</span><span className="trail-role">{event.actorRole}</span></>}<span className="trail-submission">Submission {event.submissionNumber}</span></p>
+      <p className="trail-actor">{event.actorName}{event.actorName !== event.actorRole && <><span aria-hidden="true">·</span><span className="trail-role">{event.actorRole}</span></>}<span className="trail-submission">Submission {event.submissionNumber}</span></p>
       {event.comment && <blockquote className="review-comment">{event.comment}</blockquote>}
     </div>
   </li>;
