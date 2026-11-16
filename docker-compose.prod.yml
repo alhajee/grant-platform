@@ -72,6 +72,14 @@ services:
       DATABASE_URL: postgresql://ubec_app:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in Dokploy}@postgres:5432/ubec
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in Dokploy}
       REDIS_URL: redis://redis:6379
+      # UBEC260: the worker sends the alert emails (lib/notification-delivery.ts); same settings as the app.
+      APP_URL: ${APP_URL:-https://ubec.byteflow.com.ng}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
