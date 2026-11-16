@@ -1,4 +1,4 @@
-FROM node:22-alpine AS dependencies
+FROM node:22.23.5-alpine3.24 AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev --no-audit --no-fund
@@ -7,7 +7,7 @@ FROM dependencies AS build
 COPY . .
 RUN npm run build && npm run build:worker
 
-FROM node:22-alpine AS production-dependencies
+FROM node:22.23.5-alpine3.24 AS production-dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
@@ -18,7 +18,10 @@ COPY scripts/seed-production-users.mjs ./scripts/seed-production-users.mjs
 COPY lib/nigeria-map.json ./lib/nigeria-map.json
 ENTRYPOINT ["node", "scripts/provision-production-user.mjs"]
 
-FROM node:22-alpine AS runtime
+FROM node:22.23.5-alpine3.24 AS runtime
+# The app only needs node: drop npm, npx and corepack (their bundled packages carry CVEs) and apply Alpine's updates.
+RUN apk upgrade --no-cache \
+ && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 WORKDIR /app
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \

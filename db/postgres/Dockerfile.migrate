@@ -1,4 +1,6 @@
-FROM postgres:16-alpine
+FROM postgres:16.16-alpine3.24
+# Only psql is used here: apply Alpine's security updates and drop gosu (old Go toolchain, never run).
+RUN apk upgrade --no-cache && rm -f /usr/local/bin/gosu
 COPY db/postgres/*.sql /migrations/
 COPY scripts/run-postgres-migrations.sh /usr/local/bin/run-postgres-migrations
 RUN chmod 0555 /usr/local/bin/run-postgres-migrations

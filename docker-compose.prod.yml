@@ -44,7 +44,8 @@ services:
   # lowest priority: Traefik uses it only while the app has no route. Its image and config rarely change, so a deploy
   # leaves it running.
   updating:
-    image: nginx:1.27-alpine
+    build:
+      context: ./deploy/updating
     restart: unless-stopped
     volumes:
       - ./deploy/updating/nginx.conf:/etc/nginx/conf.d/default.conf:ro
@@ -97,7 +98,8 @@ services:
 
   # Cache of per-state school lists and the DNEMIS job queue/lock. Internal only (no published port).
   redis:
-    image: redis:7-alpine
+    build:
+      context: ./deploy/redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--save", "300 1", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
     volumes:
@@ -111,7 +113,8 @@ services:
       - backend
 
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: ./deploy/postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ubec
