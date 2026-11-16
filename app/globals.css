@@ -638,6 +638,10 @@
   background: radial-gradient(circle at 0 100%, transparent 19.5px, #193f3d 20px);
 }
 .impersonation-strip-inner {
+  /* The Alert's notice palette (dark ink on beige) would make the text dark on this green: keep the strip's own. */
+  --foreground: var(--card-foreground);
+  --alert-muted: var(--muted-foreground);
+  color: var(--card-foreground);
   background: transparent;
   display: grid; grid-template-columns: minmax(120px, 1fr) minmax(0, 3fr) minmax(248px, 1fr);
   align-items: center; gap: 12px 24px; min-height: 60px; padding: 10px 24px;
