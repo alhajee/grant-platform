@@ -120,7 +120,7 @@ function ComponentCard({ plan, envelopePlan, review, totals, comments, actions, 
       <p className="component-card-amount component-card-pending"><LockIcon aria-hidden="true" />Items appear once sent to you</p>
     </div>
   </li>;
-  return <li className="component-card" data-component={pillar} data-over={ceiling != null && used > ceiling || undefined} style={{ '--component-fill': palette.fill, '--component-ink': palette.ink } as CSSProperties}>
+  return <li className="component-card" data-component={pillar} data-over={ceiling != null && used > ceiling || undefined} data-changes={review.status === 'changes_requested' || undefined} style={{ '--component-fill': palette.fill, '--component-ink': palette.ink } as CSSProperties}>
     <span className="component-card-art" aria-hidden="true">{pillar === 'infrastructure' ? <InfrastructureIllustration kind="new" /> : <PillarIllustration pillar={pillar} standalone />}</span>
     <div className="component-card-body">
       <div className="component-card-title">

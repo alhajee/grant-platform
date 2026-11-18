@@ -75,8 +75,8 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
   const text = kind ? observing ? (nothingToAdd ? { ...copy.observers, title: (name: string) => `Manage officers · ${name}`, description: 'Every Assessment Officer of your department is on this component. Remove one, if needed.' } : adding ? { ...copy.observers, title: (name: string) => `Add officers · ${name}`, confirm: 'Add officers' } : copy.observers) : nothingToAdd ? { ...copy.assign, title: (name: string) => `Manage officers · ${name}`, description: 'Every Assessment Officer of the department is on this component. Remove an officer who has not finished, if needed.', confirm: 'Add officers' } : adding ? { ...copy.assign, title: (name: string) => `Add officers · ${name}`, description: 'Officers already assigned keep their work. Tick another Assessment Officer of the component’s department to share it.', confirm: 'Add officers' } : copy[kind] : null;
   const openThreads = threads.filter(t => !t.resolvedAt);
   const defaults = pillar ? flow.defaultOfficers?.[pillar] ?? [] : [];
-  // The Admin's default officers start ticked on a component nobody is assessing yet; the Director confirms or changes them.
-  const officers = picked ?? (adding ? [] : [...defaults]);
+  // UBEC262: nobody starts ticked; the Admin's defaults are only marked "Suggested" and the Director picks.
+  const officers = picked ?? [];
   const shareIds = share ?? openThreads.map(t => t.id);
   const reset = () => { setComment(''); setOfficers(null); setShare(null); setError(''); step.reset(); };
   const [removing, setRemoving] = useState<number | null>(null);
@@ -159,7 +159,7 @@ function OfficerPicker({ flow, department, assigned: onComponent, observing, def
       const id = `officer-${officer.id}`, already = assigned.has(officer.id);
       return <li key={officer.id} data-checked={value.includes(officer.id) || already || undefined}>
         <Checkbox id={id} disabled={disabled || already} checked={already || value.includes(officer.id)} onCheckedChange={checked => onChange(checked ? [...value, officer.id] : value.filter(v => v !== officer.id))} />
-        <FieldLabel htmlFor={id} className="ubec-officer-option"><strong>{officer.name}</strong><span>{already ? 'Already assigned' : defaults.includes(officer.id) ? `Default for this component${officer.open ? ` · ${officer.open} open ${officer.open === 1 ? 'assessment' : 'assessments'}` : ''}` : officer.open ? `${officer.open} open ${officer.open === 1 ? 'assessment' : 'assessments'}` : 'Available'}</span></FieldLabel>
+        <FieldLabel htmlFor={id} className="ubec-officer-option"><strong>{officer.name}</strong><span>{already ? 'Already assigned' : defaults.includes(officer.id) ? `Suggested for this component${officer.open ? ` · ${officer.open} open ${officer.open === 1 ? 'assessment' : 'assessments'}` : ''}` : officer.open ? `${officer.open} open ${officer.open === 1 ? 'assessment' : 'assessments'}` : 'Available'}</span></FieldLabel>
         {/* An officer still assessing can be taken off the component (their decisions so far stay on it). */}
         {already && (() => { const a = onComponent.find(o => o.officerId === officer.id); return a && !a.completedAt ? <Button type="button" size="sm" variant="ghost" className="ubec-officer-remove" disabled={disabled} onClick={() => onRemove(a.id, officer.name)}>{removing === a.id ? <Spinner data-icon="inline-start" /> : <UserMinusIcon data-icon="inline-start" />}Remove</Button> : a?.completedAt ? <Badge variant="secondary">Completed</Badge> : null; })()}
       </li>;

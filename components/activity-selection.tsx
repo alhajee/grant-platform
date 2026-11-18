@@ -40,7 +40,9 @@ export function ActivitySelectionPanel({ workstream, plan, lines, canEdit, onSav
   const stored = plan.qualityActivities;
   // Opens by itself until the activities are chosen, and on the first visit to this plan's editor in this browser
   // (plans whose choice was filled in from their existing items, migration 061).
-  const [open, setOpen] = useState(() => canEdit && (stored == null || firstVisit(plan.id)));
+  // UBEC266: the visit is marked seen even when it opens because nothing is chosen yet, so the remount after saving
+  // (the panel is keyed by the choice) does not open it a second time.
+  const [open, setOpen] = useState(() => { const first = firstVisit(plan.id); return canEdit && (stored == null || first); });
   const title = activityTitles[workstream];
   const dialog = canEdit && <ActivitySelectionDialog workstream={workstream} plan={plan} lines={lines} open={open} onOpenChange={setOpen} onSaved={onSaved} />;
   if (stored == null) return <section className="ict-allocation" aria-labelledby="activity-selection-title">

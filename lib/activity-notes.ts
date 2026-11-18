@@ -47,7 +47,7 @@ const fallbackNotes: Partial<Record<ActivityWorkstream, Record<number, string>>>
     1: 'Training School Support Officers (SSOs) and Instructional Leads (ILs) on supporting schools',
     2: 'Training head teachers and school leaders',
     3: 'Training teachers to teach numeracy',
-    4: 'Training teachers in Science, Technology, Engineering, Arts and Mathematics (STEAM)',
+    4: 'Training teachers in Science, Technology, Engineering and Mathematics (STEM)',
     5: 'Training teachers to teach mental arithmetic',
     6: 'Psychosocial support and the care of children in emergencies',
     7: 'Moral regeneration and reorientation training for teachers',

@@ -306,6 +306,12 @@ try {
   const decision = { action: 'approve', version: ready.plan.version, roundId: ready.round.id, comment: 'Approved by UBEC.' };
   assert.deepEqual((await Promise.all([api('chair', path, decision), api('chair', path, decision)])).map(r => r.status).sort(), [200, 409]);
   assert.equal(ok(await api('ec', statePath)).plan.status, 'ubec_approved');
+  // UBEC268: the SUBEB downloads UBEC's approval letter (PDF) once approved; one reference number per approved round.
+  const letter = await fetch(`${base}/api/plans/approval-letter?plan=${planId}&download=1`, { headers: { Cookie: cookies.ec } });
+  assert.equal(letter.status, 200); assert.equal(letter.headers.get('content-type'), 'application/pdf');
+  assert.equal(Buffer.from(await letter.arrayBuffer()).subarray(0, 5).toString(), '%PDF-');
+  assert.equal((await db.query('SELECT count(*)::int AS n FROM ubec_approval_letters WHERE round_id=$1', [ready.round.id])).rows[0].n, 1);
+  assert.equal((await fetch(`${base}/api/plans/approval-letter?plan=${planId}`)).status, 401);
   fails(await step2('offA', 'complete_assessment', 'sports'), 409);
   const national = ok(await api('es', '/api/ubec/dashboard')).items.find(i => i.planId === planId);
   assert.equal(national.status, 'approved'); assert.equal(national.budget, 600); assert.equal(national.components[0].stage, 'chair');

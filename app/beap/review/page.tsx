@@ -153,7 +153,7 @@ export default function PlanPage() {
     <main className="beap-main review-main plan-page" id="main-content">
       <div className="review-page-summary">
         <Button asChild variant="ghost" size="sm" className="review-back"><a href="/dashboard"><ArrowLeftIcon data-icon="inline-start" />Dashboard</a></Button>
-        <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{plan && <PlanStatusBadge status={plan.status} reviews={data?.pillarReviews} />}</div><div className="review-actions">
+        <div className="review-heading"><div><h1>{plan ? `${planPeriod(plan).replace(' · ', ' ')} BEAP` : 'BEAP'}</h1>{plan && <PlanStatusBadge status={plan.status} reviews={data?.pillarReviews} onComponents />}</div><div className="review-actions">
           {data && !error && <div className="review-version"><Select value={selected} onValueChange={value => void load(value)} disabled={loading}><SelectTrigger id="submission-version" aria-label="Plan version" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">Current working plan</SelectItem>{data.submissions.map(s => <SelectItem key={s.number} value={String(s.number)}>Submission {s.number} · {date.format(new Date(s.createdAt))}</SelectItem>)}</SelectGroup></SelectContent></Select></div>}
           {data && !error && canEditSetup && <Button variant="outline" className="rounded-full" onClick={() => setEditing(true)}><PencilIcon data-icon="inline-start" />Edit plan</Button>}
           {data && !error && canEditSetup && selected === 'current' && <DeletePlanButton planId={data.plan.id} version={data.plan.version} title={`${planPeriod(data.plan).replace(' · ', ' ')} BEAP`} blockedReason={deleteBlocked} />}
@@ -184,7 +184,7 @@ export default function PlanPage() {
             {selected === 'current' && data.pillarReviews.length > 0 && <FinanceDocumentsCard planId={data.plan.id} reloadKey={data.plan.version} />}
           </aside>
         </div>
-        {selected === 'current' && <UbecResultsCard data={ubecResults} editHrefFor={pillar => { const review = data.pillarReviews.find(r => r.pillar === pillar); return review ? actionsFor(review).editHref : undefined; }} onEditPlan={canEditSetup ? () => setEditing(true) : undefined} />}
+        {selected === 'current' && <UbecResultsCard planId={plan?.id} data={ubecResults} editHrefFor={pillar => { const review = data.pillarReviews.find(r => r.pillar === pillar); return review ? actionsFor(review).editHref : undefined; }} onEditPlan={canEditSetup ? () => setEditing(true) : undefined} />}
         <div className="review-layout">
           <PlanReviewContent showPlanReference={false} showDocuments={false} comments={comments} requestChanges={requestChangesHandlers} snapshot={data.snapshot} visiblePillars={data.visiblePillars} {...workbookLinks} />
           {/* Documents and the review history share a row; each takes the full width on narrow screens. */}

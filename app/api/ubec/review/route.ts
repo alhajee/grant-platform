@@ -25,6 +25,7 @@ import { readFinanceSendProblem } from '@/lib/finance-documents-db';
 import { subebComponentDepartments, type ImplementedPillar } from "@/lib/beap-pillars";
 import { submissionLetterProblem } from '@/lib/submission-letter';
 import { attachLetters, readPendingLetters, readRoundLetters } from '@/lib/submission-letter-db';
+import { issueApprovalLetter } from '@/lib/approval-letter-db';
 
 // Plan-level UBEC steps (docs/ubec-flow.md): the SUBEB Executive Chairman submits; the UBEC BEAP Chair releases the
 // round to the departments and finally approves or returns it. Component steps live in app/api/ubec/components.
@@ -161,6 +162,8 @@ export async function POST(request: NextRequest) {
           }
           await db.query('UPDATE ubec_rounds SET status=$1,decision=$2,decided_at=NOW() WHERE id=$3', [input.action === 'approve' ? 'approved' : 'returned', input.comment, round.id]);
           status = 'ubec_approved';
+          // UBEC268: the approval letter's reference number is given now, in approval order.
+          if (input.action === 'approve') await issueApprovalLetter(db, round.id);
           // A return: components with items UBEC rejected go straight back to Data Entry ("Changes requested"), who
           // correct them and send them up the chain again (UBEC203, the Directors and Data Entry saw the rejections but
           // could not correct them while the components sat with the BEAP Chair); the rest go to the SUBEB BEAP Chair.

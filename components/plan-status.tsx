@@ -19,7 +19,9 @@ export function viewerPlanStatus(status: PlanStatus, reviews?: readonly PillarRe
 }
 
 /** Plan status badge; "Changes requested" carries a count, and hovering or focusing it lists the components returned */
-export function PlanStatusBadge({ status, reviews }: { status: PlanStatus; reviews?: readonly PillarReview[] }) {
+export function PlanStatusBadge({ status, reviews, onComponents = false }: { status: PlanStatus; reviews?: readonly PillarReview[]; onComponents?: boolean }) {
+  // UBEC263: on the plan page "Changes requested" is shown on the component cards it applies to, not by the title.
+  if (onComponents && status === 'changes_requested') return <Badge variant="secondary">In progress</Badge>;
   const view = viewerPlanStatus(status, reviews);
   const variant = view.status === 'in_progress' ? 'secondary' : variantFor(status);
   if (!view.components.length) return <Badge variant={variant}>{view.label}</Badge>;

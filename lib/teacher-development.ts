@@ -13,7 +13,7 @@ export const teacherActivityNames = [
   'Training on School Support Mechanism (for School Support Officers (SSOs) and Instructional Leads (ILs))',
   'Head Teachers/school leaders',
   'Numeracy Training',
-  'STEAM Training',
+  'STEM Training',
   'Mental Arithmetic Training',
   'Psychosocial Support and Management of Children in Emergency Training',
   'Moral Regeneration and Reorientation Training',

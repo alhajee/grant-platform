@@ -101,7 +101,7 @@ export function infrastructurePoolEnvelope(plan: EnvelopePlan) {
   const share = toMinor(allocatedAmount(shared, policyAllocation(plan).shares.infrastructure));
   return fromMinor(share + toMinor(sourcesTotal(plan.fundingSources, 'infrastructure')) + toMinor(sourcesTotal(plan.fundingSources, 'tlm')));
 }
-const policyAllocation = (plan: EnvelopePlan) => plan.fundingPolicy?.allocation ?? defaultAllocation;
+export const policyAllocation = (plan: EnvelopePlan) => plan.fundingPolicy?.allocation ?? defaultAllocation;
 type PolicyShareKey = keyof Allocation['shares'];
 /** The funding-policy share key a component draws from: TLM uses Infrastructure's, ICT uses Teacher Development's. */
 export const policyShareKey = (component: EnvelopeComponent): PolicyShareKey => component === 'tlm' ? 'infrastructure' : component === 'ict' ? 'teachers' : component;
