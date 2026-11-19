@@ -16,20 +16,21 @@ export function infrastructureDocumentProblem(snapshot: Snapshot, options: Readi
   if(!id)return 'Associate supporting documents with each infrastructure school before sending';
   if(line.package?.kind==='new'){
    const land=line.package.input.land,attached=(kind:string)=>documents.filter(d=>d.kind===kind&&line.package?.input.documentIds.includes(d.id)).length;
+   const rules=options.rules;
    if(!land?.available||!land.documented||!land.unencumbered)return `Tick all three land declarations for ${line.school.name} before sending Infrastructure`;
-   if(attached('land_area')<1)return `Attach the document showing the land is available for ${line.school.name} before sending Infrastructure`;
-   if(attached('land')<1)return `Attach the C of O, R of O or Community Agreement document for ${line.school.name} before sending Infrastructure`;
-   // UBEC230: New Construction drawings are always required (packages saved before are asked for them here).
-   if(attached('drawings')<1)return `Attach the drawings for ${line.school.name} before sending Infrastructure`;
+   if(rules?.landDocumentsRequired!==false&&attached('land_area')<1)return `Attach the document showing the land is available for ${line.school.name} before sending Infrastructure`;
+   if(rules?.landDocumentsRequired!==false&&attached('land')<1)return `Attach the C of O, R of O or Community Agreement document for ${line.school.name} before sending Infrastructure`;
+   // UBEC230: New Construction drawings (packages saved before are asked for them here), unless switched off (migration 105).
+   if(rules?.drawingsRequired!==false&&attached('drawings')<1)return `Attach the drawings for ${line.school.name} before sending Infrastructure`;
   }
   // UBEC254: packages saved before the target group (and plans returned by UBEC) must name it before Infrastructure is sent.
   if(line.package&&!String(line.target_group??'').trim())return `Choose the target group for ${line.school.name}'s package before sending Infrastructure`;
   const survey=line.package?.kind!=='furniture';
   schools.set(id,{name:line.school.name,survey:survey||schools.get(id)?.survey===true});
  }
- // Each school's BOQ is always required (client, October 2026); the survey report only while the setting is on.
+ // Each school's BOQ (client, October 2026; the Requirements switch, migration 105); the survey report only while the setting is on.
  for(const [id,school] of schools){
-  for(const kind of [ 'boq' as const, ...(school.survey&&options.documentsRequired?['survey' as const]:[]) ]){
+  for(const kind of [ ...(options.rules?.boqRequired!==false?['boq' as const]:[]), ...(school.survey&&options.documentsRequired?['survey' as const]:[]) ]){
    if(!documents.some(d=>d.schoolId===id&&d.kind===kind))return `Attach ${kind==='boq'?'a BOQ':'a geophysical survey report'} for ${school.name} before sending Infrastructure.`;
   }
  }

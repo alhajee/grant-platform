@@ -165,14 +165,15 @@ export const lineDocumentAcceptFor = (workstream: string, activity: number) => i
  */
 export type LineDocumentSlot = { kind: 'document' | 'boq' | 'sample' | 'budget' | 'participants' | 'proforma'; label: string; governed: boolean; accept: string; hint: string;
   /** Required before sending whatever the Supporting documents setting (UBEC209). */ always?: boolean;
+  /** The Requirements switch that can turn `always` off (migration 105); then the slot follows the Supporting documents setting. */ rule?: 'teacherDocumentsRequired' | 'proformaRequired';
   /** A template to fill in before uploading. */ template?: { href: string; name: string } };
 const tlmDocumentSlots: readonly LineDocumentSlot[] = [
   { kind: 'boq', label: 'BOQ', governed: true, accept: lineDocumentAccept, hint: 'The Bill of Quantities for this item. PDF or Excel' },
   { kind: 'sample', label: 'Sample of the item', governed: true, accept: supportingDocumentAccept, hint: 'A sample of what is supplied, such as photos or a specimen. PDF, Excel, Word or images' },
 ];
 const teacherDocumentSlots: readonly LineDocumentSlot[] = [
-  { kind: 'budget', label: 'Budget Breakdown', governed: true, always: true, accept: lineDocumentAccept, hint: 'The training budget filled in from the template (Literacy, ECCDE or Curriculum). PDF or Excel', template: { href: '/templates/teacher-development-budget-template.xlsx', name: 'BEAPMS Training Budget Template.xlsx' } },
-  { kind: 'participants', label: 'Training List of Participants', governed: true, always: true, accept: lineDocumentAccept, hint: 'The teachers selected for the training, filled in from the template. PDF or Excel', template: { href: '/templates/training-participants-template.xlsx', name: 'Template for Selection of Teachers Training.xlsx' } },
+  { kind: 'budget', label: 'Budget Breakdown', governed: true, always: true, rule: 'teacherDocumentsRequired', accept: lineDocumentAccept, hint: 'The training budget filled in from the template (Literacy, ECCDE or Curriculum). PDF or Excel', template: { href: '/templates/teacher-development-budget-template.xlsx', name: 'BEAPMS Training Budget Template.xlsx' } },
+  { kind: 'participants', label: 'Training List of Participants', governed: true, always: true, rule: 'teacherDocumentsRequired', accept: lineDocumentAccept, hint: 'The teachers selected for the training, filled in from the template. PDF or Excel', template: { href: '/templates/training-participants-template.xlsx', name: 'Template for Selection of Teachers Training.xlsx' } },
   { kind: 'document', label: teacherDocumentLabel, governed: true, accept: lineDocumentAccept, hint: 'Other supporting documents, such as the MOU with the training provider. PDF or Excel only' },
 ];
 /**
@@ -181,7 +182,7 @@ const teacherDocumentSlots: readonly LineDocumentSlot[] = [
  * SBMC 15; TLM since UBEC250 and Curriculum since UBEC257 take none) needs the supplier's proforma invoice before the component is sent, whatever the Supporting
  * documents setting (migration 090).
  */
-export const proformaSlot: LineDocumentSlot = { kind: 'proforma', label: 'Proforma invoice', governed: true, always: true, accept: supportingDocumentAccept, hint: 'The supplier’s proforma invoice for this item. PDF, Excel, Word or images' };
+export const proformaSlot: LineDocumentSlot = { kind: 'proforma', label: 'Proforma invoice', governed: true, always: true, rule: 'proformaRequired', accept: supportingDocumentAccept, hint: 'The supplier’s proforma invoice for this item. PDF, Excel, Word or images' };
 /** UBEC250 (bug sheet 16, 10 November 2026): TLM items take their BOQ and Sample of the item, not a proforma invoice; UBEC257
  *  (bug sheet 18, 11 November 2026): Curriculum items take none either. */
 const withoutProforma = new Set(['tlm', 'curriculum']);
@@ -198,11 +199,14 @@ export function lineDocumentSlots(workstream: string, activity: number): readonl
   const slots = baseDocumentSlots(workstream, activity);
   return needsProforma(workstream, activity) ? [proformaSlot, ...slots] : slots;
 }
-/** Whether a slot must hold a document before sending: always-required slots, and governed ones while the setting is on. */
-export const slotRequired = (slot: LineDocumentSlot, documentsRequired: boolean) => !!slot.always || (slot.governed && documentsRequired);
+/** The Requirements switches a slot reads (lib/platform-rules.ts); absent = on. */
+export type SlotRules = Partial<Record<NonNullable<LineDocumentSlot['rule']>, boolean>>;
+/** Whether a slot must hold a document before sending: always-required slots (unless their Requirements switch is off), and governed ones while the setting is on. */
+export const slotRequired = (slot: LineDocumentSlot, documentsRequired: boolean, rules?: SlotRules) =>
+  (!!slot.always && (!slot.rule || rules?.[slot.rule] !== false)) || (slot.governed && documentsRequired);
 /** The first required slot of a line with no document yet, or null. */
-export const missingLineDocument = (workstream: string, activity: number, documents: readonly { kind?: string }[] | undefined, documentsRequired: boolean) =>
-  lineDocumentSlots(workstream, activity).find(slot => slotRequired(slot, documentsRequired) && !(documents ?? []).some(d => (d.kind ?? 'document') === slot.kind)) ?? null;
+export const missingLineDocument = (workstream: string, activity: number, documents: readonly { kind?: string }[] | undefined, documentsRequired: boolean, rules?: SlotRules) =>
+  lineDocumentSlots(workstream, activity).find(slot => slotRequired(slot, documentsRequired, rules) && !(documents ?? []).some(d => (d.kind ?? 'document') === slot.kind)) ?? null;
 export const maxLineDocumentBytes = 5 * 1024 * 1024;
 
 /** `quantity`: the items for this school, on ICT procurement lines for schools (UBEC160); otherwise absent. */

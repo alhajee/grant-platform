@@ -53,22 +53,23 @@ export default function AdminSchoolsPage() {
   const options = current && 'options' in current ? current.options : null;
   const error = meError || (current && 'error' in current ? current.error : '');
   const refresh = () => setRefreshKey(value => value + 1);
+  // The state picker sits in the table toolbar, between the search and Filter (client, 19 November 2026).
+  const statePicker = <Select value={state ?? undefined} onValueChange={choose} disabled={!state}>
+    <SelectTrigger className="h-9! w-48 justify-start rounded-full bg-card pl-3.5 shadow-xs hover:bg-accent/50 [&>svg:last-child]:ml-auto" aria-label="State"><MapPinIcon className="text-primary" /><SelectValue placeholder="Choose a state" /></SelectTrigger>
+    <SelectContent><SelectGroup>{statesByName.map(code => <SelectItem key={code} value={code}>{stateDisplayName(code).replace(/ State$/, '')}</SelectItem>)}</SelectGroup></SelectContent>
+  </Select>;
 
   return <div className="beap-page min-h-screen w-full"><AdminHeader current="schools" user={me?.user ?? null} /><main id="main-content" className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 pb-12 pt-8">
     <div className="flex flex-wrap items-end justify-between gap-4">
       <h1 className="text-3xl font-semibold tracking-tight">Schools</h1>
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={state ?? undefined} onValueChange={choose} disabled={!state}>
-          <SelectTrigger className="h-9! w-48 justify-start rounded-full bg-card pl-3.5 shadow-xs hover:bg-accent/50 [&>svg:last-child]:ml-auto" aria-label="State"><MapPinIcon className="text-primary" /><SelectValue placeholder="Choose a state" /></SelectTrigger>
-          <SelectContent><SelectGroup>{statesByName.map(code => <SelectItem key={code} value={code}>{stateDisplayName(code).replace(/ State$/, '')}</SelectItem>)}</SelectGroup></SelectContent>
-        </Select>
         {options?.manualEntry && <><Button variant="outline" onClick={() => setBulk(true)}><FileUpIcon data-icon="inline-start" />Bulk entry</Button><Button onClick={() => setEditing('new')}><PlusIcon data-icon="inline-start" />Add school</Button></>}
       </div>
     </div>
     {error && <Alert variant="destructive"><AlertTitle>School list unavailable</AlertTitle><AlertDescription>{error}<Button variant="outline" size="sm" onClick={() => void (meError ? reload() : setAttempt(value => value + 1))}>Try again</Button></AlertDescription></Alert>}
     {me?.impersonating ? <Alert><AlertTitle>You are using another account</AlertTitle><AlertDescription>Return to your administrator account to manage schools</AlertDescription></Alert>
       : !options && !error ? <Skeleton className="h-80 w-full" />
-      : options && state && <>{!options.manualEntry && <DnemisOnlyNote admin />}<SchoolRegisterTable key={state} stateCode={state} refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} onView={options.manualEntry ? undefined : setEditing} /></>}
+      : options && state && <>{!options.manualEntry && <DnemisOnlyNote admin />}<SchoolRegisterTable key={state} stateCode={state} toolbarStart={statePicker} refreshKey={refreshKey} onEdit={options.manualEntry ? setEditing : undefined} onView={options.manualEntry ? undefined : setEditing} /></>}
     <Dialog open={Boolean(editing)} onOpenChange={open => { if (!open) setEditing(null); }}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle>{editing === 'new' ? 'Add school' : options?.manualEntry ? 'Edit school' : 'School details'}</DialogTitle><DialogDescription>{editing === 'new' ? `Add one school to the ${options?.stateName ?? 'state'} register.` : options?.manualEntry ? 'Update the school details and its enrolment by class' : 'The school details and its enrolment by class, as synced from DNEMIS.'}</DialogDescription></DialogHeader>

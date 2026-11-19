@@ -48,8 +48,8 @@ const scopeLabel = (value: string) => value === 'general' ? 'Whole plan' : value
 // UBEC189: after a UBEC return, a component goes on only once its rejected items are changed or removed.
 const readiness = (data: PlanReview, pillar: ImplementedPillar) => rejectionProblem(componentName(pillar), data.ubecOpenRejections?.[pillar])
   ?? (hasDistribution(pillar) ? distributionListProblem(pillar, data.snapshot[pillar] ?? [], data.snapshot[distributionSnapshotKeys[pillar]]) : null)
-  ?? (pillar === 'infrastructure' && data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot, { documentsRequired: data.documentsRequired }) : null)
-  ?? componentSendProblem(pillar, data.snapshot, { documentsRequired: data.documentsRequired, fullAllocation: data.fullAllocation });
+  ?? (pillar === 'infrastructure' && data.snapshot.infrastructure?.length ? infrastructureDocumentProblem(data.snapshot, { documentsRequired: data.documentsRequired, rules: data.rules }) : null)
+  ?? componentSendProblem(pillar, data.snapshot, { documentsRequired: data.documentsRequired, fullAllocation: data.fullAllocation, rules: data.rules });
 // Budget lines saved but no distribution list: the send step shows, disabled, with the reason (from `readiness`).
 const nothingToSend = (data: PlanReview, pillar: ImplementedPillar) => !data.snapshot[pillar]?.length;
 

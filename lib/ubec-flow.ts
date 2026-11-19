@@ -23,7 +23,7 @@ export type FlowComponent = {
   validationReports: ValidationReport[];
 };
 export type ValidationReport = { id: string; name: string; size: number; officerId: number; officerName: string; createdAt: string };
-/** Components whose officers must upload a Validation Report before completing their assessment. */
+/** Components whose officers may upload a Validation Report (optional; it never holds Complete assessment). */
 export const validationReportPillars: readonly ImplementedPillar[] = ['infrastructure'];
 export const needsValidationReport = (pillar: ImplementedPillar) => validationReportPillars.includes(pillar);
 export type ItemDecision = { pillar: ImplementedPillar; rowRef: string; decision: ItemDecisionValue; note: string; officerName: string; decidedAt: string };
@@ -61,6 +61,10 @@ export type UbecFlow = {
   ratReview?: import('./rat-review').RatReview | null;
   /** The signed-in user, so the page can tell their own Validation Reports apart. */
   viewerId: number;
+  /** Super Admin setting (migration 105): the officer must upload a Validation Report before Complete assessment. */
+  validationReportRequired: boolean;
+  /** Requirements (migration 105): whether open Oversight comments and a rejected RAT hold approval. */
+  oversightCommentsHold: boolean; ratRejectionHolds: boolean;
 };
 /** One component of a plan on the dashboards: where it is in the pipeline. */
 export type PipelineComponent = {

@@ -8,7 +8,7 @@ import { LineTable, lineAmount, type InlineField, type PanelLine } from '@/compo
 import { EmptySection, FocusEmpty, LineSection, PanelSummary, PanelToolbar } from '@/components/line-panel/line-section';
 import { useCollapsed, type PanelMode } from '@/components/line-panel/use-line-panel';
 import { activityLabel, activityNames, strategyLabel, selectableActivityIndexes, type ActivityLine, type ActivityWorkstream } from '@/lib/activity-plans';
-import { frequencyLabel, missingLineDocument } from '@/lib/activity-extras';
+import { frequencyLabel, missingLineDocument, type SlotRules } from '@/lib/activity-extras';
 
 const count = new Intl.NumberFormat('en-NG');
 const plural = (n: number, word: string, many = `${word}s`) => `${count.format(n)} ${n === 1 ? word : many}`;
@@ -26,6 +26,8 @@ type ActivityLinePanelProps = {
   setup?: { ictConnect?: 'has' | 'needs' | null } | null;
   /** Whether a "documents needed" badge shows on lines without their document. */
   documentsRequired: boolean;
+  /** Requirements switches (migration 105). */
+  rules?: SlotRules;
   summary: { label: string; total: ReactNode; meter: ReactNode };
   /** Alerts and the Monitoring proforma upload, between the summary and the list. */
   notices?: ReactNode;
@@ -63,7 +65,7 @@ function details(workstream: ActivityWorkstream, l: ActivityLine): string {
 
 /** The saved lines beside the activity editor: summary, view toggle and one section per activity. */
 export function ActivityLinePanel(props: ActivityLinePanelProps) {
-  const { rejected, workstream, activities, lines, setup, documentsRequired, summary, notices, selectedActivity, selectedId, dirtyId, mode, onMode, query, onQuery, flashId, inlineEditable, actionsDisabled, viewOnly, shareNote, onSaveCell, onEdit, onRemove, onStart } = props;
+  const { rejected, workstream, activities, lines, setup, documentsRequired, rules, summary, notices, selectedActivity, selectedId, dirtyId, mode, onMode, query, onQuery, flashId, inlineEditable, actionsDisabled, viewOnly, shareNote, onSaveCell, onEdit, onRemove, onStart } = props;
   const { isOpen, toggle } = useCollapsed();
   const all = lines ?? [];
   const needle = query.trim().toLowerCase();
@@ -82,9 +84,9 @@ export function ActivityLinePanel(props: ActivityLinePanelProps) {
     details: details(workstream, l) || undefined, code: l.code, quarters: l.quarters, startDate: l.startDate, dueDate: l.dueDate, quantity: l.quantity, unitCost: l.unitCost,
     attachments: l.documents?.length ?? 0,
     // Only the documents the Supporting documents setting governs; optional supporting documents never show "needed".
-    badges: (missingLineDocument(workstream, l.activity, l.documents, documentsRequired) || rejected?.has(String(l.id))) ? <>
+    badges: (missingLineDocument(workstream, l.activity, l.documents, documentsRequired, rules) || rejected?.has(String(l.id))) ? <>
       {rejected?.has(String(l.id)) && <Badge variant="destructive" title={rejected.get(String(l.id))!.reason || undefined}>Rejected by UBEC</Badge>}
-      {missingLineDocument(workstream, l.activity, l.documents, documentsRequired) && <Badge variant="warning">{missingLineDocument(workstream, l.activity, l.documents, documentsRequired)!.label} needed</Badge>}
+      {missingLineDocument(workstream, l.activity, l.documents, documentsRequired, rules) && <Badge variant="warning">{missingLineDocument(workstream, l.activity, l.documents, documentsRequired, rules)!.label} needed</Badge>}
     </> : undefined,
     rejected: rejected?.has(String(l.id)) || undefined,
   });

@@ -18,7 +18,7 @@ const errorOf = async (response: Response, fallback: string) => ((await response
  * letterhead, uploaded) for the Send to UBEC dialog. Each is saved as soon as it is added, so it survives closing the
  * dialog; `onChange` reports the saved letters (both are needed to send).
  */
-export function SubmissionLetterFields({ planId, disabled, onChange }: { planId: number; disabled: boolean; onChange: (letters: SubmissionLetter[]) => void }) {
+export function SubmissionLetterFields({ planId, disabled, onChange, optional = false }: { planId: number; disabled: boolean; onChange: (letters: SubmissionLetter[]) => void; /** Requirements (migration 105): the Super Admin made them optional. */ optional?: boolean }) {
   const [data, setData] = useState<Letters | null>(null), [busy, setBusy] = useState<SubmissionLetterKind | null>(null), [loadError, setLoadError] = useState('');
   const url = `/api/plans/submission-letter?plan=${planId}`;
   const load = useCallback(async () => {
@@ -55,7 +55,7 @@ export function SubmissionLetterFields({ planId, disabled, onChange }: { planId:
   const locked = disabled || !data.canEdit;
   return <div className="submission-letter">
     <Field>
-      <FieldLabel>Your signature <span className="required-mark" aria-hidden="true">*</span></FieldLabel>
+      <FieldLabel>Your signature {optional ? <span className="text-muted-foreground font-normal">(optional)</span> : <span className="required-mark" aria-hidden="true">*</span>}</FieldLabel>
       {signature ? <div className="submission-signature-saved">
         {/* eslint-disable-next-line @next/next/no-img-element -- a private, same-origin download */}
         <img src={submissionLetterHref(planId, signature.id)} alt="Your saved signature" />
@@ -68,7 +68,7 @@ export function SubmissionLetterFields({ planId, disabled, onChange }: { planId:
       </Tabs>}
     </Field>
     <Field>
-      <FieldLabel>Cover letter <span className="required-mark" aria-hidden="true">*</span></FieldLabel>
+      <FieldLabel>Cover letter {optional ? <span className="text-muted-foreground font-normal">(optional)</span> : <span className="required-mark" aria-hidden="true">*</span>}</FieldLabel>
       <FieldDescription>On your SUBEB letterhead, as a PDF, Word document or image</FieldDescription>
       {letter && <DocumentFiles compact documents={[{ id: letter.id, name: letter.name, size: letter.size, url: submissionLetterHref(planId, letter.id) }]} onRemove={locked ? undefined : id => void remove(id)} />}
       {!locked && <FileUpload label={letter ? 'Replace the cover letter' : 'Upload the cover letter'} accept={submissionLetterAccept.cover_letter} compact busy={busy === 'cover_letter'} disabled={!!busy && busy !== 'cover_letter'} onFiles={files => files[0] && void save('cover_letter', files[0], files[0].name)} />}

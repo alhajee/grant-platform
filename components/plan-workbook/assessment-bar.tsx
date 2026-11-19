@@ -52,7 +52,7 @@ export function AssessmentBar({ assessment, rows, selected, actions, observation
   // UBEC213: items are decided one at a time, so the actions need exactly one selected row.
   const one = selected.length === 1 ? selected : [];
   const can = assessment.canDecide(assessment.pillar), decided = one.some(id => assessment.decisions(assessment.pillar).has(id));
-  const validation = assessment.validation?.(assessment.pillar) ?? null, missingReport = !!validation && !validation.mine.length;
+  const validation = assessment.validation?.(assessment.pillar) ?? null, missingReport = !!validation?.required && !validation.mine.length;
   return <div className="wb-assessment" data-editable={can || undefined}>
     <div className="wb-assessment-progress" role="group" aria-label={`${counts.total - counts.undecided} of ${counts.total} items decided`}>
       <span className="wb-assessment-meter" aria-hidden="true"><span data-kind="accept" style={{ width: pct(counts.accepted, counts.total) }} /><span data-kind="reject" style={{ width: pct(counts.rejected, counts.total) }} /></span>
@@ -79,13 +79,13 @@ export function AssessmentBar({ assessment, rows, selected, actions, observation
 
 const reportAccept = '.pdf,.xls,.xlsx,.docx,.png,.jpg,.jpeg';
 /**
- * Infrastructure Validation Reports (migration 069): the assigned officer uploads one or more before Complete assessment;
+ * Infrastructure Validation Reports (migration 069): the assigned officer uploads one or more, required before Complete assessment only while the Super Admin setting says so (migration 105);
  * everyone who sees the sheet can open them.
  */
 function ValidationReportPanel({ validation, editable }: { validation: ValidationReports; editable: boolean }) {
   const files = (editable ? validation.mine : validation.reports).map(r => ({ id: r.id, name: r.name, size: r.size, url: validation.href(r.id), description: editable ? undefined : r.officerName }));
-  return <div className="wb-validation" data-missing={editable && !validation.mine.length || undefined}>
-    <div className="wb-validation-head"><strong>Validation report</strong><span>{editable ? (validation.mine.length ? 'Uploaded · required before Complete assessment' : 'Required before Complete assessment') : `${validation.reports.length} uploaded by the Assessment Officers`}</span></div>
+  return <div className="wb-validation" data-missing={editable && validation.required && !validation.mine.length || undefined}>
+    <div className="wb-validation-head"><strong>Validation report</strong><span>{editable ? (validation.required ? (validation.mine.length ? 'Uploaded · required before Complete assessment' : 'Required before Complete assessment') : validation.mine.length ? 'Uploaded' : 'Optional') : `${validation.reports.length} uploaded by the Assessment Officers`}</span></div>
     {editable && <FileUpload label="Validation report" accept={reportAccept} compact multiple busy={validation.busy} onFiles={files => void validation.upload(files)} />}
     {files.length > 0 && <DocumentFiles compact documents={files} onRemove={editable ? id => void validation.remove(id) : undefined} />}
   </div>;

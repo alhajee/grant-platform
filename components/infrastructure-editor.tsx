@@ -52,7 +52,7 @@ import { nairaFormat } from '@/lib/money-format';
 import { minorToNaira } from '@/lib/money';
 import { hasNoAllocation } from '@/lib/unfunded-components';
 const money=nairaFormat;
-type Data={plan:ActionPlan;schools:InfrastructureSchool[];packages:InfrastructurePackage[];documents:InfraDocument[];canEdit:boolean;/** Only the BEAP Chair sets budget splits. */canSplit?:boolean;canManageSchools?:boolean;/** False while schools come from DNEMIS only. */manualSchools?:boolean;/** TLM's proposed lines: TLM shares Infrastructure's pool (split or shared, by the platform mode). */tlmProposed?:string;/** Super Admin Supporting documents setting (migration 052): BOQs, surveys, photos and the updated Whole School BOQ are required only when true. Land documents are always required. */documentsRequired?:boolean};
+type Data={plan:ActionPlan;schools:InfrastructureSchool[];packages:InfrastructurePackage[];documents:InfraDocument[];canEdit:boolean;/** Only the BEAP Chair sets budget splits. */canSplit?:boolean;canManageSchools?:boolean;/** False while schools come from DNEMIS only. */manualSchools?:boolean;/** TLM's proposed lines: TLM shares Infrastructure's pool (split or shared, by the platform mode). */tlmProposed?:string;/** Super Admin Supporting documents setting (migration 052): BOQs, surveys, photos and the updated Whole School BOQ are required only when true. Land documents are always required. */documentsRequired?:boolean;rules?:import('@/lib/platform-rules').PlatformRules};
 const blank=(kind:InfrastructureInput['kind'])=>packageSchema.parse({kind,schoolId:1,components:['Primary']});
 /** The costing step of each package type: Furniture's items, New Construction's and Whole School's costing. */
 const costStepOf=(kind?:string)=>kind==='furniture'?1:kind==='whole'?3:2;
@@ -159,15 +159,17 @@ export function InfrastructureEditor(){
  }
  // Surveys and photographic evidence follow the Super Admin's Supporting documents setting; the BOQ (client, October 2026) and land documents are always required.
  const docsRequired=data?.documentsRequired===true;
+ // Requirements switches (migration 105): BOQ, New Construction drawings and land documents; absent = required.
+ const rules=data?.rules;
  // Drawings are uploaded per school on the Review step (required for New Construction, UBEC230); plan-wide drawings from before (no school) are still listed.
  const earlierDrawings=(data?.documents??[]).filter(document=>document.kind==='drawings'&&!document.schoolId);
  // New Construction: all three land declarations ticked and the C of O / R of O / Community Agreement document attached (always required).
  // UBEC170: the BOQ is required to save the package; the field is flagged on the Review step until one is attached.
- const boqProblem=draft&&!(data?.documents??[]).some(document=>document.kind==='boq'&&draft.documentIds.includes(document.id))?'Attach this school’s Bill of Quantities (BOQ) before saving the package':null;
+ const boqProblem=draft&&rules?.boqRequired!==false&&!(data?.documents??[]).some(document=>document.kind==='boq'&&draft.documentIds.includes(document.id))?'Attach this school’s Bill of Quantities (BOQ) before saving the package':null;
  // UBEC230: New Construction drawings are always required to save (Whole School and Furniture keep them optional).
- const drawingsProblem=draft?drawingsDocumentProblem(draft,(data?.documents??[]).filter(document=>document.kind==='drawings'&&draft.documentIds.includes(document.id)).length):null;
+ const drawingsProblem=draft&&rules?.drawingsRequired!==false?drawingsDocumentProblem(draft,(data?.documents??[]).filter(document=>document.kind==='drawings'&&draft.documentIds.includes(document.id)).length):null;
  const landAttached=(kind:'land'|'land_area')=>draft?.kind==='new'?(data?.documents??[]).filter(document=>document.kind===kind&&draft.documentIds.includes(document.id)).length:0;
- const landProblem=draft?.kind!=='new'?null:!allLandDeclared(draft)?'Tick all three land declarations':landDocumentProblem(draft,{land:landAttached('land'),landArea:landAttached('land_area')});
+ const landProblem=draft?.kind!=='new'?null:!allLandDeclared(draft)?'Tick all three land declarations':rules?.landDocumentsRequired===false?null:landDocumentProblem(draft,{land:landAttached('land'),landArea:landAttached('land_area')});
  // What blocks saving the package; Save package is disabled while this returns a message.
  // Infrastructure and TLM share one pool; a package that raises its cost may not take the two past it.
  const savedMinor=(data?.packages??[]).reduce((sum,p)=>sum+toMinor(String(p.total_cost)),BigInt(0)),tlmMinor=toMinor(data?.tlmProposed??'0');

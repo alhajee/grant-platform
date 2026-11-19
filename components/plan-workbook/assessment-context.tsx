@@ -36,6 +36,8 @@ export type WorkbookAssessment = {
   validation?: (pillar: ImplementedPillar) => ValidationReports | null;
 };
 export type ValidationReports = {
+  /** Super Admin setting (migration 105): needed before Complete assessment. */
+  required: boolean;
   reports: readonly ValidationReport[]; mine: readonly ValidationReport[]; href: (id: string) => string;
   upload: (files: File[]) => Promise<void>; remove: (id: string) => Promise<void>; busy: boolean;
 };

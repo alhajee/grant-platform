@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DocumentFiles, FileUpload } from '@/components/document-files';
 import { activityInfo, activityNames, type ActivityWorkstream, type DistributionSchool } from '@/lib/activity-plans';
-import { allocatesToSchools, beneficiaryLabels, beneficiaryTypes, needsBeneficiary, type Beneficiary, censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isQualityEquipmentActivity, ictSupportingDocumentHelp, lineDocumentSlots, slotRequired, type LineDocumentSlot, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
+import { allocatesToSchools, beneficiaryLabels, beneficiaryTypes, needsBeneficiary, type Beneficiary, censusTypes, compulsoryActivities, equipmentCategories, gscciItemsByActivity, lineHasItem, needsCensusType, equipmentTypesByCategory, hasLineSchools, ictSubscriptionActivity, ictWebsiteActivity, isCompulsory, isRetiredActivity, isQualityEquipmentActivity, ictSupportingDocumentHelp, lineDocumentSlots, slotRequired, type SlotRules, type LineDocumentSlot, maxTypeNameLength, subscriptionGroups, subscriptionTypes, websiteTypes, type LineDocument } from '@/lib/activity-extras';
 import { othersActivityName } from '@/lib/teacher-development';
 import { compulsoryNames, hasReadinessRules, missingCompulsory } from '@/lib/component-readiness';
 import { currentPlanHref } from '@/lib/action-plans';
@@ -194,7 +194,7 @@ export async function uploadLineDocuments(workstream: ActivityWorkstream, lineId
  * uploads them right after the item is added. `required` follows the Super Admin setting (migration 052): governed
  * slots are marked required only while it is on. Supporting documents (migration 057) are always optional.
  */
-export function LineDocumentsField({ workstream, activity, lineId, documents, pending, onPendingChange, required: isRequired, disabled, onChanged }: { workstream: ActivityWorkstream; activity: number; lineId?: number; documents: LineDocument[]; pending: PendingDocument[]; onPendingChange: (files: PendingDocument[]) => void; required: boolean; disabled: boolean; onChanged: () => Promise<void> }) {
+export function LineDocumentsField({ workstream, activity, lineId, documents, pending, onPendingChange, required: isRequired, rules, disabled, onChanged }: { workstream: ActivityWorkstream; activity: number; lineId?: number; documents: LineDocument[]; pending: PendingDocument[]; onPendingChange: (files: PendingDocument[]) => void; required: boolean; /** Requirements switches (migration 105). */ rules?: SlotRules; disabled: boolean; onChanged: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const slots = lineDocumentSlots(workstream, activity);
   if (!slots.length) return null;
@@ -220,7 +220,7 @@ export function LineDocumentsField({ workstream, activity, lineId, documents, pe
   const hintFor = (slot: LineDocumentSlot) => workstream === 'teachers' && slot.kind === 'document' ? `${teacherDocumentHint}. PDF or Excel only` : slot.kind === 'document' && !slot.governed ? `Quotations, specifications, photos or other evidence for this item; BPP waiver. ${slot.hint}` : slot.hint;
   return <>
     {slots.map(slot => {
-      const mandatory = slotRequired(slot, isRequired), id = `line-document-${slot.kind}`;
+      const mandatory = slotRequired(slot, isRequired, rules), id = `line-document-${slot.kind}`;
       const saved = documents.filter(d => (d.kind ?? 'document') === slot.kind), waiting = pending.map((p, index) => ({ ...p, index })).filter(p => p.kind === slot.kind);
       return <Field key={slot.kind}><FieldLabel htmlFor={id}>{slot.label} {mandatory ? required : <span className="font-normal text-muted-foreground">(optional)</span>}{/* UBEC75: what ICT's supporting documents are for. */}{workstream === 'ict' && slot.kind === 'document' && !slot.governed && <FieldHelp>{ictSupportingDocumentHelp}</FieldHelp>}{slot.template && <a className="line-document-template" href={slot.template.href} download={slot.template.name}><DownloadIcon aria-hidden="true" />Download template</a>}</FieldLabel>
         <FileUpload compact id={id} label={slot.label} multiple accept={slot.accept} disabled={disabled} busy={busy} onFiles={files => void upload(slot.kind, files)} />

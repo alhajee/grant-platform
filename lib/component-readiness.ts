@@ -15,7 +15,8 @@ type ReadinessLine = { id: number; activity: number; description: string; custom
 type ReadinessSetup = { ictAllocation?: string | null; qualityActivities?: readonly number[] | null; ictConnect?: 'has' | 'needs' | null; ictConnectWaivers?: number } | null | undefined;
 /** Platform settings readiness depends on: whether supporting documents (ICT, Teacher Development, Infrastructure except land documents) are required (migration 052). */
 /** fullAllocation: every component must use its whole allocation before it is sent (UBEC79, migration 076). */
-export type ReadinessOptions = { documentsRequired: boolean; fullAllocation?: boolean };
+/** `rules`: the Super Admin's Requirements (migration 105); absent = the defaults. */
+export type ReadinessOptions = { documentsRequired: boolean; fullAllocation?: boolean; rules?: import('./platform-rules').PlatformRules };
 
 // UBEC227/229: SBMC (its compulsory and retired activities), Supervision & Monitoring and Curriculum (proforma invoices) too.
 export const readinessWorkstreams = ['quality', 'ict', 'teachers', 'planning', 'tlm', 'sbmc', 'monitoring', 'curriculum'] as const;
@@ -64,7 +65,7 @@ export function componentReadinessProblem(workstream: string, lines: readonly Re
   // The governed documents while the setting is on, and the always-required ones (Teacher Development, UBEC209);
   // optional supporting documents (migration 057) never block a send.
   for (const line of lines) {
-    const slot = missingLineDocument(workstream, line.activity, line.documents, !!options.documentsRequired);
+    const slot = missingLineDocument(workstream, line.activity, line.documents, !!options.documentsRequired, options.rules);
     if (slot) return `Upload the ${slot.label === 'BOQ' ? 'BOQ' : slot.label.toLowerCase()} for “${lineName(workstream, line)}” before sending`;
   }
   return null;

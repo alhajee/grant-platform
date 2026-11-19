@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createColumnHelper, type PaginationState, type SortingState } from '@tanstack/react-table';
 import { DownloadIcon, EyeIcon, MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
 import { DataTable } from '@/components/data-table';
@@ -21,7 +21,8 @@ import { EmptyRegisterArt, NoMatchingSchoolsArt } from '@/components/empty-art/s
 
 /** `stateCode`: the state a Super Admin is viewing; state users omit it and get their own state. */
 /** Without `onEdit` the list is read-only (schools come from DNEMIS only): no edit, no delete, export only; `onView` opens the read-only details. */
-export type SchoolRegisterTableProps = { refreshKey: number; onEdit?: (school: RegisterSchool) => void; onView?: (school: RegisterSchool) => void; stateCode?: string };
+/** `toolbarStart`: shown between the search and Filter (the Super Admin's state picker). */
+export type SchoolRegisterTableProps = { refreshKey: number; onEdit?: (school: RegisterSchool) => void; onView?: (school: RegisterSchool) => void; stateCode?: string; toolbarStart?: ReactNode };
 type Loaded = { key: string; data: RegisterPage } | { key: string; error: string };
 const helper = createColumnHelper<DataTableFeatures, RegisterSchool>();
 const defaultSorting: SortingState = [{ id: 'name', desc: false }];
@@ -33,7 +34,7 @@ const enrolmentRecorded = (school: RegisterSchool) => school.male + school.femal
 const updated = new Intl.DateTimeFormat('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
 
 /** The state's schools, paged, searched, sorted and filtered on the server. */
-export function SchoolRegisterTable({ refreshKey, onEdit, onView, stateCode }: SchoolRegisterTableProps) {
+export function SchoolRegisterTable({ refreshKey, onEdit, onView, stateCode, toolbarStart }: SchoolRegisterTableProps) {
   // Filters are remembered per register, so one state's LGAs never filter another's.
   const persist = stateCode ? `school-register:${stateCode}` : 'school-register';
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: defaultRegisterPageSize });
@@ -152,10 +153,10 @@ export function SchoolRegisterTable({ refreshKey, onEdit, onView, stateCode }: S
       rowSelected={school => selected.has(school.id)}
       stickyHeader
       rowLabel={onEdit ? school => `Edit ${school.name}` : onView ? school => `View ${school.name}` : undefined}
-      filters={<FilterDialog inlineChips
+      filters={<>{toolbarStart}<FilterDialog inlineChips
         sections={filters.map(item => ({ id: item.title.toLowerCase().replace(/\s+/g, '-'), title: item.title, options: item.options, selected: item.selected, onChange: setFilter(item.set) }))}
         onClearAll={() => { filters.forEach(item => item.set([])); setPagination(state => ({ ...state, pageIndex: 0 })); }}
-        showLabel={`Show ${total.toLocaleString()} ${total === 1 ? 'school' : 'schools'}`} />}
+        showLabel={`Show ${total.toLocaleString()} ${total === 1 ? 'school' : 'schools'}`} /></>}
       server={{
         rowCount: error ? 0 : lastData?.total ?? 0,
         pagination, onPaginationChange: setPagination,

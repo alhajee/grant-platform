@@ -6,6 +6,7 @@ import type { Snapshot } from './plan-review';
 import { activePillars, componentDepartments, holdsUbecChair, ubecChairSql, isComponentDepartment, isOversightDepartment, oversightIds, pillarDepartments, ubecRoles, type UbecRound, oversightList } from './ubec';
 import { componentAmount, componentItems, decisionCounts, superAdminRole, type FlowAbilities, type FlowComponent, type ItemDecision, type ObserverAssignment, type OfficerAssignment, type OversightReview, type UbecFlow } from './ubec-flow';
 import { readDefaultOfficers } from './ubec-officer-limits';
+import { readPlatformRules } from './platform-rules-db';
 
 // Server-side reads and helpers for the UBEC review flow (docs/ubec-flow.md, migration 055).
 
@@ -172,6 +173,8 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
   const defaultOfficers = overseer
     ? Object.fromEntries(departmentOfficers.length === 1 ? components.map(c => [c.pillar, [departmentOfficers[0].id]]) : [])
     : Object.fromEntries(components.map(c => [c.pillar, (defaults.get(c.pillar) ?? []).map(o => o.id).filter(officerId => available.has(officerId))]).filter(([, ids]) => ids.length));
+  const rules = await readPlatformRules(db);
+  // Both holds follow the Super Admin's Requirements (migration 105); with a hold off its count still shows, but never blocks.
   const openOversightComments = await openOversightCommentCount(db, round.id);
   const ratReview = await readRatReview(db, round.id);
   const allCorrected = await readCorrections(db, round);
@@ -180,8 +183,8 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
     releasedAt: iso(round.released_at ?? null), releasedByName: round.released_by_name ?? null, releaseComment: round.release_comment ?? '',
     components, decisions: allDecisions.filter(d => visible.includes(d.pillar)), previousDecisions, corrected,
     abilities: viewer.role === ubecRoles.es ? flowAbilities({ ...viewer, role: '' }, round, latest, components) : flowAbilities(viewer, round, latest, all.filter(c => visible.includes(c.pillar))),
-    officers: departmentOfficers, defaultOfficers, viewerId: viewer.id,
-    allArrived: all.length > 0 && all.every(c => c.stage === 'chair'), approvable: approvableComponents(all) && !openOversightComments && ratReview?.decision !== 'reject', openOversightComments, ratReview,
+    officers: departmentOfficers, defaultOfficers, viewerId: viewer.id, validationReportRequired: rules.validationReportRequired, oversightCommentsHold: rules.oversightCommentsHoldApproval, ratRejectionHolds: rules.ratRejectionHoldsApproval,
+    allArrived: all.length > 0 && all.every(c => c.stage === 'chair'), approvable: approvableComponents(all) && !(rules.oversightCommentsHoldApproval && openOversightComments) && !(rules.ratRejectionHoldsApproval && ratReview?.decision === 'reject'), openOversightComments, ratReview,
   };
 }
 

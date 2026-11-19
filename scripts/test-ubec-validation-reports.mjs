@@ -1,5 +1,5 @@
-// Infrastructure Validation Reports (migration 069): the assigned Assessment Officer uploads one before Complete
-// assessment; others cannot upload; the Director downloads it; it cannot be removed once the assessment is complete.
+// Infrastructure Validation Reports (migration 069): the assigned Assessment Officer uploads some; Complete
+// assessment waits for one only while the Super Admin setting requires it (Requirements, migration 105); others cannot upload; the Director downloads it; it cannot be removed once the assessment is complete.
 // A released Infrastructure round is set up directly in the database (throwaway state, users and plan; cleans up).
 // Usage: node --env-file=.env scripts/test-ubec-validation-reports.mjs [baseUrl]
 import assert from 'node:assert/strict';
@@ -44,7 +44,9 @@ async function cleanUp(plan, ids) {
   if (ids.length) await db.query('DELETE FROM users WHERE id=ANY($1::int[])', [ids]);
 }
 
+const setRequired = value => db.query("UPDATE state_workflow_settings SET platform_rules = platform_rules || jsonb_build_object('validationReportRequired', $1::boolean) WHERE state_code='GLOBAL'", [value]);
 await db.connect();
+const before = (await db.query("SELECT platform_rules AS r FROM state_workflow_settings WHERE state_code='GLOBAL'")).rows[0]?.r ?? {};
 try {
   await user('ec', 'Executive Chairman', null);
   await user('dpp', 'UBEC Director', 'physical'); await user('officer', 'UBEC Assessment Officer', 'physical'); await user('other', 'UBEC Assessment Officer', 'physical');
@@ -55,10 +57,12 @@ try {
   await db.query("INSERT INTO ubec_officer_assignments(round_component_id,officer_id,officer_name,assigned_by_id,assigned_by_name,comment) VALUES($1,$2,'QA officer',$3,'QA dpp','Please assess.')", [componentId, users.officer, users.dpp]);
   await db.query("INSERT INTO ubec_item_decisions(round_id,pillar,row_ref,decision,officer_id,officer_name) VALUES($1,'infrastructure','-1','accept',$2,'QA officer')", [roundId, users.officer]);
   const reports = `/api/ubec/validation-reports?plan=${planId}`, components = `/api/ubec/components?plan=${planId}`;
-  const upload = (who, file = pdf(), pillar = 'infrastructure') => { const form = new FormData(); form.set('roundId', String(roundId)); form.set('pillar', pillar); form.set('file', file); return api(who, reports, form); };
-
+  await setRequired(true);
   fails(await api('officer', components, { action: 'complete_assessment', roundId, pillar: 'infrastructure' }), 409, /Validation Report/);
-  step('Complete assessment on Infrastructure is refused without a Validation Report');
+  assert.equal(ok(await api('dpp', `/api/ubec/review?plan=${planId}`)).flow.validationReportRequired, true);
+  step('while the Super Admin setting requires it, Complete assessment waits for the Validation Report');
+
+  const upload = (who, file = pdf(), pillar = 'infrastructure') => { const form = new FormData(); form.set('roundId', String(roundId)); form.set('pillar', pillar); form.set('file', file); return api(who, reports, form); };
 
   fails(await upload('other'), 403, /not assigned/);
   fails(await upload('dpp'), 403, /Assessment Officer/);
@@ -78,12 +82,18 @@ try {
 
   fails(await api('other', `${reports}&id=${second.id}`, undefined, 'DELETE'), 404);
   ok(await api('officer', `${reports}&id=${second.id}`, undefined, 'DELETE'));
+  await db.query("INSERT INTO ubec_officer_assignments(round_component_id,officer_id,officer_name,assigned_by_id,assigned_by_name,comment) VALUES($1,$2,'QA other',$3,'QA dpp','Please assess.')", [componentId, users.other, users.dpp]);
+  await setRequired(false);
+  ok(await api('other', components, { action: 'complete_assessment', roundId, pillar: 'infrastructure' }));
+  step('with the setting off (the default) an officer completes without one');
+  await setRequired(true);
   ok(await api('officer', components, { action: 'complete_assessment', roundId, pillar: 'infrastructure' }));
   fails(await api('officer', `${reports}&id=${first.id}`, undefined, 'DELETE'), 409, /already completed/);
   fails(await upload('officer'), 409, /already completed/);
   step('the officer removes their own report, completes with one, and nothing changes afterwards');
   console.log('PASS: Infrastructure Validation Reports.');
 } finally {
+  await db.query("UPDATE state_workflow_settings SET platform_rules=$1::jsonb WHERE state_code='GLOBAL'", [JSON.stringify(before)]);
   await cleanUp(planId, Object.values(users));
   await db.end();
 }

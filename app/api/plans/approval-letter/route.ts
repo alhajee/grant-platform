@@ -4,6 +4,7 @@ import { getPostgres } from '@/lib/postgres';
 import { ubecSeesPillarSql } from '@/lib/ubec-flow-db';
 import { approvalLetter } from '@/lib/approval-letter';
 import { approvalLetterPdf } from '@/lib/approval-letter-pdf';
+import { readPinnedLetterImages } from '@/lib/letter-assets-db';
 import type { Snapshot } from '@/lib/plan-review';
 
 // UBEC268: GET ?plan= downloads UBEC's approval letter (PDF) for the plan's latest approved round. Anyone at the plan's
@@ -17,15 +18,16 @@ export async function GET(request: NextRequest) {
     const plan = request.nextUrl.searchParams.get('plan');
     if (!plan || !/^[1-9]\d{0,9}$/.test(plan)) return error('Choose a valid plan');
     const db = getPostgres();
-    const row = (await db.query<{ state_code: string; start_year: number; funding_quarters: number[] | null; snapshot: Snapshot; year: number; serial: number; issued_at: Date; number: number }>(
-      `SELECT p.state_code, p.start_year, p.funding_quarters, r.snapshot, r.number, l.year, l.serial, l.issued_at
+    const row = (await db.query<{ state_code: string; start_year: number; funding_quarters: number[] | null; snapshot: Snapshot; year: number; serial: number; issued_at: Date; number: number; letterhead_id: number | null; signature_id: number | null }>(
+      `SELECT p.state_code, p.start_year, p.funding_quarters, r.snapshot, r.number, l.year, l.serial, l.issued_at, l.letterhead_id, l.signature_id
        FROM ubec_rounds r JOIN action_plans p ON p.id = r.plan_id JOIN ubec_approval_letters l ON l.round_id = r.id
        WHERE r.plan_id = $1 AND r.status = 'approved'
          AND (p.state_code = $2 OR ${ubecSeesPillarSql('r', 'NULL::text', '$3::text', '$5::int', '$4::text')})
        ORDER BY r.number DESC LIMIT 1`, [plan, user.stateCode, user.role, user.department, user.userId])).rows[0];
     if (!row) return error('No approval letter for this plan yet', 404);
     const letter = approvalLetter({ stateCode: row.state_code, planYear: row.start_year, quarters: row.funding_quarters, snapshot: row.snapshot, year: row.year, serial: row.serial, issuedAt: new Date(row.issued_at) });
-    const pdf = await approvalLetterPdf(letter);
+    // The letterhead and signature pinned when it was approved (migration 105).
+    const pdf = await approvalLetterPdf(letter, await readPinnedLetterImages(db, { letterhead: row.letterhead_id, signature: row.signature_id }));
     const name = `UBEC approval letter ${row.state_code} ${row.start_year} (submission ${row.number}).pdf`;
     const inline = request.nextUrl.searchParams.get('download') !== '1';
     return new NextResponse(new Uint8Array(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(name)}`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });

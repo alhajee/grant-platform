@@ -7,10 +7,12 @@ import { DnemisPanel } from './dnemis-panel';
 import { OfficersPanel } from './officers-panel';
 import { sectionGroups, type SettingsSection } from './sections';
 import { BudgetPanel, DocumentsPanel, EccdeSharePanel, FullAllocationPanel, PriceListPanel, SchoolSourcePanel, WorkflowPanel } from './simple-panels';
+import { RequirementsPanel } from './requirements-panel';
+import { ApprovalLetterPanel } from './letter-panel';
 import './admin-settings.css';
 
 const panels: Record<SettingsSection, ComponentType<{ onDirty?: (dirty: boolean) => void }>> = {
-  workflow: WorkflowPanel, documents: DocumentsPanel, allocations: FullAllocationPanel, eccde: EccdeSharePanel, budget: BudgetPanel, pricelist: PriceListPanel, officers: OfficersPanel, schools: SchoolSourcePanel, dnemis: DnemisPanel,
+  workflow: WorkflowPanel, documents: DocumentsPanel, allocations: FullAllocationPanel, eccde: EccdeSharePanel, budget: BudgetPanel, pricelist: PriceListPanel, officers: OfficersPanel, letter: ApprovalLetterPanel, requirements: RequirementsPanel, schools: SchoolSourcePanel, dnemis: DnemisPanel,
 };
 const allItems = sectionGroups.flatMap(group => group.items);
 

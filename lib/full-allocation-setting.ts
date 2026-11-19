@@ -1,6 +1,7 @@
 import type { QueryResult, QueryResultRow } from 'pg';
 import { readComponentDocumentsRequired } from './component-documents-setting';
 import type { ReadinessOptions } from './component-readiness';
+import { readPlatformRules } from './platform-rules-db';
 
 // Whether every component must use its whole allocation before it is sent (UBEC79, migration 076; lib/allocation-use.ts).
 /** Also used when the GLOBAL settings row (or the column) is missing. */
@@ -18,5 +19,5 @@ export async function readFullAllocationRequired(db: Db): Promise<boolean> {
 }
 /** The platform settings every send check reads: supporting documents and full use of allocations. */
 export async function readReadinessOptions(db: Db): Promise<ReadinessOptions> {
-  return { documentsRequired: await readComponentDocumentsRequired(db), fullAllocation: await readFullAllocationRequired(db) };
+  return { documentsRequired: await readComponentDocumentsRequired(db), fullAllocation: await readFullAllocationRequired(db), rules: await readPlatformRules(db) };
 }

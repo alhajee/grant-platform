@@ -61,7 +61,9 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
   const busy = useRef(false);
   const step = useConfirmStep('send-to-ubec-note');
   const [financeMissing, setFinanceMissing] = useState<string[]>([]), [letters, setLetters] = useState<SubmissionLetter[] | null>(null);
-  const lettersMissing = letters ? missingSubmissionLetters(letters) : ['Signature', 'Cover letter'];
+  // Requirements (migration 105): the Super Admin can make the letters and the Finance documents optional.
+  const lettersRequired = review.rules?.submissionLetterRequired !== false, financeRequired = review.rules?.financeHoldsUbec !== false;
+  const lettersMissing = !lettersRequired ? [] : letters ? missingSubmissionLetters(letters) : ['Signature', 'Cover letter'];
   const summary = useMemo(() => ubecConfirmation(review, !!status?.returned, openUbecComments, letters ?? []), [review, status?.returned, openUbecComments, letters]);
 
   useEffect(() => {
@@ -74,7 +76,7 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
       if (active) setStatus({ version: detail.plan.version, roundId: detail.round?.id, returned: detail.round?.status === 'returned', canSubmit: detail.canSubmit });
     }).catch(cause => { if (active) setLoadError(cause instanceof Error ? cause.message : 'The plan could not be checked'); });
     // UBEC217: the Finance documents the Finance department has not uploaded hold the send.
-    void fetch(`/api/plans/finance?plan=${planId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<{ missing: string[] }> : null).then(body => { if (active && body) setFinanceMissing(body.missing); }).catch(() => {});
+    void fetch(`/api/plans/finance?plan=${planId}`, { cache: 'no-store' }).then(r => r.ok ? r.json() as Promise<{ missing: string[] }> : null).then(body => { if (active && body && financeRequired) setFinanceMissing(body.missing); }).catch(() => {});
     return () => { active = false; };
   }, [open, planId]);
 
@@ -123,7 +125,7 @@ export function SendToUbecDialog({ planId, review, open, openUbecComments, onClo
             <Textarea id="send-to-ubec-note" value={comment} onChange={event => setComment(event.target.value)} maxLength={5000} rows={4} required={status.returned} disabled={saving} />
             {error && <FieldError>{error}</FieldError>}
           </Field>
-          <SubmissionLetterFields planId={planId} disabled={saving} onChange={setLetters} />
+          <SubmissionLetterFields planId={planId} disabled={saving} onChange={setLetters} optional={!lettersRequired} />
         </FieldGroup>}
       </div>
       <DialogFooter>

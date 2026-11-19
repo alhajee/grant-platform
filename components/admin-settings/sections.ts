@@ -1,18 +1,22 @@
-import { BabyIcon, CircleGaugeIcon, FileCheckIcon, PlugZapIcon, ReceiptTextIcon, SchoolIcon, UsersRoundIcon, WalletIcon, WorkflowIcon, type LucideIcon } from 'lucide-react';
+import { BabyIcon, CircleGaugeIcon, FileCheckIcon, FileSignatureIcon, ListChecksIcon, PlugZapIcon, ReceiptTextIcon, SchoolIcon, UsersRoundIcon, WalletIcon, WorkflowIcon, type LucideIcon } from 'lucide-react';
 
-export const settingsSections = ['workflow', 'documents', 'allocations', 'eccde', 'budget', 'pricelist', 'officers', 'schools', 'dnemis'] as const;
+export const settingsSections = ['workflow', 'requirements', 'documents', 'allocations', 'eccde', 'budget', 'pricelist', 'officers', 'letter', 'schools', 'dnemis'] as const;
 export type SettingsSection = typeof settingsSections[number];
 
 export const sectionGroups: { label: string; items: { id: SettingsSection; label: string; icon: LucideIcon }[] }[] = [
   { label: 'Plans', items: [
     { id: 'workflow', label: 'SUBEB workflow', icon: WorkflowIcon },
+    { id: 'requirements', label: 'Requirements', icon: ListChecksIcon },
     { id: 'documents', label: 'Supporting documents', icon: FileCheckIcon },
     { id: 'allocations', label: 'Full use of allocations', icon: CircleGaugeIcon },
     { id: 'eccde', label: 'ECCDE share', icon: BabyIcon },
     { id: 'budget', label: 'Infrastructure & TLM budget', icon: WalletIcon },
     { id: 'pricelist', label: 'Procurement price list', icon: ReceiptTextIcon },
   ] },
-  { label: 'UBEC', items: [{ id: 'officers', label: 'Assessment Officers', icon: UsersRoundIcon }] },
+  { label: 'UBEC', items: [
+    { id: 'officers', label: 'Assessment Officers', icon: UsersRoundIcon },
+    { id: 'letter', label: 'Approval letter', icon: FileSignatureIcon },
+  ] },
   { label: 'Data', items: [
     { id: 'schools', label: 'School list source', icon: SchoolIcon },
     { id: 'dnemis', label: 'DNEMIS integration', icon: PlugZapIcon },

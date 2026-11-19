@@ -1,3 +1,4 @@
+import { readPlatformRules } from '@/lib/platform-rules-db';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
@@ -41,7 +42,7 @@ export async function GET(req:NextRequest){
   const manualSchools=await manualSchoolsAllowed(db);
   const tlmProposed=(await db.query<{total:string}>("SELECT COALESCE(SUM(quantity*unit_cost),0)::text AS total FROM activity_plan_lines WHERE plan_id=$1 AND workstream='tlm'",[plan.id])).rows[0].total;
   // documentsRequired: the Super Admin's Supporting documents setting (migration 052); land documents are required either way.
-  return NextResponse.json({plan,schools,packages:packages.rows,tlmProposed,partnerProposed:tlmProposed,documents:documents.rows,documentsRequired:await readComponentDocumentsRequired(db),canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews),canSplit:setsBudgetSplits(user)&&statePlanOpen(plan.status),canManageSchools:manualSchools&&canManageSchoolRegister(user.role,user.isBeapChair,user.canManageSchools),manualSchools},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({plan,schools,packages:packages.rows,tlmProposed,partnerProposed:tlmProposed,documents:documents.rows,documentsRequired:await readComponentDocumentsRequired(db),rules:await readPlatformRules(db),canEdit:mayEditPillar(user.role,user.departments ?? user.department,'infrastructure',plan.status,reviews),canSplit:setsBudgetSplits(user)&&statePlanOpen(plan.status),canManageSchools:manualSchools&&canManageSchoolRegister(user.role,user.isBeapChair,user.canManageSchools),manualSchools},{headers:{'Cache-Control':'no-store'}});
  }catch(cause){console.error(cause);return error('Unable to load infrastructure',503);}
 }
 export async function POST(req:NextRequest){
@@ -86,11 +87,12 @@ export async function POST(req:NextRequest){
    if(new Set(draft.documentIds).size!==docs.length)return error('One or more attachments do not belong to this plan');
    if(docs.some(d=>d.school_id!==null&&d.school_id!==draft.schoolId))return error('One or more attachments belong to a different school');
    // New Construction: all three land declarations (packageProblem) and the C of O / R of O / Community Agreement document, always required.
-   const landProblem=landDocumentProblem(draft,{land:docs.filter(d=>d.kind==='land').length,landArea:docs.filter(d=>d.kind==='land_area').length});if(landProblem)return error(landProblem);
+   const rules=await readPlatformRules(db);
+   const landProblem=!rules.landDocumentsRequired?null:landDocumentProblem(draft,{land:docs.filter(d=>d.kind==='land').length,landArea:docs.filter(d=>d.kind==='land_area').length});if(landProblem)return error(landProblem);
    // UBEC230: New Construction drawings are always required to save (Whole School and Furniture keep them optional).
-   const drawingsProblem=drawingsDocumentProblem(draft,docs.filter(d=>d.kind==='drawings').length);if(drawingsProblem)return error(drawingsProblem);
+   const drawingsProblem=!rules.drawingsRequired?null:drawingsDocumentProblem(draft,docs.filter(d=>d.kind==='drawings').length);if(drawingsProblem)return error(drawingsProblem);
    // UBEC170: the school's Bill of Quantities is required to save the package, not only to send it.
-   if(!docs.some(d=>d.kind==='boq'))return error('Attach this school’s Bill of Quantities (BOQ) before saving the package');
+   if(rules.boqRequired&&!docs.some(d=>d.kind==='boq'))return error('Attach this school’s Bill of Quantities (BOQ) before saving the package');
    // Per-row photographic evidence: keep only keys that name a photo attached to this package (a removed photo drops out).
    const photoIds=docs.filter(d=>d.kind==='photo').map(d=>String(d.id));
    const input={...draft,photoKeys:Object.fromEntries(Object.entries(draft.photoKeys).filter(([id])=>photoIds.includes(id)))};

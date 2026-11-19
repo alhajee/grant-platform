@@ -22,6 +22,7 @@ import { ratRejectedForApproval } from '@/lib/rat-review';
 import { addUbecEvent, approvableComponents, notifyUbec, openOversightCommentCount, oversightCommentsMessage, readActor, readDecisions, readFlow, readRoundComponents, readViewerRounds, releaseRows, ubecVisibleSnapshot, viewerPillars } from '@/lib/ubec-flow-db';
 import { componentName, superAdminRole } from '@/lib/ubec-flow';
 import { readFinanceSendProblem } from '@/lib/finance-documents-db';
+import { readPlatformRules } from '@/lib/platform-rules-db';
 import { subebComponentDepartments, type ImplementedPillar } from "@/lib/beap-pillars";
 import { submissionLetterProblem } from '@/lib/submission-letter';
 import { attachLetters, readPendingLetters, readRoundLetters } from '@/lib/submission-letter-db';
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
         const unready = unreadySentComponents(snapshot, reviews, readiness)[0];
         if (unready) return error(componentSendProblem(unready, snapshot, readiness)!, 409);
         // UBEC217: the three Finance documents must be uploaded first (observation requests no longer hold the send).
-        const finance = await readFinanceSendProblem(db, plan.id);
+        const finance = readiness.rules?.financeHoldsUbec === false ? null : await readFinanceSendProblem(db, plan.id);
         if (finance) return error(finance, 409);
         // UBEC205: a RAT tool UBEC rejected must be replaced first.
         const rat = await readRatResubmitProblem(db, plan.id);
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
         { const open = await readOpenRejections(db, plan.id, snapshot); const sent = componentsWithExecutiveChairman(reviews); const problem = sent.map(p => rejectionProblem(componentName(p), open[p])).find(Boolean); if (problem) return error(problem, 409); }
         if (!readyForUbecSubmission(ubecMode, reviews, snapshot, readiness)) return error(partial ? 'At least one component must reach the Executive Chairman before sending to UBEC.' : 'Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
         // UBEC132: the Executive Chairman signs and attaches a cover letter to every submission.
-        { const problem = submissionLetterProblem(await readPendingLetters(db, plan.id)); if (problem) return error(problem, 409); }
+        if (readiness.rules?.submissionLetterRequired !== false) { const problem = submissionLetterProblem(await readPendingLetters(db, plan.id)); if (problem) return error(problem, 409); }
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(ubecSubmissionSnapshot(snapshot, reviews)), user.id])).rows[0];
         await attachLetters(db, plan.id, round.id);
         status = 'submitted_ubec';
@@ -150,9 +151,11 @@ export async function POST(request: NextRequest) {
           if (!components.length || waiting.length) return error(`Every component must finish department assessment and oversight first (${waiting.length} still in progress)`, 409);
           if (input.action === 'approve' && !approvableComponents(components)) return error('The plan cannot be approved while items are rejected. Return it to the SUBEB instead.', 409);
           // Audit, Procurement and Finance comments must be resolved first (UBEC56, migration 071).
-          const oversightOpen = input.action === 'approve' ? await openOversightCommentCount(db, round.id) : 0;
+          // Both holds follow the Super Admin's Requirements (migration 105).
+          const rules = await readPlatformRules(db);
+          const oversightOpen = input.action === 'approve' && rules.oversightCommentsHoldApproval ? await openOversightCommentCount(db, round.id) : 0;
           if (oversightOpen) return error(oversightCommentsMessage(oversightOpen), 409);
-          if (input.action === 'approve' && (await readRatReview(db, round.id))?.decision === 'reject') return error(ratRejectedForApproval, 409);
+          if (input.action === 'approve' && rules.ratRejectionHoldsApproval && (await readRatReview(db, round.id))?.decision === 'reject') return error(ratRejectedForApproval, 409);
           // Only the UBEC threads ticked on return reach the state; approval never shares any.
           const share = input.shareCommentIds ?? [];
           if (share.length) {

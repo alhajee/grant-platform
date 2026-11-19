@@ -37,11 +37,16 @@ function paragraph(page: PDFPage, text: string, font: PDFFont, size: number, y: 
 
 const percent = (value: number) => `${Number.isInteger(value) ? value : value.toFixed(2)}`;
 
-export async function approvalLetterPdf(letter: ApprovalLetter): Promise<Uint8Array> {
+/** An uploaded letterhead or signature (Admin > Settings > Approval letter, migration 105); absent = the built-in one. */
+export type LetterImage = { content: Uint8Array; mime: 'image/jpeg' | 'image/png' };
+export type LetterImages = { letterhead?: LetterImage | null; signature?: LetterImage | null };
+
+export async function approvalLetterPdf(letter: ApprovalLetter, images: LetterImages = {}): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(letter.title); pdf.setAuthor('Universal Basic Education Commission'); pdf.setSubject(letter.reference);
   const page = pdf.addPage([A4.width, A4.height]);
-  const background = await pdf.embedJpg(Buffer.from(letterheadJpeg, 'base64'));
+  const embed = (image: LetterImage) => image.mime === 'image/png' ? pdf.embedPng(image.content) : pdf.embedJpg(image.content);
+  const background = images.letterhead ? await embed(images.letterhead) : await pdf.embedJpg(Buffer.from(letterheadJpeg, 'base64'));
   page.drawImage(background, { x: 0, y: 0, width: A4.width, height: A4.height });
   const regular = await pdf.embedFont(StandardFonts.Helvetica), bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
@@ -77,7 +82,7 @@ export async function approvalLetterPdf(letter: ApprovalLetter): Promise<Uint8Ar
   for (const text of letter.closing) y = paragraph(page, text, regular, 11, y) - 10;
 
   // The signature sits over the name printed on the letterhead (bottom left).
-  const signature = await pdf.embedPng(Buffer.from(signaturePng, 'base64'));
+  const signature = images.signature ? await embed(images.signature) : await pdf.embedPng(Buffer.from(signaturePng, 'base64'));
   const width = 92, height = width * signature.height / signature.width;
   page.drawImage(signature, { x: 66, y: 76, width, height });
   return pdf.save();
