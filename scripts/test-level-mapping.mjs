@@ -65,6 +65,12 @@ const mixed = line(1000, 1, { school: enrolled, target_group: 'ECCDE Learners, P
 assert.deepEqual(levelMapping({ infrastructure: [mixed], sports: [] }), { eccde: 250, primary: 750, jss: 0, none: 0, total: 1000 });
 assert.deepEqual(levelMapping({ infrastructure: [{ ...mixed, school: school('JSS'), target_group: 'Primary School Learners' }], sports: [] }), { eccde: 100, primary: 600, jss: 300, none: 0, total: 1000 }, 'shared parts follow the school level, not the target groups');
 assert.deepEqual(levelMapping({ infrastructure: [{ ...lump, school: enrolled }], sports: [] }), { eccde: 225, primary: 675, jss: 0, none: 0, total: 900 }, 'a lump-sum package by enrolment at the named levels');
+// 19 November 2026: a target level the school has no learners at is ignored when DNEMIS has its enrolment (ECCDE chosen
+// for a JSS-only school does not make its classrooms ECCDE); the ECCDE classroom item itself still counts as ECCDE.
+const jssOnly = { ...school('JSS'), enrolmentByClass: { JSS1: { male: 100, female: 100 } } };
+assert.deepEqual(levelMapping({ infrastructure: [{ ...mixed, school: jssOnly, target_group: 'ECCDE Learners' }], sports: [] }), { eccde: 100, primary: 0, jss: 900, none: 0, total: 1000 }, 'ECCDE target at a JSS school: the school level');
+assert.equal(levelMapping({ infrastructure: [{ ...lump, school: jssOnly, target_group: 'ECCDE Learners' }], sports: [] }).jss, 900, 'a lump-sum package too');
+assert.equal(levelMapping({ infrastructure: [{ ...lump, target_group: 'ECCDE Learners' }], sports: [] }).eccde, 900, 'no enrolment figures: the target groups as before');
 // UBEC231: the 15% ECCDE rule.
 assert.equal(eccdeShareProblem({ infrastructure: [], sports: [] }), null, 'nothing proposed: nothing to check');
 assert.equal(eccdeShareProblem({ infrastructure: [], sports: [], monitoring: [line(15, 1, { target_group: 'ECCDE Learners' }), line(85, 1)] }), null, 'exactly 15% passes');

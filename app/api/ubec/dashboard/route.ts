@@ -4,7 +4,7 @@ import { readCorrections } from '@/lib/ubec-corrections-db';
 import { NextRequest, NextResponse } from 'next/server';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
-import { activePillars, holdsUbecChair, isUbec, ubecRoles, type NationalItem, type UbecDashboard, type UbecQueueItem, type UbecRound } from '@/lib/ubec';
+import { activePillars, holdsUbecChair, isOversightDepartment, isUbec, ubecRoles, type NationalItem, type UbecDashboard, type UbecQueueItem, type UbecRound } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import { coversPlanningYear } from '@/lib/national-analytics';
 import type { ImplementedPillar } from '@/lib/beap-pillars';
@@ -49,11 +49,13 @@ export async function GET(request: NextRequest) {
       if (seesEverything(viewer)) return true;
       const c = components.find(x => x.round_id === round.id && x.pillar === pillar);
       if (viewer.role === ubecRoles.director) return c?.department === viewer.department || legacy.some(l => l.round_id === round.id && l.pillar === pillar && l.department === viewer.department);
-      if (viewer.role === ubecRoles.oversight) return !!c && c.stage !== 'director';
+      // UBEC258/270: Oversight Directors see every released component.
+      if (viewer.role === ubecRoles.oversight) return !!c;
       if (viewer.role === ubecRoles.officer) return !!c && [...officers, ...observers].some(o => o.round_component_id === c.id && o.officer_id === viewer.id);
       return false;
     });
     const queue: UbecQueueItem[] = [];
+    const departmentOfficerIds = new Set(viewer.role === ubecRoles.oversight && isOversightDepartment(viewer.department) ? (await db.query<{ id: number }>('SELECT id FROM users WHERE role=$1 AND department=$2', [ubecRoles.officer, viewer.department])).rows.map(r => r.id) : []);
     // UBEC196: resubmitted plans say how many rejected items the SUBEB corrected (open rounds only).
     const corrections = new Map(await Promise.all(rounds.filter(r => r.number > 1 && ['received', 'reviewing'].includes(r.status)).map(async r => [r.id, await readCorrections(db, r)] as const)));
     const items: NationalItem[] = rounds.map(r => {
@@ -78,9 +80,13 @@ export async function GET(request: NextRequest) {
         }
         if (viewer.role === ubecRoles.officer && p.stage === 'director' && p.officers.some(o => o.mine && !o.completed)) push('assess', `Assess ${name}`, `${p.counts.undecided} of ${p.counts.total} items to decide`, anchor);
         if (viewer.role === ubecRoles.oversight && p.stage === 'oversight' && !p.oversightDone.includes(viewer.department as PipelineComponent['oversightDone'][number])) push('observe', `Observations on ${name}`, '', anchor);
-        const c = components.find(x => x.round_id === r.id && x.pillar === p.pillar);
-        if (viewer.role === ubecRoles.officer && c && p.stage === 'oversight' && !p.oversightDone.includes(viewer.department as PipelineComponent['oversightDone'][number]) && observers.some(o => o.round_component_id === c.id && o.officer_id === viewer.id)) push('observe', `Comment on ${name}`, 'oversight', anchor);
       }
+      // UBEC270: Oversight Directors assign their officers to the whole plan; assigned officers comment on it.
+      const dept = viewer.department as PipelineComponent['oversightDone'][number];
+      const openToDept = open ? components.filter(c => c.round_id === r.id && c.stage !== 'chair' && !oversight.some(o => o.round_component_id === c.id && o.department === dept)) : [];
+      const deptObservers = observers.filter(o => openToDept.some(c => c.id === o.round_component_id) && departmentOfficerIds.has(o.officer_id));
+      if (viewer.role === ubecRoles.oversight && openToDept.length && !deptObservers.length) push('assign', 'Assign your Assessment Officers to this plan', `${openToDept.length} ${openToDept.length === 1 ? 'component' : 'components'}`);
+      if (viewer.role === ubecRoles.officer && openToDept.some(c => observers.some(o => o.round_component_id === c.id && o.officer_id === viewer.id))) push('observe', 'Comment on the plan’s items', 'oversight');
       const schoolKey = (s: { name: string; lga: string; level: string }) => JSON.stringify([r.state_code, s.name, s.lga, s.level]);
       const can = (p: ImplementedPillar) => pillars.includes(p);
       const schools = [...(can('tlm') ? r.snapshot.tlmDistribution ?? [] : []), ...(can('curriculum') ? r.snapshot.curriculumDistribution ?? [] : []), ...(can('gscci') ? r.snapshot.gscciDistribution ?? [] : [])].map(schoolKey)

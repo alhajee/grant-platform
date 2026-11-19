@@ -81,6 +81,27 @@ try {
   const earlyThread = ok(await api('finOff', comments, { sheet: 'monitoring', rowRef: line, columnId: null, body: 'FINANCE OFFICER: early note' }), 201).id;
   ok(await api('finOff', comments, { id: earlyThread, action: 'edit', body: 'FINANCE OFFICER: early note, edited' }, 'PATCH'));
   ok(await api('chair', comments, { id: earlyThread, action: 'resolve' }, 'PATCH'));
+  // UBEC270: the Oversight Director assigns officers to the whole plan from release; they get it in their queue.
+  const planTeam = `/api/ubec/oversight-officers${q}`, roundId = (await view('chair')).round.id;
+  const dash = async who => ok(await api(who, '/api/ubec/dashboard'));
+  assert.ok((await dash('audit')).items.some(i => i.planId === planId), 'the Oversight Director has the plan from release');
+  assert.ok((await dash('audit')).queue.some(i => i.planId === planId && i.kind === 'assign'), 'and is asked to assign officers');
+  assert.equal((await view('audit')).flow.abilities.assignPlanObservers, true);
+  assert.ok(!(await dash('auditOff2')).items.some(i => i.planId === planId), 'an unassigned officer has nothing in their own work');
+  fails(await api('dpp', planTeam, { action: 'assign', roundId, officerIds: [users.auditOff2], comment: 'x' }), 403);
+  fails(await api('audit', planTeam, { action: 'assign', roundId, officerIds: [users.finOff], comment: 'x' }), 400, /Audit/);
+  fails(await api('audit', planTeam, { action: 'assign', roundId, officerIds: [users.auditOff2], comment: '' }), 400, /comment/);
+  const assigned = ok(await api('audit', planTeam, { action: 'assign', roundId, officerIds: [users.auditOff2], comment: 'Look at the whole plan.' }));
+  assert.equal(assigned.components, 1);
+  fails(await api('audit', planTeam, { action: 'assign', roundId, officerIds: [users.auditOff2], comment: 'again' }), 409, /already on this plan/);
+  assert.ok(await notified('auditOff2', 'assign_observer'), 'the officer is notified');
+  assert.ok((await dash('auditOff2')).queue.some(i => i.planId === planId && i.kind === 'observe'), 'the plan is in the officer\'s queue');
+  assert.ok(!(await dash('audit')).queue.some(i => i.planId === planId && i.kind === 'assign'), 'the Director is no longer asked');
+  const planThread = ok(await api('auditOff2', comments, { sheet: 'monitoring', rowRef: line, columnId: 'amount', body: 'AUDIT OFFICER 2: plan-wide note' }), 201).id;
+  ok(await api('chair', comments, { id: planThread, action: 'resolve' }, 'PATCH'));
+  ok(await api('audit', planTeam, { action: 'unassign', roundId, officerId: users.auditOff2 }));
+  fails(await api('audit', planTeam, { action: 'unassign', roundId, officerId: users.auditOff2 }), 404);
+  step('UBEC270: an Oversight Director assigns their officers to the whole plan; the officer sees it in their queue and comments');
   ok(await step2('dpp', 'send_oversight', { comment: 'Assessed.' }));
   step('oversight Directors and every oversight officer see and comment from release; the plan reaches oversight');
 

@@ -40,7 +40,7 @@ export function ubecSeesPillarSql(round: string, pillar: string, role: string, u
     OR EXISTS(SELECT 1 FROM users cu WHERE cu.id=${userId} AND cu.active AND ${ubecChairSql('cu')})${anyUnit}
     OR (${role}='${ubecRoles.director}' AND (EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match} AND rc.department=${department})
       OR EXISTS(SELECT 1 FROM ubec_assignments la WHERE la.round_id=${round}.id AND (${pillar} IS NULL OR la.pillar=${pillar}) AND la.department=${department})))
-    OR (${role}='${ubecRoles.oversight}' AND EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match} AND rc.sent_to_oversight_at IS NOT NULL))
+    OR (${role}='${ubecRoles.oversight}' AND ${department} IN (${oversightUnits}) AND ${released})
     OR (${role}='${ubecRoles.officer}' AND EXISTS(SELECT 1 FROM ubec_round_components rc JOIN ubec_officer_assignments oa ON oa.round_component_id=rc.id AND oa.removed_at IS NULL WHERE rc.round_id=${round}.id AND ${match} AND oa.officer_id=${userId}))
     OR (${role}='${ubecRoles.officer}' AND EXISTS(SELECT 1 FROM ubec_round_components rc JOIN ubec_oversight_assignments xa ON xa.round_component_id=rc.id AND xa.removed_at IS NULL WHERE rc.round_id=${round}.id AND ${match} AND xa.officer_id=${userId})))`;
 }
@@ -144,6 +144,7 @@ export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status
     observe: withOversight.filter(() => viewer.role === ubecRoles.oversight).map(c => c.pillar),
     // UBEC258: officers no longer need assigning (they all see and comment); earlier assignments stay readable.
     assignObservers: [],
+    assignPlanObservers: reviewing && viewer.role === ubecRoles.oversight && isOversightDepartment(viewer.department) && components.some(c => c.stage !== 'chair' && !c.oversight.some(o => o.department === viewer.department)),
     comment: observable.map(c => c.pillar),
     observerDone: withOversight.filter(c => viewer.role === ubecRoles.officer && c.observers.some(o => o.officerId === viewer.id && !o.completedAt)).map(c => c.pillar),
   };

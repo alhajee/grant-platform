@@ -36,8 +36,10 @@ export type FlowAbilities = {
   complete: ImplementedPillar[];
   /** The Director of the component's department: change item decisions and send assessments back (UBEC143). */
   override: ImplementedPillar[];
-  /** Oversight Director: assign their department's officers to components with oversight (migration 071). */
+  /** Oversight Director: assign their department's officers to components with oversight (migration 071; unused since UBEC258). */
   assignObservers: ImplementedPillar[];
+  /** UBEC270: Oversight Director assigns their department's officers to the whole plan (app/api/ubec/oversight-officers). */
+  assignPlanObservers?: boolean;
   /** UBEC258: Oversight Directors and their officers add observations (comments, no decisions) on released components until their department has finished. */
   comment: ImplementedPillar[];
   /** UBEC187: an oversight officer assigned before UBEC258 records their own Observations done. */

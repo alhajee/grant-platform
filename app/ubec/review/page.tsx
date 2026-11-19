@@ -1,7 +1,7 @@
 'use client';
 import '@/components/plan-page/plan-page.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftIcon, CheckIcon, CornerDownLeftIcon, HistoryIcon, MegaphoneIcon, SendIcon, Undo2Icon, UserMinusIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, UsersIcon, CornerDownLeftIcon, HistoryIcon, MegaphoneIcon, SendIcon, Undo2Icon, UserMinusIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,6 +11,7 @@ import { PlanSummary } from '@/components/plan-page/plan-summary';
 import { UbecComponentCards, type CardStep } from '@/components/ubec/ubec-component-cards';
 import { FlowDialog, type FlowRequest } from '@/components/ubec/flow-dialog';
 import { AssessItemsDialog } from '@/components/ubec/assess-items-dialog';
+import { PlanObserversDialog, planObservers } from '@/components/ubec/plan-observers-dialog';
 import { FinanceDocumentsCard } from '@/components/plan-page/finance-documents-card';
 import { SubmissionLetterCard } from '@/components/ubec/submission-letter-card';
 import { LevelMappingCard } from '@/components/level-mapping-card';
@@ -41,7 +42,7 @@ const trail: Record<string, string> = { submit: 'Submitted to UBEC', release: 'R
 /** The UBEC plan page: summary, component cards, the BEAP Chair's steps, item assessment, the workbook and the trail. */
 export default function UbecReviewPage() {
   const [data, setData] = useState<UbecDetail | null>(null), [error, setError] = useState(''), [loading, setLoading] = useState(true), [selected, setSelected] = useState('current');
-  const [request, setRequest] = useState<FlowRequest | null>(null), [tab, setTab] = useState<string>(''), [detailsOpen, setDetailsOpen] = useState(false);
+  const [planTeamOpen, setPlanTeamOpen] = useState(false), [request, setRequest] = useState<FlowRequest | null>(null), [tab, setTab] = useState<string>(''), [detailsOpen, setDetailsOpen] = useState(false);
   const requestId = useRef(0);
   const path = () => `/api/ubec/review?plan=${encodeURIComponent(new URLSearchParams(window.location.search).get('plan') ?? '')}`;
   const load = useCallback(async (value = 'current') => {
@@ -180,6 +181,8 @@ export default function UbecReviewPage() {
         <div className="review-actions">
           {/* UBEC184: the UBEC BEAP Chair releases from the top of the page too. */}
           {round?.status === 'received' && can?.release && <Button size="sm" className="rounded-full" onClick={() => setRequest({ kind: 'release' })}><SendIcon data-icon="inline-start" />Release to UBEC departments</Button>}
+          {/* UBEC270: the Oversight Director assigns their officers to the whole plan. */}
+          {can?.assignPlanObservers && flow && data?.department && <Button size="sm" className="rounded-full" variant={planObservers(flow, data.department).officers.size ? 'outline' : 'default'} onClick={() => setPlanTeamOpen(true)}><UsersIcon data-icon="inline-start" />{planObservers(flow, data.department).officers.size ? 'Manage officers' : 'Assign officers'}</Button>}
           {flow?.releasedAt && <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="rounded-full"><MegaphoneIcon data-icon="inline-start" />Chair’s note</Button></PopoverTrigger>
             <PopoverContent align="end" className="ubec-release-note"><strong>{flow.releasedByName === 'UBEC BEAP Chair' ? flow.releasedByName : `${flow.releasedByName}, UBEC BEAP Chair`}</strong>{flow.releaseComment && <p>{flow.releaseComment}</p>}<small>Released {date.format(new Date(flow.releasedAt))}</small></PopoverContent></Popover>}
           {round && <Badge variant={round.status === 'returned' ? 'warning' : round.status === 'approved' ? 'default' : 'secondary'}>{nationalStatusLabels[round.status]}</Badge>}
@@ -225,6 +228,7 @@ export default function UbecReviewPage() {
         {data.assignments.length > 0 && <Card className="mt-6"><CardHeader><CardTitle>Earlier department reviews</CardTitle></CardHeader><CardContent><ul className="ubec-legacy-reviews">{data.assignments.map(a => <li key={a.id}><strong>{departmentName(a.department)} · {componentName(a.pillar)}</strong><span>{a.completed_at ? a.recommendation === 'changes' ? 'Changes recommended' : 'Endorsed' : 'Not completed'}</span>{a.feedback && <p className="review-comment">{a.feedback}</p>}</li>)}</ul></CardContent></Card>}
         <Card className="mt-6"><CardHeader><CardTitle>Review trail</CardTitle></CardHeader><CardContent><ol className="national-activity">{data.events.map(e => <li key={e.id}><span className="national-activity-dot" /><div><strong>{trail[e.action] ?? e.action}{e.pillar ? ` · ${componentName(e.pillar)}` : ''}</strong><span>{e.actor} · {date.format(new Date(e.created_at))}</span>{e.comment && <p className="review-comment">{e.comment}</p>}</div></li>)}</ol></CardContent></Card>
         {assessing && <AssessItemsDialog open onOpenChange={next => { if (!next) setAssessing(null); }} pillar={assessing} name={componentName(assessing)} snapshot={round.snapshot} assessment={assessment} comments={comments} />}
+        {data.department && <PlanObserversDialog open={planTeamOpen} planId={data.plan.id} roundId={round.id} department={data.department} flow={flow} plan={`${data.plan.stateName ? `${data.plan.stateName} ` : ''}${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP`} onClose={() => setPlanTeamOpen(false)} onChanged={() => void load()} />}
         <FlowDialog admin={admin} request={request} planId={data.plan.id} plan={`${data.plan.stateName ? `${data.plan.stateName} ` : ''}${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP`} version={data.plan.version} roundId={round.id} flow={flow} components={cards} threads={comments?.threads ?? []} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} onChanged={() => void load()} />
       </>}
     </div>

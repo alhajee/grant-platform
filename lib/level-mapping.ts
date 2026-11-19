@@ -71,13 +71,18 @@ function enrolmentByLevel(school: PackageSchool | undefined): Weights {
   }
   return learners;
 }
-/** The levels the target groups name, weighed by the school's learners at those levels (evenly when it has none there). */
+/**
+ * The levels the target groups name, weighed by the school's learners at those levels. A school with DNEMIS enrolment
+ * but no learners at any named level (e.g. ECCDE chosen for a JSS-only school, 19 November 2026) does not follow the
+ * target groups: null, so its own level is used. Only a school with no enrolment figures at all is shared evenly.
+ */
 function namedLevelWeights(targetGroup: string | null | undefined, school: PackageSchool | undefined): Weights | null {
   const named = Object.keys(targetGroupWeights(targetGroup)) as SchoolLevelKey[];
   if (!named.length) return null;
   const learners = enrolmentByLevel(school);
   const weighed = Object.fromEntries(named.map(level => [level, learners[level] ?? 0])) as Weights;
-  return Object.values(weighed).some(n => (n ?? 0) > 0) ? weighed : Object.fromEntries(named.map(level => [level, 1]));
+  if (Object.values(weighed).some(n => (n ?? 0) > 0)) return weighed;
+  return Object.values(learners).some(n => (n ?? 0) > 0) ? null : Object.fromEntries(named.map(level => [level, 1]));
 }
 /**
  * UBEC254 (client answers, 11 November 2026): one Infrastructure package by level.
