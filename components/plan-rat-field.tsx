@@ -47,7 +47,7 @@ export function PlanRatField({ plan, canReplace, review, replaced, onReplaced }:
   }
 
   return <FieldSet className="gap-3 rounded-xl border bg-card p-3 shadow-xs"><FieldLegend>Rapid Assessment Tool (RAT)</FieldLegend>
-    {review?.decision === 'reject' && <Alert variant={replaced ? 'default' : 'destructive'}><FileSpreadsheetIcon /><AlertTitle>{replaced ? 'New RAT uploaded since UBEC rejected it' : 'UBEC rejected the RAT tool'}</AlertTitle><AlertDescription>“{review.comment}” · {review.reviewerName}{replaced ? '' : '. Upload a corrected RAT before sending the plan to UBEC again'}</AlertDescription></Alert>}
+    {review?.decision === 'reject' && <Alert variant={replaced ? 'default' : 'destructive'}><FileSpreadsheetIcon /><AlertTitle>{replaced ? 'New RAT uploaded since UBEC rejected it' : 'UBEC rejected the RAT tool'}</AlertTitle><AlertDescription><span className="whitespace-pre-wrap [overflow-wrap:anywhere]">“{review.comment}” · {review.reviewerName}{replaced ? '' : '. Upload a corrected RAT before sending the plan to UBEC again'}</span></AlertDescription></Alert>}
     <Field>
       <DocumentFiles compact documents={current.map(doc => ({ id: doc.id, name: doc.name, size: doc.size, url: `/api/plans/documents?id=${doc.id}` }))} />
       {!current.length && <FieldDescription>No RAT uploaded</FieldDescription>}
