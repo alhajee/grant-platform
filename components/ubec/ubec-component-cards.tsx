@@ -53,7 +53,7 @@ function Card({ component: c, planTotal, comments, steps, onView }: { component:
       <p className="component-card-amount"><b>{compactNaira.format(c.amount)}</b> · {c.counts.total} {c.counts.total === 1 ? 'item' : 'items'}</p>
       {released && <DecisionBar counts={c.counts} compact />}
       {released && <p className="ubec-card-meta">{c.counts.accepted} accepted · {c.counts.rejected} rejected{c.counts.undecided ? ` · ${c.counts.undecided} to decide` : ''}</p>}
-      {c.stage === 'oversight' && <OversightProgress done={c.oversightDone} />}
+      {(c.stage === 'director' || c.stage === 'oversight') && <OversightProgress done={c.oversightDone} />}
     </div>
     <div className="component-card-foot">
       <OfficerStack officers={c.officers} />

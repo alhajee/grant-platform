@@ -80,7 +80,7 @@ export const superAdminRole = 'Super Admin';
 export const defaultAssignerName = 'Default (Admin)';
 export const defaultAssignmentComment = 'Assigned by default (Admin)';
 
-export const stageLabels: Record<PipelineComponent['stage'], string> = { unreleased: 'With UBEC BEAP Chair', director: 'Department assessment', oversight: 'Oversight review', chair: 'Ready for BEAP Chair' };
+export const stageLabels: Record<PipelineComponent['stage'], string> = { unreleased: 'With UBEC BEAP Chair', director: 'Department assessment', oversight: 'Waiting for oversight', chair: 'Ready for BEAP Chair' };
 export const componentName = (pillar: string) => componentSections[pillar as ImplementedPillar]?.[0]?.name ?? pillar;
 export const isPillar = (value: string): value is ImplementedPillar => (implementedPillars as readonly string[]).includes(value);
 

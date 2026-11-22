@@ -36,8 +36,8 @@ export default function Dashboard() {
         {downloadsRatTools(d.user.role, d.user.department) && <RatToolsCard />}
         {/* UBEC94: UBEC Finance downloads every plan's SUBEB Finance documents, like the RAT tools. */}
         {seesUbecFinance({ role: d.user.role, department: d.user.department }) && <FinanceDocumentsOverview />}
-        {/* Audit, Procurement and Finance: observations an Executive Chairman asked for before sending (row 156). */}
-        {observationViewer({ role: d.user.role, department: d.user.department }) && <ObservationPlansCard />}
+        {/* Observation requests were retired (UBEC217); the card shows only while earlier requests exist (bug sheet 24). */}
+        {observationViewer({ role: d.user.role, department: d.user.department }) && <ObservationPlansCard hideEmpty />}
         {/* UBEC178: the assigned plans first, four to a row; UBEC177: the spending card is compact, beside workload and activity. */}
         <OverviewPlans data={d} />
         <div className="national-lower-grid ubec-overview-row"><LevelMappingCard className="ubec-level-mapping" mapping={sumMappings(d.items.flatMap(i => i.levels ? [i.levels] : []))} description="Across the plans you review" /><WorkloadCard data={d} defaultOpen={false} /><ActivityCard data={d} limit={12} moreHref="/ubec/activity" defaultOpen={false} /></div>

@@ -117,6 +117,28 @@ try {
   fails(await api('auditOfficer', '/api/ubec/finance-documents'), 403);
   ok(await upload('finance', 'lodgement_notification', 'lodgement-v2.pdf'));
   step('at UBEC only the Finance Oversight Director and Finance Assessment Officers see them; Finance can still upload while the plan is with UBEC');
+
+  // Bug sheet 24: UBEC Finance observes on each document while the submission is under review; the SUBEB reads them once decided.
+  fails(await api('financeOfficer', path, { action: 'observe', kind: 'bank_statement', body: 'too early' }), 409, /under review/);
+  assert.equal(ok(await api('financeOfficer', path)).canObserve, false);
+  await db.query("UPDATE ubec_rounds SET status='reviewing' WHERE plan_id=$1", [planId]);
+  assert.equal(ok(await api('financeOfficer', path)).canObserve, true);
+  fails(await api('finance', path, { action: 'observe', kind: 'bank_statement', body: 'state' }), 403);
+  fails(await api('financeOfficer', path, { action: 'observe', kind: 'bank_statement', body: '  ' }), 400);
+  fails(await api('financeOfficer', path, { action: 'observe', kind: 'payroll', body: 'x' }), 400);
+  const obs = ok(await api('financeOfficer', path, { action: 'observe', kind: 'bank_statement', body: 'Statement ends in March; send the full year.' })).id;
+  ok(await api('ubecFinance', path, { action: 'observe', kind: 'utilisation_report', body: 'Not signed.' }));
+  fails(await api('ubecFinance', path, { action: 'edit_observation', id: obs, body: 'not mine' }), 404);
+  ok(await api('financeOfficer', path, { action: 'edit_observation', id: obs, body: 'Statement ends in March; send January to December.' }));
+  const seen = ok(await api('financeOfficer', path)).observations;
+  assert.equal(seen.length, 2); assert.ok(seen.find(o => o.id === obs).edited && seen.find(o => o.id === obs).mine);
+  assert.deepEqual(ok(await api('finance', path)).observations, [], 'the SUBEB does not see them while UBEC is reviewing');
+  await db.query("UPDATE ubec_rounds SET status='returned' WHERE plan_id=$1", [planId]);
+  const back = ok(await api('finance', path));
+  assert.equal(back.observations.length, 2); assert.equal(back.observations.find(o => o.kind === 'bank_statement').body, 'Statement ends in March; send January to December.');
+  assert.equal(back.observations.some(o => o.mine), false);
+  fails(await api('financeOfficer', path, { action: 'remove_observation', id: obs }), 409);
+  step('UBEC Finance observes on each Finance document during review (own edits only); the SUBEB reads them once the plan is returned');
   console.log(`\nPASS: ${passed} Finance document checks`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET ubec_submission_mode=$1 WHERE state_code='GLOBAL'", [settings.ubec_submission_mode]);

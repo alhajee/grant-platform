@@ -6,7 +6,7 @@ import { isSameRequestOrigin } from '@/lib/request-origin';
 import { PlanInputError, planFormData } from '@/lib/plan-upload';
 import { safeFileName, supportingDocumentTypeError, supportingDocumentTypes, validLineDocument } from '@/lib/line-document-upload';
 import type { Db as Queryable } from '@/lib/ubec-flow-db';
-import { financeDocumentKinds, financeDocumentLabels, isStateFinance, missingFinanceDocuments, seesStateFinance, seesUbecFinance, type FinanceDocument, type FinanceDocuments } from '@/lib/finance-documents';
+import { financeDocumentKinds, financeDocumentLabels, isStateFinance, missingFinanceDocuments, seesStateFinance, seesUbecFinance, type FinanceDocument, type FinanceDocumentKind, type FinanceDocuments, type FinanceObservation } from '@/lib/finance-documents';
 
 // Finance documents of a plan (UBEC130, migration 073). GET lists them (or downloads one with ?id=) for SUBEB Finance,
 // the BEAP Chair and the Executive Chairman of the plan's state, and at UBEC for the Finance Oversight Director and
@@ -53,9 +53,24 @@ export async function GET(request: NextRequest) {
       return new NextResponse(new Uint8Array(row.content), { headers: { 'Content-Type': row.media_type, 'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(row.name)}`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
     }
     const documents = await listDocuments(db, plan.id);
-    const body: FinanceDocuments = { documents, submittedAt: iso(plan.finance_submitted_at), submittedByName: plan.finance_submitted_by_name, canEdit: isStateFinance(user) && plan.state_code === user.stateCode, missing: missingFinanceDocuments(documents) };
+    const ubec = seesUbecFinance(user), latest = await latestRound(db, plan.id);
+    const observations = await listObservations(db, plan.id, user.userId, ubec);
+    const body: FinanceDocuments = { documents, submittedAt: iso(plan.finance_submitted_at), submittedByName: plan.finance_submitted_by_name, canEdit: isStateFinance(user) && plan.state_code === user.stateCode, missing: missingFinanceDocuments(documents),
+      observations, canObserve: ubec && latest?.status === 'reviewing' };
     return NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });
   } catch (cause) { console.error('Finance documents read failed', cause); return error('Unable to load the Finance documents', 503); }
+}
+
+async function latestRound(db: Queryable, planId: number) {
+  return (await db.query<{ id: number; number: number; status: string }>('SELECT id,number,status FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC LIMIT 1', [planId])).rows[0] ?? null;
+}
+
+/** UBEC Finance's observations (bug sheet 24): UBEC Finance sees all; the SUBEB only those of decided submissions. */
+async function listObservations(db: Queryable, planId: number, viewerId: number, ubec: boolean): Promise<FinanceObservation[]> {
+  return (await db.query<{ id: number; kind: FinanceDocumentKind; author_id: number | null; author_name: string; body: string; created_at: Date; edited_at: Date | null; number: number; status: string }>(
+    `SELECT o.id,o.kind,o.author_id,o.author_name,o.body,o.created_at,o.edited_at,r.number,r.status FROM ubec_finance_observations o JOIN ubec_rounds r ON r.id=o.round_id
+     WHERE o.plan_id=$1 ${ubec ? '' : "AND r.status IN ('returned','approved')"} ORDER BY o.created_at, o.id`, [planId])).rows
+    .map(o => ({ id: o.id, kind: o.kind, authorName: o.author_name, body: o.body, createdAt: iso(o.created_at)!, edited: !!o.edited_at, mine: ubec && o.author_id === viewerId, submission: o.number, open: o.status === 'reviewing' }));
 }
 
 /** The plan locked for a Finance write, or an error response. */
@@ -74,7 +89,10 @@ export async function POST(request: NextRequest) {
     const planId = planParam(request);
     if (!planId) return error('Choose a valid plan');
     if (request.headers.get('content-type')?.includes('application/json')) {
-      const parsed = z.object({ action: z.literal('submit') }).strict().safeParse(await request.json().catch(() => null));
+      const json = await request.json().catch(() => null);
+      const observation = observationCommand.safeParse(json);
+      if (observation.success) return await getPostgres().transaction(db => observe(db, user, planId, observation.data));
+      const parsed = z.object({ action: z.literal('submit') }).strict().safeParse(json);
       if (!parsed.success) return error('Invalid request');
       return await getPostgres().transaction(async db => {
         const target = await writablePlan(db, user, planId);
@@ -111,6 +129,34 @@ export async function POST(request: NextRequest) {
     if (cause instanceof PlanInputError) return error(cause.message, cause.status);
     console.error('Finance document write failed', cause); return error('Unable to save the Finance document. Please try again.', 503);
   }
+}
+
+const observationBody = z.string().trim().min(1, 'Write the observation first').max(2000);
+const observationCommand = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('observe'), kind: z.enum(financeDocumentKinds), body: observationBody }).strict(),
+  z.object({ action: z.literal('edit_observation'), id: z.number().int().positive(), body: observationBody }).strict(),
+  z.object({ action: z.literal('remove_observation'), id: z.number().int().positive() }).strict(),
+]);
+
+/**
+ * Bug sheet 24: UBEC Finance observes on each Finance document while the plan's latest submission is under review.
+ * Authors edit or remove their own until the submission is decided.
+ */
+async function observe(db: Db, user: Workspace, planId: string, input: z.infer<typeof observationCommand>) {
+  if (!seesUbecFinance(user)) return error('Only UBEC Finance adds observations on the Finance documents', 403);
+  const plan = await viewablePlan(db, user, planId);
+  if (!plan) return error('Plan not found', 404);
+  const round = (await db.query<{ id: number; status: string }>('SELECT id,status FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC LIMIT 1 FOR UPDATE', [plan.id])).rows[0];
+  if (round?.status !== 'reviewing') return error('Observations are added while the plan is under review at UBEC', 409);
+  if (input.action === 'observe') {
+    const id = (await db.query<{ id: number }>('INSERT INTO ubec_finance_observations(plan_id,round_id,kind,author_id,author_name,body) SELECT $1,$2,$3,id,display_name,$4 FROM users WHERE id=$5 RETURNING id', [plan.id, round.id, input.kind, input.body, user.userId])).rows[0].id;
+    return NextResponse.json({ id });
+  }
+  const own = (await db.query('SELECT 1 FROM ubec_finance_observations WHERE id=$1 AND plan_id=$2 AND round_id=$3 AND author_id=$4 FOR UPDATE', [input.id, plan.id, round.id, user.userId])).rowCount;
+  if (!own) return error('Only the author changes an observation, while the submission is under review', 404);
+  if (input.action === 'edit_observation') await db.query('UPDATE ubec_finance_observations SET body=$1,edited_at=NOW() WHERE id=$2', [input.body, input.id]);
+  else await db.query('DELETE FROM ubec_finance_observations WHERE id=$1', [input.id]);
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(request: NextRequest) {

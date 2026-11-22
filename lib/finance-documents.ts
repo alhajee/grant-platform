@@ -18,7 +18,12 @@ export type FinanceDocuments = {
   canEdit: boolean;
   /** Labels of the documents not uploaded yet. */
   missing: string[];
+  /** UBEC Finance's observations per document (bug sheet 24): UBEC sees its own; the SUBEB once the round is decided. */
+  observations: FinanceObservation[];
+  /** The viewer adds observations now (UBEC Finance while the latest submission is under review). */
+  canObserve: boolean;
 };
+export type FinanceObservation = { id: number; kind: FinanceDocumentKind; authorName: string; body: string; createdAt: string; edited: boolean; mine: boolean; submission: number; open: boolean };
 
 type Viewer = { role: string; department?: string | null; departments?: readonly string[] | null; isBeapChair?: boolean };
 const holds = (viewer: Viewer, department: string) => viewer.department === department || !!viewer.departments?.includes(department);

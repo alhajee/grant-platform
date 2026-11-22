@@ -53,7 +53,8 @@ function ubecWording(item: NotificationItem): Wording {
     case 'default_officers': return { verb: 'Assigned', target: component, suffix: 'to its default Assessment Officers', kind: 'assigned' };
     case 'complete_assessment': return { verb: 'Completed the assessment of', target: component, suffix: '', kind: 'feedback' };
     case 'reopen_assessment': return { verb: 'Sent back your assessment of', target: component, suffix: '', kind: 'feedback' };
-    case 'send_oversight': return { verb: 'Sent', target: component, suffix: 'for your observations', kind: 'sent' };
+    // Bug sheet 24: "Send to BEAP Chair"; the Oversight Departments still to finish hear it as a reminder.
+    case 'send_oversight': return { verb: 'Finished the assessment of', target: component, suffix: '· record your Observations done', kind: 'sent' };
     case 'observations_done': return { verb: 'Finished observations on', target: component, suffix: '', kind: 'feedback' };
     case 'observer_done': return { verb: 'Finished their observations on', target: component, suffix: '', kind: 'feedback' };
     case 'ready_for_chair': return { verb: 'Cleared', target: component, suffix: 'for your decision', kind: 'approved' };

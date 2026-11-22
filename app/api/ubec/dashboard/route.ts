@@ -50,7 +50,8 @@ export async function GET(request: NextRequest) {
       const c = components.find(x => x.round_id === round.id && x.pillar === pillar);
       if (viewer.role === ubecRoles.director) return c?.department === viewer.department || legacy.some(l => l.round_id === round.id && l.pillar === pillar && l.department === viewer.department);
       // UBEC258/270: Oversight Directors see every released component.
-      if (viewer.role === ubecRoles.oversight) return !!c;
+      // Bug sheet 24: their Assessment Officers too, assigned or not.
+      if (viewer.role === ubecRoles.oversight || (viewer.role === ubecRoles.officer && isOversightDepartment(viewer.department))) return !!c;
       if (viewer.role === ubecRoles.officer) return !!c && [...officers, ...observers].some(o => o.round_component_id === c.id && o.officer_id === viewer.id);
       return false;
     });
@@ -76,10 +77,10 @@ export async function GET(request: NextRequest) {
         const name = componentName(p.pillar), anchor = `#ubec-${p.pillar}`;
         if (viewer.role === ubecRoles.director && p.department === viewer.department && p.stage === 'director') {
           if (!p.officers.length) push('assign', `Assign staff to ${name}`, '', anchor);
-          else if (p.officers.every(o => o.completed)) push('consolidate', `Send ${name} to the Oversight Departments`, 'assessment complete', anchor);
+          else if (p.officers.every(o => o.completed)) push('consolidate', `Send ${name} to the BEAP Chair`, 'assessment complete', anchor);
         }
         if (viewer.role === ubecRoles.officer && p.stage === 'director' && p.officers.some(o => o.mine && !o.completed)) push('assess', `Assess ${name}`, `${p.counts.undecided} of ${p.counts.total} items to decide`, anchor);
-        if (viewer.role === ubecRoles.oversight && p.stage === 'oversight' && !p.oversightDone.includes(viewer.department as PipelineComponent['oversightDone'][number])) push('observe', `Observations on ${name}`, '', anchor);
+        if (viewer.role === ubecRoles.oversight && (p.stage === 'director' || p.stage === 'oversight') && !p.oversightDone.includes(viewer.department as PipelineComponent['oversightDone'][number])) push('observe', `Observations on ${name}`, '', anchor);
       }
       // UBEC270: Oversight Directors assign their officers to the whole plan; assigned officers comment on it.
       const dept = viewer.department as PipelineComponent['oversightDone'][number];

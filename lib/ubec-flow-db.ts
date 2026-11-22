@@ -40,7 +40,7 @@ export function ubecSeesPillarSql(round: string, pillar: string, role: string, u
     OR EXISTS(SELECT 1 FROM users cu WHERE cu.id=${userId} AND cu.active AND ${ubecChairSql('cu')})${anyUnit}
     OR (${role}='${ubecRoles.director}' AND (EXISTS(SELECT 1 FROM ubec_round_components rc WHERE rc.round_id=${round}.id AND ${match} AND rc.department=${department})
       OR EXISTS(SELECT 1 FROM ubec_assignments la WHERE la.round_id=${round}.id AND (${pillar} IS NULL OR la.pillar=${pillar}) AND la.department=${department})))
-    OR (${role}='${ubecRoles.oversight}' AND ${department} IN (${oversightUnits}) AND ${released})
+    OR (${role} IN ('${ubecRoles.oversight}','${ubecRoles.officer}') AND ${department} IN (${oversightUnits}) AND ${released})
     OR (${role}='${ubecRoles.officer}' AND EXISTS(SELECT 1 FROM ubec_round_components rc JOIN ubec_officer_assignments oa ON oa.round_component_id=rc.id AND oa.removed_at IS NULL WHERE rc.round_id=${round}.id AND ${match} AND oa.officer_id=${userId}))
     OR (${role}='${ubecRoles.officer}' AND EXISTS(SELECT 1 FROM ubec_round_components rc JOIN ubec_oversight_assignments xa ON xa.round_component_id=rc.id AND xa.removed_at IS NULL WHERE rc.round_id=${round}.id AND ${match} AND xa.officer_id=${userId})))`;
 }
@@ -127,7 +127,9 @@ export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status
   const mine = (c: FlowComponent) => viewer.role === ubecRoles.officer && c.officers.some(o => o.officerId === viewer.id && !o.completedAt);
   const atDirector = components.filter(c => reviewing && c.stage === 'director');
   // Oversight: components with oversight that the viewer's department has not finished yet.
-  const withOversight = components.filter(c => reviewing && c.stage === 'oversight' && isOversightDepartment(viewer.department) && !c.oversight.some(o => o.department === viewer.department));
+  // Bug sheet 24: the Oversight Departments finish from release (no Send to Oversight step); the component reaches the
+  // UBEC BEAP Chair once its Director has sent it and every staffed Oversight Department has recorded Observations done.
+  const withOversight = components.filter(c => reviewing && (c.stage === 'director' || c.stage === 'oversight') && isOversightDepartment(viewer.department) && !c.oversight.some(o => o.department === viewer.department));
   // UBEC258: from release until their department has finished, Oversight Directors and all their officers add observations.
   const oversightPerson = isOversightDepartment(viewer.department) && (viewer.role === ubecRoles.oversight || viewer.role === ubecRoles.officer);
   const doneSelf = (c: FlowComponent) => c.observers.some(o => o.officerId === viewer.id && !!o.completedAt);
@@ -137,6 +139,7 @@ export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status
     decide: chair && reviewing && components.length > 0 && components.every(c => c.stage === 'chair'),
     assign: atDirector.filter(assigns).map(c => c.pillar),
     // UBEC259: one completed assessment and every item decided; officers who never finished do not hold the component.
+    // Bug sheet 24: the step reads "Send to BEAP Chair" (the Oversight Departments already see the component).
     sendOversight: atDirector.filter(c => ownDepartment(c) && c.officers.some(o => o.completedAt) && c.counts.undecided === 0).map(c => c.pillar),
     assess: atDirector.filter(mine).map(c => c.pillar),
     complete: atDirector.filter(mine).map(c => c.pillar),
@@ -146,7 +149,8 @@ export function flowAbilities(viewer: UbecViewer, round: Pick<UbecRound, 'status
     assignObservers: [],
     assignPlanObservers: reviewing && viewer.role === ubecRoles.oversight && isOversightDepartment(viewer.department) && components.some(c => c.stage !== 'chair' && !c.oversight.some(o => o.department === viewer.department)),
     comment: observable.map(c => c.pillar),
-    observerDone: withOversight.filter(c => viewer.role === ubecRoles.officer && c.observers.some(o => o.officerId === viewer.id && !o.completedAt)).map(c => c.pillar),
+    // Bug sheet 24: every oversight officer records their own Observations done, assigned or not.
+    observerDone: withOversight.filter(c => viewer.role === ubecRoles.officer && !doneSelf(c)).map(c => c.pillar),
   };
 }
 
@@ -165,7 +169,7 @@ export async function readFlow(db: Db, round: UbecRound, latest: boolean, viewer
         (SELECT COUNT(*)::int FROM ubec_officer_assignments oa JOIN ubec_round_components rc ON rc.id=oa.round_component_id JOIN ubec_rounds r ON r.id=rc.round_id
           WHERE oa.officer_id=u.id AND oa.removed_at IS NULL AND oa.completed_at IS NULL AND r.status='reviewing')
         + (SELECT COUNT(*)::int FROM ubec_oversight_assignments xa JOIN ubec_round_components rc ON rc.id=xa.round_component_id JOIN ubec_rounds r ON r.id=rc.round_id
-          WHERE xa.officer_id=u.id AND xa.removed_at IS NULL AND rc.stage='oversight' AND r.status='reviewing') AS open
+          WHERE xa.officer_id=u.id AND xa.removed_at IS NULL AND rc.stage IN ('director','oversight') AND r.status='reviewing') AS open
         FROM users u WHERE u.role=$1 AND u.department=ANY($2::text[]) AND u.active ORDER BY u.full_name`, [ubecRoles.officer, officerDepartments])).rows
     : [];
   const available = new Set(departmentOfficers.map(o => o.id));

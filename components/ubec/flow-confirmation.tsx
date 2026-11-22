@@ -60,19 +60,19 @@ export function flowConfirmation({ request, plan, flow, components, officerNames
     description: `Your Director${component ? `, ${departmentName(component.department)},` : ''} is notified and reviews your decisions.`,
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: 'Your Director' }],
     notes: [{ kind: 'lock', text: 'Your decisions are locked once submitted. You can’t change them afterwards.' }] };
-  if (request.kind === 'oversight') return { title: `Send ${name} to the Oversight Departments?`, confirm: 'Yes, send to Oversight Department', tone: 'default',
-    description: `${oversightList()} review it next; then it goes to the UBEC BEAP Chair`,
-    facts: [...base, ...counts, ...open, { label: 'Goes to', value: oversightNames(oversightDepartments.map(d => d.id)) }],
+  if (request.kind === 'oversight') { const waitingOn = oversightPending(component?.oversight.map(o => o.department) ?? []); return { title: `Send ${name} to the UBEC BEAP Chair?`, confirm: 'Yes, send to BEAP Chair', tone: 'default',
+    description: waitingOn.length ? `It reaches the UBEC BEAP Chair once ${oversightNames(waitingOn)} ${waitingOn.length === 1 ? 'records' : 'record'} Observations done` : 'Every Oversight Department has finished, so it goes to the UBEC BEAP Chair now',
+    facts: [...base, ...counts, ...open, { label: 'Goes to', value: 'UBEC BEAP Chair' }, { label: 'Oversight still to finish', value: waitingOn.length ? oversightNames(waitingOn) : 'None' }],
     notes: [{ kind: 'lock', text: 'Its item decisions can’t be changed once it is sent, and your department’s assessment ends' },
       // UBEC259: officers who never completed are taken off the component.
-      ...(() => { const waiting = flow.components.find(c => c.pillar === request.pillar)?.officers.filter(o => !o.completedAt).map(o => o.officerName) ?? []; return waiting.length ? [{ kind: 'info' as const, text: `${waiting.join(', ')} ${waiting.length === 1 ? 'has' : 'have'} not completed and will be taken off ${name}` }] : []; })()] };
+      ...(() => { const waiting = flow.components.find(c => c.pillar === request.pillar)?.officers.filter(o => !o.completedAt).map(o => o.officerName) ?? []; return waiting.length ? [{ kind: 'info' as const, text: `${waiting.join(', ')} ${waiting.length === 1 ? 'has' : 'have'} not completed and will be taken off ${name}` }] : []; })()] }; }
   if (request.kind === 'observerDone') return { title: `Record your observations on ${name} as done?`, confirm: 'Yes, observations done', tone: 'default',
     description: 'Your Oversight Director is notified. They finish the department’s observations; you don’t need to do anything more on this component',
     facts: [...base, ...counts, ...open, { label: 'Goes to', value: 'Your Oversight Director' }],
     notes: [{ kind: 'lock', text: 'You can’t add observations on this component afterwards. Add any item comments first.' }] };
   const pending = oversightPending(component?.oversight.map(o => o.department) ?? []);
   return { title: `Record your observations on ${name} as done?`, confirm: 'Yes, observations done', tone: 'default',
-    description: pending.length <= 1 ? 'You are the last oversight review: the component goes to the UBEC BEAP Chair' : 'The component goes to the UBEC BEAP Chair once every oversight department is done',
+    description: component?.stage === 'director' ? `Its Director has not sent it on yet. It reaches the UBEC BEAP Chair once they have and ${pending.length <= 1 ? 'you are the last oversight department' : 'every oversight department is done'}` : pending.length <= 1 ? 'You are the last oversight review: the component goes to the UBEC BEAP Chair' : 'The component goes to the UBEC BEAP Chair once every oversight department is done',
     facts: [...base, ...counts, ...open, { label: 'Still to finish', value: pending.length ? oversightNames(pending) : 'None' }],
     notes: [{ kind: 'lock', text: 'Your observations are recorded and can’t be reopened. Add any item comments in the workbook first.' }] };
 }

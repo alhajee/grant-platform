@@ -172,7 +172,7 @@ try {
   assert.deepEqual(offP1View.flow.components.map(c => c.pillar).sort(), ['monitoring', 'sports']); assert.deepEqual(offP1View.flow.abilities.assess, ['monitoring']);
   fails(await decide('offP1', 'sports', String(sportsLine), 'accept'), 403, /not assigned/);
   // UBEC258: the Oversight Departments see released components at once and may comment, but never decide.
-  { const auditEarly = ok(await api('audit', path)).flow; assert.deepEqual(auditEarly.components.map(c => c.pillar).sort(), ['monitoring', 'sports']); assert.deepEqual(auditEarly.abilities.comment.sort(), ['monitoring', 'sports']); assert.deepEqual(auditEarly.abilities.observe, []); }
+  { const auditEarly = ok(await api('audit', path)).flow; assert.deepEqual(auditEarly.components.map(c => c.pillar).sort(), ['monitoring', 'sports']); assert.deepEqual(auditEarly.abilities.comment.sort(), ['monitoring', 'sports']); assert.deepEqual(auditEarly.abilities.observe.sort(), ['monitoring', 'sports'], 'bug sheet 24: Observations done from release'); }
   fails(await decide('offA', 'monitoring', monitoringLine, 'accept'), 403, /not assigned/);
   fails(await decide('audit', 'monitoring', monitoringLine, 'accept'), 403, /cannot accept or reject/);
   fails(await decide('es', 'monitoring', monitoringLine, 'accept'), 403);
@@ -210,7 +210,7 @@ try {
     assert.deepEqual(people, [users.offP1], 'the officer who never completed is taken off the component');
     assert.ok((await view('chair')).events.some(e => e.action === 'unassign_officer' && /had not completed/.test(e.comment)), 'the trail says so'); }
   assert.deepEqual(ok(await api('offP2', path)).flow.abilities.assess, [], 'the removed officer can no longer assess (UBEC149: they still observe)');
-  fails(await step2('dpp', 'assign_officers', 'monitoring', { officerIds: [users.offP2], comment: 'late' }), 409, /Oversight Departments/);
+  fails(await step2('dpp', 'assign_officers', 'monitoring', { officerIds: [users.offP2], comment: 'late' }), 409, /sent to the UBEC BEAP Chair/);
   assert.ok(await notified('audit', 'send_oversight') && await notified('finance', 'send_oversight'));
   step('officers decide items only on assigned components (oversight, ES, Directors, others 403); complete needs every item decided and locks decisions; a pending officer can be removed; send for oversight needs all officers done and a comment');
 
@@ -294,8 +294,11 @@ try {
   assert.ok(ok(await api('offA', '/api/ubec/dashboard')).queue.some(i => i.kind === 'assess' && i.planId === planId));
   ok(await decide('offA', 'sports', String(sportsLine), 'accept'));
   ok(await step2('offA', 'complete_assessment', 'sports'));
-  ok(await step2('dacs', 'send_oversight', 'sports', { comment: 'Revision accepted.' }));
+  // Bug sheet 24: the Oversight Departments finish before the Director sends; the component waits at the Director,
+  // then the Director's Send to BEAP Chair takes it straight to the chair.
   for (const who of ['audit', 'procurement', 'finance', 'special']) ok(await step2(who, 'observations_done', 'sports'));
+  assert.equal((await view('chair')).flow.components.find(c => c.pillar === 'sports').stage, 'director', 'oversight done early: still with the Director');
+  assert.deepEqual(ok(await step2('dacs', 'send_oversight', 'sports', { comment: 'Revision accepted.' })), { stage: 'chair' });
   const ready = await view('chair');
   assert.equal(ready.flow.approvable, true);
   // UBEC205: a rejected RAT holds approval until UBEC Planning accepts it.

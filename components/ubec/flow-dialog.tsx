@@ -1,8 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ConfirmStep, useConfirmStep } from '@/components/confirm-step';
-import { CheckIcon, CircleDotIcon, MessageSquareTextIcon, UserMinusIcon, XIcon } from 'lucide-react';
+import { ConfirmStep, confirmMoney, useConfirmStep } from '@/components/confirm-step';
+import { ArrowLeftIcon, CheckIcon, CircleDotIcon, CornerDownLeftIcon, MessageSquareTextIcon, QuoteIcon, TriangleAlertIcon, UserMinusIcon, XIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { NoOfficersArt, UbecEmpty } from '@/components/empty-art/ubec-flow';
 import { ShareCommentsField } from '@/components/ubec-share-comments';
@@ -20,6 +20,7 @@ import { departmentName, oversightList } from '@/lib/ubec';
 import { componentName, type FlowComponent, type PipelineComponent, type UbecFlow } from '@/lib/ubec-flow';
 import { DecisionBar } from './flow-bits';
 import { flowConfirmation } from './flow-confirmation';
+import { RatRejection } from './rat-rejection';
 import { ReleaseAssignments } from './release-assignments';
 import { compactNairaFormat } from '@/lib/money-format';
 
@@ -38,7 +39,7 @@ const copy: Record<FlowRequest['kind'], { title: (name: string) => string; descr
   release: { title: () => 'Release to UBEC departments', description: 'Each Director gets their components and assigns Assessment Officers', field: 'Message to the Directors', required: true, confirm: 'Release to UBEC departments' },
   assign: { title: name => `Assign staff · ${name}`, description: 'Choose one or more Assessment Officers of the component’s department. They accept or reject each item and report back to the Director.', field: 'Comment for the officers', required: true, confirm: 'Assign staff' },
   complete: { title: name => `Complete assessment · ${name}`, description: 'Your decisions are locked and sent to your Director', field: 'Note for your Director (optional)', required: false, confirm: 'Submit assessment' },
-  oversight: { title: name => `Complete & send to Oversight Department · ${name}`, description: `${oversightList()} review it next. When they have all finished their observations it goes to the UBEC BEAP Chair.`, field: 'Your comment', required: true, confirm: 'Send to Oversight Department' },
+  oversight: { title: name => `Send to BEAP Chair · ${name}`, description: `Your department’s assessment is final. It reaches the UBEC BEAP Chair once ${oversightList()} have each recorded Observations done.`, field: 'Your comment', required: true, confirm: 'Send to BEAP Chair' },
   observers: { title: name => `Assign officers · ${name}`, description: 'Choose one or more Assessment Officers of your department. They comment on the items; they do not accept or reject. Their open comments must be resolved before the plan is approved.', field: 'Comment for the officers', required: true, confirm: 'Assign officers' },
   observe: { title: name => `Observations done · ${name}`, description: `Add any comments on items in the workbook first. Once ${oversightList()} are all done, the component goes to the UBEC BEAP Chair.`, field: 'Your observations (optional)', required: false, confirm: 'Observations done' },
   observerDone: { title: name => `Observations done · ${name}`, description: 'Add any comments on items first. Your Oversight Director is told; they finish for the department and do not wait for you.', field: 'Note for your Director (optional)', required: false, confirm: 'Observations done' },
@@ -121,11 +122,18 @@ export function FlowDialog({ request, planId, plan, version, roundId, flow, comp
     finally { busy.current = false; setSaving(false); }
   }
 
+  const page = fullPageKinds.includes(kind ?? '');
   return <Dialog open={!!request} onOpenChange={open => { if (!open && !saving) { reset(); onClose(); } }}>
-    <DialogContent data-kind={kind} className={`national-dialog ubec-flow-dialog ${kind === 'release' ? 'sm:max-w-2xl' : 'sm:max-w-xl'}`} showCloseButton={!saving} onEscapeKeyDown={e => step.escape(e, saving)} onInteractOutside={e => { if (saving) e.preventDefault(); }}>
-      {text && summary && step.confirming && <ConfirmStep stats={summary.stats} title={summary.title} description={summary.description} facts={summary.facts} notes={summary.notes} tone={summary.tone} acknowledge={summary.acknowledge}
+    {/* Bug sheet 24: Return to SUBEB fills the page (the comments to send and the consolidated note need the room). */}
+    <DialogContent data-kind={kind} data-page={page || undefined} className={`national-dialog ubec-flow-dialog ${page ? 'ubec-flow-page sm:max-w-none' : kind === 'release' ? 'sm:max-w-2xl' : 'sm:max-w-xl'}`} showCloseButton={!saving} onEscapeKeyDown={e => step.escape(e, saving)} onInteractOutside={e => { if (saving) e.preventDefault(); }}>
+      {text && summary && step.confirming && page && <ReturnConfirmPage title={summary.title} description={summary.description} flow={flow} plan={plan} shared={shareIds.length} comment={comment} confirm={summary.confirm}
+        saving={saving} error={error} onBack={() => { setError(''); step.back(); }} onConfirm={() => void submit()} />}
+      {text && summary && step.confirming && !page && <ConfirmStep stats={summary.stats} title={summary.title} description={summary.description} facts={summary.facts} notes={summary.notes} tone={summary.tone} acknowledge={summary.acknowledge}
         comment={comment} commentLabel={text.field.replace(/ \(optional\)$/, '')} confirmLabel={summary.confirm} saving={saving} error={error} onBack={() => { setError(''); step.back(); }} onConfirm={() => void submit()} />}
-      {text && !step.confirming && <>
+      {text && !step.confirming && page && <ReturnPage plan={plan} title={text.title('')} description={text.description} flow={flow} threads={openThreads} shareIds={shareIds} onShare={setShare}
+        field={text.field} required={text.required} comment={comment} onComment={setComment} confirm={text.confirm} saving={saving} error={error} className={step.commentStepClass}
+        onBack={() => { reset(); onClose(); }} onSubmit={toConfirm} />}
+      {text && !step.confirming && !page && <>
         <DialogHeader className={step.commentStepClass}><p className="release-breadcrumb">{plan}</p><DialogTitle>{text.title(pillar ? componentName(pillar) : '')}</DialogTitle><DialogDescription>{text.description}</DialogDescription></DialogHeader>
         <form className={step.commentStepClass} onSubmit={event => { event.preventDefault(); toConfirm(); }}><FieldGroup>
           {picking && <OfficerPicker flow={flow} department={department} assigned={onComponent} observing={observing} defaults={adding ? [] : defaults} value={officers} onChange={setOfficers} disabled={saving || removing !== null} admin={admin} removing={removing} onRemove={(id, name) => void unassign(id, name)} />}
@@ -178,4 +186,84 @@ function ComponentSummary({ component, threads, showOfficers }: { component: Flo
 
 function PlanSummary({ flow }: { flow: UbecFlow }) {
   return <ul className="ubec-plan-summary">{flow.components.map(c => <li key={c.pillar}><span>{componentName(c.pillar)}</span><DecisionBar counts={c.counts} compact /><small>{c.counts.accepted} accepted · {c.counts.rejected} rejected</small></li>)}</ul>;
+}
+
+/** Workflow dialogs that fill the page (bug sheet 24). */
+const fullPageKinds: readonly string[] = ['return'];
+
+interface ReturnPageProps {
+  plan: string; title: string; description: string; flow: UbecFlow; threads: readonly PlanCommentThread[]; shareIds: number[]; onShare: (ids: number[]) => void;
+  field: string; required: boolean; comment: string; onComment: (value: string) => void; confirm: string; saving: boolean; error: string; className?: string;
+  onBack: () => void; onSubmit: () => void;
+}
+
+/**
+ * Return to SUBEB as a full-page dialog (bug sheet 24): Back and × at the top, the components' decisions on the left,
+ * the comments to send and the consolidated note on the right, each column scrolling on its own, the buttons always in view.
+ */
+function ReturnPage({ plan, title, description, flow, threads, shareIds, onShare, field, required, comment, onComment, confirm, saving, error, className, onBack, onSubmit }: ReturnPageProps) {
+  return <form className={`ubec-return-page ${className ?? ''}`} onSubmit={event => { event.preventDefault(); onSubmit(); }}>
+    <header className="ubec-return-head">
+      <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={saving} onClick={onBack}><ArrowLeftIcon data-icon="inline-start" />Back to the plan</Button>
+      <DialogHeader><p className="release-breadcrumb">{plan}</p><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>
+    </header>
+    <div className="ubec-return-body">
+      <section className="ubec-return-col" aria-label="Decisions by component">{flow.ratReview?.decision === 'reject' && <RatRejection review={flow.ratReview} />}<h3>Decisions by component</h3><PlanSummary flow={flow} /></section>
+      <section className="ubec-return-col ubec-return-main" aria-label="Comments and note">
+        <ShareCommentsField threads={threads as PlanCommentThread[]} value={shareIds} onChange={onShare} disabled={saving} />
+        <Field><FieldLabel htmlFor="ubec-flow-comment">{field}</FieldLabel><Textarea id="ubec-flow-comment" rows={6} maxLength={5000} required={required} value={comment} onChange={event => onComment(event.target.value)} disabled={saving} placeholder="What must the SUBEB change before sending the plan again?" /></Field>
+        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+      </section>
+    </div>
+    <footer className="ubec-return-foot"><p>{shareIds.length} of {threads.length} {threads.length === 1 ? 'comment' : 'comments'} will be sent to the SUBEB</p><Button type="button" variant="outline" disabled={saving} onClick={onBack}>Cancel</Button><Button type="submit" variant="destructive" disabled={saving}>{saving && <Spinner data-icon="inline-start" />}{confirm}</Button></footer>
+  </form>;
+}
+
+interface ReturnConfirmPageProps {
+  title: string; description: string; flow: UbecFlow; plan: string; shared: number; comment: string; confirm: string;
+  saving: boolean; error: string; onBack: () => void; onConfirm: () => void;
+}
+
+/**
+ * The Return to SUBEB confirmation on the full page (bug sheet 24): a table of every component's decisions and where it
+ * goes back to, the figures, the chair's note and the RAT rejection, then the tick and the button, always in view.
+ */
+function ReturnConfirmPage({ title, description, flow, plan, shared, comment, confirm, saving, error, onBack, onConfirm }: ReturnConfirmPageProps) {
+  const [acked, setAcked] = useState(false);
+  const rows = flow.components, sum = (key: 'accepted' | 'rejected' | 'undecided') => rows.reduce((n, c) => n + c.counts[key], 0);
+  const toDataEntry = rows.filter(c => c.counts.rejected > 0).length, total = rows.reduce((n, c) => n + c.amount, 0);
+  return <div className="ubec-return-page ubec-return-confirm-page">
+    <header className="ubec-return-head">
+      <Button type="button" variant="outline" size="sm" className="rounded-full" disabled={saving} onClick={onBack}><ArrowLeftIcon data-icon="inline-start" />Back to edit</Button>
+      <DialogHeader><p className="release-breadcrumb">{plan}</p><DialogTitle>{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>
+    </header>
+    <div className="ubec-return-body">
+      <section className="ubec-return-col" aria-label="Decisions by component">
+        <h3>Decisions by component</h3>
+        <table className="ubec-return-table">
+          <thead><tr><th scope="col">Component</th><th scope="col">Accepted</th><th scope="col">Rejected</th><th scope="col">To decide</th><th scope="col">Goes back to</th></tr></thead>
+          <tbody>{rows.map(c => <tr key={c.pillar} data-rejected={c.counts.rejected > 0 || undefined}>
+            <th scope="row">{componentName(c.pillar)}<DecisionBar counts={c.counts} compact /></th>
+            <td>{c.counts.accepted}</td><td>{c.counts.rejected}</td><td>{c.counts.undecided}</td>
+            <td><Badge variant={c.counts.rejected ? 'destructive' : 'outline'}>{c.counts.rejected ? 'Data Entry' : 'BEAP Chair'}</Badge></td>
+          </tr>)}</tbody>
+          <tfoot><tr><th scope="row">Total · {rows.length} components</th><td>{sum('accepted')}</td><td>{sum('rejected')}</td><td>{sum('undecided')}</td><td /></tr></tfoot>
+        </table>
+      </section>
+      <section className="ubec-return-col ubec-return-main" aria-label="What happens">
+        <dl className="ubec-return-stats">
+          <div><dt>Total proposed</dt><dd>{confirmMoney.format(total)}</dd></div>
+          <div data-tone="rose"><dt>To SUBEB Data Entry</dt><dd>{toDataEntry} {toDataEntry === 1 ? 'component' : 'components'}</dd></div>
+          <div><dt>To the SUBEB BEAP Chair</dt><dd>{rows.length - toDataEntry} {rows.length - toDataEntry === 1 ? 'component' : 'components'}</dd></div>
+          <div><dt>UBEC comments shared</dt><dd>{shared ? `${shared} sent with your feedback` : 'None, all stay internal'}</dd></div>
+        </dl>
+        {flow.ratReview?.decision === 'reject' && <RatRejection review={flow.ratReview} />}
+        <figure className="ubec-return-quote"><figcaption><QuoteIcon aria-hidden="true" />Consolidated changes required</figcaption><blockquote>{comment.trim() || 'No note'}</blockquote></figure>
+        <Alert variant="warning"><TriangleAlertIcon /><AlertDescription>This UBEC review closes and can’t be reopened. UBEC reviews the plan again only when the SUBEB resubmits.</AlertDescription></Alert>
+        <label className="ubec-return-ack" data-checked={acked || undefined}><Checkbox checked={acked} disabled={saving} onCheckedChange={v => setAcked(v === true)} /><span>I have reviewed every component’s results and the changes required</span></label>
+        {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+      </section>
+    </div>
+    <footer className="ubec-return-foot"><p>{acked ? 'Ready to return the plan' : 'Tick the box to confirm'}</p><Button type="button" variant="outline" disabled={saving} onClick={onBack}><ArrowLeftIcon data-icon="inline-start" />Back</Button><Button type="button" variant="destructive" disabled={saving || !acked} onClick={onConfirm}>{saving ? <Spinner data-icon="inline-start" /> : <CornerDownLeftIcon data-icon="inline-start" />}{confirm}</Button></footer>
+  </div>;
 }
