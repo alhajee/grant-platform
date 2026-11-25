@@ -45,9 +45,12 @@ export async function PUT(request: NextRequest) {
       if (latest?.id !== round.id || round.status !== 'reviewing' || component.stage !== 'director') return error('This component is no longer open for assessment', 409);
       if (mine.completed_at) return error('You have completed your assessment; decisions are locked', 409);
       if (!componentItems(round.snapshot, input.pillar).some(item => item.rowRef === input.rowRef)) return error('That item is not in this submission. Refresh and try again.');
+      // Client, 25 November 2026: an item accepted in an earlier submission and unchanged stays accepted; only the Director changes it.
+      const carried = (await db.query<{ carried_from: number | null }>('SELECT carried_from FROM ubec_item_decisions WHERE round_id=$1 AND pillar=$2 AND row_ref=$3', [round.id, input.pillar, input.rowRef])).rows[0]?.carried_from;
+      if (carried && !director) return error(`This item was accepted in submission ${carried} and has not changed, so it stays accepted. Ask your Director if it must change`, 409);
       if (input.decision === null) await db.query('DELETE FROM ubec_item_decisions WHERE round_id=$1 AND pillar=$2 AND row_ref=$3', [round.id, input.pillar, input.rowRef]);
       else await db.query(`INSERT INTO ubec_item_decisions(round_id,pillar,row_ref,decision,note,officer_id,officer_name) VALUES($1,$2,$3,$4,$5,$6,$7)
-        ON CONFLICT (round_id,pillar,row_ref) DO UPDATE SET decision=EXCLUDED.decision,note=EXCLUDED.note,officer_id=EXCLUDED.officer_id,officer_name=EXCLUDED.officer_name,decided_at=NOW()`,
+        ON CONFLICT (round_id,pillar,row_ref) DO UPDATE SET decision=EXCLUDED.decision,note=EXCLUDED.note,officer_id=EXCLUDED.officer_id,officer_name=EXCLUDED.officer_name,decided_at=NOW(),carried_from=NULL`,
         [round.id, input.pillar, input.rowRef, input.decision, input.note, actor.id, director ? `${actor.full_name} (Director)` : actor.full_name]);
       return NextResponse.json({ rowRef: input.rowRef, decision: input.decision });
     });

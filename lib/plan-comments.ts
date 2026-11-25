@@ -28,7 +28,7 @@ const activityColumns = { activity: 'Allowable activity', code: 'Code', descript
 const activityTail = { strategy: 'Strategy', target: 'Target group', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount' };
 export const commentColumns: Record<CommentSheet, Record<string, string>> = {
   infrastructure: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', type: 'Project type', code: 'Code', target: 'Target group', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', scope: 'Components', learners: 'Learners', strategy: 'Strategy', duration: 'Duration' },
-  sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Sport / sub-activity', target: 'Target group', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty' },
+  sports: { item: 'Budget item', code: 'Code', section: 'Section', activity: 'Sport / sub-activity', target: 'Target group', strategy: 'Strategy', timeline: 'Timeline', quantity: 'Qty.', unitCost: 'Unit cost', amount: 'Amount', schools: 'Schools', allocated: 'Allocated qty' },
   sbmc: { ...activityColumns, rationale: 'Rationale', approach: 'Implementation approach', ...activityTail },
   tlm: { ...activityColumns, material: 'Material type', subject: 'Subject', classes: 'Classes', ...activityTail },
   distribution: { school: 'School', lga: 'LGA', level: 'Level', location: 'Location', coordinates: 'Coordinates', learners: 'Learners', quantity: 'Qty.', allocation: 'Allocation' },
@@ -109,7 +109,9 @@ export const createCommentSchema = z.union([
 export const updateCommentSchema = z.object({ id: z.number().int().positive(), action: z.enum(['resolve', 'reopen']) }).strict();
 /** UBEC210: an observer corrects their own comment (UBEC and observation threads) before finishing their observations. */
 export const editCommentSchema = z.object({ id: z.number().int().positive(), action: z.literal('edit'), body }).strict();
-export const commentPatchSchema = z.union([updateCommentSchema, editCommentSchema]);
+/** Client, 25 November 2026: an Oversight Department marks its observation for implementation (or needed now). */
+export const implementationCommentSchema = z.object({ id: z.number().int().positive(), action: z.literal('implementation'), value: z.boolean() }).strict();
+export const commentPatchSchema = z.union([updateCommentSchema, editCommentSchema, implementationCommentSchema]);
 /** UBEC threads the UBEC BEAP Chair ticks in the return dialog (app/api/ubec/review/route.ts). */
 export const shareCommentIdsSchema = z.array(z.number().int().positive()).max(500).refine(ids => new Set(ids).size === ids.length, 'Choose each comment once');
 
@@ -120,6 +122,8 @@ export type PlanCommentThread = PlanCommentReply & {
   scope: CommentScope;
   /** UBEC threads only: whether (and by whom) the ES shared it with the SUBEB, and the UBEC submission it was written on. */
   sharedAt?: string | null; sharedByName?: string | null; roundNumber?: number;
+  /** Client, 25 November 2026: an Oversight Department's observation kept for implementation (never holds approval). */
+  forImplementation?: { at: string; by: string }; canMarkImplementation?: boolean;
   /** Observation threads only (migration 075): the UBEC department (audit, procurement, finance) that wrote it. */
   department?: string;
 };

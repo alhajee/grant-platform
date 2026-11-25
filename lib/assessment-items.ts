@@ -1,3 +1,4 @@
+import { packageDuration, packageStrategy } from './package-strategy';
 import type { ImplementedPillar } from './beap-pillars';
 import { lineCodeLabel } from './line-code';
 import type { InfrastructurePackage } from './infrastructure-model';
@@ -29,14 +30,14 @@ export function assessmentItems(snapshot: Snapshot, pillar: ImplementedPillar): 
     const docs = (snapshot.infrastructureDocuments ?? []).filter(d => d.schoolId != null && d.schoolId === line.school.id);
     return { rowRef: String(line.id), group: line.construction?.name || 'Infrastructure', title: line.school.name, subtitle: `${line.school.lga} · ${line.school.level}`,
       amount: amountOf(line.unit_cost, line.quantity),
-      facts: present([{ label: 'Strategy', value: line.strategy }, { label: 'Duration', value: line.package?.input?.duration ?? '' }, ...timeline(line.quarters, line.start_date, line.due_date)]),
+      facts: present([{ label: 'Strategy', value: packageStrategy(line) }, { label: 'Duration', value: line.package ? packageDuration(line) : '' }, ...timeline(line.quarters, line.start_date, line.due_date)]),
       package: line.package,
       documents: docs.map(d => ({ id: d.id, name: d.name, size: d.size, href: `/api/infrastructure/documents?id=${d.id}`, label: d.kind.toUpperCase() === 'BOQ' ? 'BOQ' : d.kind.replace(/_/g, ' ') })) };
   });
   if (pillar === 'sports') return snapshot.sports.map(line => ({
     rowRef: String(line.id), group: sportsSections.find(s => s.id === line.section)?.label ?? line.section, title: line.description || line.activity_type, subtitle: line.activity_type,
     amount: amountOf(line.unit_cost, line.quantity),
-    facts: present([...costFacts(line.quantity, line.unit_cost), { label: 'Schools', value: line.allocations.length ? `${line.allocations.length} (${line.allocations.reduce((s, a) => s + Number(a.quantity), 0)} allocated)` : '' }, ...timeline(line.quarters, line.start_date, line.due_date)]),
+    facts: present([...costFacts(line.quantity, line.unit_cost), { label: 'Strategy', value: line.strategy ? strategyLabel(line.strategy) : '' }, { label: 'Target group', value: line.target_group ?? '' }, { label: 'Schools', value: line.allocations.length ? `${line.allocations.length} (${line.allocations.reduce((s, a) => s + Number(a.quantity), 0)} allocated)` : '' }, ...timeline(line.quarters, line.start_date, line.due_date)]),
     documents: [],
   }));
   return (snapshot[pillar] ?? []).map(line => ({

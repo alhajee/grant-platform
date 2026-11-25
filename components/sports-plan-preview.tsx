@@ -1,5 +1,6 @@
 "use client";
 
+import { strategyLabel } from "@/lib/activity-plans";
 import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ type BudgetPreviewProps = {
 };
 
 const sameType = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
-const panelLine = (line: SportsLine): PanelLine => ({ id: line.id, label: line.description, description: line.description, details: line.targetGroup ? `Target group: ${line.targetGroup}` : undefined, code: line.section === "equipment" ? line.code : undefined, quarters: line.quarters, startDate: line.startDate, dueDate: line.dueDate, quantity: line.quantity, unitCost: line.unitCost });
+const panelLine = (line: SportsLine): PanelLine => ({ id: line.id, label: line.description, description: line.description, details: [line.targetGroup && `Target group: ${line.targetGroup}`, line.strategy && `Strategy: ${strategyLabel(line.strategy)}`].filter(Boolean).join(" · ") || undefined, code: line.section === "equipment" ? line.code : undefined, quarters: line.quarters, startDate: line.startDate, dueDate: line.dueDate, quantity: line.quantity, unitCost: line.unitCost });
 
 /** The sports budget beside the form: one section per UBEC budget section, grouped by sport or sub-activity. */
 export function SportsBudgetPreview({ plan, disabled, selectedSection, selectedType, editingId, dirtyId, flashId, mode, onShowAll, query, onEdit, onRemove, onSaveCell, onStart }: BudgetPreviewProps) {

@@ -14,6 +14,7 @@ import { AssessItemsDialog } from '@/components/ubec/assess-items-dialog';
 import { PlanObserversDialog, planObservers } from '@/components/ubec/plan-observers-dialog';
 import { FinanceDocumentsCard } from '@/components/plan-page/finance-documents-card';
 import { RatRejection } from '@/components/ubec/rat-rejection';
+import { autoReleaseName } from '@/lib/ubec';
 import { SubmissionLetterCard } from '@/components/ubec/submission-letter-card';
 import { LevelMappingCard } from '@/components/level-mapping-card';
 import { levelMapping } from '@/lib/level-mapping';
@@ -38,7 +39,8 @@ import { toast } from 'sonner';
 import { Spinner } from '@/components/ui/spinner';
 
 const date = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-const trail: Record<string, string> = { submit: 'Submitted to UBEC', release: 'Released to the UBEC departments', assign_officer: 'Assessment Officers assigned', reopen_assessment: 'Assessment sent back to the officer', assign_observer: 'Oversight officers assigned', unassign_observer: 'Oversight officer removed', default_officers: 'Default Assessment Officers assigned', unassign_officer: 'Assessment Officer removed', complete_assessment: 'Assessment completed', send_oversight: 'Sent to the UBEC BEAP Chair by the Director', observations_done: 'Observations done', observer_done: 'Officer observations done', ready_for_chair: 'Ready for the UBEC BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned (earlier flow)', feedback: 'Department review (earlier flow)' };
+type PageView = 'components' | 'team' | 'workbook' | 'trail';
+const trail: Record<string, string> = { submit: 'Submitted to UBEC', reassign_officer: 'Back to the officers who assessed it', carry_forward: 'Accepted before and unchanged · carried forward', release: 'Released to the UBEC departments', assign_officer: 'Assessment Officers assigned', reopen_assessment: 'Assessment sent back to the officer', assign_observer: 'Oversight officers assigned', unassign_observer: 'Oversight officer removed', default_officers: 'Default Assessment Officers assigned', unassign_officer: 'Assessment Officer removed', complete_assessment: 'Assessment completed', send_oversight: 'Sent to the UBEC BEAP Chair by the Director', observations_done: 'Observations done', observer_done: 'Officer observations done', ready_for_chair: 'Ready for the UBEC BEAP Chair', return: 'Returned to SUBEB', approve: 'Approved by UBEC', assign: 'Departments assigned (earlier flow)', feedback: 'Department review (earlier flow)' };
 
 /** The UBEC plan page: summary, component cards, the BEAP Chair's steps, item assessment, the workbook and the trail. */
 export default function UbecReviewPage() {
@@ -60,6 +62,20 @@ export default function UbecReviewPage() {
   useEffect(() => { void Promise.resolve().then(() => load()); }, [load]);
   // State users follow the plan (and send it to UBEC) on their own plan page.
   useEffect(() => { if (data && !isUbec(data.role) && data.role !== superAdminRole) window.location.replace(`/beap/review?plan=${data.plan.id}`); }, [data]);
+  // Client, 25 November 2026: the page was too long; it is split into Components / Assessment team / Workbook / Review
+  // trail. Every part stays mounted (hidden) so a workbook link (#review-<component>) switches to the Workbook and jumps there.
+  const [view, setView] = useState<PageView>('components');
+  const viewRef = useRef<PageView>('components');
+  const show = useCallback((next: PageView) => { viewRef.current = next; setView(next); }, []);
+  useEffect(() => {
+    const follow = () => {
+      if (!window.location.hash.startsWith('#review-') || viewRef.current === 'workbook') return;
+      show('workbook');
+      // The sheet was hidden when the workbook read the hash; ask again once it is shown.
+      window.setTimeout(() => window.dispatchEvent(new HashChangeEvent('hashchange')), 80);
+    };
+    follow(); window.addEventListener('hashchange', follow); return () => window.removeEventListener('hashchange', follow);
+  }, [data, show]);
   // Notification links (#ubec-<component>) open that component's items.
   useEffect(() => {
     const fromHash = () => { const match = /^#ubec-([a-z]+)$/.exec(window.location.hash); if (match) { setTab(match[1]); window.location.replace(`#review-${match[1]}`); } };
@@ -96,7 +112,7 @@ export default function UbecReviewPage() {
       return !problem;
     };
     return { pillars: flow.components.map(c => c.pillar), decisions: byPillar(flow.decisions), previous: byPillar(flow.previousDecisions), corrected: pillar => new Set(flow.corrected?.[pillar] ?? []),
-      canDecide: pillar => !!can?.assess.includes(pillar) || !!can?.override?.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }),
+      canDecide: pillar => !!can?.assess.includes(pillar) || !!can?.override?.includes(pillar), overrides: pillar => !!can?.override?.includes(pillar), decide, canComplete: pillar => !!can?.complete.includes(pillar), complete: pillar => setRequest({ kind: 'complete', pillar }),
       canObserve: pillar => !!can?.observe.includes(pillar), observe: pillar => setRequest({ kind: 'observe', pillar }), canComment: pillar => !!can?.comment?.includes(pillar), canObserverDone: pillar => !!can?.observerDone?.includes(pillar), observerDone: pillar => setRequest({ kind: 'observerDone', pillar }),
       oversightDone: pillar => flow.components.find(c => c.pillar === pillar)?.oversight.map(o => o.department) ?? [],
       validation: pillar => {
@@ -159,8 +175,6 @@ export default function UbecReviewPage() {
   const envelope = round?.snapshot.setup ? { id: data!.plan.id, startYear: data!.plan.start_year, endYear: data!.plan.end_year, createdAt: round.submitted_at, status: 'submitted_ubec', version: data!.plan.version, submissionNumber: round.state_submission, ...round.snapshot.setup } as ActionPlan : null;
   const arrived = released.filter(c => c.stage === 'chair').length;
 
-  // With one or two components the cards leave the main column mostly empty: the team summary moves up beside the funding card.
-  const fewComponents = cards.length > 0 && cards.length <= 2;
   const assessmentSection = data && round && flow ? <>
   <section id="ubec-assessment" className="ubec-assessment" aria-labelledby="ubec-assessment-title">
     <h2 id="ubec-assessment-title" className="plan-section-title">Assessment team</h2>
@@ -184,8 +198,8 @@ export default function UbecReviewPage() {
           {round?.status === 'received' && can?.release && <Button size="sm" className="rounded-full" onClick={() => setRequest({ kind: 'release' })}><SendIcon data-icon="inline-start" />Release to UBEC departments</Button>}
           {/* UBEC270: the Oversight Director assigns their officers to the whole plan. */}
           {can?.assignPlanObservers && flow && data?.department && <Button size="sm" className="rounded-full" variant={planObservers(flow, data.department).officers.size ? 'outline' : 'default'} onClick={() => setPlanTeamOpen(true)}><UsersIcon data-icon="inline-start" />{planObservers(flow, data.department).officers.size ? 'Manage officers' : 'Assign officers'}</Button>}
-          {flow?.releasedAt && <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="rounded-full"><MegaphoneIcon data-icon="inline-start" />Chair’s note</Button></PopoverTrigger>
-            <PopoverContent align="end" className="ubec-release-note"><strong>{flow.releasedByName === 'UBEC BEAP Chair' ? flow.releasedByName : `${flow.releasedByName}, UBEC BEAP Chair`}</strong>{flow.releaseComment && <p>{flow.releaseComment}</p>}<small>Released {date.format(new Date(flow.releasedAt))}</small></PopoverContent></Popover>}
+          {flow?.releasedAt && <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="rounded-full"><MegaphoneIcon data-icon="inline-start" />{flow.releasedByName === autoReleaseName ? 'Resubmission' : 'Chair’s note'}</Button></PopoverTrigger>
+            <PopoverContent align="end" className="ubec-release-note"><strong>{flow.releasedByName === autoReleaseName ? 'Released automatically' : flow.releasedByName === 'UBEC BEAP Chair' ? flow.releasedByName : `${flow.releasedByName}, UBEC BEAP Chair`}</strong>{flow.releaseComment && <p>{flow.releaseComment}</p>}<small>Released {date.format(new Date(flow.releasedAt))}</small></PopoverContent></Popover>}
           {round && <Badge variant={round.status === 'returned' ? 'warning' : round.status === 'approved' ? 'default' : 'secondary'}>{nationalStatusLabels[round.status]}</Badge>}
           {data && data.rounds.length > 0 && <Select value={selected} onValueChange={value => void load(value)}><SelectTrigger aria-label="UBEC submission" className="rounded-full"><HistoryIcon /><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="current">Current submission</SelectItem>{data.rounds.map(r => <SelectItem key={r.id} value={String(r.id)}>Submission {r.number} · {date.format(new Date(r.submitted_at))}</SelectItem>)}</SelectGroup></SelectContent></Select>}
         </div>
@@ -196,6 +210,15 @@ export default function UbecReviewPage() {
         {admin && <Alert className="ubec-role-note"><AlertTitle>Super Admin view</AlertTitle><AlertDescription>You can assign, remove or reassign Assessment Officers on components still with their Director, with the same rules as the Director. Every other step belongs to the UBEC review roles.</AlertDescription></Alert>}
         {role === ubecRoles.es && <Alert className="ubec-role-note"><AlertTitle>Supervisory view</AlertTitle><AlertDescription>You can see every component, stage and comment. Workflow steps are taken by the UBEC BEAP Chair, Directors, Oversight Directors and Assessment Officers.</AlertDescription></Alert>}
         {round.decision && <Alert variant={round.status === 'returned' ? 'warning' : 'success'} className="ubec-decision-note" data-status={round.status}><AlertTitle>{round.status === 'returned' ? 'Returned to the SUBEB' : 'UBEC decision'}</AlertTitle><AlertDescription className="review-comment">{round.decision}</AlertDescription></Alert>}
+        <Tabs value={view} onValueChange={value => show(value as PageView)} className="ubec-page-tabs">
+          <div className="plan-workbook-tabs-scroll"><TabsList variant="line" className="admin-section-tabs ubec-page-tabs-list">
+            <TabsTrigger value="components">Components<Badge variant="secondary">{cards.length}</Badge></TabsTrigger>
+            <TabsTrigger value="team">Assessment team{released.length > 0 && <Badge variant="secondary">{released.length}</Badge>}</TabsTrigger>
+            <TabsTrigger value="workbook">Workbook</TabsTrigger>
+            <TabsTrigger value="trail">Review trail<Badge variant="secondary">{data.events.length}</Badge></TabsTrigger>
+          </TabsList></div>
+        </Tabs>
+        <div hidden={view !== 'components'} className="ubec-page-view">
         <div className="plan-glance">
           <h2 id="ubec-components-title" className="plan-section-title plan-glance-head">Components</h2>
           <section className="plan-components plan-glance-main" aria-labelledby="ubec-components-title">
@@ -209,7 +232,6 @@ export default function UbecReviewPage() {
                   <span className="ubec-chair-actions"><Button variant="outline" className="rounded-full" disabled={!can?.decide} onClick={() => setRequest({ kind: 'return' })}><CornerDownLeftIcon data-icon="inline-start" />Return to SUBEB</Button><Button className="rounded-full" disabled={!can?.decide || !flow.approvable} onClick={() => setRequest({ kind: 'approve' })}><CheckIcon data-icon="inline-start" />Approve action plan</Button></span></>
                 : <p><strong>{nationalStatusLabels[round.status]}.</strong>The SUBEB {round.status === 'returned' ? 'revises and resubmits the plan.' : 'has been notified.'}</p>}
             </div>}
-            {fewComponents && assessmentSection}
           </section>
           <aside className="plan-glance-side" aria-label="Plan funding">
             {envelope && totals ? <PlanSummary plan={envelope} totals={totals} detailsOpen={detailsOpen} onDetailsOpenChange={setDetailsOpen} /> : null}
@@ -225,11 +247,15 @@ export default function UbecReviewPage() {
           </aside>
         </div>
 
-        {!fewComponents && assessmentSection}
-
+        </div>
+        <div hidden={view !== 'team'} className="ubec-page-view">{assessmentSection}</div>
+        <div hidden={view !== 'workbook'} className="ubec-page-view">
         <PlanReviewContent key={round.id} showPlanReference={false} comments={comments} assessment={assessment} snapshot={round.snapshot} visiblePillars={pillars.length ? pillars : undefined} />
+        </div>
+        <div hidden={view !== 'trail'} className="ubec-page-view">
         {data.assignments.length > 0 && <Card className="mt-6"><CardHeader><CardTitle>Earlier department reviews</CardTitle></CardHeader><CardContent><ul className="ubec-legacy-reviews">{data.assignments.map(a => <li key={a.id}><strong>{departmentName(a.department)} · {componentName(a.pillar)}</strong><span>{a.completed_at ? a.recommendation === 'changes' ? 'Changes recommended' : 'Endorsed' : 'Not completed'}</span>{a.feedback && <p className="review-comment">{a.feedback}</p>}</li>)}</ul></CardContent></Card>}
         <Card className="mt-6"><CardHeader><CardTitle>Review trail</CardTitle></CardHeader><CardContent><ol className="national-activity">{data.events.map(e => <li key={e.id}><span className="national-activity-dot" /><div><strong>{trail[e.action] ?? e.action}{e.pillar ? ` · ${componentName(e.pillar)}` : ''}</strong><span>{e.actor} · {date.format(new Date(e.created_at))}</span>{e.comment && <p className="review-comment">{e.comment}</p>}</div></li>)}</ol></CardContent></Card>
+        </div>
         {assessing && <AssessItemsDialog open onOpenChange={next => { if (!next) setAssessing(null); }} pillar={assessing} name={componentName(assessing)} snapshot={round.snapshot} assessment={assessment} comments={comments} />}
         {data.department && <PlanObserversDialog open={planTeamOpen} planId={data.plan.id} roundId={round.id} department={data.department} flow={flow} plan={`${data.plan.stateName ? `${data.plan.stateName} ` : ''}${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP`} onClose={() => setPlanTeamOpen(false)} onChanged={() => void load()} />}
         <FlowDialog admin={admin} request={request} planId={data.plan.id} plan={`${data.plan.stateName ? `${data.plan.stateName} ` : ''}${planPeriod({ startYear: data.plan.start_year, endYear: data.plan.end_year, fundingQuarters: data.plan.funding_quarters })} BEAP`} version={data.plan.version} roundId={round.id} flow={flow} components={cards} threads={comments?.threads ?? []} onClose={() => setRequest(null)} onDone={() => { setRequest(null); void load(); }} onChanged={() => void load()} />

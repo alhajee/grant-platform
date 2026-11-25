@@ -281,15 +281,23 @@ try {
     assert.equal(ok(await api('ec', `/api/plans/setup?plan=${planId}`)).ratReplaced, true);
     assert.equal(ok(await api('ec', statePath)).ratProblem, null);
   }
-  await stateStep('subebChair', 'forward', 'sports');
+  await stateStep('subebChair', 'forward', 'sports'); await stateStep('subebChair', 'forward', 'monitoring');
   await signForUbec(db, path);
   ok(await api('ec', path, { action: 'submit', version: ok(await api('ec', path)).plan.version, comment: 'Revised the equipment specification.' }));
   const second = await view('chair');
-  assert.equal(second.round.number, 2); assert.equal(second.round.status, 'received'); assert.ok(second.flow.previousDecisions.some(d => d.pillar === 'sports' && d.decision === 'reject'));
+  // Client, 25 November 2026: a resubmission is not released again by the chair. Monitoring (accepted in full, unchanged)
+  // is carried forward to the chair; Sports goes straight back to the officer who assessed it.
+  assert.equal(second.round.number, 2); assert.equal(second.round.status, 'reviewing'); assert.ok(second.flow.previousDecisions.some(d => d.pillar === 'sports' && d.decision === 'reject'));
   assert.deepEqual(second.flow.corrected, { sports: [String(sportsLine)] }, 'UBEC sees the rejected item as corrected (UBEC195)');
-  ok(await act('chair', 'release', { comment: 'Resubmission received.' }));
+  fails(await act('chair', 'release', { comment: 'Resubmission received.' }), 409, /already been released/);
+  { const monitoring = second.flow.components.find(c => c.pillar === 'monitoring'); assert.equal(monitoring.stage, 'chair', 'accepted and unchanged: carried forward');
+    assert.equal(second.flow.decisions.filter(d => d.pillar === 'monitoring' && d.decision === 'accept').length, 1, 'with its decision');
+    assert.equal(second.flow.decisions.find(d => d.pillar === 'monitoring').carriedFrom, 1, 'marked as accepted in submission 1 (locked)'); }
+  { const sportsRow = second.flow.components.find(c => c.pillar === 'sports'); assert.equal(sportsRow.stage, 'director');
+    assert.deepEqual(sportsRow.officers.filter(o => !o.removedAt).map(o => o.officerId), [users.offA], 'back to the officer who assessed it');
+    assert.equal(second.flow.decisions.filter(d => d.pillar === 'sports').length, 0, 'the corrected item is decided again'); }
+  assert.ok(await notified('offA', 'reassign_officer'), 'the officer is told');
   { const dppRound2 = await view('dpp'); assert.equal(dppRound2.round.number, 2, 'UBEC149: the Physical Planning Director observes round 2 too'); assert.deepEqual(dppRound2.flow.abilities.assign, [], 'but has nothing of their own to assign'); }
-  ok(await step2('dacs', 'assign_officers', 'sports', { officerIds: [users.offA], comment: 'Check the revision.' }));
   assert.ok((await view('offA')).flow.previousDecisions.some(d => d.rowRef === String(sportsLine) && d.note === 'Quantity is too high.'), 'officers see the previous round\'s decisions');
   assert.ok(ok(await api('offA', '/api/ubec/dashboard')).queue.some(i => i.kind === 'assess' && i.planId === planId));
   ok(await decide('offA', 'sports', String(sportsLine), 'accept'));
@@ -317,9 +325,9 @@ try {
   assert.equal((await fetch(`${base}/api/plans/approval-letter?plan=${planId}`)).status, 401);
   fails(await step2('offA', 'complete_assessment', 'sports'), 409);
   const national = ok(await api('es', '/api/ubec/dashboard')).items.find(i => i.planId === planId);
-  assert.equal(national.status, 'approved'); assert.equal(national.budget, 600); assert.equal(national.components[0].stage, 'chair');
-  assert.equal(ok(await api('dpp', '/api/ubec/dashboard')).items.some(i => i.planId === planId), false, 'the latest round has nothing for Physical Planning');
-  step('resubmission opens round 2 with the previous decisions for reference; the plan is approved once nothing is rejected (concurrent approval 200/409); dashboards follow visibility');
+  assert.equal(national.status, 'approved'); assert.equal(national.budget, 1600); assert.equal(national.components[0].stage, 'chair');
+  assert.equal(ok(await api('dpp', '/api/ubec/dashboard')).items.some(i => i.planId === planId), true, 'Physical Planning keeps its carried-forward component');
+  step('resubmission opens round 2 without a release: accepted unchanged components are carried forward, the rest go back to their officers with the previous decisions for reference; the plan is approved once nothing is rejected (concurrent approval 200/409); dashboards follow visibility');
   console.log(`\nPASS: ${passed} UBEC flow checks.`);
 } finally {
   if (settings) await db.query("UPDATE state_workflow_settings SET beap_chair_submission_mode=$1, ubec_submission_mode=$2 WHERE state_code='GLOBAL'", [settings.beap_chair_submission_mode, settings.ubec_submission_mode]);

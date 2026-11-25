@@ -18,9 +18,9 @@ export type Db = { query<R extends QueryResultRow = QueryResultRow>(sql: string,
 export type CommentRow = {
   id: number; parent_id: number | null; pillar: ImplementedPillar; sheet: CommentSheet; row_ref: string; column_id: string | null; body: string;
   author_id: number | null; author_name: string; author_role: string; created_at: Date | string; resolved_at: Date | string | null; resolved_by_name: string | null;
-  submission_number: number; target_label: string; scope: CommentScope; ubec_round_id: number | null; shared_at: Date | string | null; shared_by_name: string | null; round_number?: number | null; observation_department: string | null; edited_at?: Date | string | null;
+  submission_number: number; target_label: string; scope: CommentScope; ubec_round_id: number | null; shared_at: Date | string | null; shared_by_name: string | null; round_number?: number | null; observation_department: string | null; edited_at?: Date | string | null; for_implementation_at?: Date | string | null; for_implementation_by?: string | null;
 };
-export const commentFields = (alias = 'c') => ['id', 'parent_id', 'pillar', 'sheet', 'row_ref', 'column_id', 'body', 'author_id', 'author_name', 'author_role', 'created_at', 'resolved_at', 'resolved_by_name', 'submission_number', 'target_label', 'scope', 'ubec_round_id', 'shared_at', 'shared_by_name', 'observation_department', 'edited_at'].map(field => `${alias}.${field}`).join(', ');
+export const commentFields = (alias = 'c') => ['id', 'parent_id', 'pillar', 'sheet', 'row_ref', 'column_id', 'body', 'author_id', 'author_name', 'author_role', 'created_at', 'resolved_at', 'resolved_by_name', 'submission_number', 'target_label', 'scope', 'ubec_round_id', 'shared_at', 'shared_by_name', 'observation_department', 'edited_at', 'for_implementation_at', 'for_implementation_by'].map(field => `${alias}.${field}`).join(', ');
 export { openRoundStatuses };
 export const isUbecAuthor = (role: string) => (ubecAuthorRoles as readonly string[]).includes(role);
 
@@ -42,7 +42,7 @@ export function toThreads(rows: CommentRow[], userId: number, snapshot: Snapshot
       orphaned: !current[row.sheet].has(row.row_ref) || (row.column_id !== null && !(row.column_id in commentColumns[row.sheet])),
       scope: row.scope,
       ...(row.scope === 'observation' ? { department: row.observation_department ?? undefined } : {}),
-      ...(row.scope === 'ubec' ? { roundNumber: row.round_number ?? undefined, ...(options.withSharing ? { sharedAt: toIso(row.shared_at), sharedByName: row.shared_by_name } : {}) } : {}),
+      ...(row.scope === 'ubec' ? { roundNumber: row.round_number ?? undefined, ...(options.withSharing ? { sharedAt: toIso(row.shared_at), sharedByName: row.shared_by_name } : {}), ...(row.for_implementation_at ? { forImplementation: { at: String(toIso(row.for_implementation_at)), by: row.for_implementation_by ?? '' } } : {}) } : {}),
     });
   }
   return [...threads.values()];

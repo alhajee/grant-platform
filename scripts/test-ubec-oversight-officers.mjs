@@ -164,6 +164,17 @@ try {
   fails(await act('chair', 'approve', { comment: 'Approve' }), 409, /Resolve the 1 open comment from Audit, Procurement, Finance and Special Programmes/);
   step('with the component at the UBEC BEAP Chair, an open oversight comment blocks approval');
 
+  // Client, 25 November 2026: the department marks its observation for implementation; it stays open, no longer holds approval.
+  fails(await api('procurement', comments, { id: thread, action: 'implementation', value: true }, 'PATCH'), 403);
+  fails(await api('chair', comments, { id: thread, action: 'implementation', value: true }, 'PATCH'), 403);
+  { const seen = ok(await api('audit', comments)).threads.find(t => t.id === thread); assert.equal(seen.canMarkImplementation, true, 'the Oversight Director marks their officer\'s observation'); }
+  ok(await api('audit', comments, { id: thread, action: 'implementation', value: true }, 'PATCH'));
+  { const after = await view('chair'); assert.equal(after.flow.openOversightComments, 0); assert.equal(after.flow.approvable, true); }
+  { const seen = ok(await api('chair', comments)).threads.find(t => t.id === thread); assert.equal(seen.resolvedAt, null); assert.ok(seen.forImplementation.by, 'everyone sees it is kept for implementation'); }
+  ok(await api('auditOff1', comments, { id: thread, action: 'implementation', value: false }, 'PATCH'));
+  assert.equal((await view('chair')).flow.approvable, false, 'needed before approval again');
+  step('the Oversight Department marks its observation for implementation: still open, no longer holds approval (and can undo it)');
+
   ok(await api('dpp', comments, { id: thread, action: 'resolve' }, 'PATCH'));
   assert.equal((await view('chair')).flow.approvable, true);
   ok(await act('chair', 'approve', { comment: 'Approved by UBEC.' }));

@@ -26,7 +26,9 @@ export type ValidationReport = { id: string; name: string; size: number; officer
 /** Components whose officers may upload a Validation Report (optional; it never holds Complete assessment). */
 export const validationReportPillars: readonly ImplementedPillar[] = ['infrastructure'];
 export const needsValidationReport = (pillar: ImplementedPillar) => validationReportPillars.includes(pillar);
-export type ItemDecision = { pillar: ImplementedPillar; rowRef: string; decision: ItemDecisionValue; note: string; officerName: string; decidedAt: string };
+export type ItemDecision = { pillar: ImplementedPillar; rowRef: string; decision: ItemDecisionValue; note: string; officerName: string; decidedAt: string;
+  /** Client, 25 November 2026: accepted in this earlier submission and unchanged since; locked for the officers. */
+  carriedFrom?: number | null };
 export type FlowAbilities = {
   /** UBEC BEAP Chair: release the round, and approve/return it once every component has arrived. */
   release: boolean; decide: boolean;

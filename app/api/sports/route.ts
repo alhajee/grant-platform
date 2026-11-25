@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // UBEC249: the beneficiary schools list (migration 100) the equipment items are shared across.
     const beneficiarySchools = (await db.query(`SELECT s.id, s.name, s.lga, s.level, s.location, s.school_code AS code, (s.enrolment_male + s.enrolment_female)::int AS enrolment FROM tlm_distribution d JOIN schools s ON s.id = d.school_id WHERE d.plan_id = $1 AND d.workstream = 'sports' AND s.state_code = $2 ORDER BY s.name`, [plan.id, workspace.stateCode])).rows;
     const [lines, allocations, schools] = await Promise.all([
-      db.query(`SELECT id, code, section, activity_type AS "activityType", description, target_group AS "targetGroup", quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey", price_item_id AS "priceItemId"
+      db.query(`SELECT id, code, section, activity_type AS "activityType", description, target_group AS "targetGroup", strategy, quantity, unit_cost::float8 AS "unitCost", quarters, start_date::text AS "startDate", due_date::text AS "dueDate", client_key AS "clientKey", price_item_id AS "priceItemId"
         FROM sports_budget_lines WHERE state_code = ${state} AND plan_id = ${plan.id} ORDER BY id`),
       db.query(`SELECT a.id, a.line_id AS "lineId", a.school_id AS "schoolId", a.quantity, a.longitude, a.latitude, a.client_key AS "clientKey",
         s.name, s.lga, s.level, s.location FROM sports_allocations a
@@ -155,10 +155,10 @@ export async function POST(request: NextRequest) {
         const values = `${sqlText(line.section)}, ${sqlText(line.activityType)}, ${sqlText(line.description)}, ${sqlText(line.targetGroup)}, ${line.quantity}, ${line.unitCost.toFixed(4)}, ${quarters}, ${startDate}, ${dueDate}`;
         // UBEC233 (migration 091): the code (UBEC/SUBEB/SPORT/001/2026) is numbered per plan by the BEFORE INSERT trigger.
         const result = action === "create"
-          ? await db.query(`INSERT INTO sports_budget_lines (plan_id, state_code, section, activity_type, description, target_group, quantity, unit_cost, quarters, start_date, due_date, client_key, price_item_id)
-              VALUES (${plan.id}, ${state}, ${values}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid, ${priceItem}) RETURNING id, code`)
+          ? await db.query(`INSERT INTO sports_budget_lines (plan_id, state_code, section, activity_type, description, target_group, quantity, unit_cost, quarters, start_date, due_date, client_key, price_item_id, strategy)
+              VALUES (${plan.id}, ${state}, ${values}, ${clientKey ? sqlText(clientKey) : "NULL"}::uuid, ${priceItem}, ${sqlText(line.strategy ?? "")}) RETURNING id, code`)
           : await db.query(`UPDATE sports_budget_lines SET section = ${sqlText(line.section)}, activity_type = ${sqlText(line.activityType)},
-              description = ${sqlText(line.description)}, target_group = ${sqlText(line.targetGroup)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(4)}, quarters = ${quarters}, start_date = ${startDate}, due_date = ${dueDate}, price_item_id = ${priceItem}, updated_at = NOW()
+              description = ${sqlText(line.description)}, target_group = ${sqlText(line.targetGroup)}, quantity = ${line.quantity}, unit_cost = ${line.unitCost.toFixed(4)}, quarters = ${quarters}, start_date = ${startDate}, due_date = ${dueDate}, price_item_id = ${priceItem},${line.strategy === undefined ? "" : ` strategy = ${sqlText(line.strategy)},`} updated_at = NOW()
               WHERE id = ${id} AND state_code = ${state} RETURNING id, code`);
         return NextResponse.json(result.rows[0], { status: action === "create" ? 201 : 200 });
       }

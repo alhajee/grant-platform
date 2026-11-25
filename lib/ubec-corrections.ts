@@ -14,15 +14,16 @@ type Row = Record<string, unknown>;
 // Fields that change on any save, so they do not count as a correction.
 const volatile = new Set(['updated_at', 'created_at', 'client_key', 'version', 'updatedAt', 'createdAt', 'code']);
 // Columns added after earlier rounds were saved (UBEC244, migration 095: Sports lines' price-list item). Empty, they
-// equal their absence in an older snapshot, so the new column never counts as a correction.
-const addedLater = new Set(['price_item_id']);
+// equal their absence in an older snapshot, so the new column never counts as a correction. Migration 108 (25 November
+// 2026) adds Sports lines' strategy ('' until chosen).
+const addedLater = new Set(['price_item_id', 'strategy']);
 // Money read back at a different scale is the same amount: rounds returned before migration 093 hold '12.50', the
 // working plan '12.5000' (UBEC238). Compared as canonical amounts so widening the columns never counts as a correction.
 const moneyKeys = new Set(['unit_cost', 'total_cost', 'unit_price', 'total']);
 const canonicalMoney = (value: unknown) => (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) || typeof value === 'number' ? fromMinor(toMinor(value as string | number)) : value;
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Row).filter(([key, v]) => !volatile.has(key) && !(addedLater.has(key) && v == null)).sort(([a], [b]) => a.localeCompare(b)).map(([key, v]) => [key, moneyKeys.has(key) ? canonicalMoney(v) : stable(v)]));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Row).filter(([key, v]) => !volatile.has(key) && !(addedLater.has(key) && (v == null || v === ''))).sort(([a], [b]) => a.localeCompare(b)).map(([key, v]) => [key, moneyKeys.has(key) ? canonicalMoney(v) : stable(v)]));
   return value;
 }
 
@@ -60,6 +61,12 @@ export function correctedItems(previous: Snapshot, resubmitted: Snapshot, reject
     if (changed.length) corrected[pillar] = changed;
   }
   return corrected;
+}
+
+/** Items of a component that are the same in both snapshots (row refs), e.g. for carrying UBEC decisions into a resubmission. */
+export function unchangedItems(previous: Snapshot, resubmitted: Snapshot, pillar: ImplementedPillar): Set<string> {
+  const before = itemsOf(previous, pillar), now = itemsOf(resubmitted, pillar);
+  return new Set([...now].filter(([ref, text]) => before.get(ref) === text).map(([ref]) => ref));
 }
 
 /** Why a component cannot be sent on yet, or null. */

@@ -100,20 +100,32 @@ export async function readRoundComponents(db: Db, round: Pick<UbecRound, 'id' | 
 }
 
 export async function readDecisions(db: Db, roundId: number): Promise<ItemDecision[]> {
-  return (await db.query<{ pillar: ImplementedPillar; row_ref: string; decision: ItemDecision['decision']; note: string; officer_name: string; decided_at: Date }>('SELECT pillar,row_ref,decision,note,officer_name,decided_at FROM ubec_item_decisions WHERE round_id=$1 ORDER BY id', [roundId])).rows
-    .map(d => ({ pillar: d.pillar, rowRef: d.row_ref, decision: d.decision, note: d.note, officerName: d.officer_name, decidedAt: iso(d.decided_at)! }));
+  return (await db.query<{ pillar: ImplementedPillar; row_ref: string; decision: ItemDecision['decision']; note: string; officer_name: string; decided_at: Date; carried_from: number | null }>('SELECT pillar,row_ref,decision,note,officer_name,decided_at,carried_from FROM ubec_item_decisions WHERE round_id=$1 ORDER BY id', [roundId])).rows
+    .map(d => ({ pillar: d.pillar, rowRef: d.row_ref, decision: d.decision, note: d.note, officerName: d.officer_name, decidedAt: iso(d.decided_at)!, carriedFrom: d.carried_from }));
 }
 
 /**
  * Open UBEC root comments on this round by Audit, Procurement and Finance (their Oversight Directors and Assessment
- * Officers, migration 071). The UBEC BEAP Chair cannot approve until they are resolved.
+ * Officers, migration 071). The UBEC BEAP Chair cannot approve until they are resolved, unless marked for implementation
+ * (migration 108).
  */
 export async function openOversightCommentCount(db: Db, roundId: number): Promise<number> {
   return (await db.query<{ n: number }>(`SELECT COUNT(*)::int AS n FROM plan_comments c JOIN users u ON u.id=c.author_id
-    WHERE c.scope='ubec' AND c.ubec_round_id=$1 AND c.parent_id IS NULL AND c.resolved_at IS NULL AND u.role=ANY($2::text[]) AND u.department=ANY($3::text[])`,
+    WHERE c.scope='ubec' AND c.ubec_round_id=$1 AND c.parent_id IS NULL AND c.resolved_at IS NULL AND c.for_implementation_at IS NULL AND u.role=ANY($2::text[]) AND u.department=ANY($3::text[])`,
     [roundId, [ubecRoles.oversight, ubecRoles.officer], oversightIds])).rows[0]?.n ?? 0;
 }
 export const oversightCommentsMessage = (n: number) => `Resolve the ${n} open ${n === 1 ? 'comment' : 'comments'} from ${oversightList()} before approving`;
+
+/**
+ * Oversight comments (roots by Oversight Directors and their officers) the viewer may mark for implementation: their own,
+ * or, for an Oversight Director, any of their department's (migration 108).
+ */
+export async function implementationMarkable(db: Db, ids: readonly number[], viewer: { id: number; role: string; department: string | null }): Promise<Set<number>> {
+  if (!ids.length || ![ubecRoles.oversight, ubecRoles.officer].includes(viewer.role as never) || !viewer.department || !oversightIds.includes(viewer.department as never)) return new Set();
+  const rows = (await db.query<{ id: number }>(`SELECT c.id FROM plan_comments c JOIN users u ON u.id=c.author_id WHERE c.id=ANY($1::bigint[]) AND c.parent_id IS NULL
+    AND u.role=ANY($2::text[]) AND u.department=$3 AND (c.author_id=$4 OR $5::text=$6::text)`, [ids, [ubecRoles.oversight, ubecRoles.officer], viewer.department, viewer.id, viewer.role, ubecRoles.oversight])).rows;
+  return new Set(rows.map(r => Number(r.id)));
+}
 
 /** Every item of every released component is decided and none is rejected. */
 export const approvableComponents = (components: readonly FlowComponent[]) => components.length > 0 && components.every(c => c.stage === 'chair' && c.counts.rejected === 0 && c.counts.undecided === 0);

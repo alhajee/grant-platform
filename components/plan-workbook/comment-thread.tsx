@@ -8,6 +8,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { commentBodyLimit, sheetPillar, type PlanCommentReply, type PlanCommentThread } from '@/lib/plan-comments';
 import { observationAudienceOf, observationDepartmentName } from '@/lib/observation-requests';
 import type { CommentsController, CommentTarget } from './comments-context';
+import { ImplementationTag } from './implementation-tag';
 
 const units: [Intl.RelativeTimeFormatUnit, number][] = [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]];
 const relative = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' });
@@ -95,6 +96,7 @@ export function CommentThread({ controller, thread, target, label, onClose, auto
     <div className="wb-thread-head">
       <p className="wb-thread-target" title={label}>{label}</p>
       {thread && <ScopeBadge thread={thread} viewer={controller.scope} />}
+      {thread && thread.scope === 'ubec' && controller.scope === 'ubec' && <ImplementationTag thread={thread} controller={controller} />}
       {mayResolve && <Button size="xs" variant="outline" className="rounded-full" disabled={!!busy} onClick={() => void toggle()}>{busy === 'status' ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" />}Resolve</Button>}
       {mayReopen && <Button size="xs" variant="outline" className="rounded-full" disabled={!!busy} onClick={() => void toggle()}>{busy === 'status' ? <Spinner data-icon="inline-start" /> : <RotateCcwIcon data-icon="inline-start" />}Reopen</Button>}
     </div>

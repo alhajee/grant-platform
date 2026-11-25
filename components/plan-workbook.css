@@ -243,3 +243,9 @@
 .wb-comment-edit-button { margin-left: 4px; vertical-align: middle; opacity: .6; }
 .wb-comment-edit-button:hover, .wb-comment-edit-button:focus-visible { opacity: 1; }
 .wb-comment-edit { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+/* Client, 25 November 2026: an Oversight Department's observation kept for implementation (never holds approval). */
+.wb-implementation { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.wb-thread-head .wb-implementation { margin-left: auto; }
+.wb-implementation-badge { height: 20px; gap: 4px; padding: 0 7px; font-size: 11px; background: #eef4ff; color: #1d4f9c; border: 1px solid #c9dafb; }
+.wb-implementation-badge svg { width: 12px; height: 12px; }
+.assess-observation .wb-implementation { margin: 2px 0 4px; }

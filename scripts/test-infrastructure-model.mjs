@@ -135,6 +135,16 @@ const old=packageSchema.parse({kind:'whole',schoolId:1,components:['Primary'],mo
 assert.equal(old.model,2);assert.equal(calculateInfrastructure(old,facts).modelLabel,'');assert.equal(auditGaps(old,facts).find(g=>g.key==='classroomPri').required,6);
 assert.equal(requirements.filter(r=>r.category==='other').length,30);
 const furniture=make('furniture');furniture.furniture=[{description:'Desk',quantity:3,cost:10.15}];assert.equal(calculateInfrastructure(furniture,200).total,30.45);
+// Client, 25 November 2026: Furniture names its strategy (default Request for quotation); items carry it.
+assert.equal(furniture.furnitureStrategy,'Request for quotation');
+assert.deepEqual(calculateInfrastructure({...furniture,furnitureStrategy:'NCB'},200).items.map(i=>i.strategy),['NCB']);
+{ const { packageStrategy, packageDuration } = await import('../lib/package-strategy.ts');
+  const whole={strategy:'Request for quotation',package:{kind:'whole',input:{duration:''},result:{items:[{key:'a',strategy:'NCB',duration:'6 weeks',total:5},{key:'b',strategy:'NCB',duration:'6 weeks',total:3},{key:'c',strategy:'Market survey',duration:'2 weeks',total:1},{key:'d',strategy:'',total:0,notCosted:true}]}}};
+  assert.equal(packageStrategy(whole),'NCB, Market survey','the row shows the costed items’ strategies, not the default');
+  assert.equal(packageDuration(whole),'Per intervention');
+  assert.equal(packageStrategy({strategy:'Request for quotation',package:{kind:'furniture',input:{},result:{items:[{key:'f',strategy:'',total:4}]}}}),'','older furniture has no strategy (not the default)');
+  assert.equal(packageStrategy({strategy:'NCB',package:{kind:'new',input:{duration:'6 months'},result:{items:[{key:'package',strategy:'NCB',total:9}]}}}),'NCB');
+}
 // UBEC171: Whole School classrooms, ECCDE classrooms and toilets grouped by block, in groups of blocks of different sizes (revised 7 November 2026).
 {
  const {groupIntoBlocks,toBlockGroups,blockGroupingText,blockGroupText,blockGroupingProblem,classroomBlockCounts,drawingsDocumentProblem,blockItems,pruneBlockCosts}=await import('../lib/infrastructure-model.ts');

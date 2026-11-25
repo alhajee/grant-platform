@@ -84,3 +84,8 @@
 .assess-dialog[data-text=large] .assess-list, .assess-dialog[data-text=large] .assess-groups { zoom: 1.2; }
 .assess-dialog[data-text=large] .assess-list[data-layout=grid] { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
 .assess-toolbar .assess-text-size { margin-left: auto; }
+/* Client, 25 November 2026: accepted in an earlier submission and unchanged, so locked for the officers. */
+.assess-locked { display: flex; align-items: center; gap: 4px; margin: 4px 0 0; font-size: 12px; color: var(--muted-foreground); }
+.assess-locked svg { width: 12px; height: 12px; }
+.assess-item-decision .assess-locked { justify-content: flex-end; text-align: right; }
+.assess-locked svg { flex: none; }

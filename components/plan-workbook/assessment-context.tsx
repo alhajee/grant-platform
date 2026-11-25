@@ -4,7 +4,7 @@ import type { ImplementedPillar } from '@/lib/beap-pillars';
 import type { ItemDecisionValue, ValidationReport } from '@/lib/ubec-flow';
 import type { SheetKey, WorkbookColumn, WorkbookSheet } from './types';
 
-export type RowDecision = { decision: ItemDecisionValue; note: string; officerName: string };
+export type RowDecision = { decision: ItemDecisionValue; note: string; officerName: string; /** Accepted in this earlier submission and unchanged: locked for the officers (25 November 2026). */ carriedFrom?: number | null };
 /**
  * UBEC item assessment inside the workbook (UBEC plan page): each released component's own sheet gets Decision /
  * Decision note columns; the assigned Assessment Officers accept or reject rows from the sheet toolbar or the
@@ -13,6 +13,8 @@ export type RowDecision = { decision: ItemDecisionValue; note: string; officerNa
 export type WorkbookAssessment = {
   pillars: readonly ImplementedPillar[];
   decisions: (pillar: ImplementedPillar) => ReadonlyMap<string, RowDecision>;
+  /** The viewer may change locked (carried-forward) decisions: the component's Director (UBEC143 override). */
+  overrides?: (pillar: ImplementedPillar) => boolean;
   previous: (pillar: ImplementedPillar) => ReadonlyMap<string, RowDecision>;
   /** UBEC195: rows rejected on the previous submission that the SUBEB corrected (shown in yellow). */
   corrected?: (pillar: ImplementedPillar) => ReadonlySet<string>;

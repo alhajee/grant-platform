@@ -128,28 +128,9 @@ export const materialTypes = ['Textbooks', 'Teachers guide', 'Interactive learni
 export const textbookClasses = ['ECCDE', 'Primary 1', 'Primary 2', 'Primary 3', 'Primary 4', 'Primary 5', 'Primary 6', 'JSS 1', 'JSS 2', 'JSS 3'] as const;
 /** Suggested subjects; "Others (specify)" stores a typed subject instead (UBEC207, migration 082). */
 export const textbookSubjects = ['English/literacy (Core)', 'Mathematics/Numeracy (Core)', 'Basic Science (Core)', 'Social Studies', 'Nigerian languages (one local language textbook)', 'Physical and Health Education', 'History'] as const;
-/**
- * Implementation (procurement) strategies of the activity components (client list, October 2026; Infrastructure keeps
- * its own). Stored values stay short and stable; `strategyLabels` gives the names shown. The retired ones stay valid on
- * lines that already use them, but cannot be chosen again (the save route refuses a change to one).
- */
-// UBEC159 (28 October 2026): ICB, Non-Consultancy and Non-Applicable added. Non-Applicable lines say what is used instead
-// (e.g. E-payment/cash transfer, direct payment to vendor), stored as "Non-Applicable: <what>" (`withStrategyDetail`).
-export const implementationStrategies = ['ICB', 'NCB', 'Request for quotation', 'Market survey', 'Single source/Direct contracting', 'Prequalification', 'Quality and cost based', 'Consultant Qualification', 'Least cost', 'Non-Consultancy', 'Non-Applicable'] as const;
-export const nonApplicableStrategy = 'Non-Applicable';
-export const maxStrategyDetailLength = 100;
-const nonApplicablePrefix = `${nonApplicableStrategy}: `;
-/** "Non-Applicable: E-payment" → { strategy: 'Non-Applicable', detail: 'E-payment' }; any other value has no detail. */
-export const splitStrategy = (value: string) => value.startsWith(nonApplicablePrefix) ? { strategy: nonApplicableStrategy, detail: value.slice(nonApplicablePrefix.length) } : { strategy: value, detail: '' };
-export const withStrategyDetail = (strategy: string, detail: string) => strategy === nonApplicableStrategy && detail.trim() ? `${nonApplicablePrefix}${detail.trim().slice(0, maxStrategyDetailLength)}` : strategy;
-export const isNonApplicable = (value: string) => splitStrategy(value).strategy === nonApplicableStrategy;
-export const retiredStrategies = ['E-payment/Cash transfer', 'Credit School account', 'Credit SBMC school account', 'Credit staff concern account', 'Direct payment to vendor'] as const;
-export const strategyLabels: Record<string, string> = {
-  ICB: 'ICB (International Competitive Bidding)', NCB: 'NCB (National Competitive Bidding)', 'Request for quotation': 'Request for Quotation', 'Market survey': 'Market Survey (Shopping)',
-  'Single source/Direct contracting': 'Single Source/Direct Contracting',
-};
-export const strategyLabel = (value: string) => { const { strategy, detail } = splitStrategy(value); return detail ? `${strategy} (${detail})` : strategyLabels[value] ?? value; };
-export const isRetiredStrategy = (value: string) => (retiredStrategies as readonly string[]).includes(value);
+// The implementation strategy list moved to ./implementation-strategies.ts (shared with Sports without an import cycle).
+export { implementationStrategies, nonApplicableStrategy, maxStrategyDetailLength, splitStrategy, withStrategyDetail, isNonApplicable, retiredStrategies, strategyLabels, strategyLabel, isRetiredStrategy, strategyValueSchema } from './implementation-strategies.ts';
+import { nonApplicableStrategy, strategyValueSchema } from './implementation-strategies.ts';
 export { targetGroups, targetGroupSeparator, splitTargetGroups, joinTargetGroups };
 export const activityLineSchema = z.object({
   workstream: z.enum(activityWorkstreams), activity: z.number().int().min(0),
@@ -160,7 +141,7 @@ export const activityLineSchema = z.object({
   quantity: z.number().int().min(1).max(1000000),
   /** UBEC238: up to four decimals (₦1,250.0202), kept exactly (NUMERIC(16, 4), migration 093). */
   unitCost: z.number().positive().max(maxUnitCost, 'Enter a unit cost below ₦100 billion').refine(hasMoneyDecimals, moneyDecimalsMessage),
-  strategy: z.union([z.enum(implementationStrategies), z.enum(retiredStrategies), z.literal(''), z.string().regex(new RegExp(`^${nonApplicableStrategy}: \\S.{0,${maxStrategyDetailLength - 1}}$`), 'Say what is used instead (up to 100 characters)')]).default(''), targetGroup: targetGroupField, location: z.enum(['','Rural','Urban']).default(''),
+  strategy: strategyValueSchema.default(''), targetGroup: targetGroupField, location: z.enum(['','Rural','Urban']).default(''),
   equipment: z.string().max(100).default(''),
   customActivity: z.string().trim().max(maxActivityNameLength, `Use up to ${maxActivityNameLength} characters for the activity name`).default(''),
   textbookClasses: z.array(z.enum(textbookClasses)).max(textbookClasses.length).default([]),

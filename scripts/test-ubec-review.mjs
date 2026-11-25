@@ -75,9 +75,9 @@ try {
   const roundId = async () => ok(await api('ubecChair', path)).round.id;
   const act = async (who, action, extra = {}) => { const current = ok(await api('ec', path)); return api(who, path, { action, version: current.plan.version, ...(current.round ? { roundId: current.round.id } : {}), ...extra }); };
   // One component from release to the BEAP Chair: assign, decide every item, complete, send for oversight, three observations.
-  async function assess(pillar, director, officer, decision) {
+  async function assess(pillar, director, officer, decision, { reassigned = false } = {}) {
     const round = await roundId();
-    ok(await api(director, components, { action: 'assign_officers', roundId: round, pillar, officerIds: [ids[officer]], comment: 'Please assess.' }));
+    if (!reassigned) ok(await api(director, components, { action: 'assign_officers', roundId: round, pillar, officerIds: [ids[officer]], comment: 'Please assess.' }));
     for (const line of ok(await api(officer, path)).round.snapshot[pillar]) ok(await api(officer, `/api/ubec/decisions${q}`, { roundId: round, pillar, rowRef: String(line.id), decision, note: decision === 'reject' ? 'Revise the quantity.' : '' }, 'PUT'));
     ok(await api(officer, components, { action: 'complete_assessment', roundId: round, pillar }));
     ok(await api(director, components, { action: 'send_oversight', roundId: round, pillar, comment: 'Assessed.' }));
@@ -136,11 +136,12 @@ try {
   const second = ok(await api('es', path));
   assert.equal(second.round.number, 2); assert.equal(second.round.snapshot.sports[0].quantity, 6);
   assert.equal(second.round.snapshot.monitoring.length, 0, 'Components that did not reach the Executive Chairman are left out');
-  ok(await act('ubecChair', 'release', { comment: 'Resubmission released.' }));
+  // Client, 25 November 2026: a resubmission needs no release; Sports went back to the officer who assessed it.
+  assert.equal(second.round.status, 'reviewing'); assert.equal((await act('ubecChair', 'release', { comment: 'Resubmission released.' })).status, 409);
   // UBEC149: they observe round 2 (Sports) with nothing of their own to do.
   { const d = ok(await api('dpp', path)); assert.equal(d.round.number, 2); assert.deepEqual(d.flow.abilities.assign, []); }
   { const o = ok(await api('physical', path)); assert.equal(o.round.number, 2); assert.deepEqual(o.flow.abilities.assess, []); }
-  await assess('sports', 'dacs', 'academic', 'accept');
+  await assess('sports', 'dacs', 'academic', 'accept', { reassigned: true });
   const ready = ok(await api('ubecChair', path));
   const decision = { action: 'approve', version: ready.plan.version, roundId: ready.round.id, comment: 'All components assessed.' };
   const results = await Promise.all([api('ubecChair', path, decision), api('ubecChair', path, decision)]);

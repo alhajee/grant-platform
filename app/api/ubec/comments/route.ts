@@ -6,6 +6,7 @@ import { isOversightDepartment, isUbec, ubecRoles, type UbecRound } from '@/lib/
 import { implementedPillars } from '@/lib/beap-pillars';
 import { commentColumns, commentPatchSchema, createCommentSchema, sheetPillar, sheetRows, targetLabel, ubecAbilities } from '@/lib/plan-comments';
 import { readOwnRoundComment, readRoundRoot, readRoundRows, readViewerRounds, roundCellTaken, roundCutoff, roundOpen, toThreads, viewerPillars, type Db } from '@/lib/ubec-comments';
+import { implementationMarkable } from '@/lib/ubec-flow-db';
 
 // UBEC review comments (migrations 029, 055). Every UBEC reviewer comments on the components of the round they
 // can see (lib/ubec-flow-db.ts: the BEAP Chair all, Directors and officers every released component, the Oversight
@@ -40,7 +41,9 @@ export async function GET(request: NextRequest) {
       const own = await viewerPillars(db, round, viewer, { wide: false });
       const closed = open ? await observationsRecorded(db, round, { id: user.userId, role: user.role, department: user.department }) : new Set<string>();
       const abilities = Object.fromEntries(implementedPillars.filter(p => pillars.includes(p)).map(p => { const a = { ...ubecAbilities(true, open, user.role), edit: open && user.role !== ubecRoles.es && !closed.has(p) }; return [p, own.includes(p) ? a : { ...a, resolveAny: false, reopen: false }]; }));
-      return NextResponse.json({ threads: toThreads(rows, user.userId, round.snapshot, { cutoff, withSharing: true }), locked: !open, abilities, scope: 'ubec', roundId: round.id }, { headers: noStore });
+      const threads = toThreads(rows, user.userId, round.snapshot, { cutoff, withSharing: true });
+      const markable = open ? await implementationMarkable(db, threads.filter(t => !t.resolvedAt).map(t => t.id), { id: user.userId, role: user.role, department: user.department }) : new Set<number>();
+      return NextResponse.json({ threads: threads.map(t => markable.has(t.id) ? { ...t, canMarkImplementation: true } : t), locked: !open, abilities, scope: 'ubec', roundId: round.id }, { headers: noStore });
     });
   } catch (cause) { console.error('UBEC comments could not be loaded', cause); return error('Unable to load comments. Please try again.', 503); }
 }
@@ -109,7 +112,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const parsed = commentPatchSchema.safeParse(await request.json().catch(() => null));
-    if (!parsed.success) return error(parsed.error.issues.find(issue => issue.path[0] === 'body')?.message ?? 'Choose a comment to resolve, reopen or edit');
+    if (!parsed.success) return error(parsed.error.issues.find(issue => issue.path[0] === 'body')?.message ?? 'Choose a comment to resolve, reopen, edit or mark for implementation');
     const input = parsed.data;
     return await withOpenRound(request, async (db, { planId, round, pillars, actor, own }) => {
       if (input.action === 'edit') {
@@ -124,6 +127,13 @@ export async function PATCH(request: NextRequest) {
       }
       const root = await readRoundRoot(db, planId, round, pillars, input.id);
       if (!root) return error('Comment not found', 404);
+      if (input.action === 'implementation') {
+        // Client, 25 November 2026: the observation stays open but no longer holds the UBEC BEAP Chair's approval.
+        if (!(await implementationMarkable(db, [Number(root.id)], actor)).has(Number(root.id))) return error('Only the Oversight Department that made this observation marks it for implementation', 403);
+        if (root.resolved_at) return error('This comment is resolved', 409);
+        await db.query('UPDATE plan_comments SET for_implementation_at=$1, for_implementation_by=$2 WHERE id=$3', input.value ? [new Date(), actor.full_name, root.id] : [null, null, root.id]);
+        return NextResponse.json({ id: Number(root.id), forImplementation: input.value });
+      }
       // UBEC149: observers of another unit's component resolve only their own comments and never reopen.
       if (!own.includes(root.pillar) && (input.action === 'reopen' || root.author_id !== actor.id)) return error('Only the component\'s own unit resolves or reopens its comments. Your observations are for information', 403);
       if (input.action === 'resolve') {

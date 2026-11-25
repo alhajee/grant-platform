@@ -5,6 +5,7 @@ import { lineQuartersSchema } from "./line-quarters.ts";
 import { lineDatesShape } from "./line-dates.ts";
 import { formatMinor, nairaFormat } from "./money-format.ts";
 import { targetGroupField } from "./target-groups.ts";
+import { isRetiredStrategy, nonApplicableStrategy, strategyValueSchema } from "./implementation-strategies.ts";
 import { MONEY_SCALE, hasMoneyDecimals, lineMinor, lineTotalIsSafe, maxUnitCost, minorToNaira, moneyDecimalsMessage, shareToKobo } from "./money.ts";
 
 // The four UBEC sports budget sections (QA UBEC18) with their share of the sports
@@ -105,6 +106,8 @@ export type SportsSchool = { id: number; name: string; lga: string; level: strin
 export type SportsLine = { id: number; code: string; section: SportsSection; activityType: string; description: string; quantity: number; unitCost: number;
   /** UBEC219 (migration 091): target groups joined ("Schools, Teachers"); '' on lines saved before. */
   targetGroup: string;
+  /** Client, 25 November 2026 (migration 108): '' on lines saved before. */
+  strategy?: string;
   /** Timeline: implementation quarters within the plan's quarters (migration 050). */
   quarters: number[];
   /** Expected start and due dates (migration 059, YYYY-MM-DD); null on lines saved before. */
@@ -124,6 +127,12 @@ export const sportsLineSchema = z.object({
   description: z.string().trim().min(1, "Enter an item or activity description").max(1000),
   /** UBEC219: one or more target groups, required on every save (lines saved before keep '' until edited). */
   targetGroup: targetGroupField.refine((value) => value !== "", "Choose the target group"),
+  /** Client, 25 November 2026 (migration 108): the implementation strategy, as on the activity components. Omitted by
+   *  older clients and scripts (kept as it is); the form always sends it, so it is chosen on every save there. */
+  strategy: strategyValueSchema.optional()
+    .refine((value) => value !== "", "Choose the implementation strategy")
+    .refine((value) => value !== nonApplicableStrategy, "Say what is used instead, e.g. E-payment/cash transfer or direct payment to vendor")
+    .refine((value) => !value || !isRetiredStrategy(value), "Choose a listed implementation strategy"),
   quantity,
   /** UBEC238: up to four decimals (₦1,250.0202), kept exactly (NUMERIC(16, 4), migration 093). */
   unitCost: z.number().positive("Enter a unit cost greater than zero").max(maxUnitCost, "Enter a unit cost below ₦100 billion")

@@ -92,6 +92,8 @@ export const activePillars = (snapshot: Snapshot) => implementedPillars.filter(p
 export const nationalStatusLabels: Record<string, string> = { received: 'With UBEC BEAP Chair', reviewing: 'Department review', returned: 'Returned to SUBEB', approved: 'Approved by UBEC' };
 
 export type UbecAssignment = { id: number; pillar: PillarId; department: string; feedback: string | null; recommendation: string | null; reviewer: string | null; completed_at: string | null; created_at: string };
+/** Who released a resubmission (client, 25 November 2026: the UBEC BEAP Chair does not release it again). */
+export const autoReleaseName = 'Automatically (resubmission)';
 export type UbecRound = { id: number; plan_id: number; number: number; state_submission: number; status: string; snapshot: Snapshot; submitted_at: string; decision: string; decided_at: string | null; released_at?: string | null; released_by_name?: string | null; release_comment?: string };
 export type UbecPlan = { id: number; state_code: string; stateName: string; start_year: number; end_year: number; funding_quarters?: number[] | null; version: number; status: string };
 export type UbecDetail = {

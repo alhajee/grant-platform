@@ -18,16 +18,17 @@ import { LineDatesField } from "@/components/line-dates";
 import { keepDatesInWindow } from "@/lib/line-dates";
 import { QuarterTimeline } from "@/components/quarter-timeline";
 import { TargetGroupPicker } from "@/components/target-group-picker";
+import { StrategySelect } from "@/components/strategy-select";
 import "./activity-plan-editor.css";
 import { Progress } from "@/components/ui/progress";
 import { formatMinor } from "@/lib/money-format";
 import { debateSubActivityRange, equipmentSports, findDebateSubActivity, findSport, isOtherSubActivity, isPheTraining, pheTrainingActivity, maxEquipmentSports, sportsCatalog, sportsLineTotal, sportsMoney, sportsSections, sportsSubActivities, type SportsPlan, type SportsSchool, type SportsSection, type SportsLine } from "@/lib/sports";
 
-export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; targetGroup: string; quantity: string; unitCost: string; quarters: number[]; startDate: string | null; dueDate: string | null; /** UBEC244: the price-list item picked (id), '' when typed. */ priceItemId: string };
+export type BudgetDraft = { id?: number; section: SportsSection; activityType: string; description: string; targetGroup: string; strategy: string; quantity: string; unitCost: string; quarters: number[]; startDate: string | null; dueDate: string | null; /** UBEC244: the price-list item picked (id), '' when typed. */ priceItemId: string };
 export type AllocationDraft = { id?: number; schoolId: number | null; lineId: number | null; quantity: string; longitude: string; latitude: string };
 export type FormErrors = Record<string, string>;
 /** The page fills a new line's timeline with the plan's quarters (planQuarters in lib/line-quarters.ts). */
-export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", targetGroup: "", quantity: "1", unitCost: "", quarters: [], startDate: null, dueDate: null, priceItemId: "" };
+export const emptyBudget: BudgetDraft = { section: "equipment", activityType: "", description: "", targetGroup: "", strategy: "", quantity: "1", unitCost: "", quarters: [], startDate: null, dueDate: null, priceItemId: "" };
 export const emptyAllocation: AllocationDraft = { schoolId: null, lineId: null, quantity: "1", longitude: "", latitude: "" };
 
 const otherChoice = "__other__";
@@ -145,6 +146,7 @@ export function SportsBudgetFields({ draft, onChange, plan, errors, disabled, pl
     </Field>
     {priceList && sportsPicksFromPriceList(draft) && <PriceListField id="sports-price-item" list={priceList} value={draft.priceItemId} required={false} disabled={disabled}
       onPick={(picked) => onChange(picked ? { ...draft, priceItemId: String(picked.id), unitCost: picked.unitPrice.toFixed(4), description: draft.description.trim() || !draft.activityType.trim() ? draft.description : picked.name } : { ...draft, priceItemId: "" })} />}
+    <StrategySelect id="sports-strategy" value={draft.strategy} onChange={(strategy) => onChange({ ...draft, strategy })} error={errors.strategy} disabled={disabled} help="The approved procurement method for this item or activity" />
     <TargetGroupPicker id="sports-target-group" value={draft.targetGroup} onChange={(targetGroup) => onChange({ ...draft, targetGroup })} error={errors.targetGroup} disabled={disabled} />
     <FieldGroup className="field-columns">
       <Field data-invalid={Boolean(errors.quantity)}>

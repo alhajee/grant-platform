@@ -39,7 +39,7 @@ const sportsFieldOf: Record<string, string> = { item: "sports-description", sect
 const blankPlan: SportsPlan = { lines: [], allocations: [], schools: [] };
 type PlanView = "budget" | "allocation";
 /** A saved line as the form edits it. */
-const budgetDraft = (line: SportsLine): BudgetDraft => ({ id: line.id, section: line.section, activityType: line.activityType, description: line.description, targetGroup: line.targetGroup ?? "", quantity: String(line.quantity), unitCost: String(line.unitCost), quarters: line.quarters, startDate: line.startDate ?? null, dueDate: line.dueDate ?? null, priceItemId: line.priceItemId ? String(line.priceItemId) : "" });
+const budgetDraft = (line: SportsLine): BudgetDraft => ({ id: line.id, section: line.section, activityType: line.activityType, description: line.description, targetGroup: line.targetGroup ?? "", strategy: line.strategy ?? "", quantity: String(line.quantity), unitCost: String(line.unitCost), quarters: line.quarters, startDate: line.startDate ?? null, dueDate: line.dueDate ?? null, priceItemId: line.priceItemId ? String(line.priceItemId) : "" });
 
 export default function SportsPage() {
   const [plan, setPlan] = useState<SportsPlan>(blankPlan);
@@ -213,7 +213,8 @@ export default function SportsPage() {
     if (!line) return "This line is no longer in the plan";
     const before = budgetDraft(line);
     const next = { ...before, [field]: value };
-    const parsed = sportsLineSchema.safeParse({ ...next, quantity: Number(next.quantity), unitCost: Number(next.unitCost), priceItemId: next.priceItemId ? Number(next.priceItemId) : null });
+    // An inline edit keeps the line's strategy; lines saved before it was asked have none yet (chosen in the form).
+    const parsed = sportsLineSchema.safeParse({ ...next, strategy: next.strategy || undefined, quantity: Number(next.quantity), unitCost: Number(next.unitCost), priceItemId: next.priceItemId ? Number(next.priceItemId) : null });
     if (!parsed.success) return parsed.error.issues[0].message;
     // Updates are idempotent (by id): after a dropped connection the plan is reloaded, and the cell counts as saved if it holds the value.
     try { await write({ ...parsed.data, entity: "budget", action: "update", id }); }
@@ -311,7 +312,7 @@ export default function SportsPage() {
         result = { id: landed };
       }
       const savedId = editingId ?? result.id;
-      resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), targetGroup: budget.targetGroup, quarters: availableQuarters });
+      resetBudget({ ...emptyBudget, section: budget.section, activityType: budget.activityType.trim(), targetGroup: budget.targetGroup, strategy: budget.strategy, quarters: availableQuarters });
       toast.success(editingId ? "Line updated" : "Budget line added");
       await refreshAfterSave();
       if (savedId) flash(savedId);

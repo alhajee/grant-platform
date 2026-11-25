@@ -1,7 +1,8 @@
 'use client';
+import { ImplementationTag } from '@/components/plan-workbook/implementation-tag';
 import './assess-items-dialog.css';
 import { useMemo, useState } from 'react';
-import { CheckIcon, ChevronDownIcon, ClipboardCheckIcon, FileTextIcon, HistoryIcon, LayoutGridIcon, ListIcon, MessageSquareTextIcon, ShieldCheckIcon, TypeIcon, Undo2Icon, XIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon, ClipboardCheckIcon, FileTextIcon, HistoryIcon, LayoutGridIcon, LockIcon, ListIcon, MessageSquareTextIcon, ShieldCheckIcon, TypeIcon, Undo2Icon, XIcon } from 'lucide-react';
 import type { CommentsController } from '@/components/plan-workbook/comments-context';
 import { sheetPillar, type CommentSheet } from '@/lib/plan-comments';
 import { EditableCommentBody } from '@/components/plan-workbook/comment-thread';
@@ -128,7 +129,8 @@ function AssessItems({ open, onOpenChange, pillar, name, snapshot, assessment, c
                 <div className="assess-item-decision">
                   {d ? <Badge variant={d.decision === 'accept' ? 'secondary' : 'destructive'}>{d.decision === 'accept' ? <CheckIcon aria-hidden="true" /> : <XIcon aria-hidden="true" />}{d.decision === 'accept' ? 'Accepted' : 'Rejected'}</Badge> : <Badge variant="outline">To decide</Badge>}
                   {d?.note && <p className="assess-note">{d.note}</p>}
-                  {can && <span className="assess-item-actions">
+                  {d?.carriedFrom && <p className="assess-locked"><LockIcon aria-hidden="true" />Accepted in submission {d.carriedFrom} and unchanged{assessment.overrides?.(pillar) ? ' · you can still change it' : ' · locked'}</p>}
+                  {can && (!d?.carriedFrom || assessment.overrides?.(pillar)) && <span className="assess-item-actions">
                     {d?.decision !== 'accept' && <Button size="sm" className="rounded-full" disabled={busy} onClick={() => void decide(item.rowRef, 'accept')}><CheckIcon data-icon="inline-start" />Accept</Button>}
                     {d?.decision !== 'reject' && <Button size="sm" variant="outline" className="rounded-full assess-reject" disabled={busy} onClick={() => askReject(item.rowRef)}><XIcon data-icon="inline-start" />Reject</Button>}
                     {d && <Button size="icon-sm" variant="ghost" className="rounded-full" disabled={busy} aria-label="Clear decision" title="Clear decision" onClick={() => void decide(item.rowRef, null)}><Undo2Icon /></Button>}
@@ -165,7 +167,7 @@ function ItemObservations({ sheet, rowRef, threads, comments, canWrite }: { shee
   }
   return <div className="assess-observations">
     {threads.map(t => <div key={t.id} className="assess-observation" data-resolved={t.resolvedAt ? true : undefined}>
-      <b>{t.authorName}</b><EditableCommentBody comment={t} className="assess-observation-text" onEdit={canEdit(t, t) ? body => comments.edit(t.id, body) : undefined} />
+      <b>{t.authorName}</b><ImplementationTag thread={t} controller={comments} /><EditableCommentBody comment={t} className="assess-observation-text" onEdit={canEdit(t, t) ? body => comments.edit(t.id, body) : undefined} />
       {t.replies.map(r => <div key={r.id} className="assess-observation-reply"><b>{r.authorName}</b><EditableCommentBody comment={r} className="assess-observation-text" onEdit={canEdit(t, r) ? body => comments.edit(r.id, body) : undefined} /></div>)}
       {t.resolvedAt && <small>Resolved{t.resolvedByName ? ` by ${t.resolvedByName}` : ''}</small>}
     </div>)}

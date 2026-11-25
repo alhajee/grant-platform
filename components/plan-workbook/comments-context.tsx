@@ -21,6 +21,8 @@ export type CommentsController = {
   setResolved: (id: number, resolved: boolean) => Promise<boolean>;
   /** UBEC210: correct one's own comment (UBEC and observation threads). */
   edit: (id: number, body: string) => Promise<boolean>;
+  /** Client, 25 November 2026: an Oversight Department keeps its observation for implementation (never holds approval). */
+  setImplementation: (id: number, value: boolean) => Promise<boolean>;
   openCount: (pillar: ImplementedPillar, scope?: CommentScope) => number;
 };
 /** Where the comments live: the state API for the SUBEB review page, the UBEC API (optionally a saved round) for UBEC. */
@@ -77,12 +79,15 @@ export function usePlanComments(planId: number | undefined, enabled: boolean, re
   const edit = useCallback(async (id: number, body: string) => {
     const ok = await send(source, 'PATCH', { id, action: 'edit', body }); if (ok) { await load(); toast.success('Comment updated'); } return ok;
   }, [load, source]);
+  const setImplementation = useCallback(async (id: number, value: boolean) => {
+    const ok = await send(source, 'PATCH', { id, action: 'implementation', value }); if (ok) { await load(); toast.success(value ? 'Marked for implementation · it no longer holds approval' : 'Marked as needed before approval'); } return ok;
+  }, [load, source]);
   const controller = useMemo<CommentsController>(() => ({
-    threads, readOnly: !data || data.locked, loaded: !!data, active, setActive, create, reply, setResolved, edit, scope,
+    threads, readOnly: !data || data.locked, loaded: !!data, active, setActive, create, reply, setResolved, edit, setImplementation, scope,
     abilities: (pillar, of = scope) => !data || data.locked ? none : (of === scope ? data.abilities : data.otherAbilities ?? {})[pillar] ?? none,
     startHint: data?.locked ? 'Comments are read-only for this plan' : scope === 'ubec' ? 'Only the UBEC ES and the reviewers assigned to this component can comment on it' : scope === 'observation' ? 'Only a department asked for observations can comment, until it sends them back' : 'Only the reviewer currently holding this component can start comments',
     openCount: (pillar, of = scope) => threads.filter(t => t.pillar === pillar && !t.resolvedAt && t.scope === of).length,
-  }), [threads, data, active, create, reply, setResolved, edit, scope]);
+  }), [threads, data, active, create, reply, setResolved, edit, setImplementation, scope]);
   return enabled && planId ? controller : null;
 }
 

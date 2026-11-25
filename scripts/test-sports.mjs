@@ -83,6 +83,15 @@ try {
   assert.equal(created.body.code, "UBEC/SUBEB/SPORT/001/2025");
   assert.equal((await api()).body.lines[0].targetGroup, "Schools");
   assert.equal((await api({ ...budget, targetGroup: undefined })).body.error, "Choose the target group");
+  // Client, 25 November 2026 (migration 108): Sports lines name their implementation strategy; the form always sends it.
+  assert.equal((await api()).body.lines[0].strategy, "", "a save without a strategy (older clients) keeps none");
+  assert.equal((await api({ ...budget, strategy: "" })).body.error, "Choose the implementation strategy");
+  assert.equal((await api({ ...budget, strategy: "Non-Applicable" })).status, 400);
+  assert.equal((await api({ ...budget, strategy: "Direct payment to vendor" })).body.error, "Choose a listed implementation strategy");
+  assert.equal((await api({ entity: "budget", action: "update", id: lineId, section: budget.section, activityType: budget.activityType, description: budget.description, targetGroup: "Schools", quantity: budget.quantity, unitCost: budget.unitCost, strategy: "NCB" })).status, 200);
+  assert.equal((await api()).body.lines.find((line) => line.id === lineId).strategy, "NCB");
+  assert.equal((await api({ entity: "budget", action: "update", id: lineId, section: budget.section, activityType: budget.activityType, description: budget.description, targetGroup: "Schools", quantity: budget.quantity, unitCost: budget.unitCost })).status, 200);
+  assert.equal((await api()).body.lines.find((line) => line.id === lineId).strategy, "NCB", "an update without a strategy keeps it");
   // UBEC238: a four-decimal unit cost is kept exactly and 3 × ₦1.0202 totals ₦3.0606; a fifth decimal is refused.
   const precise = await api({ ...budget, description: "Whistles", quantity: 3, unitCost: 1.0202 });
   assert.equal(precise.status, 201, JSON.stringify(precise.body));

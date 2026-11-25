@@ -1,3 +1,4 @@
+import { packageDuration, packageStrategy } from '@/lib/package-strategy';
 import { Building2, Trophy, Users, BookOpen, School, ClipboardCheck, Leaf, GraduationCap, BadgeCheck, Laptop, Presentation, ChartColumn } from 'lucide-react';
 import { lineCodeLabel } from '@/lib/line-code';
 import { lineMinor, minorOfNumber, minorToNaira } from '@/lib/money';
@@ -41,12 +42,12 @@ function infrastructureSheet(snapshot: Snapshot, editHref?: string): WorkbookShe
       school: line.school.name, lga: line.school.lga, level: line.school.level, location: line.school.location,
       type: line.package ? kindNames[line.package.kind] : line.construction.name, code: lineCodeLabel(line.code), target: line.target_group ?? '', timeline: quarters(line),
       scope: line.package ? line.package.input.components.join(', ') : '', learners: line.package?.result.enrolment ?? '',
-      strategy: line.strategy || '', duration: line.package ? line.package.input.duration || (line.package.kind === 'whole' ? 'Per intervention' : '') : `${line.duration} weeks`,
+      strategy: packageStrategy(line), duration: packageDuration(line),
       quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
     }, true)),
     detail: id => {
       const line = byId.get(id); if (!line) return null;
-      return line.package ? <InfrastructurePackageDetails record={line.package} /> : <><h3>Project</h3><p className="review-comment">{line.construction.name}</p><dl className="review-facts"><div><dt>Implementation strategy</dt><dd>{line.strategy || '—'}</dd></div><div><dt>Latitude</dt><dd>{line.latitude || '—'}</dd></div><div><dt>Longitude</dt><dd>{line.longitude || '—'}</dd></div></dl><h3>Rationale</h3><p className="review-comment">{line.rationale || 'No rationale provided'}</p></>;
+      return line.package ? <InfrastructurePackageDetails record={line.package} /> : <><h3>Project</h3><p className="review-comment">{line.construction.name}</p><dl className="review-facts"><div><dt>Implementation strategy</dt><dd>{packageStrategy(line) || '—'}</dd></div><div><dt>Latitude</dt><dd>{line.latitude || '—'}</dd></div><div><dt>Longitude</dt><dd>{line.longitude || '—'}</dd></div></dl><h3>Rationale</h3><p className="review-comment">{line.rationale || 'No rationale provided'}</p></>;
     },
   };
 }
@@ -55,9 +56,9 @@ function sportsSheet(snapshot: Snapshot, editHref?: string): WorkbookSheet {
   const byId = new Map(snapshot.sports.map(line => [String(line.id), line]));
   return {
     key: 'sports', label: 'Sports, Quiz & Debate', hash: 'review-sports', icon: Trophy, itemLabel: 'budget items', empty: 'No sports budget items', editHref, editLabel: 'Sports, Quiz & Debate Activities',
-    columns: [text('item', 'Budget item', 270), text('code', 'Code', 210), text('section', 'Section', 124, true), text('activity', 'Sport / sub-activity', 170, true), text('target', 'Target group', 170, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), qty('schools', 'Schools', true), qty('allocated', 'Allocated qty')],
+    columns: [text('item', 'Budget item', 270), text('code', 'Code', 210), text('section', 'Section', 124, true), text('activity', 'Sport / sub-activity', 170, true), text('target', 'Target group', 170, true), text('strategy', 'Strategy', 150, true), timeline(), qty(), amount('unitCost', 'Unit cost'), amount('amount', 'Amount', true), qty('schools', 'Schools', true), qty('allocated', 'Allocated qty')],
     rows: snapshot.sports.map(line => row(String(line.id), {
-      item: line.description, code: lineCodeLabel(line.code), section: sectionNames[line.section] || line.section, activity: line.activity_type || '', target: line.target_group ?? '', timeline: quarters(line),
+      item: line.description, code: lineCodeLabel(line.code), section: sectionNames[line.section] || line.section, activity: line.activity_type || '', target: line.target_group ?? '', strategy: line.strategy ? strategyLabel(line.strategy) : '', timeline: quarters(line),
       schools: line.section === 'equipment' ? line.allocations.length : '', allocated: line.section === 'equipment' ? line.allocations.reduce((sum, a) => sum + a.quantity, 0) : '',
       quantity: line.quantity, unitCost: Number(line.unit_cost), amount: cost(line),
     }, line.section === 'equipment')),

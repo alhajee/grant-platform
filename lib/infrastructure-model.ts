@@ -118,6 +118,8 @@ export const packageSchema = z.object({
  /** UBEC171: Whole School classrooms grouped by block, for new construction and for renovation: groups of blocks of different sizes (absent = not grouped). */
  blocks:z.object({construct:blockGroupsShape.optional(),renovate:blockGroupsShape.optional()}).default({}),
  furniture:z.array(z.object({description:z.string().trim().min(1).max(500),quantity:quantity.refine(n=>n>0),cost:amount.refine(n=>n>0)})).max(100).default([]),
+ /** Client, 25 November 2026: Furniture/Equipment packages name their implementation strategy (one for the package). */
+ furnitureStrategy:strategySchema.default(defaultStrategy),
  /** Timeline: implementation quarters within the plan's quarters (migration 050, also the package's quarters column); omitted = the plan's quarters. */
  quarters:lineQuartersSchema.optional(),
  /** Expected start and due dates inside the timeline (migration 059, also the package's date columns); omitted = kept or the whole timeline. */
@@ -477,7 +479,7 @@ export function calculateInfrastructure(input:InfrastructureInput,school:SchoolB
   const total=money(units(cost)*(lump?1:quantity));
   items.push({key,label,quantity,unit,lump,cost,total,strategy,duration,operation,description});return total;
  }
- if(input.kind==='furniture') input.furniture.forEach((r,i)=>add('furniture-'+i,r.description,r.quantity,'units',false,r.cost,'',''));
+ if(input.kind==='furniture') input.furniture.forEach((r,i)=>add('furniture-'+i,r.description,r.quantity,'units',false,r.cost,input.furnitureStrategy??defaultStrategy,''));
  const groupings=classroomGroupings(input,facts);
  // Costed / Not costed: a Not costed item keeps its quantity at ₦0 with no strategy or duration.
  const addCosted=(key:string,label:string,qty:number,unit:string,lump:boolean,operation:string,description?:string,extra?:Partial<PackageItem>)=>{

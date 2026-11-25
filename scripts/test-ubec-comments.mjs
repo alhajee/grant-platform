@@ -242,8 +242,8 @@ try {
   expect(await cell('uchair', kits, 'amount', 'deleted line'), 400, /no longer in the plan/);
   step('round 2: UBEC sees the carried shared threads, still open, with the state replies, orphaned rows flagged; round 1 history is read-only and unchanged');
 
-  expect(await api('revA', ubec, { parentId: t1, body: 'x' }), 404, /Submission not found/);
-  await release(round2, [['sports', 'dacs', ['revA']], ['sbmc', 'dsm', ['revS']]]);
+  // Client, 25 November 2026: a resubmission needs no release; the officers who assessed round 1 have it at once.
+  expect(await decide('release', { comment: 'Again.' }), 409, /already been released/);
   const revRound = ok(await api('revA', ubec)); assert.equal(revRound.roundId, round2);
   assert.ok(revRound.threads.some(t => t.id === t1 && t.replies.some(r => r.body.startsWith('STATE-REPLY-1'))));
   ok(await api('revA', ubec, { parentId: t1, body: 'REV-A-ROUND2-INTERNAL: thanks, the quotations look fine.' }), 201);
@@ -256,7 +256,9 @@ try {
   step('round 2 officers see the state replies; a reopen that would duplicate an open cell thread is refused (409); UBEC resolves the threads the state answered');
 
   // Approval never shares.
-  await assess(round2, 'sports', 'dacs', ['revA']); await assess(round2, 'sbmc', 'dsm', ['revS']);
+  // Both components were accepted in full and their remaining items are unchanged (a deleted line is simply gone), so they
+  // were carried forward to the chair on resubmission (client, 25 November 2026).
+  assert.deepEqual(ok(await api('uchair', ubecReview)).flow.components.map(c => c.stage), ['chair', 'chair']);
   ok(await decide('approve'));
   assert.equal((await db.query('SELECT shared_at FROM plan_comments WHERE id=$1', [r2])).rows[0].shared_at, null);
   const finalState = ok(await api('ec', stateComments));

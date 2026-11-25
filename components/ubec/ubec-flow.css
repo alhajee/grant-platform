@@ -331,3 +331,9 @@ a.ubec-results-item-link:hover, a.ubec-results-item-link:focus-visible { backgro
 .ubec-flow-page .ubec-rat-rejection [data-slot=alert-title] { color: var(--foreground); }
 .ubec-flow-page .ubec-rat-rejection [data-slot=alert-description] { color: var(--muted-foreground); }
 .ubec-flow-page .ubec-rat-rejection > svg { color: var(--destructive); }
+/* Client, 25 November 2026: the UBEC plan page in four tabs. */
+.ubec-page-tabs { margin: 4px 0 18px; }
+.ubec-page-tabs-list [data-slot=badge] { margin-left: 6px; height: 18px; padding: 0 6px; font-size: 11px; }
+.ubec-page-view[hidden] { display: none; }
+.ubec-page-view > .ubec-assessment { margin-top: 0; }
+.ubec-page-view > .mt-6:first-child { margin-top: 0; }

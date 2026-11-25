@@ -51,6 +51,8 @@ function ubecWording(item: NotificationItem): Wording {
     // UBEC270: an Oversight Director assigns officers to the whole plan (no component).
     case 'assign_observer': return { verb: 'Assigned you to comment on', target: item.scope ? component : 'the plan', suffix: 'for the Oversight Department', kind: 'assigned' };
     case 'default_officers': return { verb: 'Assigned', target: component, suffix: 'to its default Assessment Officers', kind: 'assigned' };
+    case 'reassign_officer': return { verb: 'Sent you', target: component, suffix: 'again to assess · only the changed and new items', kind: 'assigned' };
+    case 'carry_forward': return { verb: 'Carried', target: component, suffix: 'forward · accepted before and unchanged', kind: 'approved' };
     case 'complete_assessment': return { verb: 'Completed the assessment of', target: component, suffix: '', kind: 'feedback' };
     case 'reopen_assessment': return { verb: 'Sent back your assessment of', target: component, suffix: '', kind: 'feedback' };
     // Bug sheet 24: "Send to BEAP Chair"; the Oversight Departments still to finish hear it as a reminder.

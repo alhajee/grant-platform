@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { getWorkspaceState } from '@/lib/workspace-state';
 import { getPostgres } from '@/lib/postgres';
 import { isSameRequestOrigin } from '@/lib/request-origin';
-import { activePillars, holdsUbecChair, isUbec, oversightIds, pillarDepartments, ubecChairSql, ubecRoles, type UbecRound, type UbecAssignment } from '@/lib/ubec';
+import { activePillars, autoReleaseName, holdsUbecChair, isUbec, oversightIds, pillarDepartments, ubecChairSql, ubecRoles, type UbecRound, type UbecAssignment } from '@/lib/ubec';
 import { stateDisplayName } from '@/lib/state-names';
 import type { Snapshot } from '@/lib/plan-review';
 import { unfundedInSnapshot } from '@/lib/unfunded-components';
@@ -19,6 +19,7 @@ import { shareCommentIdsSchema } from '@/lib/plan-comments';
 import { shareableThreadIds } from '@/lib/ubec-comments';
 import { readRatResubmitProblem, readRatReview } from '@/lib/rat-review-db';
 import { ratRejectedForApproval } from '@/lib/rat-review';
+import { releaseResubmission, type ResubmissionResult } from '@/lib/ubec-resubmission';
 import { addUbecEvent, approvableComponents, notifyUbec, openOversightCommentCount, oversightCommentsMessage, readActor, readDecisions, readFlow, readRoundComponents, readViewerRounds, releaseRows, ubecVisibleSnapshot, viewerPillars } from '@/lib/ubec-flow-db';
 import { componentName, superAdminRole } from '@/lib/ubec-flow';
 import { readFinanceSendProblem } from '@/lib/finance-documents-db';
@@ -105,6 +106,7 @@ export async function POST(request: NextRequest) {
       if (plan.version !== input.version) return error('This review has changed. Refresh before continuing.', 409);
       let round = (await db.query<UbecRound>('SELECT * FROM ubec_rounds WHERE plan_id=$1 ORDER BY number DESC LIMIT 1 FOR UPDATE', [id])).rows[0];
       let status = plan.status;
+      let resubmitted: ResubmissionResult | null = null;
       if (input.action === 'submit') {
         const ubecMode = await readUbecSubmissionMode(db);
         const partial = ubecMode === 'reviewed_components';
@@ -128,9 +130,17 @@ export async function POST(request: NextRequest) {
         if (!readyForUbecSubmission(ubecMode, reviews, snapshot, readiness)) return error(partial ? 'At least one component must reach the Executive Chairman before sending to UBEC.' : 'Complete every implemented component and obtain the Director, BEAP Chair and Executive Chairman reviews before sending to UBEC.', 409);
         // UBEC132: the Executive Chairman signs and attaches a cover letter to every submission.
         if (readiness.rules?.submissionLetterRequired !== false) { const problem = submissionLetterProblem(await readPendingLetters(db, plan.id)); if (problem) return error(problem, 409); }
+        const previous = round;
         round = (await db.query<UbecRound>('INSERT INTO ubec_rounds(plan_id,number,state_submission,snapshot,submitted_by) VALUES($1,$2,$3,$4::jsonb,$5) RETURNING *', [id, (round?.number ?? 0) + 1, plan.submission_number, JSON.stringify(ubecSubmissionSnapshot(snapshot, reviews)), user.id])).rows[0];
         await attachLetters(db, plan.id, round.id);
         status = 'submitted_ubec';
+        // Client, 25 November 2026: a resubmission is not released again by the UBEC BEAP Chair. Each component goes
+        // back to the officers who assessed it, and components accepted in full and unchanged go straight to the chair.
+        if (previous && releaseRows(round.snapshot).length) {
+          await db.query("UPDATE ubec_rounds SET status='reviewing',released_at=NOW(),released_by_name=$1,release_comment=$2 WHERE id=$3", [autoReleaseName, `Resubmission of submission ${previous.number}: each component went back to the officers who assessed it`, round.id]);
+          resubmitted = await releaseResubmission(db, round, previous, user);
+          status = 'ubec_review';
+        }
       } else {
         if (!round || round.id !== input.roundId || !['received', 'reviewing'].includes(round.status)) return error('This submission is no longer open for review', 409);
         if (input.action === 'release') {
@@ -190,6 +200,8 @@ export async function POST(request: NextRequest) {
       await db.query('UPDATE action_plans SET status=$1,version=version+1,workflow_updated_at=NOW() WHERE id=$2', [status, id]);
       const ubecEvent = await addUbecEvent(db, { roundId: round.id, planId: id, action: input.action, actor: user, comment: input.comment });
       if (input.action === 'submit') await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.chair }, { role: ubecRoles.es });
+      // A resubmission is live at once: the Directors and the Oversight Departments see it as after a release.
+      if (resubmitted) await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.director, departments: [...new Set(releaseRows(round.snapshot).map(r => pillarDepartments[r.pillar]))] }, { role: ubecRoles.oversight }, { role: ubecRoles.officer, departments: [...oversightIds] });
       // UBEC258: the Oversight Departments see released components at once, so they hear about the release too.
       if (input.action === 'release') await notifyUbec(db, id, ubecEvent, user.id, { role: ubecRoles.director, departments: [...new Set(releaseRows(round.snapshot).map(r => pillarDepartments[r.pillar]))] }, { role: ubecRoles.es }, { role: ubecRoles.chair }, { role: ubecRoles.oversight }, { role: ubecRoles.officer, departments: [...oversightIds] });
       if (input.action === 'return' || input.action === 'approve') {
