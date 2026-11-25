@@ -11,7 +11,8 @@ import { fromMinor, toMinor } from './money.ts';
 export type RejectedItem = { pillar: ImplementedPillar; rowRef: string };
 type Row = Record<string, unknown>;
 
-// Fields that change on any save, so they do not count as a correction.
+// Fields that change on any save, so they do not count as a correction. A line's embedded school record counts only by
+// which school it is (25 November 2026): the DNEMIS sync refreshes learners and facilities between submissions.
 const volatile = new Set(['updated_at', 'created_at', 'client_key', 'version', 'updatedAt', 'createdAt', 'code']);
 // Columns added after earlier rounds were saved (UBEC244, migration 095: Sports lines' price-list item). Empty, they
 // equal their absence in an older snapshot, so the new column never counts as a correction. Migration 108 (25 November
@@ -23,7 +24,7 @@ const moneyKeys = new Set(['unit_cost', 'total_cost', 'unit_price', 'total']);
 const canonicalMoney = (value: unknown) => (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value)) || typeof value === 'number' ? fromMinor(toMinor(value as string | number)) : value;
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Row).filter(([key, v]) => !volatile.has(key) && !(addedLater.has(key) && (v == null || v === ''))).sort(([a], [b]) => a.localeCompare(b)).map(([key, v]) => [key, moneyKeys.has(key) ? canonicalMoney(v) : stable(v)]));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value as Row).filter(([key, v]) => !volatile.has(key) && !(addedLater.has(key) && (v == null || v === ''))).sort(([a], [b]) => a.localeCompare(b)).map(([key, v]) => [key, moneyKeys.has(key) ? canonicalMoney(v) : key === 'school' && v && typeof v === 'object' ? (v as Row).id : stable(v)]));
   return value;
 }
 
